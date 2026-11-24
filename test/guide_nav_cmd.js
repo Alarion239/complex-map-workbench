@@ -1,6 +1,8 @@
 // The guide (issue #34): a contents row that jumps to a section, a search that folds the others away, the sections
-// Zeros and poles, Examples and Export, and a Show me that starts the section's tour chapter. A command file for a CDP
-// daemon. It runs in the steps view (ci/suite_views.js: steps({ pin: true })), where the Try line is the steps view's own.
+// Zeros and poles, Examples and Export, and a Show me that starts the section's tour chapter; the Deformation section and
+// its Keys rows in the steps view, and their absence, with the palette's Deformation commands, in the classic view. A
+// command file for a CDP daemon. It runs in the steps view (ci/suite_views.js: steps({ pin: true })), where the Try line is
+// the steps view's own; the classic view's leg asks for ?view=classic.
 const fails = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 await view(1440, 900, false, false);
@@ -27,4 +29,26 @@ await ev(`(() => { const f = document.querySelector('.guide-find'); f.value = ''
 await ev(`[...document.querySelectorAll('.guide-sec')].find((x) => x.querySelector('h3').textContent === 'Views').querySelector('.guide-show .btn').click()`); await settled();
 const t = await ev(`({ modal: !!document.querySelector('.modal-bg'), cur: Tour.isActive() ? Tour.current().chapter : null })`);
 ok('Show me closes the guide and starts that chapter', !t.modal && t.cur === 'planes', t);
+// Show me on Deformation starts the steps view's Playing the chain; the Keys rows give K or M (play) and P (paths)
+await key('Escape'); await settled();
+await key('?'); await settled();
+const dk = await ev(`(() => { const m = document.querySelector('.modal'); return m ? { deform: [...m.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Deformation'), play: /Play the chain, or pause it/.test(m.innerText), paths: /Paths t ↦ Hₜ\\(z\\) on or off/.test(m.innerText) } : null; })()`);
+ok('the steps view\'s guide has the Deformation section and the Keys rows for play (K, M) and paths (P)', dk && dk.deform && dk.play && dk.paths, dk);
+await ev(`[...document.querySelectorAll('.guide-sec')].find((x) => x.querySelector('h3').textContent === 'Deformation').querySelector('.guide-show .btn').click()`); await settled();
+const td = await ev(`({ modal: !!document.querySelector('.modal-bg'), cur: Tour.isActive() ? Tour.current().chapter : null })`);
+ok('Show me on Deformation starts Playing the chain', !td.modal && td.cur === 'playing', td);
+await ev(`Tour.stop(), 1`); await settled();
+// the classic view (?view=classic) has no deformation: its guide has no Deformation section and no Keys row for it, and its
+// palette offers no Deformation command and no jump to that section
+await loadView('classic', 'guidenavc' + Date.now(), { shapes: [], steps: [{ type: 'sin', params: {}, on: true }, { type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } });
+await settled();
+await key('?'); await settled();
+const cg = await ev(`(() => { const m = document.querySelector('.modal'); return m ? { hs: [...m.querySelectorAll('h3')].map((h) => h.textContent.trim()), deformKeys: /Deformation on or off|Deformation: paths|Play the chain|Paths t ↦/.test(m.innerText) } : null; })()`);
+ok('classic: the guide has no Deformation section and no Keys row for the deformation', cg && !cg.hs.includes('Deformation') && cg.hs.includes('Views') && !cg.deformKeys, cg);
+await key('Escape'); await settled();
+await key('k', 4); await settled();
+await type('deformation'); await settled();
+const cp = await ev(`(document.getElementById('palList') || {}).innerText || ''`);
+ok('classic: the palette has no Deformation command and no Guide: Deformation', !!cp && !/Deformation:/.test(cp) && !/Guide: Deformation/.test(cp), cp.slice(0, 300));
+await key('Escape'); await settled();
 return { pass: fails.length === 0, fails };
