@@ -24,7 +24,7 @@
     if (!tourL['view-moved']) return;
     tourEmit('view-moved', { pane: S.view && S.view.main !== 'xy' ? 'P' : side === 'R' ? 'R' : 'L', how });
   }
-  // (v16.4, notes/tour-r3/SPEC.md 4.3) the sound settings the tour holds for its Sound chapter: the user's own values
+  // (notes/tour-r3/SPEC.md 4.3) the sound settings the tour holds for its Sound chapter: the user's own values
   // are remembered at the first hold (and written to cmw-tour-sound, so a crash gives them back at the next start) and
   // come back at the release, each unless the user changed it meanwhile
   const TOUR_SND = 'cmw-tour-sound';
@@ -210,7 +210,7 @@
     sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; tourSplit = false; save(); } return true; },
     // the current stop shows the Inspector's split offer (its split: true); every other stop hides it
     splitOffer: (on) => { if (tourSplit !== !!on) { tourSplit = !!on; requestRender('P'); } return true; },
-    // v16.1 (user 5): a step about the cards' pictures shows them: Pictures rather than Names, and a chain shorter than
+    // a step about the cards' pictures shows them: Pictures rather than Names, and a chain shorter than
     // Pictures needs (140 px, the gutter's own rule) at Pictures' 188 px; off, the user's setting comes back (unless they
     // changed it meanwhile). True while the tour holds the pictures on. A phone's chain bar always shows its pictures
     chainPictures: (on) => {
@@ -238,7 +238,7 @@
     },
     loadScene: tourLoadScene,
     setLook: tourSetLook,
-    // v16.4 (notes/tour/INTEGRATION.md 9): where the tour's strip goes ('stage': the first row of the stage, or on a
+    // (notes/tour/INTEGRATION.md 9) where the tour's strip goes ('stage': the first row of the stage, or on a
     // phone the row under the header; 'head': a landscape phone's header), the Grieg example as a scene, the sound
     // the Sound chapter needs
     slot: (where) => {
@@ -355,7 +355,7 @@
   };
   function tourWire() {
     tourSoundRecover();       // and the sound settings its Sound chapter held
-    Tour.init(tourApi);       // also puts the user's work back if a tour was cut short by a reload or a crash
+    Tour.init(tourApi);       // also puts the user's work back after a tour cut short by a reload or a crash
     if (!NS) Tour.suggest();  // the first-run card; never under ?ns= (tests and golden images stay as they are)
   }
 
