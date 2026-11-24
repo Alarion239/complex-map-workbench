@@ -2314,9 +2314,10 @@
     // (a motion whose frames were drawn ahead shows them)
     if (svAheadShow(pane)) return;
     if (svHeldKept(hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
-    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !SV.play && !(SV.drag && SV.drag.moved);
     // (parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
-    // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
+    // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own. Not
+    // while a Play runs: V.left has not taken the camera yet, and would hand the camera back the view of plane z)
     if (rest) svKeepView();
     pane.setView(S.srcView);
     svPolesWatch();
