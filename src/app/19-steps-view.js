@@ -676,8 +676,7 @@
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
     const outer = [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)];
     const dup = carry && svLandFarDup(carry, src, outer[2]);
-    if (dup) outer.dup = dup;
-    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], outer];
+    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], dup ? Object.assign(outer, { dup }) : outer];
   };
   // The outer ring's copies of the nearer surface (LAND_CARRY_VS uDup): where the carried surface is periodic in plane s's
   // point z, with a period P whose half is shorter than the outer ring's inner radius R (the places F(z + P) = F(z) and the
