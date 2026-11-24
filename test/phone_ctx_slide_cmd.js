@@ -1,7 +1,7 @@
 // [#463] Selecting a shape on a phone: the chain bar (the function overlay) and the planes stay exactly where they are and
-// fully opaque through select and release, and the shape's bar slides up from behind the chain bar to sit above it (it
-// used to push the chain bar up 56 px at once and show itself where the chain bar had been). Under prefers-reduced-motion
-// the slide has no duration. Portrait 390 x 844 and 360 x 640, the default view and ?view=steps (its strip is the chain bar).
+// fully opaque through select and release, and the shape's bar slides up from behind the chain bar to sit above it.
+// Under prefers-reduced-motion the slide has no duration. Portrait 390 x 844 and 360 x 640, the default view and
+// ?view=steps (its strip is the chain bar).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };

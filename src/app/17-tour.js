@@ -100,6 +100,7 @@
   const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
   function tourSnapshot() {
     phHold();
+    if (typeof svStore === 'function') svStore();   // (S.sv holds the steps view's place: the tour moves it, and the restore puts it back)
     const xl = document.querySelector('#examplesBtn .exlabel');
     return {
       state: tourState(),
@@ -131,6 +132,7 @@
     morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     setState(st);
+    if (typeof svRestored === 'function') svRestored();   // (the steps view takes its place, scope and surface from S.sv again)
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
     if (m) { setHidden('L', !!m.hideLeft); setHidden('R', !!m.hideRight); } else { if (isDrawer('R')) setHidden('R', true); if (isDrawer('L')) setHidden('L', true); }
     if (m && m.viewMem) Object.assign(viewMem, m.viewMem);
@@ -140,7 +142,7 @@
     setOpt('srcView', Object.assign({}, S.srcView));
     paneL.setView(S.srcView);
     clipWin = m && m.clipWin ? Object.assign({}, m.clipWin) : S.clipWin ? Object.assign({}, S.clipWin) : viewBox(S.srcView);
-    if (!S.clipWin && goodWin(clipWin)) setOpt('clipWin', clipWin);   // (review v16 regress-6: saved from here on)
+    if (!S.clipWin && goodWin(clipWin)) setOpt('clipWin', clipWin);   // (saved from here on)
     rebuild(); buildShapeList(); chainRebuilt(); buildDisplay();
     setFocus(Math.min(S.focus || 0, S.steps.length));
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
@@ -241,7 +243,7 @@
     // the Sound chapter needs
     slot: (where) => {
       const e = $(where === 'head' ? 'tourHeadSlot' : 'tourSlot');
-      // (r3 review regress-7: only an open sheet's geometry is shared out again; the split rows read --ph-tour in CSS,
+      // (only an open sheet's geometry is shared out again; the split rows read --ph-tour in CSS,
       // and a sheet that opens later measures itself)
       if (Phone.geometry) requestAnimationFrame(() => { if (Phone.sheet && Phone.sheet()) Phone.geometry(); });
       return e || null;

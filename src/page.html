@@ -531,7 +531,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .plot > canvas.overlay { touch-action: none; }
 
 /* level 2: anything floating over a canvas */
-.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip, .ld-key {
+.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip, .ld-key, .sv-tile {
   background: var(--overlay); border: 1px solid var(--line-strong); box-shadow: var(--shadow-1); border-radius: var(--r-2);
 }
 .chip.readout {
@@ -745,6 +745,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 }
 .ld-key[hidden] { display: none; }
 .ld-key .ld-ttl { color: var(--ink); }
+.ld-key > .ld-links-row { flex: none; display: inline-flex; align-items: center; gap: 8px; }
 .ld-list { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
 .ld-it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .ld-sw { display: inline-block; flex: none; box-sizing: border-box; width: 14px; }
@@ -773,6 +774,12 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pane-hint[hidden] { display: none; }
 .pane-hint-t { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .pane-hint .toast-act { flex: 0 0 auto; height: 24px; }
+/* the steps view's glide tile (#1533): the formulas of the two planes a glide is between, cross-faded, over the left
+   plane at the spot the steps view finds clear (svTileSpot); never a target */
+.sv-tile { position: absolute; z-index: 9; display: grid; align-items: center; padding: 3px 8px; font: var(--t-math-s); color: var(--ink); white-space: nowrap; pointer-events: none; }
+.sv-tile[hidden], :root:not(.sv) .sv-tile { display: none; }
+.sv-tile > .sv-tile-f { grid-area: 1 / 1; justify-self: start; display: inline-block; }   /* (each its own width: the tile measures it) */
+.sv-tile > .sv-tile-f[hidden] { display: none; }
 /* the draft chip takes the place of the plane's empty chip while a polygon is drafted there */
 .plot:has(> .draft-chip:not([hidden])) > .empty-chip:not(.draft-chip) { visibility: hidden; }
 /* below the legend chip (8 + 72 + 8) when it shows, so the two never overlap on a narrow plate */
