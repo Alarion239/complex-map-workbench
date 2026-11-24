@@ -31,7 +31,10 @@
 //   and 0.15, the frame and the control (the principal combo alone) differ in at most SPECKLE isolated pixels (over
 //   SPECKLE_TOL in a channel, with at most two of their eight neighbours so): the principal surface is the one shown
 //   where they coincide, where a tie in depth speckled the whole surface with the copy's colours. (Where the copy
-//   slides out of it, near the cut, the two differ in whole wedges, which have few isolated pixels)
+//   slides out of it, near the cut, the two differ in whole wedges, which have few isolated pixels). The same at the
+//   Landscape's Opacity 0.6, where the relief is drawn in layers (landLayers): the copy is a layer of its own only where
+//   it lies behind the principal surface, so where it coincides with it the frames still differ in at most SPECKLE
+//   isolated pixels
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -47,6 +50,11 @@ const GAP_SHARE = 0.25;               // arrival: the share of the control's bar
 const SLIT_MIN = 200;                 // the slit the control leaves along the seam, at least
 const SCALE = 900;                    // px per unit: a window of about ±0.5, inside the disc its square root covers
 const SPECKLE = 40, SPECKLE_TOL = 24; // log |F| heights: the isolated pixels the frame and the control may differ in, and by how much
+const OPACITY = 0.6;                  // the Landscape's Opacity the layer rows repeat at
+const COVERED_ONCE = 150;             // at that opacity, with the copy in the principal's place: the pixels the frame and the control may differ in
+const SHOWS_MIN = 300;                // and the pixels they differ in at least once the copy has slid out of it (a layer of its own)
+const THROUGH_MIN = 10000;            // and where it lies behind and in front of the principal surface (Im heights, mid-glide)
+const COVER_TOL = 0.005;              // and the share by which its surface (saturated pixels) may differ from the same frame at opacity 1
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const step = (type, params) => ({ type, params: params || {}, on: true });
@@ -129,6 +137,16 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     ok(`Inside regions, u = ${u}: a carried frame of the principal sheet's image of the region alone (no copy)`, c.s === 0 && c.copies === 0, c);
   }
 }
+// the Landscape's Opacity slider (display options) set to a
+const setOpacity = async (a) => {
+  if (!(await ev(`!!document.querySelector('#popHost #opacityRange')`))) {
+    await ev(`document.querySelector('.pane-head .opts-btn[aria-label="Display options"]').click(); 1`);
+    await settled({ max: 15000, until: `!!document.querySelector('#popHost #opacityRange')` });
+  }
+  await ev(`(() => { const r = document.querySelector('#popHost #opacityRange'); r.value = '${a}'; r.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+  await settled({ max: 60000 });
+};
 // ---- the page's own heights (log |F|) and window: no speckle where the copy lies in the principal surface's place ----
 {
   const r = info.modulus = {};
@@ -149,6 +167,37 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     const sp = r[`u ${u}`] = Object.assign({ copies: all.copies }, await speckle(`m${u}`, `mk${u}`));
     ok(`log |F| heights, u = ${u}: the frame with the other sheet's copy and the control differ in at most ${SPECKLE} isolated pixels (no speckle)`, all.copies >= 1 && sp.isolated <= SPECKLE, sp);
   }
+  // the Landscape's Opacity (display options) at OPACITY: the relief's surfaces are layers that let the ones behind show
+  // through (landLayers). Where the copy lies in the principal surface's place it is the same layer, so the frame is the
+  // control's; once it has slid out of it (u = 0.15) it is a layer of its own
+  await setOpacity(OPACITY);
+  for (const u of [NEAR, 0.02, 0.05, 0.15]) {
+    const all = await at(u, 0, `ma${u}`);
+    await at(u, 1, `mka${u}`);
+    const sp = r[`opacity ${OPACITY}, u ${u}`] = Object.assign({ copies: all.copies, layers: await ev('__cmwLandSheets().layers') }, await speckle(`ma${u}`, `mka${u}`));
+    ok(`log |F| heights, opacity ${OPACITY}, u = ${u}: the relief is drawn in layers`, sp.layers > 1, sp);
+    if (u < 0.1) {
+      ok(`log |F| heights, opacity ${OPACITY}, u = ${u}: the copy lies in the principal surface's place: the frame and the control differ in at most ${COVERED_ONCE} pixels`, all.copies >= 1 && sp.apart <= COVERED_ONCE, sp);
+      ok(`log |F| heights, opacity ${OPACITY}, u = ${u}: at most ${SPECKLE} of them isolated (no speckle)`, sp.isolated <= SPECKLE, sp);
+    } else {
+      ok(`log |F| heights, opacity ${OPACITY}, u = ${u}: the copy has slid out of the principal surface's place and shows as a layer: the frame and the control differ in at least ${SHOWS_MIN} pixels`, all.copies >= 1 && sp.apart >= SHOWS_MIN, sp);
+    }
+  }
+  // Im heights: the other sheet's copy lies behind the principal surface and in front of it, and shows through it
+  const imBtn = await ev(`(() => { const b = document.querySelector('#heightSeg button[data-v="im"]'); if (!b) return null; b.click(); return 1; })()`);
+  await settled({ max: 60000 });
+  ok('Im heights: the height control has an Im button, and it is pressed', imBtn === 1 && await ev(`(document.querySelector('#heightSeg button[aria-pressed=true], #heightSeg button.on') || {}).dataset?.v === 'im'`), { imBtn });
+  await setOpacity(1);
+  const opaque = await at(0.5, 0, 'mi1');
+  await setOpacity(OPACITY);
+  {
+    const all = await at(0.5, 0, 'mi');
+    await at(0.5, 1, 'mki');
+    const sp = r['opacity Im, u 0.5'] = Object.assign({ copies: all.copies, layers: await ev('__cmwLandSheets().layers'), surface: all.surface, opaque: opaque.surface }, await speckle('mi', 'mki'));
+    ok(`Im heights, opacity ${OPACITY}, u = 0.5: the copy shows through the principal surface: the frame and the control differ in at least ${THROUGH_MIN} pixels`, all.copies >= 1 && sp.layers > 1 && sp.apart >= THROUGH_MIN, sp);
+    ok(`Im heights, opacity ${OPACITY}, u = 0.5: the surface covers as many pixels as at opacity 1 (within ${COVER_TOL}: the front surface is not lost where two surfaces nearly meet)`, Math.abs(sp.surface - sp.opaque) <= COVER_TOL * sp.opaque, sp);
+  }
+  await setOpacity(1);
   await ev('__cmwSteps({ glideSheets: 0 }); 1');
 }
 return { pass: fails.length === 0, fails, info };
