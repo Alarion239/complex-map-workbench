@@ -8,10 +8,10 @@
 // - recorded: at each rate, both meshes are published, each with a reason (done, work, nodes or budgetMs); info.rates has
 //   them, and info.capped which mesh ends on the cap at which slowing (the measure the issue asks for, not a verdict);
 // - a stop on the cap is a stop on the cap: a mesh that ends on budgetMs has spent about the cap's milliseconds;
-// - the deterministic budgets are: a mesh that ends on 'work', 'nodes' or completes is the same mesh at every slowing
-//   that ends so (its nodes, evaluations and triangles), whatever the machine's speed;
-// - the slowing is felt: each mesh at 6 has spent at least SLOW_MIN times its CPU at 1, or has ended on the cap (a mesh
-//   that the cap bounds cannot grow by that factor when it is slow already at 1).
+// - the deterministic budgets are: meshes of one key (the content and the meshing window the pane's box gave when the mesh
+//   was built: it can differ from one run to the next) that end on 'work', 'nodes' or complete are one mesh (its nodes,
+//   evaluations and triangles) at every slowing that ends so, whatever the machine's speed;
+// - the slowing is felt: each mesh at 6 spends at least SLOW_MIN times the CPU per evaluation that it spends at 1.
 // Nothing asserts which mesh ends on the cap: that depends on the machine, and is what the issue measures.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -21,7 +21,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 const RATES = [1, 3, 4, 6];
 const BUILT_MAX_MS = 400000;     // the meshes are built within this at the slowest rate
-const SLOW_MIN = 2;              // the least factor by which a mesh's CPU grows from rate 1 to 6 (it grows about 6 times)
+const SLOW_MIN = 3;              // the least factor by which a mesh's CPU per evaluation grows from rate 1 to 6 (about 6 times; the cold run to a warm one: 2 at most)
 const CAP_SHARE = 0.9;           // the share of the cap's milliseconds a mesh that ended on it has spent at least
 const ENDS = ['done', 'work', 'nodes', 'budgetMs'];
 const MESHES = { all: /^__svAll\|/, ring: /^__svRing\|/ };
@@ -34,7 +34,7 @@ const run = async (rate) => {
     await K.openChain({ ns: 'sme' + rate + Date.now(), steps: CHAIN, w: 390, h: 844, mobile: true, shapes: [], max: BUILT_MAX_MS });
     await ev(`__cmwSet('alpha', 1); document.querySelector('.sv-cp').click(); __cmwSteps({ scope: 'all', go: 2, now: true }); 1`);
     const w = await settled({ max: BUILT_MAX_MS, until: BUILT, only: true });
-    const q = await ev('(() => { const q = __cmwSphere(); return { cap: q.cap, entries: q.entries.map((e) => ({ slot: e.slot, end: e.end, ms: e.ms, work: e.work, nodes: e.nodes, partial: e.partial, n: e.n })) }; })()');
+    const q = await ev('(() => { const q = __cmwSphere(); return { cap: q.cap, entries: q.entries.map((e) => ({ slot: e.slot, key: e.key, end: e.end, ms: e.ms, work: e.work, nodes: e.nodes, partial: e.partial, n: e.n })) }; })()');
     const rec = { built: !!w.ok, cap: q.cap };
     for (const [tag, re] of Object.entries(MESHES)) rec[tag] = q.entries.find((e) => re.test(e.slot)) || null;
     return rec;
@@ -49,8 +49,12 @@ for (const tag of Object.keys(MESHES)) {
   const at = RATES.map((r) => info.rates[r][tag]).filter(Boolean);
   const capped = at.filter((e) => e.end === 'budgetMs'), fixed = at.filter((e) => e.end !== 'budgetMs');
   ok(`the ${tag} mesh: one that ends on the ${base.cap} ms cap has spent about its milliseconds (at least ${CAP_SHARE * 100} %)`, capped.every((e) => e.ms >= CAP_SHARE * base.cap), capped);
-  ok(`the ${tag} mesh: those that end on a deterministic budget are one mesh (nodes, evaluations, triangles), at every slowing`, fixed.every((e) => e.nodes === fixed[0].nodes && e.work === fixed[0].work && e.n === fixed[0].n), fixed);
-  ok(`the ${tag} mesh at 6 times has spent at least ${SLOW_MIN} times its CPU at 1, or ended on the cap (the slowing is felt)`, !!base[tag] && !!slow[tag] && (slow[tag].ms >= SLOW_MIN * base[tag].ms || slow[tag].end === 'budgetMs'), { one: base[tag] && base[tag].ms, six: slow[tag] && slow[tag].ms, end: slow[tag] && slow[tag].end });
+  // (one key: the meshing window follows the pane's box when the mesh is built, so two runs can mesh two windows)
+  const byKey = new Map();
+  for (const e of fixed) byKey.set(e.key, (byKey.get(e.key) || []).concat(e));
+  for (const [key, same] of byKey) ok(`the ${tag} mesh: those of one key that end on a deterministic budget are one mesh (nodes, evaluations, triangles), at every slowing`, same.every((e) => e.nodes === same[0].nodes && e.work === same[0].work && e.n === same[0].n), { key, same });
+  const per = (e) => e.ms / Math.max(1, e.work);
+  ok(`the ${tag} mesh at 6 times spends at least ${SLOW_MIN} times the CPU per evaluation that it spends at 1 (the slowing is felt)`, !!base[tag] && !!slow[tag] && per(slow[tag]) >= SLOW_MIN * per(base[tag]), { one: base[tag] && base[tag].ms / base[tag].work, six: slow[tag] && slow[tag].ms / slow[tag].work });
 }
 // (the measure: which mesh ends on the cap at which slowing)
 info.capped = Object.fromEntries(RATES.map((r) => [r, Object.keys(MESHES).filter((t) => info.rates[r][t] && info.rates[r][t].end === 'budgetMs')]));
