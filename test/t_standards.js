@@ -25,7 +25,7 @@ for (const c of ['// the map was clamped to the disc', '// used to be a table', 
   '// instead of the old table', '// v17 only', '// after beta.3', '// wave 14 batch', '// fixed in #552', ' * after #587']) {
   ok(`history: ${c}`, rules('src/app/x.js', [c.startsWith(' *') ? c : `const a = 1; ${c}`]).some((r) => r.startsWith('history:')), rules('src/app/x.js', [c]));
 }
-// `replaces` alone says what the code does now (the lines of src/ that said so at f0baa735); beside a word for the past it is history
+// `replaces` alone says what the code does now (the lines of src/ that said so); beside a word for the past it is history
 const PRESENT = [
   '// «кривая, 5 точек», |Im z| < π/2), never its TeX source; MathJax replaces it once it is ready)',
   '// wait for a toast that offers Undo, so this note never replaces it',
@@ -35,9 +35,13 @@ const PRESENT = [
   '// o.state(...) replaces S\'s shapes / targets / steps through the load path (sanitizeState), o.anchor sets the GPU anchor',
 ];
 for (const c of PRESENT) ok(`history: replaces in the present tense is clean: ${c.slice(0, 60)}`, rules('src/app/x.js', [`const a = 1; ${c}`]).length === 0, rules('src/app/x.js', [c]));
-for (const c of ['// replaces the old table', '// replaces the previous loop', '// replaces the classic renderer', '// the filter replaces an earlier version', '// replaces the legacy path',
-  '// replaces the original draw', '// was replaced by the filter', '// used to replace the loop', '// replaces the loop (v16.4)']) {
+for (const c of ['// replaces the old table', '// replaces the former loop', '// replaces the classic renderer', '// replaces the legacy path', '// the filter replaces an old version',
+  '// was replaced by the filter', '// used to replace the loop', '// replaces the loop (v16.4)']) {
   ok(`history: replaces beside a word for the past is history: ${c}`, rules('src/app/x.js', [`const a = 1; ${c}`]).some((r) => r.startsWith('history:')), rules('src/app/x.js', [c]));
+}
+// (a known limit: `previous`, `earlier`, `original` and `prior` also read in the present tense, so `replaces` beside them is not read)
+for (const c of ['// each frame replaces the previous one', '// the pick replaces the earlier pick', '// the copy replaces the original in S.shapes', '// a run replaces the prior result']) {
+  ok(`history: replaces beside a word that also reads in the present tense is not read: ${c}`, rules('src/app/x.js', [`const a = 1; ${c}`]).length === 0, rules('src/app/x.js', [c]));
 }
 ok('history: a clean comment is clean', rules('src/app/x.js', ['// clamps the radius to the unit disc', 'const knowing = 1; // known']).length === 0);
 for (const c of ['// no longer than the pane', '// where it was set by the user', '// the value is now 3', '// it was a loop in the draft', '// now or never', '/** the clock */ o.now = 1;']) {

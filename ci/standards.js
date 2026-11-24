@@ -38,7 +38,7 @@ const HISTORY = [
   [/\bpreviously\b/i, 'previously'], [/\bno longer (?:has|have|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|needs?|exists?|returns?|goes|comes)\b/i, 'no longer <verb>'],
   // (`replaces` alone says what the code does now, one thing taking another's place while a condition holds; beside a word
   // for the past it is history)
-  [/\breplaces (?:the |an? )?(?:old|former|previous|earlier|original|legacy|classic|prior)\b/i, 'replaces the old'], [/\binstead of the old\b/i, 'instead of the old'],
+  [/\breplaces (?:the |an? )?(?:old|former|legacy|classic)\b/i, 'replaces the old'], [/\binstead of the old\b/i, 'instead of the old'],
   // (a version inside a path, notes/constructions-v16/, or before a file's extension, SPEC-v17.md, is a name, not a label;
   // a point release, a release series ending in .x and a label after a hyphen are labels)
   [/(?<![/\w])v1\d(?:\.\d+)*(?:\.x)?(?:-beta(?:\.\d+)?)?\b(?![\w.-]*\/)(?!\.(?:md|js|json|html|txt|py|ya?ml|css)\b)/i, 'a version label'], [/(?<![-_/.\w])beta\.\d+\b(?![/.]\w)/i, 'a version label'],
