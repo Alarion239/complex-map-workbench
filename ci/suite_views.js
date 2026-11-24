@@ -42,6 +42,7 @@ const VIEWS = {
   'export_glide_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'layout_rows_cmd.js': steps({ pin: true }),
+  'layout_ground_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
   'phone_edit_head_cmd.js': steps({ pin: true }),
   'phone_fmap_cmd.js': steps(),
