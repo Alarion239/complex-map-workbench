@@ -287,7 +287,7 @@
   // without view changes. The meshes rebuilt for the new window keep their old (mesh, fix-up) pair on screen until
   // their own fix-ups land (shapeGPU's hold), so no unfixed intermediate is ever drawn.
   function sourceViewChanged() {
-    if (leftStage() !== 0 || solo() === 'R') return;
+    if ((leftStage() !== 0 && !clipDefault) || solo() === 'R') return;
     clearTimeout(sourceViewChanged.t);
     sourceViewChanged.pending = true;
     sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200);
@@ -305,11 +305,19 @@
       recentreClip();
   };
   // clipWin to the left pane's box, as a pan or zoom leaves it (sourceViewChanged.apply, and __cmwSet('srcView', …)):
-  // replaced only when the box moved or resized enough, so a small pan keeps the meshes
+  // replaced only when the box moved or resized enough, so a small pan keeps the meshes. clipDefault: init made the
+  // window from the pane's box before the layout had its final one (a saved state without a window); the first re-centre,
+  // which the settled layout asks for, puts the source view's window at the pane's size in its place, whichever plane
+  // X shows (the source view is the z-plane's, the pane's size is the same), so a mesh's window does not depend on
+  // when the thread left plane 0
+  let clipDefault = false;
   function recentreClip() {
-    if (leftStage() !== 0 || solo() === 'R') return;
+    if (solo() === 'R') return;
+    const staged = leftStage() !== 0;
+    if (staged && !clipDefault) return;
+    clipDefault = false;
     // (while X is a phone's inset, its window at its large size)
-    const b = (Phone.largeBox && Phone.largeBox()) || paneL.box();
+    const b = staged ? viewBox(S.srcView) : (Phone.largeBox && Phone.largeBox()) || paneL.box();
     // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
     // collapsed deep views far from 0 to zero width)
     const q = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 1e-4;

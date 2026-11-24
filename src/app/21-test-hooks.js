@@ -57,6 +57,8 @@
   // the view is one merged panel here (the perf suite then measures X's plane in X → Y, the same picture)
   window.__cmwOtherPane = (mode, sphereMode) => (Views.merged(S.view) ? null : Views.paneOf(mode, sphereMode) === 'L' ? 'R' : 'L');
   // exact images (SPEC 10.1): the path of every visible area shape in every visible view: [{id, role, viewKind, path, reason}]
+  // (the z-plane's meshing window, the left pane's size and the source view it is the window of: tests compare them)
+  window.__cmwClipWin = () => ({ win: Object.assign({}, clipWin), pane: [paneL.w, paneL.h], srcView: Object.assign({}, S.srcView), pending: !!sourceViewChanged.pending, dflt: clipDefault });
   window.__cmwSphere = () => ({ entries: [...sm.entries.values()].map((e) => ({ key: e.key, slot: e.slot, why: e.why, view: e.view, guardBox: e.guardBox, gpu: !!(e.res && e.res.n), ...e.info })), jobs: [...sm.jobs.values()].map((j) => ({ key: j.key, slot: j.slot, why: j.why, ms: +j.ms.toFixed(1), slices: j.slices, nodes: j.mesh ? j.mesh.nodes : 0 })), want: [...sm.want.entries()], running: sm.running, kick: !!sm.kickT, stats: Object.assign({}, sm.stats), cpuBytes: sm.cpuBytes, preBytes: GLR.preBytes, lastExport: sm.lastExport || null });   // (kick: a frame is still due to ask for the jobs the motion frames could not, smKick)
   // the SphereMesh verdict (SPEC 8.1) of every visible area shape for the right pane's map (12.3: invariant under right-view zooms)
   window.__cmwSmVerdict = (role = 'R') => S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area').map((s) => ({ id: s.id, why: smNeed(s, gpu.get(s.id), role, normalizeMap(stageMap(role === 'SV' ? svStage() : role === 'R' ? rightStage() : leftStage()))) }));
