@@ -1335,17 +1335,18 @@ const Inverse = (() => {
   const REPT_CF_TAYLOR = 0.03;
   // the closed form of a monomial step k z^d repeated n times on a disc D(c, r) (reptClosed): the preimages of w are
   // the M = d^n points z with z^M = w / k^((M - 1) / (d - 1)), equally spaced on the circle |z| = rho,
-  // rho = R e^((log|w| - log R) / M) about the invariant circle |z| = R = |k|^(-1 / (d - 1)). In units of R, as float32
-  // as the GPU reads them: lR = log R, M, cn = |c| / R, dP = (|c| + r) / R - 1, dM = (|c| - r) / R - 1,
-  // dI = (r - |c|) / R - 1 (the circle inside the disc below it), c the centre (the covering leaf's point). null when the
-  // step is not a monomial (or R is not finite)
+  // rho = R e^((log|w| - log R) / M) about the invariant circle |z| = R = |k|^(-1 / (d - 1)). The offsets from that
+  // circle are computed in float64 against R itself (lR's float32 rounding then reaches x only divided by M), each
+  // rounded outward to float32 for the test that reads it, as the GPU reads them: lR = log R, M, cn = |c| / R (up),
+  // dP = (|c| + r) / R - 1 and dM = (|c| - r) / R - 1 (dn and up), dI = (r - |c|) / R - 1 (dn: the circle inside the
+  // disc below it), c the centre (the covered pixel's leaf). null when the step is not a monomial (or R is not finite)
   function reptClosedForm(P, Q, n, shape) {
     const mn = reptMono(P, Q);
     if (!mn || !(mn.d >= 2) || !(mn.k > 0)) return null;
     const lR = -Math.log(mn.k) / (mn.d - 1), R = Math.exp(lR), cl = Math.hypot(shape.c[0], shape.c[1]), r = shape.r;
     if (!(R > 0 && Number.isFinite(R) && r >= 0)) return null;
-    const f = Math.fround;
-    return { lR: f(lR), M: f(mn.d ** n), cn: f(cl / R), dP: f((cl + r) / R - 1), dM: f((cl - r) / R - 1), dI: f((r - cl) / R - 1), c: cx(f(shape.c[0]), f(shape.c[1])) };
+    const dP = (cl + r) / R - 1, dM = (cl - r) / R - 1, f = Math.fround;
+    return { lR: f(lR), M: f(mn.d ** n), cn: f32up(cl / R), dPdn: f32dn(dP), dPup: f32up(dP), dMdn: f32dn(dM), dMup: f32up(dM), dI: f32dn((r - cl) / R - 1), c: cx(f(shape.c[0]), f(shape.c[1])) };
   }
   // the closed form's verdict v at a point w of pixel px (w units, |dz/dw| at the REPT op times the pixel: pix at the
   // plan's first op), and dz = |dz/dw| = rho / (M |w|) at every preimage: v 1 covered (a preimage lies REPT_AA_REACH pixels' reach inside the disc), 0 empty (every
@@ -1361,10 +1362,10 @@ const Inverse = (() => {
     const x = sm ? eta * (1 + eta * (1 / 2 + eta * (1 / 6 + eta / 24))) : Math.exp(eta) - 1;
     const sl = tol * (Math.abs(x) + (Math.abs(la) + Math.abs(cf.lR) + 1) / cf.M + (sm ? 0 : (1 + Math.abs(x)) * (1 + Math.abs(eta))));
     const f = REPT_AA_REACH * px * (1 + Math.abs(x)) / (cf.M * a) * (1 + tol);
-    if (x > cf.dP + f + sl || x < cf.dM - f - sl) return { v: 0, dz: 0 };
+    if (x > cf.dPup + f + sl || x < cf.dMdn - f - sl) return { v: 0, dz: 0 };
     const dz = Math.exp(cf.lR) * (1 + x) / (cf.M * a);
     if (x < cf.dI - f - sl) return { v: 1, dz };
-    const u = cf.dP - f - x - sl, v = x - cf.dM - f - sl, h = Math.PI / (2 * cf.M);
+    const u = cf.dPdn - f - x - sl, v = x - cf.dMup - f - sl, h = Math.PI / (2 * cf.M);
     if (u > 0 && v > 0 && cf.cn > 0 && u * v / (4 * (1 + Math.abs(x) + sl) * cf.cn) > h * h * (1 + tol)) return { v: 1, dz };
     return { v: -1, dz };
   }
@@ -1383,7 +1384,8 @@ const Inverse = (() => {
   //  full (truth mode: a window of +-full members around m* in every family, no ranges, budgets or stop),
   //  ramp (range ramp in px, default 1), dwdX / dwdY (dw per image pixel step, default (pix, 0) / (0, pix)),
   //  leaves: false to skip the leaf list, paths: true to record each leaf's path ('j:b:m' per window or finite op,
-  //  outermost first), reptNodes: a REPT search's node budget below REPEAT_NODES_MAX (GLR.setReptNodes' twin).
+  //  outermost first), reptNodes: a REPT search's node budget below REPEAT_NODES_MAX (GLR.setReptNodes' twin),
+  //  reptClosed: false to skip the closed form of a monomial step on a disc (the search alone).
   //  leaves: every visited leaf in walk order: {z, J (dz/dw, real 2x2 row-major), JL (dΛ/dw) | null, lvl (px),
   //  lg: [x, y] | null, lam, dX, dY (dz per pixel step), s (region distance, px), cv (coverage), cov, D}.
   //  entries: the admitted compositing buffer, front to back ({lf, D, z, cv, ...}); restT: the product of
@@ -1496,9 +1498,10 @@ const Inverse = (() => {
     const reptRec = (j, Lf) => {
       const o = ops[j], { P, Q, n } = o.p, E = prep.rept ? prep.rept.E : null;
       const pruned = (v, dv, r, J) => reptPruned(E && E[r], v, dv, pix * Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])));
-      // (a monomial step on a disc: the closed form decides first, with no root solved; a covered pixel's leaf is the
-      // disc's centre at the preimages' |dz/dw|)
-      const cf = prep.rept && prep.rept.cf;
+      // (a monomial step on a disc: the closed form decides first, with no root solved, unless opts.reptClosed is false;
+      // a covered pixel's leaf is the disc's centre at the preimages' |dz/dw|: it stands for the covered preimage, which
+      // lies at least the reach inside the disc, so its coverage is 1 as that preimage's would be)
+      const cf = opts.reptClosed !== false && prep.rept && prep.rept.cf;
       if (cf) {
         const sc = Math.sqrt(Math.abs(Lf.J[0] * Lf.J[3] - Lf.J[1] * Lf.J[2])), vc = reptClosed(cf, Lf.u, pix * sc);
         if (vc.v === 0) { rst.pruned++; return null; }

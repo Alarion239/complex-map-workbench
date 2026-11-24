@@ -2962,14 +2962,15 @@ vec3 ixRepCrude;   // the crude radii of the last node solved (the GLSL page's r
 // uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 the mark (1, 0, 0, 0) (a
 // region mask's pass: it is not covered, and drawInverse's composite marks it in the stencil for GLR.reptHatchFill)
 uniform int uIxRepHatch;
-// uIxRepCf, uIxRepCg, uIxRepCc: the closed form of a monomial step on a disc (Inverse.prepare's rept.cf): (log R, M,
-// |c| / R, 1 on or 0 off), (dP, dM, dI), the disc's centre c
-uniform vec4 uIxRepCf; uniform vec3 uIxRepCg; uniform vec2 uIxRepCc;
+// uIxRepCf, uIxRepCg, uIxRepCc: the closed form of a monomial step on a disc (Inverse.prepare's rept.cf, each offset
+// rounded outward for the test that reads it): (log R, M, |c| / R up, dI down), (dP down, dP up, dM down, dM up), (the
+// disc's centre c, 1 on or 0 off)
+uniform vec4 uIxRepCf; uniform vec4 uIxRepCg; uniform vec3 uIxRepCc;
 // the closed form's verdict at w, pixel px (Inverse's reptClosed): 1 covered, 0 empty, -1 the search decides; dz:
 // |dz/dw| at every preimage, rho / (M |w|)
 int ixRepClosed(vec2 w, float px, out float dz) {
   dz = 0.0;
-  if (uIxRepCf.w < 0.5) return -1;
+  if (uIxRepCc.z < 0.5) return -1;
   float a = cx_abs(w);
   if (!(a > 0.0) || !(a < IX_REP_FIN)) return -1;
   float tol = ${glf(Inverse.REPT_ROUND)} * IX_REP_U, lR = uIxRepCf.x, M = uIxRepCf.y;
@@ -2978,10 +2979,10 @@ int ixRepClosed(vec2 w, float px, out float dz) {
   float x = sm ? eta * (1.0 + eta * (0.5 + eta * (1.0 / 6.0 + eta / 24.0))) : exp(eta) - 1.0;
   float sl = tol * (abs(x) + (abs(la) + abs(lR) + 1.0) / M + (sm ? 0.0 : (1.0 + abs(x)) * (1.0 + abs(eta))));
   float f = ${glf(Inverse.REPT_AA_REACH)} * px * (1.0 + abs(x)) / (M * a) * (1.0 + tol);
-  if (x > uIxRepCg.x + f + sl || x < uIxRepCg.y - f - sl) return 0;
+  if (x > uIxRepCg.y + f + sl || x < uIxRepCg.z - f - sl) return 0;
   dz = exp(lR) * (1.0 + x) / (M * a);
-  if (x < uIxRepCg.z - f - sl) return 1;
-  float u = uIxRepCg.x - f - x - sl, v = x - uIxRepCg.y - f - sl, h = ${glf(Math.PI)} / (2.0 * M);
+  if (x < uIxRepCf.w - f - sl) return 1;
+  float u = uIxRepCg.x - f - x - sl, v = x - uIxRepCg.w - f - sl, h = ${glf(Math.PI)} / (2.0 * M);
   if (u > 0.0 && v > 0.0 && uIxRepCf.z > 0.0 && u * v / (4.0 * (1.0 + abs(x) + sl) * uIxRepCf.z) > h * h * (1.0 + tol)) return 1;
   return -1;
 }
@@ -3108,7 +3109,7 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       `${ind}if (${s('rfast')}) ${s('rcap')} = uIxRepFast;`,
       `${ind}if (${s('ra')}) { ixRI[0] = -1; ixRJ[0] = vec2(1.0, 0.0); }`,
       // (a monomial step on a disc: the closed form decides first, with no root solved: empty ends the search, covered
-      // hands the disc's centre to the leaf at the preimages' |dz/dw|)
+      // hands the leaf the disc's centre at the preimages' |dz/dw|, standing for the covered preimage)
       `${ind}float ${s('rdz')}; int ${s('rcf')} = ${s('ra')} ? ixRepClosed(${cur}.u, ixPix * ixScale(${cur}.J), ${s('rdz')}) : -1;`,
       `${ind}if (${s('rcf')} == 0) ${s('rsp')} = -1;`,
       `${ind}else if (${s('ra')} && ${P}_out(${cur}.u, 0.0, ${s('rn')}, 1.0)) ${s('rsp')} = -1;`,
@@ -3119,7 +3120,7 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       `${i2}Lf ${R} = ${cur};`,
       `${i2}bool ${s('leaf')} = false;`,
       `${i2}if (!${s('ra')}) { if (${s('it')} > 0) break; ${s('leaf')} = true; }`,
-      `${i2}else if (${s('rcf')} == 1) { ${R}.u = uIxRepCc; ${R}.J = ${s('rdz')} * ${cur}.J; ixRepDel = 0.0; ${s('leaf')} = true; ${s('rcf')} = -1; ${s('rsp')} = -1; }`,
+      `${i2}else if (${s('rcf')} == 1) { ${R}.u = uIxRepCc.xy; ${R}.J = ${s('rdz')} * ${cur}.J; ixRepDel = 0.0; ${s('leaf')} = true; ${s('rcf')} = -1; ${s('rsp')} = -1; }`,
       `${i2}else if (${s('rsp')} < 0) break;`,
       `${i2}else if (ixRI[${s('rsp')}] < 0) {`,
       `${i3}if (${s('rnd')} >= ${s('rcap')}) { if (${s('rfast')}) ixRepCont = true; else ixRepCap = true; break; }`,

@@ -20,7 +20,8 @@
 //     across |z| = 1 as before; at Repeat x 2 every pixel's verdict equals the brute force;
 //  4d. the closed form (a monomial step on a disc region): z^3 x 20 on discs tangent to, across, holding 0 and holding
 //     the whole of |z| = 1, and 2 z^3 x 20 tangent to its circle |z| = 2^-1/2: every pixel off the circle (past the
-//     pixel's reach) has its verdict with no root solved; at Repeat x 2 and x 3 every pixel's verdict equals the brute
+//     pixel's reach) has its verdict with no root solved, the unresolved ones lie in the reach band about the circle,
+//     and the search alone agrees wherever it resolves; at Repeat x 2 and x 3 every pixel's verdict equals the brute
 //     force over its chains;
 //  5. the search against brute force: at Repeat x 2 every pixel's verdict equals the one from all 9 chains, unpruned;
 //     at Repeat x 20 a box in the basin of 1 is empty outside E_20 with no root solved;
@@ -320,6 +321,7 @@ const bruteN = (o, L, w, n) => {
 {
   const RW = { x0: -1.6, x1: 1.6, y0: -1.2, y1: 1.2 }, RG = 25;            // the view and its grid, as in 4c
   const NEAR = 0.02;                                                         // |w| within this of the invariant circle is left out
+  const BAND = 2;                                                            // px: the reach band about the circle, with a margin
   const pts = gridOf(RW, RG);
   // (z^3: the invariant circle |z| = 1; 2 z^3: |z| = 2^-1/2)
   const S = Math.SQRT1_2;
@@ -334,17 +336,23 @@ const bruteN = (o, L, w, n) => {
     const p = planOf(repOf(cs.expr, 20)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape });
     // (a circle |z| = rho near R meets the disc from inside R when |c| - r < R, from outside when |c| + r > R)
     const cl = Math.hypot(cs.shape.c[0], cs.shape.c[1]), vIn = cl - cs.shape.r < cs.R ? 1 : 0, vOut = cl + cs.shape.r > cs.R ? 1 : 0;
-    const t = { inn: 0, inRight0: 0, out: 0, outRight0: 0, ring: 0, unres: 0, solves: 0 };
+    const t = { inn: 0, inRight0: 0, out: 0, outRight0: 0, ring: 0, unres: 0, solves: 0, wide: 0, searched: 0, agree: 0 };
     for (const w of pts) {
       const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, a = CX.abs(w);
       t.solves += e.nodes;
       if (a < PIX) continue;   // (the pixel at the critical value 0, whose one preimage is 0: its verdict is its ramp's)
+      if (e.verdict === -1 && Math.abs(a - cs.R) > BAND * PIX) t.wide++;
+      // (the search alone, where it resolves the pixel)
+      const s0 = Inverse.enumerate(p, pr, w, PIX, { leaves: false, reptClosed: false }).rept;
+      if (s0.verdict !== -1) { t.searched++; if (s0.verdict === e.verdict) t.agree++; }
       if (a < cs.R * (1 - NEAR)) { t.inn++; if (e.verdict === vIn && e.nodes === 0) t.inRight0++; }
       else if (a > cs.R * (1 + NEAR)) { t.out++; if (e.verdict === vOut && e.nodes === 0) t.outRight0++; }
       else { t.ring++; if (e.verdict === -1) t.unres++; }
     }
     check(`${cs.name}: every pixel inside the circle (past the pixel's reach) is ${vIn ? 'covered' : 'empty'}, with no root solved`, t.inn > 100 && t.inRight0 === t.inn, JSON.stringify(t));
     check(`... every pixel outside it is ${vOut ? 'covered' : 'empty'}, with no root solved`, t.out > 100 && t.outRight0 === t.out, JSON.stringify(t));
+    check(`... every unresolved pixel lies within ${BAND} px of the circle (the reach band)`, t.wide === 0, JSON.stringify(t));
+    check('... wherever the search alone resolves a pixel, its verdict is the closed form\'s', t.searched > 300 && t.agree === t.searched, JSON.stringify(t));
   }
   // (at x 2 and x 3, where the preimages' spacing is wide, every pixel's verdict equals the brute force over its chains,
   // the closed form deciding over a quarter of them)
