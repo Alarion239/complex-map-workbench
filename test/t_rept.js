@@ -346,20 +346,22 @@ const bruteN = (o, L, w, n) => {
     check(`${cs.name}: every pixel inside the circle (past the pixel's reach) is ${vIn ? 'covered' : 'empty'}, with no root solved`, t.inn > 100 && t.inRight0 === t.inn, JSON.stringify(t));
     check(`... every pixel outside it is ${vOut ? 'covered' : 'empty'}, with no root solved`, t.out > 100 && t.outRight0 === t.out, JSON.stringify(t));
   }
-  // (at x 2 and x 3, where the preimages' spacing is wide, every pixel's verdict equals the brute force over its chains)
-  for (const cs of CASES) for (const n of [2, 3]) {
-    const p = planOf(repOf(cs.expr, n)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape }), L = Region.levelOf(cs.shape);
-    let same = 0, scored = 0, unres = 0;
-    const bad = [];
+  // (at x 2 and x 3, where the preimages' spacing is wide, every pixel's verdict equals the brute force over its chains,
+  // the closed form deciding over a quarter of them)
+  for (const cs of CASES) for (const copies of [2, 3]) {
+    const p = planOf(repOf(cs.expr, copies)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape }), L = Region.levelOf(cs.shape);
+    let same = 0, scored = 0, unres = 0, closed = 0;
+    const wrong = [];
     for (const w of pts) {
-      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, b = bruteN(p.ops[0], L, w, n);
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, b = bruteN(p.ops[0], L, w, copies);
       if (b === null) continue;
       scored++;
+      if (e.nodes === 0 && CX.abs(w) >= PIX) closed++;
       if (e.verdict === b) same++;
       else if (e.verdict === -1) unres++;
-      else if (bad.length < 3) bad.push({ w: [w.re, w.im], got: e.verdict, brute: b });
+      else if (wrong.length < 3) wrong.push({ w: [w.re, w.im], got: e.verdict, brute: b });
     }
-    check(`${cs.name.replace(' x 20', ` x ${n}`)}: every pixel's verdict equals the brute force over its ${3 ** n} chains`, same === scored && scored > 400, `${same}/${scored}, unresolved ${unres}, ${JSON.stringify(bad)}`);
+    check(`${cs.name.replace(' x 20', ` x ${copies}`)}: every pixel's verdict equals the brute force over its ${3 ** copies} chains`, same === scored && scored > 400 && closed * 4 > scored, `${same}/${scored}, closed form ${closed}, unresolved ${unres}, ${JSON.stringify(wrong)}`);
   }
 }
 

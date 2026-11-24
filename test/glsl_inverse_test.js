@@ -605,7 +605,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   // ---- Repeat chains (#1472): the REPT walker's coverage against its CPU twin's (Inverse.enumerate) on the scenes of
   // test/steps_parked_repeat_cmd.js (Newton's step for z^3 - 1: the gallery square at Repeat x 20, the bite box at x 2 and,
-  // pruned through its forward enclosures, at x 20), on a grid over the plane and over the bite box: at every point the
+  // pruned through its forward enclosures, at x 20) and of a repeated monomial on discs, on a grid over the plane and over the bite box: at every point the
   // verdict is the same (covered, empty, unresolved; a coverage below the leaves' 0.03 counts as either side of the edge)
   // and U is within the leaves' 0.03 ----
   if (opts.rept !== false) {
@@ -632,7 +632,12 @@ void main() {
       ['bite x 2', 2, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(BOX, 22).concat(grid(VIEW, 23)).slice(0, 1024)],
       ['bite x 20', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32)],
       // (z^3 x 20 on a disc tangent to |z| = 1 from inside: E_r's radius bound, the walker's radius test)
-      ['tangent disc z^3 x 20', 20, { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3']];
+      ['tangent disc z^3 x 20', 20, { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3'],
+      // (the closed form of a monomial step on a disc, #2375: tangent to 2 z^3's circle |z| = 2^-1/2, across |z| = 1, and
+      // tangent at Repeat x 3, where the closed form decides most points and the search the rest)
+      ['tangent disc 2 z^3 x 20', 20, { id: 'tk', kind: 'disc', c: [0, Math.SQRT1_2 - 0.05], r: 0.05 }, grid(VIEW, 32), '2*z^3'],
+      ['across disc z^3 x 20', 20, { id: 'ac', kind: 'disc', c: [1, 0], r: 0.12 }, grid(VIEW, 32), 'z^3'],
+      ['tangent disc z^3 x 3', 3, { id: 't3', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3']];
     // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
     for (const fastN of [0, PASS_B_FAST]) {
       GLR.setReptFastNodes(fastN);

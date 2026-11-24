@@ -432,6 +432,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       d.repE.set(e && !e.empty ? [e.x0, e.y0, e.x1, e.y1] : [1, 0, -1, 0], 4 * r);
       d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0, e.rad > 0 ? e.rad : -1] : [-1, 0, -1], 3 * r);
     }
+    // the closed form of a monomial step on a disc (already rounded to float32 by Inverse.prepare): (log R, M, |c| / R,
+    // 1 on), (dP, dM, dI), the disc's centre; (0, 1, 0, 0) off
+    const cf = prep.rept && prep.rept.cf;
+    d.repCf = cf ? [cf.lR, cf.M, cf.cn, 1] : [0, 1, 0, 0]; d.repCg = cf ? [cf.dP, cf.dM, cf.dI] : [0, 0, 0]; d.repCc = cf ? [cf.c.re, cf.c.im] : [0, 0];
     const sing = (prep.sing || []).slice(0, 4);
     sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
     d.singN = sing.length;
@@ -724,6 +728,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
     if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
     if (P.loc.uIxRepS) gl.uniform3fv(P.loc.uIxRepS, d.repS);
+    if (P.loc.uIxRepCf) { gl.uniform4fv(P.loc.uIxRepCf, d.repCf); gl.uniform3fv(P.loc.uIxRepCg, d.repCg); gl.uniform2fv(P.loc.uIxRepCc, d.repCc); }
     u1i(P, 'uIxRepNodes', reptNodes);
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))

@@ -41,7 +41,7 @@ const Inverse = (() => {
     opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    reptNode, reptEnclose, reptDisc
+    reptNode, reptEnclose, reptDisc, reptMono
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -1310,6 +1310,7 @@ const Inverse = (() => {
           if (!empty && ![e.x0, e.x1, e.y0, e.y1].every(Number.isFinite)) return null;
           return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc, rad } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc, rad };
         }),
+        cf: shape.kind === 'disc' && !shape.complement ? reptClosedForm(rp.P, rp.Q, rp.n, shape) : null,
       };
     }
     prep.ok = !reason; prep.reason = reason;
@@ -1328,6 +1329,44 @@ const Inverse = (() => {
       if (!(v.re < e.x0 - mb || v.re > e.x1 + mb || v.im < e.y0 - mb || v.im > e.y1 + mb)) return false;
     }
     return !(e.esc > 0 && abs(v) * (1 + REPT_ROUND * REPT_U) + m >= e.esc * (1 - REPT_ROUND * REPT_U));
+  }
+  // |eta| below this: the closed form's x = e^eta - 1 by its Taylor series to eta^4 (its remainder under float32's ulp of
+  // x); above it e^eta - 1, with the slack for exp's own error
+  const REPT_CF_TAYLOR = 0.03;
+  // the closed form of a monomial step k z^d repeated n times on a disc D(c, r) (reptClosed): the preimages of w are
+  // the M = d^n points z with z^M = w / k^((M - 1) / (d - 1)), equally spaced on the circle |z| = rho,
+  // rho = R e^((log|w| - log R) / M) about the invariant circle |z| = R = |k|^(-1 / (d - 1)). In units of R, as float32
+  // as the GPU reads them: lR = log R, M, cn = |c| / R, dP = (|c| + r) / R - 1, dM = (|c| - r) / R - 1,
+  // dI = (r - |c|) / R - 1 (the circle inside the disc below it), c the centre (the covering leaf's point). null when the
+  // step is not a monomial (or R is not finite)
+  function reptClosedForm(P, Q, n, shape) {
+    const mn = reptMono(P, Q);
+    if (!mn || !(mn.d >= 2) || !(mn.k > 0)) return null;
+    const lR = -Math.log(mn.k) / (mn.d - 1), R = Math.exp(lR), cl = Math.hypot(shape.c[0], shape.c[1]), r = shape.r;
+    if (!(R > 0 && Number.isFinite(R) && r >= 0)) return null;
+    const f = Math.fround;
+    return { lR: f(lR), M: f(mn.d ** n), cn: f(cl / R), dP: f((cl + r) / R - 1), dM: f((cl - r) / R - 1), dI: f((r - cl) / R - 1), c: cx(f(shape.c[0]), f(shape.c[1])) };
+  }
+  // the closed form's verdict v at a point w of pixel px (w units, |dz/dw| at the REPT op times the pixel: pix at the
+  // plan's first op), and dz = |dz/dw| = rho / (M |w|) at every preimage: v 1 covered (a preimage lies REPT_AA_REACH pixels' reach inside the disc), 0 empty (every
+  // preimage lies that reach outside it), -1 neither (the search decides). x = rho / R - 1; the reach f = REPT_AA_REACH
+  // pixels times |dz/dw| = rho / (M |w|), in units of R; the slack sl covers the float32 steps (log, the division by M,
+  // the uniforms). Covered: the circle lies inside the disc shrunk by f, or it crosses that disc along an arc of
+  // half-width a with sin^2(a / 2) > sin^2(pi / (2M)) (1 + tol), wider than the preimages' spacing: one of them lies in
+  // it, whatever arg w. sin^2(a / 2) = (dP - f - x)(x - dM - f) / (4 (1 + x) cn), the law of cosines in factors
+  function reptClosed(cf, w, px) {
+    const a = abs(w);
+    if (!(a > 0 && a < Infinity)) return { v: -1, dz: 0 };
+    const tol = REPT_ROUND * REPT_U, la = Math.log(a), eta = (la - cf.lR) / cf.M, sm = Math.abs(eta) < REPT_CF_TAYLOR;
+    const x = sm ? eta * (1 + eta * (1 / 2 + eta * (1 / 6 + eta / 24))) : Math.exp(eta) - 1;
+    const sl = tol * (Math.abs(x) + (Math.abs(la) + Math.abs(cf.lR) + 1) / cf.M + (sm ? 0 : (1 + Math.abs(x)) * (1 + Math.abs(eta))));
+    const f = REPT_AA_REACH * px * (1 + Math.abs(x)) / (cf.M * a) * (1 + tol);
+    if (x > cf.dP + f + sl || x < cf.dM - f - sl) return { v: 0, dz: 0 };
+    const dz = Math.exp(cf.lR) * (1 + x) / (cf.M * a);
+    if (x < cf.dI - f - sl) return { v: 1, dz };
+    const u = cf.dP - f - x - sl, v = x - cf.dM - f - sl, h = Math.PI / (2 * cf.M);
+    if (u > 0 && v > 0 && cf.cn > 0 && u * v / (4 * (1 + Math.abs(x) + sl) * cf.cn) > h * h * (1 + tol)) return { v: 1, dz };
+    return { v: -1, dz };
   }
   // the float32 at or below (above) x
   function f32dn(x) { const y = Math.fround(x); return y <= x ? y : Math.fround(y - Math.max(Math.abs(y) * 2 ** -23, 2 ** -149)); }
@@ -1457,6 +1496,18 @@ const Inverse = (() => {
     const reptRec = (j, Lf) => {
       const o = ops[j], { P, Q, n } = o.p, E = prep.rept ? prep.rept.E : null;
       const pruned = (v, dv, r, J) => reptPruned(E && E[r], v, dv, pix * Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])));
+      // (a monomial step on a disc: the closed form decides first, with no root solved; a covered pixel's leaf is the
+      // disc's centre at the preimages' |dz/dw|)
+      const cf = prep.rept && prep.rept.cf;
+      if (cf) {
+        const sc = Math.sqrt(Math.abs(Lf.J[0] * Lf.J[3] - Lf.J[1] * Lf.J[2])), vc = reptClosed(cf, Lf.u, pix * sc);
+        if (vc.v === 0) { rst.pruned++; return null; }
+        if (vc.v === 1) {
+          const dz = vc.dz, J = Lf.J;
+          rec(j - 1, { u: cf.c, J: [dz * J[0], dz * J[1], dz * J[2], dz * J[3]], JL: null, lvl: Lf.lvl, lg: Lf.lg, lam: null, anc: null, rdel: 0, path: paths ? (Lf.path ? Lf.path + ' ' : '') + `${j}:c` : Lf.path });
+          return null;
+        }
+      }
       if (pruned(Lf.u, 0, n, Lf.J)) { rst.pruned++; return null; }
       const full0 = nFull;
       const go = (v, dv, depth, J, path) => {
@@ -2056,7 +2107,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH, REPT_CF_TAYLOR,
     stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
