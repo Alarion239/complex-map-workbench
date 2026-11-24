@@ -2763,7 +2763,11 @@
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
-    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
+    // (under the carried colour, as the plane's frame paints it (svRenderMoving's colour): the arrival plane's own colour
+    // when it is a coloured plane, so that a place no point of the glide reaches shows what plane b draws there at rest,
+    // not the bare globe. SV.restPaint 0 leaves it out, as on the plane)
+    const under = inv && map.mode === 1 && SV.restPaint !== 0 && svColoured(b) && !svMaskOn() ? { colorMap: svColourMap(b), carryBase: true } : null;
+    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }, under))
       : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
     if (!inv && !(info && info.carried) && near === b && b !== a) info = sphereView(pane, camL, CAML, look(b));
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
