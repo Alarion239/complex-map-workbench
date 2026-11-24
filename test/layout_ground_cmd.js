@@ -3,7 +3,9 @@
 // chip's card (#draftChipL), whose background is the light or dark surface at 0.92. The card has pointer-events: none (taps
 // go through to the plane), so it is not among the elements at the buttons' centres; the check also counts the text's own
 // ancestors above the canvas, and finds the card. Every landscape phone size, in English and Russian, light and dark.
-// (control: with the card's background made transparent on the page, the check reports the × and ? as having no ground)
+// (controls: with the card's background made transparent on the page, the check reports the × and ? as having no ground;
+// with the card as it is and the × moved off it onto the bare canvas, the check reports the ×: the card counts only where
+// it lies under the text)
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/layout_ground_cmd.js
 // Prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -31,6 +33,18 @@ for (const [w, h] of [[568, 320], [640, 360], [667, 375], [740, 360]]) for (cons
     const bare = await ev(`(() => { const c = document.getElementById('draftChipL'), was = c.style.background; c.style.background = 'transparent'; const r = ${CHIP}; c.style.background = was; return r; })()`);
     info[tag + ', the card transparent'] = bare;
     ok(`${tag}, the card made transparent: the check reports the × and ? with no ground (control)`, Array.isArray(bare) && bare.filter((v) => v.check === 'no-ground').length >= 2, bare);
+    // (the × moved right, off the opaque card, to where its centre is over the canvas and nothing else: the first offset
+    // that gets there; the card keeps its background)
+    const off = await ev(`(() => { const c = document.getElementById('draftChipL'), x = c.querySelector('button.cm-x'), was = x.style.transform;
+      for (const dx of [40, 60, 80, 100, 120, -400, -460]) {
+        x.style.transform = 'translateX(' + dx + 'px)';
+        const b = x.getBoundingClientRect(), k = c.getBoundingClientRect(), st = document.elementsFromPoint((b.left + b.right) / 2, (b.top + b.bottom) / 2);
+        const offCard = (b.left + b.right) / 2 > k.right || (b.left + b.right) / 2 < k.left;
+        if (offCard && st[0] === x && st[1] && st[1].tagName === 'CANVAS') { const r = ${CHIP}; x.style.transform = was; return { dx, found: r }; }
+      }
+      x.style.transform = was; return { dx: null }; })()`);
+    info[tag + ', the × off the card'] = off;
+    ok(`${tag}, the × moved off the opaque card onto the bare canvas: the check reports it with no ground (control)`, off && off.dx != null && off.found.some((v) => v.check === 'no-ground' && /cm-x/.test(v.el)), off);
   }
 }
 return { pass: fails.length === 0, fails, info };
