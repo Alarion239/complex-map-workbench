@@ -708,6 +708,9 @@
     }
     return m + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="${lw}"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="${lw}"/></g>`;
   }
+  // a key's lines, centred on kx, lh apart from baseline to baseline, the tallest glyph of them at y: each set by its
+  // baseline, so the pitch is the same whatever letters a line has («цвет» has nothing above the x-height, «перенесён» has «ё»)
+  const keyLines = (its, kx, y, lh) => { const a = Math.max(0, ...its.map((it) => it.a)); return its.map((it, j) => XD.at(it, kx, y + a + j * lh, 'middle', 'base', 'key')); };
   // the key of a plane past the colour plane, in a column keyW pt wide centred on kx whose top is y: the ring, then the line
   // saying where the colour is carried from, wrapped to the column's width, the plane's name in math. Returns its items and
   // the y its last line ends at
@@ -716,7 +719,7 @@
     const items = [ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, lw), ...ringMarks(kx, ky, R, tp)];
     const lns = keyWrap(carried.text, keyW - 2, (t) => XD.tex(keyWithName(t, carried.from), tp));
     const y0 = ky + R + 1.5 + lh + 2;
-    lns.forEach((ln, j) => items.push(XD.at(XD.tex(keyWithName(ln, carried.from), tp), kx, y0 + j * lh, 'middle', 'top', 'key')));
+    items.push(...keyLines(lns.map((ln) => XD.tex(keyWithName(ln, carried.from), tp)), kx, y0, lh));
     return { items, bottom: y0 + lns.length * lh + 2 };
   }
   // a key's words in lines no wider than w pt, each as set by tex(line) (a word wider than w is a line of its own)
@@ -822,10 +825,10 @@
           for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
           items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="${P.lw.frame}"/>`);
           items.push(XD.at(XD.tex(keyTxt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
-          per.forEach((ln, j) => items.push(XD.at(perTex(ln), kx, sy + sh + 1.5 + j * lh, 'middle', 'top', 'key')));
+          items.push(...keyLines(per.map(perTex), kx, sy + sh + 1.5, lh));
           yy = sy + sh + 1.5 + per.length * lh;
         }
-        cap.forEach((ln, j) => items.push(XD.at(capTex(ln), kx, yy + 2 + j * lh, 'middle', 'top', 'key')));
+        items.push(...keyLines(cap.map(capTex), kx, yy + 2, lh));
       } else {
         items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
         items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'ring-mark'));

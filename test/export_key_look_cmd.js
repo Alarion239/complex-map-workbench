@@ -10,6 +10,8 @@
 // - A carried key stands clear of the axis titles ("Re w₂" at the real axis's end, past the picture): every mark and word
 //   at least KEY_TITLE_CLEAR pt from every axis-name box, in the plain still and in the Two planes figure, in English,
 //   Russian and Italian.
+// - A carried key's lines are evenly pitched, baseline to baseline, whatever their letters: in English and Russian («цвет»
+//   has nothing above the x-height, «перенесён» has «ё»), in the plain still and in Two planes.
 // A command file for a CDP daemon:  <runner> test/export_key_look_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -17,6 +19,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const KEY_CLEAR = 8;
 // pt between a carried key's marks and words and the axis titles (glyph boxes)
 const KEY_TITLE_CLEAR = 2;
+// pt the baseline pitch between a key's lines may vary by
+const PITCH_TOL = 0.05;
 // the key may overshoot the figure's width by this much (SVG units)
 const FIT_SLACK = 0.01;
 // ms for the page to settle and for a figure build plus its PDF
@@ -32,7 +36,7 @@ const look = async (tag, opts, want = {}) => {
     const ims = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number));
     const key = f.boxes.filter((b) => b.kind === 'ring-mark' || b.kind === 'key'), names = f.boxes.filter((b) => b.kind === 'axis-name');
     return { view: f.view, W: f.W, H: f.H, keyLine: f.info && f.info.keyLine || null, svgImages: (f.svg.match(/<image\\b/g) || []).length, pdfImages: (s.match(/\\/Subtype\\s*\\/Image\\b/g) || []).length, ims,
-      key: key.map((b) => ({ k: b.kind, tex: b.tex, x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 })), names: names.map((b) => ({ tex: b.tex, x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 })) }; })().then((r) => { window.__xkl = r; }, (e) => { window.__xkl = { err: String(e && e.stack || e) }; }); 1`);
+      key: key.map((b) => ({ k: b.kind, tex: b.tex, x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1, base: b.base })), names: names.map((b) => ({ tex: b.tex, x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 })) }; })().then((r) => { window.__xkl = r; }, (e) => { window.__xkl = { err: String(e && e.stack || e) }; }); 1`);
   await settled({ until: 'window.__xkl != null', max: BUILD_TIMEOUT_MS, panes: false });
   const r = await ev('window.__xkl');
   ok(`${tag}: a figure builds`, r && !r.err && !r.none, r && (r.err || r));
@@ -50,6 +54,13 @@ const look = async (tag, opts, want = {}) => {
     // (box axes have no axis titles: nothing to stand clear of)
     ok(`${tag}: the carried key stands at least ${KEY_TITLE_CLEAR} pt from every axis title`, !worst || worst.gap >= KEY_TITLE_CLEAR, { closest: worst, titles: r.names.map((t) => t.tex) });
     info[tag + ' (titles)'] = worst;
+  }
+  // (a carried key's lines, under its ring, one under another: their baselines are the same distance apart for every pair)
+  const col = r.key.filter((b) => b.k === 'key').sort((a, b) => a.base - b.base);
+  if (want.carried && col.length >= 2) {
+    const pitch = col.slice(1).map((b, i) => +(b.base - col[i].base).toFixed(2));
+    ok(`${tag}: the key's lines are evenly pitched, baseline to baseline`, Math.max(...pitch) - Math.min(...pitch) <= PITCH_TOL, { lines: col.map((b) => b.tex), pitch });
+    info[tag + ' (pitch)'] = pitch;
   }
   // (the picture: the largest image, the rightmost of equals; the key stands right of it)
   const pic = r.ims.slice().sort((p, q) => q[2] * q[3] - p[2] * p[3] || q[0] - p[0])[0];
