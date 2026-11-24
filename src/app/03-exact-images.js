@@ -791,7 +791,7 @@
   // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
   function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
-    const refused = refusedPanes.has(pane) ? $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched.') : '';
+    const refused = refusedPanes.has(pane) ? $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.') : '';
     if (!quiet) refusedPanes.delete(pane);
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its

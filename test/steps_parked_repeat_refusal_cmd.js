@@ -4,7 +4,7 @@
 // scene (c = 1, r = 0.12) is parked on plane 1, Inside regions:
 // - the control: each scene's path is `forward`, its reason `chain too long` (the plan's own: __cmwPaths);
 // - the plane is covered by the grey no-value hatch (#1444's measure: the share of the plane's pixels in the hatch's grey), and
-//   says why in a note on the pane and in its LED's tip (red);
+//   says why in a note on the pane, in its LED's tip (red) and in the pane's description for a screen reader;
 // - controls: the same step repeated twice (a plan takes it: the exact image, no hatch, no note), and the twenty copies with the
 //   colour Everywhere (the plane's colour needs no regions: no hatch, no note).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
@@ -15,7 +15,7 @@ const VIEW_W = 1200, VIEW_H = 800, VIEW_SCALE = 140, SETTLE_LONG = 60000, NEXT_I
 const COPIES = 20, FEW = 2;                // the repeat counts: more ops than a plan holds, and few
 const HATCH_SPREAD = 3, HATCH_LO = 100, HATCH_HI = 130;   // #1444's measure of the hatch's grey
 const HATCH_MIN_SHARE = 0.8, HATCH_MAX_SHARE = 0.02;      // of the plane's pixels: covered, and not covered
-const NOTE = 'This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched.';
+const NOTE = 'This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.';
 const ready = () => settled({ max: SETTLE_LONG, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
 const { PARKED_DRAWN, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
 await view(VIEW_W, VIEW_H, false, false);
@@ -38,7 +38,8 @@ const look = () => ev(`(() => {
   let h = 0;
   for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) <= ${HATCH_SPREAD} && d[i] >= ${HATCH_LO} && d[i] <= ${HATCH_HI}) h++;
   const led = document.getElementById('leftLed');
-  return { share: h / (d.length / 4), note: __cmwNoteBox('L'), tip: led && led.getAttribute('data-tip'), led: led && led.className, paths: __cmwPaths() };
+  const say = document.getElementById('overlayLSay'), cv = document.getElementById('overlayL');
+  return { share: h / (d.length / 4), note: __cmwNoteBox('L'), tip: led && led.getAttribute('data-tip'), led: led && led.className, said: say ? say.textContent : null, described: cv ? cv.getAttribute('aria-describedby') : null, paths: __cmwPaths() };
 })()`);
 for (const sc of SCENES) {
   await open(sc, COPIES, false);
@@ -47,10 +48,11 @@ for (const sc of SCENES) {
   ok(`${sc.name} ×${COPIES}: no plan takes it: the regions' path is forward, "chain too long" (control)`, a.paths.length === 1 && a.paths[0].path === 'forward' && a.paths[0].reason === 'chain too long', a.paths);
   ok(`${sc.name} ×${COPIES}: the parked plane is covered by the grey no-value hatch`, a.share >= HATCH_MIN_SHARE, a.share);
   ok(`${sc.name} ×${COPIES}: a note on the pane, and the LED's tip, say why`, !!a.note && a.tip === NOTE && /\berr\b/.test(a.led || ''), { note: a.note, tip: a.tip, led: a.led });
+  ok(`${sc.name} ×${COPIES}: the sentence is the pane's description for a screen reader`, a.said === NOTE && a.described === 'overlayLSay', { said: a.said, described: a.described });
   await open(sc, FEW, false);
   const b = await look();
   info[sc.name + ' few'] = b;
-  ok(`${sc.name} ×${FEW}: a plan takes it: no hatch, no note (control)`, b.share <= HATCH_MAX_SHARE && !b.note && b.tip !== NOTE, { share: b.share, note: b.note, tip: b.tip, paths: b.paths });
+  ok(`${sc.name} ×${FEW}: a plan takes it: no hatch, no note (control)`, b.share <= HATCH_MAX_SHARE && !b.note && b.tip !== NOTE && b.said !== NOTE, { share: b.share, note: b.note, tip: b.tip, said: b.said, paths: b.paths });
   await open(sc, COPIES, true);
   const c = await look();
   info[sc.name + ' everywhere'] = c;

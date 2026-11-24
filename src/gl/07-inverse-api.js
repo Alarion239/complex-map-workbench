@@ -1148,29 +1148,28 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the frame (invFrame) whose stencil holds REPT marks, and the hatch over the marked pixels: the grey no-value hatch,
   // opaque, then the marks cleared. False when its program is not ready
   let repMarkFrame = -1;
-  // the grey no-value hatch over the whole frame open, opaque (a plane whose image is nowhere known: a refused repeat's).
-  // False when its program is not ready
-  function hatchAll(dpr) {
-    const Q = ok && program('reptHatch');
-    if (!Q) return false;
+  // the grey no-value hatch of program Q over the frame open, opaque: where the stencil holds the marks (marked), else everywhere
+  function hatchPass(Q, dpr, marked) {
     use(Q);
     u1f(Q, 'uDpr', dpr || 1);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (marked) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); }
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
+  }
+  // the hatch over the whole frame open (a plane whose image is nowhere known: a refused repeat's). False when its program is
+  // not ready
+  function hatchAll(dpr) {
+    const Q = ok && program('reptHatch');
+    if (!Q) return false;
+    hatchPass(Q, dpr, false);
     return true;
   }
   function reptHatchFill(dpr) {
     const Q = ok && program('reptHatch');
     if (!Q || repMarkFrame !== invFrame) return false;
-    use(Q);
-    u1f(Q, 'uDpr', dpr || 1);
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
-    gl.bindVertexArray(empty());
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.bindVertexArray(null);
+    hatchPass(Q, dpr, true);
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     repMarkFrame = -1;
     return true;

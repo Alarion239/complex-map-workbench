@@ -854,5 +854,5 @@
  "A video records a glide along the chain, which only the steps view has": "Видео записывает переход по цепочке, а он есть только в виде шагов",
  "Play the chain, or pause it": "Воспроизвести цепочку или поставить на паузу",
  "Paths t ↦ Hₜ(z) on or off": "Показать или скрыть пути t ↦ Hₜ(z)",
- "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched.": "Этот повтор слишком длинный, чтобы рисовать его точно: образ областей здесь неизвестен, и плоскость заштрихована."
+ "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Этот повтор слишком длинный, чтобы нарисовать его точно: образ областей здесь неизвестен, и плоскость заштрихована. С меньшим числом копий рисунок получается точным."
 }
