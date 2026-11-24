@@ -15,6 +15,8 @@
   // the steps, as a share of the ring, in which a waiting control's description gives the ring's fill (svWaitLook): it
   // changes at most 1 / SV_WAIT_SAY_STEP times a wait
   const SV_WAIT_SAY_STEP = 0.1;
+  // svReady's parts with nothing counted inside them: done or not, one unit each (svGateFill)
+  const SV_GATE_WHOLE = ['warm', 'rept', 'redraw'];
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
@@ -61,14 +63,21 @@
     requestRender('L');
     svWaitRestore(g);
   }
-  // The Play gate's gauge for its wait g: the share of what svReady(g.M) counts that is done, or null while it has no
-  // total (unknown: the ring stands at SV_GATE_UNKNOWN_FILL, svWaitLook). With frames drawn ahead (the part ahead),
-  // which are made only once all else is ready, all else fills the ring up to SV_GATE_PREP_SHARE and the frames fill
-  // what is left of it, from where it stood when they started (g.aheadFrom): from 0 when all else was ready at once, so
-  // that the ring reads the share of the frames made
+  // The Play gate's gauge for its wait g: the share of what svReady(g.M) counts that is done, or null while it is not
+  // measured: while svReady has no total, and while the counted parts (the programs, the jobs) are done and only parts
+  // with nothing counted inside them are left (SV_GATE_WHOLE: the warm draw, a REPT draw's tiles, a pane's redraw; on
+  // a REPT chain the warm draw's machine code takes seconds, and one unit of eighteen would stand the ring at 94 %).
+  // Unknown, the ring keeps its arc and shows the rest as unknown (svWaitLook). With frames drawn ahead (the part
+  // ahead), which are made only once all else is ready, all else fills the ring up to SV_GATE_PREP_SHARE and the
+  // frames fill what is left of it, from where it stood when they started (g.aheadFrom): from 0 when all else was
+  // ready at once, so that the ring reads the share of the frames made
   function svGateFill(g) {
     const r = svReady(g.M), a = r.parts.ahead;
     if (!r.total) return null;
+    let whole = 0, wholeDone = 0;
+    for (const k of SV_GATE_WHOLE) if (r.parts[k]) { whole += r.parts[k].total; wholeDone += r.parts[k].done; }
+    const counted = r.total - whole - (a ? a.total : 0), countedDone = r.done - wholeDone - (a ? a.done : 0);
+    if (wholeDone < whole && countedDone === counted) return null;
     if (!a) return r.done / r.total;
     const restT = r.total - a.total, restD = r.done - a.done;
     if (restD < restT) return SV_GATE_PREP_SHARE * restD / restT;
@@ -76,12 +85,14 @@
     return g.aheadFrom + (1 - g.aheadFrom) * a.done / a.total;
   }
   // The look of a control that waits for the programs (the Play gate's, and ▶ in a hold in the middle of a play): its
-  // icon a cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing the
-  // glide… 40 %", the fill in whole steps of SV_WAIT_SAY_STEP: the ring's progress for a screen reader, read when the
-  // control has the focus or is asked for. While the gauge is unknown (null) the ring stands at SV_GATE_UNKNOWN_FILL and
-  // the control is described "Preparing the glide…" alone, as no share is measured (a description, so a change of it is
-  // not announced; the live region says "Preparing the glide…" once). w: {btn, keep, fill, gauge?, hung?} and, for the
-  // gate's, M and aheadFrom (svGateFill); kept so svWaitRestore gives the control back as it was
+  // icon a cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing
+  // the glide… 40 %", the largest share measured (w.said) in whole steps of SV_WAIT_SAY_STEP: the ring's progress for
+  // a screen reader, read when the control has the focus or is asked for (a description, so a change of it is not
+  // announced; the live region says "Preparing the glide…" once). While the gauge is unknown (null) the ring keeps the
+  // arc it had (SV_GATE_UNKNOWN_FILL before any), shows the rest of it as unknown (data-wait "unknown": a segment
+  // sweeping round it, desk.css) and the control is described "Preparing the glide…" alone. w: {btn, keep, fill, said,
+  // gauge?, hung?} and, for the gate's, M and aheadFrom (svGateFill); kept so svWaitRestore gives the control back as
+  // it was
   function svWaitLook(w) {
     const B = w.btn;
     if (!w.keep) {
@@ -90,13 +101,14 @@
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
     B.toggleAttribute('aria-busy', true);
-    B.dataset.wait = w.hung ? 'hung' : 'busy';
     const v = w.gauge ? w.gauge() : svGateFill(w);
+    B.dataset.wait = w.hung ? 'hung' : v == null ? 'unknown' : 'busy';
     w.fill = Math.max(w.fill || 0, v == null ? SV_GATE_UNKNOWN_FILL : v);
+    if (v != null) w.said = Math.max(w.said || 0, v);
     B.style.setProperty('--wait', String(w.fill));
     B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
-    const p = Math.round(100 * SV_WAIT_SAY_STEP * Math.floor(w.fill / SV_WAIT_SAY_STEP + 1e-9));
+    const p = Math.round(100 * SV_WAIT_SAY_STEP * Math.floor((w.said || 0) / SV_WAIT_SAY_STEP + 1e-9));
     B.setAttribute('aria-description', v == null ? $t('Preparing the glide…') : $t('Preparing the glide… {p} %', { p: I18N.num(p) }));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
   }
