@@ -21,9 +21,27 @@ ok('commentOf: an html comment', commentOf('<!-- note -->', 'a.html') === ' note
 ok('assertionsOf: calls, not definitions or comments', assertionsOf('ok(\'a\', 1); check(2); assert.equal(1, 1);', 'a.js') === 3 && assertionsOf('const ok = (n, c) => c; function check(x) {}', 'a.js') === 0 && assertionsOf('x(); // ok(1)', 'a.js') === 0);
 
 // history
-for (const c of ['// the map was clamped to the disc', '// used to be a table', '// now it caches the table', '// replaces the loop', '// previously global', '// no longer uses the table',
+for (const c of ['// the map was clamped to the disc', '// used to be a table', '// now it caches the table', '// replaces the old loop', '// previously global', '// no longer uses the table',
   '// instead of the old table', '// v17 only', '// after beta.3', '// wave 14 batch', '// fixed in #552', ' * after #587']) {
   ok(`history: ${c}`, rules('src/app/x.js', [c.startsWith(' *') ? c : `const a = 1; ${c}`]).some((r) => r.startsWith('history:')), rules('src/app/x.js', [c]));
+}
+// `replaces` alone says what the code does now (the lines of src/ that said so); beside a word for the past it is history
+const PRESENT = [
+  '// «кривая, 5 точек», |Im z| < π/2), never its TeX source; MathJax replaces it once it is ready)',
+  '// wait for a toast that offers Undo, so this note never replaces it',
+  '// SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs',
+  '// SPEC 8: a published SphereMesh of the globe (valid while the globe\'s radius is within 2x) replaces the lifted',
+  '// a complete search replaces the in-view roots; the tracked ones outside the view are kept (they may come back)',
+  '// o.state(...) replaces S\'s shapes / targets / steps through the load path (sanitizeState), o.anchor sets the GPU anchor',
+];
+for (const c of PRESENT) ok(`history: replaces in the present tense is clean: ${c.slice(0, 60)}`, rules('src/app/x.js', [`const a = 1; ${c}`]).length === 0, rules('src/app/x.js', [c]));
+for (const c of ['// replaces the old table', '// replaces the former loop', '// replaces the classic renderer', '// replaces the legacy path', '// the filter replaces an old version',
+  '// was replaced by the filter', '// used to replace the loop', '// replaces the loop (v16.4)']) {
+  ok(`history: replaces beside a word for the past is history: ${c}`, rules('src/app/x.js', [`const a = 1; ${c}`]).some((r) => r.startsWith('history:')), rules('src/app/x.js', [c]));
+}
+// (a known limit: `previous`, `earlier`, `original` and `prior` also read in the present tense, so `replaces` beside them is not read)
+for (const c of ['// each frame replaces the previous one', '// the pick replaces the earlier pick', '// the copy replaces the original in S.shapes', '// a run replaces the prior result']) {
+  ok(`history: replaces beside a word that also reads in the present tense is not read: ${c}`, rules('src/app/x.js', [`const a = 1; ${c}`]).length === 0, rules('src/app/x.js', [c]));
 }
 ok('history: a clean comment is clean', rules('src/app/x.js', ['// clamps the radius to the unit disc', 'const knowing = 1; // known']).length === 0);
 for (const c of ['// no longer than the pane', '// where it was set by the user', '// the value is now 3', '// it was a loop in the draft', '// now or never', '/** the clock */ o.now = 1;']) {
@@ -41,11 +59,15 @@ for (const c of ['// K1 item 3', '// #620 item 2', '// step 2 of #620', '// [v17
 ok('plan: K1 item is a plan label', rules('ci/x.js', ['// K1 item 3']).join() === 'plan:a plan label');
 // (review and verify labels, bracketed or in parentheses: the labels of a review round's findings)
 for (const c of ['/* [review user-11] a definition wraps */', '/* (r3 review user-7: a chevron after the count) */', '// [verify-1] it goes first',
-  '// Russian only (verify-5): a comma', '/* (r3 verify-2: x stays in the row) */', '// ([check app-5] at the foot)', '// (UX20) the key']) {
+  '// Russian only (verify-5): a comma', '/* (r3 verify-2: x stays in the row) */', '// ([check app-5] at the foot)', '// (UX20) the key',
+  '// it ends the hold (r3 review regress-1)', '// (review v16 regress-6: saved from here on)', '// (r3 review fix pass) a lit part',
+  '// 27 to 38 fps orbiting, r3 review speed-1)', '/* (r3 review: the row keeps the full width) */',
+  '// (review regress-7: a rebuilt panel destroys its old mount)', '// ([v16.5 fix regress-6] F(z) of the probe)']) {
   ok(`plan: a review label: ${c}`, rules('src/x.js', [c]).some((r) => r === 'plan:a review label'), rules('src/x.js', [c]));
 }
 for (const c of ['// a review of the user\'s settings', '// verify that the map is entire', '// check the app state, then the user', '// the UX of the strip',
-  '// review step 2', '/* --user-1: a custom property */']) {
+  '// review step 2', '/* --user-1: a custom property */', '// a review of the panel', '// the r3 tour', '// a regression in the speed',
+  '// regress to the old view', '// the speed-up of the mesh', '// as it is seen (notes/sea-song/r2 review picture-3)']) {
   ok(`plan: prose is not a review label: ${c}`, !rules('src/x.js', [c]).some((r) => r === 'plan:a review label'), rules('src/x.js', [c]));
 }
 ok('plan: a suite under test/ may name the review finding its rows pin', rules('test/ux165_plane_cmd.js', ['// UX52: a refused pick in the chip']).length === 0

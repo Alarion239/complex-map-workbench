@@ -19,7 +19,13 @@
 //   own over the glide, as the sheets-off carry's scale does.
 // - The same arrival in a small window about 0 (s = 900, SMALL), where the carried points reach the whole window, so
 //   the sheets-off frame is all but the parked plane: All sheets at most its share plus ARRIVE_SLACK. Most of that
-//   window is drawn by the carry's far patches, which the sheets' rim must not take for the box's edge.
+//   window is drawn by the carry's far patches, which the sheets' rim must not take for the box's edge. Möbius then √:
+//   bare where the parked plane has surface at most BARE_SLACK pixels more often than sheets off. √'s branch point lies
+//   outside the carried box (z = i), so it needs a pole patch of its own (svLandBranches), or its far patch's stretched
+//   cells leave a hole about w = 0. Its patch reaches as far as the far patch's cells there, which straddle √'s cut out
+//   of i and are torn: sheets off at u = .998, coloured from z (T = z, so the carry is from plane z), no point of √'s
+//   sector (|arg w| < p pi - EDGE, p from the map at 0, on the cut) within NEAR_0 of 0 is bare. (A patch of the box's
+//   cells' size filled only part of that hole: a flap of surface with a bare notch beside it)
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -34,6 +40,8 @@ const surface = async (keep) => {
 // the share of the surface pixels of the frame now or of the frame kept as tag (saturation over 30) that are over
 // 32/255 apart from each other in a channel
 const apart = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, e = window.__lcKeep[${JSON.stringify(tag)}]; const sat = (a, i) => Math.max(a[i], a[i + 1], a[i + 2]) - Math.min(a[i], a[i + 1], a[i + 2]) > 30; let n = 0, far = 0; for (let i = 0; i < d.length; i += 4) { if (!sat(d, i) && !sat(e, i)) continue; n++; if (Math.max(Math.abs(d[i] - e[i]), Math.abs(d[i + 1] - e[i + 1]), Math.abs(d[i + 2] - e[i + 2])) > 32) far++; } return +(far / Math.max(n, 1)).toFixed(4); })()`);
+// the pixels bare (saturation 30 or less) in the kept frame tag where the kept frame ref has surface
+const bare = (tag, ref) => ev(`(() => { const A = window.__lcKeep[${JSON.stringify(tag)}], B = window.__lcKeep[${JSON.stringify(ref)}]; const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > 30; let n = 0; for (let i = 0; i < A.length; i += 4) if (sat(B, i) && !sat(A, i)) n++; return n; })()`);
 const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
 const LOG = [{ type: 'log', params: { cut: 180, k: 0 }, on: true }];
 const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
@@ -41,6 +49,8 @@ const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: 
 // also the topmost row within 3 px of the plane's; sheets off, the footprint is the baseline of the same chain's All
 // sheets; arrive: the arrival row against the parked plane)
 const ARRIVE_SLACK = 0.05;
+const BARE_SLACK = 20;  // the arrival: the pixels All sheets may leave bare beyond the sheets-off frame's
+const EDGE = 0.02, NEAR_0 = 0.2;  // √'s sector about w = 0 at the arrival in the small window
 const CASES = [
   { name: 'log of an annulus, sheets off', steps: LOG, shapes: ANN, sheets: false, min: 0.95, patched: true },
   { name: 'log of an annulus, All sheets', steps: LOG, shapes: ANN, sheets: true, min: 0.95, top: true, base: 'log of an annulus, sheets off', patched: true, arrive: true },
@@ -103,9 +113,22 @@ for (const [name, steps] of [['Möbius, √', MOB], ['log', LOG]]) {
     await surface('rest');
     await ev(`__cmwSteps({ x: ${last - 0.002} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
     const carry = await ev('__cmwLandCarry()');
-    r[sheets ? 'on' : 'off'] = { far: await apart('rest'), carried: !!carry, sheetPlaces: !!(carry && carry.sheetPlaces) };
+    await surface('f998');
+    r[sheets ? 'on' : 'off'] = { far: await apart('rest'), carried: !!carry, sheetPlaces: !!(carry && carry.sheetPlaces), bare: await bare('f998', 'rest') };
+    if (name === 'Möbius, √' && !sheets) {
+      // (coloured from z, so the carry is from plane z, where √'s branch point i lies outside the box)
+      await ev('__cmwSteps({ T: 0 }); 1'); await ev(`__cmwSteps({ x: ${last - 0.002} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+      r.sector = await evJson(`JSON.stringify((() => {
+        const c = __cmwLandCarry(), w = __cmwEval('cpuMap', c.map, [[0, 0]])[0], p = Math.abs(Math.atan2(w[1], w[0])) / Math.PI;
+        return Object.assign({ p, s: c.s, polar: (c.polar || []).map((q) => [...q]) }, __cmwLandCover(480, 400, true, [], (x, y) => Math.abs(Math.atan2(y, x)) < p * Math.PI - ${EDGE} && Math.hypot(x, y) < ${NEAR_0}));
+      })())`);
+      ok(`${name}, s = ${SMALL}, sheets off at u = .998: no point of √'s sector within ${NEAR_0} of 0 is bare`, r.sector.n > 0 && r.sector.bare === 0, r.sector);
+    }
   }
   ok(`${name}, s = ${SMALL}, All sheets at u = .998: each sheet over its own image`, r.on.carried && r.on.sheetPlaces, r);
   ok(`${name}, s = ${SMALL}, All sheets at u = .998: at most ${r.off.far} + ${ARRIVE_SLACK} of the surface pixels apart from the plane it arrives at, parked, as sheets off`, r.on.far <= r.off.far + ARRIVE_SLACK, r);
+  if (name === 'Möbius, √') {
+    ok(`${name}, s = ${SMALL}, All sheets at u = .998: bare where the parked plane has surface no more often than sheets off (+ ${BARE_SLACK} px)`, r.on.bare <= r.off.bare + BARE_SLACK, r);
+  }
 }
 return { pass: !fails.length, fails, info };

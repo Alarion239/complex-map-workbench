@@ -2,7 +2,7 @@
   // what Phone.init gets: the app's side of the phone layout
   function phoneApi() {
     return {
-      icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
+      icons: ICONS, modeIcons: MODE_ICONS,
       // (the steps view's surface, for the plane's Sphere key: null outside the steps view)
       svSphere: () => svSphereKey(), svOnSphere: () => (SV.on ? SV.surf === 'sphere' : null),
       showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
@@ -36,6 +36,7 @@
       // (the steps view's Display sheet is the colour panel: it names the shown plane)
       displayTitle: () => (SV.on ? `${$t('Colour')} · ${svName(svStage())}` : ''),
       scopeSeg: () => (SV.on ? svSheetScope() : null),   // the Display sheet's scope switch (null outside the steps view)
+      stackSeg: () => (SV.on && SV.surf === 'stack' ? stackSeg('sv-sheet-stack') : null),   // the Display sheet's Tilt | Look down | Plane, on the Stack (19-stack.js)
       targetNote: () => (SV.on ? svTargetNote() : null),   // what the shown plane draws or shades from shapes on later planes: the Display sheet's first line
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),

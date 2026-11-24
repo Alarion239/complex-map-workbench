@@ -9,13 +9,16 @@
 //   the screen draws the glide's frame k, byte for byte, at k = 0, 1, N/2 and N-1; control: frame k+1 is not;
 // - (b) cost: a frame shown from them costs at most 14 ms to draw (__cmwTime, the pane read back), and it was shown
 //   from them;
-// - shown: with the clock running, the glide shows its frames, and they go at its end;
+// - shown: with the clock running, the glide shows its frames, and they go at its end; __cmwSteps().carryPre describes
+//   the frame shown (0: the inverse pass's frames have no pre-mapped draws);
 // - live frames: the visits that make the frames ask for none (they put dirty.L and renderAsks back): at most LIVE_MAX
 //   frames are drawn on the screen while the frames are made, the page's own (a program landing, a status note's
 //   timer; 2 on lavapipe), not one a frame made;
 // - (d) a budget of 0 bytes: the glide plays live at once and says why once, after the plane's label it arrives at
 //   ("<label>. The glide draws as it goes: …"); control: with the default budget it says nothing of the kind;
 // - play: a Play (no loop) that plays live for time says why after the words of its stop, which stay, with a full stop;
+// - loop: a looping Play that plays live for time says why with the words of its first crossing drawn, once, and not again in the
+//   loop's next pass (a page of its own);
 // - cancel: Esc while the frames are made drops them, and no glide starts;
 // - resume: Play paused on its frames and pressed again plays on at once with the same frames;
 // - (c) an edit drops them: the colour's sectors changed mid-glide, the next frame is drawn live;
@@ -132,6 +135,9 @@ await rest(0);
   const m = await S();
   info.shown = m.ahead && { shown: m.ahead.shown, glide: m.glide };
   ok('shown: the glide shows its frames drawn ahead as it runs', !!m.ahead && m.ahead.shown > 20, m.ahead);
+  // (a frame shown from them brings its own count of the carried colour's pre-mapped draws: the inverse pass's frames have none)
+  const cp = await ev('__cmwSteps().carryPre');
+  ok('shown: __cmwSteps().carryPre describes the frame shown from them (the inverse pass\'s: no pre-mapped draws)', cp === 0, { carryPre: cp });
   await settled({ only: true, max: 60000, until: '!__cmwSteps().moving' });
   const end = await S();
   ok('shown: the glide ends on plane 1, and its frames go', end.x === 1 && !end.ahead, end);
@@ -297,6 +303,28 @@ await rest(0);
   } finally {
     if (held) await releaseIdle();
   }
+}
+// ---- loop: a looping Play that plays live for time says why with the words of its first crossing drawn, once ----
+// (a page of its own: a chain's note is said once per page; the chain's cost is measured by a first glide, as in the first section)
+{
+  await openState('loop');
+  await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'all', surf: 'plane', ahead: { ms: 0, waitMs: ${WAIT_MS} } }), 1`);
+  await rest(0);
+  await ev('__cmwSteps({ clock: 1000 / 60, go: 1 }), 1');
+  await settled({ only: true, max: 60000, until: '!__cmwSteps().moving' });
+  const probed = await settled({ only: true, max: WAIT_MS, until: '(() => { const p = __cmwSteps().aheadProbe; return !!p && p.state === "done"; })()' });
+  await rest(0);
+  await ev(WATCH);
+  await ev('__cmwSteps({ ahead: { waitMs: 1 }, loop: true }), __live = [], 1');
+  await ev('__cmwSteps({ clock: 1000 / 60, play: true }), 1');
+  // (two passes of the loop: the second crossing is the third text)
+  const passes = await settled({ only: true, max: WAIT_MS, until: '__live.length >= 4' });
+  await ev('__cmwSteps({ play: false, loop: false, ahead: { waitMs: ' + WAIT_MS + ' } }), 1');
+  const texts = await ev('__live.slice()');
+  info.loop = { probed: probed.ok, passes: passes.ok, texts };
+  ok('loop: the chain\'s cost is measured and the loop passes twice (control)', probed.ok && passes.ok, info.loop);
+  ok('loop: the play\'s words come first, and the note is joined to the label of the first crossing drawn, after a full stop', texts.length > 1 && texts[0].startsWith('Playing from ') && texts[1].endsWith('. ' + TIME) && !texts[1].startsWith('Playing from '), texts);
+  ok('loop: it says it once, in the pass after the first as well', texts.filter((x) => x.includes(TIME)).length === 1, texts);
 }
 await ev('__cmwSteps({ clock: 0, ahead: { ms: null, waitMs: null, cap: null } }), 1');
 return { pass: fails.length === 0, fails, info };

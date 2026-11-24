@@ -289,6 +289,8 @@
   // the steps view's Opacity sliders' least, the plane's (svOpacity) and the Landscape's (svLandOpacity, a saved landAlpha)
   const SV_OPACITY_MIN = 0.3;
   // the sheets drawn on each side of an infinitely sheeted step's principal one (S.sheetW, the Landscape's "sheets ±"):
+  // smoothstep(a, b, x): 0 below a, 1 above b, and between them the cubic with no slope at either end
+  const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   // SHEET_W_MIN to SHEET_W_MAX, SHEET_W_DEFAULT when unset; sheetWOf(w): w within them
   const SHEET_W_MIN = 1, SHEET_W_MAX = 4, SHEET_W_DEFAULT = 2;
   const sheetWOf = (w) => Math.max(SHEET_W_MIN, Math.min(SHEET_W_MAX, Math.round(w) || SHEET_W_DEFAULT));
@@ -903,7 +905,7 @@
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
   // the pane a merged view shows alone ('L': Phase, Landscape; 'R': X → Y with the deformation), else the expanded
   // pane of the split view (S.solo) or null
-  const solo = () => (SV.on ? 'L' : Views.merged(S.view, morphOn()) || (S.view.main === 'xy' ? S.solo : null));
+  const solo = () => (SV.on ? 'L' : Views.merged(S.view) || (S.view.main === 'xy' ? S.solo : null));
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)

@@ -6,6 +6,7 @@
     try {
       gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
       if (!gl) return false;
+      shadowUniforms(gl);
       // (the GLSL library's sin and cos for this renderer, before the first program: GLChain.useRenderer, #1739)
       GLChain.useRenderer(gl);
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
@@ -37,13 +38,14 @@
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = standInTex = standInKey = ptsTex = rtFbo = null;
         peel = null; peelOn = 0; peelSeen = 0; peelQ = null; landPeel = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
+        reptAccs.clear(); ctxGen++;
         lands.clear(); lastLand = landS = null;
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
         rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null;
         maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
         GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
-        rtOK = !!gl.getExtension('EXT_color_buffer_float');
+        rtOK = !!gl.getExtension('EXT_color_buffer_float'); halfOK = null;
         ok = true; lost = false;
         prestart(PRESTART_2D);
         if (api.onRestore) api.onRestore();
@@ -382,23 +384,31 @@
   // share the frame's viewport and scissor); layer j keeps the fragments behind layer j-1's key (PRE_KEY's uPeelOn: the
   // previous layer's depth, two 32-bit float depth textures alternating), and one pass composites them into the frame,
   // each layer at a, the farthest opaque
-  const PEEL_MAX = 8, PEEL_UNIT = 7, KMIN_UNIT = 6;
+  // (KPOS_UNIT is also the inverse pass's uHalf, which binds it for its own draws: the resolve binds it again in resBind
+  // before each pass 2, and drawAll's draws inside a resolved frame are carried meshes alone)
+  const PEEL_MAX = 8, PEEL_UNIT = 7, KMIN_UNIT = 6, KPOS_UNIT = 5;
   let peel = null, peelBad = false;
   // the layers that drew something in the last frame whose occlusion queries have answered (0: none known): the next
   // frame draws one layer more, which shows a layer that has appeared, and no more
   let peelSeen = 0, peelQ = null;
   let peelOn = 0;   // the 1-based layer being drawn, 0 outside carryLayers
   let layerFrames = 0;   // the frames carryLayers composited (the tests read it: carryLayerFrames)
-  let resOn = 0, resBand = 0;   // carryResolve's pass (1, 2; 0 outside it) and its band, in units of the key's s
+  let resOn = 0, resBand = 0, resOrd = 0;   // carryResolve's pass (1, 2; 0 outside it), its band in units of the key's s, and the rotation's order its last frame tested the orbit of (0: none; the tests read it: carryResolveOrd)
+  let kposBad = false;   // the source points' float target cannot be drawn into here: the resolve ties by the band alone
+  // EXT_color_buffer_half_float: the source points' target is RG16F where RG32F cannot be drawn into. Asked for there
+  // alone, the first time (null: not yet), so a context that draws into RG32F enables no extension for it
+  let halfOK = null;
+  const halfOn = () => halfOK ?? (halfOK = !!gl.getExtension('EXT_color_buffer_half_float'));
   let resFrames = 0;   // the frames carryResolve drew (the tests read it: carryResolveFrames)
   function peelFree() {
     if (!peel) return;
     gl.deleteFramebuffer(peel.fbo); gl.deleteTexture(peel.col); peel.dep.forEach((t) => gl.deleteTexture(t));
     if (peel.kmin) gl.deleteTexture(peel.kmin);
+    if (peel.kpos) gl.deleteTexture(peel.kpos);
     peel = null;
   }
-  // -> {W, H, n, fbo, col (RGBA8 array of n layers), dep, kmin (resMin's, made on its first use)}, or null when the target
-  // is not complete
+  // -> {W, H, n, fbo, col (RGBA8 array of n layers), dep, kmin and kpos (resMin's, made on their first use)}, or null when the
+  // target is not complete
   function peelTarget(n) {
     const W = gl.drawingBufferWidth, H = gl.drawingBufferHeight;
     if (peel && peel.W === W && peel.H === H && peel.n >= n) return peel;
@@ -437,23 +447,32 @@
   // of s). Below full opacity carryLayers does pass 1 the same way and peels its layers in that order. -> null: no target
   // (nothing was drawn, the caller draws as without it); else draw()'s last result (false: a pass failed, nothing reached
   // the frame)
-  function carryResolve(band, draw) {
+  function carryResolve(band, draw, ord = 0) {
     if (!ok || peelBad || peelOn || resOn) return null;
     const T = peelTarget(1);
     if (!T) return null;
-    let done = resMin(T, band, draw);
+    let done = resMin(T, band, draw, ord);
     if (!done) return false;
     try {
-      gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin);
+      resBind(T);
       resOn = 2;
       done = draw();
     } finally { resOn = 0; }
     if (done) resFrames++;
     return done;
   }
-  // pass 1 of the resolve into target T: draw() with the key alone, its colour masked, into T.kmin (made here, a 32-bit float
-  // depth of T's size), which each pixel's smallest key is left in; -> draw()'s result
-  function resMin(T, band, draw) {
+  // pass 2's textures: each pixel's smallest key and, with a rotation's order, the front fragment's source point
+  function resBind(T) {
+    gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin);
+    gl.activeTexture(gl.TEXTURE0 + KPOS_UNIT); gl.bindTexture(gl.TEXTURE_2D, resOrd ? T.kpos : null);
+  }
+  // pass 1 of the resolve into target T: draw() with the key alone into T.kmin (made here, a 32-bit float depth of T's size),
+  // which each pixel's smallest key is left in, and with a rotation's order ord > 1 each fragment's source point, less the
+  // key window's centre, into T.kpos (made here: RG32F, or RG16F with half floats alone, whose 11 bits are then relative
+  // to the window wherever the centre is; carryProbe.kpos 'half' or 'none' takes the lesser path), which keeps the front
+  // one's; with no float target
+  // there (kposBad), ord is dropped and the band alone ties; -> draw()'s result
+  function resMin(T, band, draw, ord = 0) {
     if (!T.kmin) {
       T.kmin = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin);
@@ -462,14 +481,31 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
     resBand = band;
+    const fmt = carryProbe.kpos === 'none' || kposBad ? 0 : rtOK && carryProbe.kpos !== 'half' ? gl.RG32F : halfOn() ? gl.RG16F : 0;
+    resOrd = ord > 1 && fmt ? ord : 0;
+    if (resOrd && T.kpos && T.kposFmt !== fmt) { gl.deleteTexture(T.kpos); T.kpos = null; }
+    if (resOrd && !T.kpos) {
+      T.kpos = gl.createTexture(); T.kposFmt = fmt;
+      gl.activeTexture(gl.TEXTURE0 + KPOS_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kpos);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, fmt, T.W, T.H);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
     try {
       gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
-      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, T.col, 0, 0);
+      if (resOrd) gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, T.kpos, 0);
+      else gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, T.col, 0, 0);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, T.kmin, 0);
-      // (the units the programs sample hold other textures than the one they draw into)
+      if (resOrd && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        kposBad = true; resOrd = 0;
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, T.col, 0, 0);
+      }
+      // (the units the programs sample hold other textures than the ones they draw into)
       gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[0]);
       gl.activeTexture(gl.TEXTURE0 + PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[1]);
-      gl.colorMask(false, false, false, false);
+      gl.activeTexture(gl.TEXTURE0 + KPOS_UNIT); gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.colorMask(!!resOrd, !!resOrd, false, false);
+      if (resOrd) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
       resOn = 1;
       return draw();
     } finally { resOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
@@ -489,7 +525,7 @@
   // the order it resolves, the tied sheets by their tie order, so each layer is one sheet where they tie too. The band is
   // about the front group's key alone: a second group of tied sheets behind it (z³ + z⁶'s outer ring of three) peels by
   // the key's own order)
-  function carryLayers(alpha, draw, band = null) {
+  function carryLayers(alpha, draw, band = null, ord = 0) {
     if (!ok || peelBad || peelOn || resOn) return null;
     let n = Math.min(PEEL_MAX, invK(alpha));
     if (n < 2) return null;
@@ -502,8 +538,8 @@
     if (!T) return null;
     let done = true, nq = null;
     if (band != null) {
-      done = resMin(T, band, draw);
-      if (done) { resOn = 2; gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin); }
+      done = resMin(T, band, draw, ord);
+      if (done) { resOn = 2; resBind(T); }
     }
     // (the layers hold alpha: the frame's write mask does not apply to them)
     gl.colorMask(true, true, true, true);
@@ -717,7 +753,9 @@
   function keyUniforms(Q, k) {
     u1i(Q, 'uKeyOn', k ? 1 : 0);
     u1i(Q, 'uPeelOn', k && peelOn > 1 ? 1 : 0); u1i(Q, 'uPeelD', PEEL_UNIT);
-    u1i(Q, 'uKRes', k ? resOn : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
+    // (uKRes: the pass, and the frame's rotation's order in pass 2; one vector, as the chain's uniform slots are counted)
+    u2i(Q, 'uKRes', k ? resOn : 0, k && resOn === 2 ? resOrd : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
+    u1i(Q, 'uKPos', KPOS_UNIT);
     if (!k) return;
     const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
     sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });

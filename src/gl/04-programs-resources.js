@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uCEdges: 13, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15,
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uCEdges: 13, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uAcc: 15, uIxRepPrev: 15,
     // (the Landscape relief's layers, landLayers: the previous layer's depth and the colour layers; the plane's own layers
     // set uPeelD for each draw)
     uPeelD: 16, uBehind: 17,
@@ -256,6 +256,30 @@
     carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
     landLayers: { chain: false, vs: () => QUAD_VS, fs: () => LAND_LAYERS_FS },
     keepA: { chain: false, vs: () => QUAD_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
+    // a REPT draw's accumulation target (drawInverse's reptDraw) into the pane: its pixels (uAccMode 0); the same less
+    // the unresolved marks (1, 0, 0, 0) of a region mask's pass (1); the marks alone, for the stencil (2); the continue
+    // marks (0, 1, 0, 0) alone, for the occlusion query of the second pass's tiles (3). uAccOff: the target's origin in
+    // the framebuffer, device px
+    reptAcc: { chain: false, vs: () => QUAD_VS, fs: () => `uniform highp sampler2D uAcc;
+uniform vec2 uAccOff;
+uniform int uAccMode;
+out vec4 o;
+void main() {
+  vec4 c = texelFetch(uAcc, ivec2(gl_FragCoord.xy - uAccOff), 0);
+  bool m = c.a == 0.0 && c.r > 0.5;
+  if (uAccMode == 3) { if (!(c.r == 0.0 && c.g > 0.5 && c.b == 0.0 && c.a == 0.0)) discard; o = vec4(0.0); return; }
+  if (uAccMode == 2) { if (!m) discard; o = vec4(0.0); return; }
+  if (uAccMode == 1 && m) discard;
+  o = c;
+}
+` },
+    // the grey no-value hatch of dcolorAt's NaN, opaque (GLR.reptHatchFill: over a REPT plan's unresolved pixels)
+    reptHatch: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + `uniform float uDpr;
+out vec4 o;
+void main() {
+  o = vec4(nanHatch(gl_FragCoord.xy, uDpr), 1.0);
+}
+` },
   };
   // The carried colour's layers (GLR.carryLayers) order the sheets by the key of each fragment's source point, as the exact
   // pass does (the vertex stage's depth is interpolated across a triangle, so two triangles of one sheet, or two sheets
@@ -1463,9 +1487,13 @@ float wabs(vec2 w) {
   // first ones wait on the JIT: an estimate on the high side). The entry's L is its template size, which drawLines
   // draws it at. null when not even size 1 fits (res.cpuNo then keeps the map and chain, so later frames do not try
   // again), res has no source segments (the chain has evaluated it), or the CPU twin throws. cpuLines keeps the last
-  // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms} (tests: GLR.lineStandIns)
+  // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms, ev (evaluations made)} (tests:
+  // GLR.lineStandIns). The
+  // budget is a time, so the size depends on how fast the machine runs the probe: ?glline=ms (tests) sets it, a large
+  // one fixes the size at M
   const CPU_LINE_MS = 25, CPU_LINE_PROBE = 8, CPU_LINE_LOG = 8, cpuLines = [];
-  const cpuLineNote = (n, m, t0) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1) }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
+  const cpuLineMs = (() => { try { const v = +new URLSearchParams(location.search).get('glline'); return v > 0 ? v : CPU_LINE_MS; } catch (err) { return CPU_LINE_MS; } })();
+  const cpuLineNote = (n, m, t0, ev) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1), ev }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
   function cpuEntry(res, M, map, cpuOf) {
     if (!res.src) return null;
     const want = `${M}|${mapKeyOf(map)}|${cur.key}|${cur.hash}`;
@@ -1473,7 +1501,7 @@ float wabs(vec2 w) {
     if (!res.tf) res.tf = new Map();
     for (const o of res.tf.values()) if (o.cpu && o.want === want) return touch(o);
     const t0 = performance.now(), d = res.src, ox = res.org[0], oy = res.org[1];
-    let F;
+    let F, evals = 0;
     try { F = cpuOf(); } catch (err) { console.error('line stand-in', err); return null; }
     // the values at template size m, or the time per evaluation measured when they would not fit what is left
     const run = (m) => {
@@ -1487,12 +1515,13 @@ float wabs(vec2 w) {
       for (let j = 0, o = 0; j < res.n; j++) {
         const ax = ox + d[j * LSTRIDE], ay = oy + d[j * LSTRIDE + 1], bx = ox + d[j * LSTRIDE + 2], by = oy + d[j * LSTRIDE + 3];
         for (const t of ts) {
+          evals++;
           const w = F({ re: ax + t * (bx - ax), im: ay + t * (by - ay) });
           vals[o++] = w ? w.re : NaN; vals[o++] = w ? w.im : NaN;
         }
-        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > CPU_LINE_MS) {
+        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > cpuLineMs) {
           const now = performance.now(), per = (now - r0) / ((j + 1) * ts.length);
-          if (now - t0 + per * (res.n - j - 1) * ts.length > CPU_LINE_MS) return { per };
+          if (now - t0 + per * (res.n - j - 1) * ts.length > cpuLineMs) return { per };
         }
       }
       return { vals, W, H, P: ts.length };
@@ -1502,12 +1531,12 @@ float wabs(vec2 w) {
       for (;;) {
         got = run(m);
         if (got.vals) break;
-        const left = CPU_LINE_MS - (performance.now() - t0), per = got.per;
+        const left = cpuLineMs - (performance.now() - t0), per = got.per;
         m = [4, 2, 1].find((k) => k < m && res.n * (2 * k + 1) * per <= left);
-        if (!m) { res.cpuNo = want; cpuLineNote(res.n, 0, t0); return null; }
+        if (!m) { res.cpuNo = want; cpuLineNote(res.n, 0, t0, evals); return null; }
       }
     } catch (err) { console.error('line stand-in', err); return null; }
-    cpuLineNote(res.n, m, t0);
+    cpuLineNote(res.n, m, t0, evals);
     const { vals, W, H, P } = got, tex = floatTex();
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, vals);
