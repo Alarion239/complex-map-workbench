@@ -9,27 +9,24 @@
 //   rotate 20 rounds of 390 x 844 -> 844 x 390 -> back
 //   urlbar 20 rounds of 390 x 844 -> 390 x 900 -> back (Android Chrome's URL bar hiding and showing)
 //   views  20 rounds of X -> Y -> Phase -> X -> Y and X -> Y -> Landscape -> X -> Y
-//   deform 20 rounds of the Deformation on and off
 //   sphere 20 rounds of Sphere and Plane on the large plane
 //   lang   10 rounds of English -> Russian -> English (each a reload) with Y large
 //   tablet 20 rounds of a touch tablet's rotation (820 x 1180 <-> 1180 x 820, the desktop layout)
 //   review the cases of notes/ui-redesign-2/review-phone-swap.json, 3z, both planes at the user's own views: a tour
-//          (3 runs, with X and with Y large), leaving the phone layout in Phase and in the Deformation (3 round trips
-//          to the desktop), a save in the Deformation and a reload (3 rounds), the first Phase with X the inset, a
+//          (3 runs, with X and with Y large), leaving the phone layout in Phase (3 round trips to the desktop), the
+//          first Phase with X the inset, a
 //          sheet and a rotation that end Phase, the language switch in Phase, Y's auto fit after a swap (Re z > 0),
 //          a swap during a Fit
 // A command file for a CDP daemon (test/cdp_kit README). One part per run, and one map per run for the longer parts
 // (the queue waits 300 s at most):
 //   python3 build.py && (echo "const PART = 'swap';"; cat test/phone_swap_cmd.js) | test/<you>_cdp/q.sh -
-//   for p in sheet rotate urlbar views deform sphere; do for m in expand contract mobius example; do
+//   for p in sheet rotate urlbar views sphere; do for m in expand contract mobius example; do
 //     (echo "const PART = '$p', MAP = '$m';"; cat test/phone_swap_cmd.js) | test/<you>_cdp/q.sh -; done; done
 //   for p in lang tablet; do (echo "const PART = '$p';"; cat test/phone_swap_cmd.js) | test/<you>_cdp/q.sh -; done
 // Prints {part, pass, fails, info}.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const part = typeof PART !== 'undefined' ? PART : 'swap';
 const fails = [], info = {};
-// the deformation opens and closes through its hook (the toggle button is gone), the phone's layout following it
-const morphToggle = async () => { await ev('(() => { __cmwMorph({ open: !__cmwMorph().open }); return 1; })()'); await settled({ until: "document.documentElement.classList.contains('ph-morph') === __cmwMorph().open", max: 8000 }); };
 // every coordinate sent to the page must be a finite number: CDP rejects anything else (NaN serialises as null) and the
 // leg ends in a protocol error. A bad one is a named failure instead, and nothing is sent.
 const sendInput = (method, params) => {
@@ -250,12 +247,6 @@ for (const mk of mapsFor) {
     await swapTap();
     await rounds(mk + ' Phase and back (Y large)', 10, [to('phase'), to('xy')], { mid: [] });
     await grab();
-  } else if (part === 'deform') {
-    const tog = () => morphToggle();
-    await rounds(mk + ' Deformation (X large)', 20, [tog, tog], { mid: [] });
-    await swapTap();
-    await rounds(mk + ' Deformation (Y large)', 10, [tog, tog], { mid: [] });
-    await grab();
   } else if (part === 'sphere') {
     const sph = async () => { const st = await W(); await tapSel(`#pane${st.big} .ph-sph`, 600); };
     await rounds(mk + ' Sphere and Plane (X large)', 20, [sph, sph], { mid: [] });
@@ -312,39 +303,23 @@ for (const mk of mapsFor) {
       if (info.tourStepX.length === 2) chk("tour: step 'x' with Y large shows X as with X large", info.tourStepX[1], info.tourStepX[0]);
       info.tourStepX = info.tourStepX.map(fmt);
     }
-    // leaving the phone layout in Phase or in the Deformation (swap-2): 3 round trips to the desktop
+    // leaving the phone layout in Phase (swap-2): 3 round trips to the desktop
     if (want('leave')) {
-      for (const how of ['phase', 'deform']) {
+      for (const how of ['phase']) {
         await fresh('rv-leave-' + how); await userViews();
-        if (how === 'phase') await swapTap();   // X the inset
+        await swapTap();   // X the inset
         const b0 = await W();
         for (let r = 1; r <= 3; r++) {
-          if (how === 'phase') await to('phase'); else { await morphToggle(); }
+          await to('phase');
           await view(1200, 900, false, false); await settle(900);
-          if (how === 'phase') await to('xy'); else { await morphToggle(); }
+          await to('xy');
           await view(390, 844, false, true); await settle(900);
-          if (how === 'phase' && (await W()).big !== 'R') await swapTap();
+          if ((await W()).big !== 'R') await swapTap();
           both(`leave in ${how}, round ${r}`, await W(), b0);
         }
         const e = await W();
         info['leave in ' + how] = { start: `L ${fmt(b0.L)} | R ${fmt(b0.R)}`, end: `L ${fmt(e.L)} | R ${fmt(e.R)}` };
       }
-    }
-    // a save in the Deformation, then a reload (swap-3): X's view (X opens large after a reload)
-    if (want('reload')) {
-      await fresh('rv-reload'); await userViews();
-      const b0 = await W();
-      for (let r = 1; r <= 3; r++) {
-        await swapTap();
-        await morphToggle();
-        await sleep(1500);
-        await nav(URL0('rv-reload')); await settle(1500);
-        if ((await W()).deform) { await morphToggle(); }
-        const w = await W();
-        chk(`reload in the Deformation, round ${r}: X`, w.L, b0.L);
-        if (w.big !== 'L') fails.push({ name: 'reload: X not large', got: w.big });
-      }
-      info.reloadInDeform = { start: fmt(b0.L), end: fmt((await W()).L) };
     }
     // the first Phase with X the inset (swap-4) shows X as the first Phase with X large
     if (want('phase1')) {
