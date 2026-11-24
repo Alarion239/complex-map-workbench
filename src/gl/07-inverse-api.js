@@ -423,13 +423,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       d.stopT.set([T[0].re, T[0].im, T[1].re, T[1].im, T[2].re, T[2].im, T[3].re, T[3].im]);
     }
     // a REPT plan's forward enclosures E_r (already rounded to float32 by Inverse.prepare): the box (x0, y0, x1, y1) and
-    // (the escape bound or -1, 1 when there is no box); the whole plane as x0 > x1 with no escape bound
+    // (the escape bound or -1, 1 when there is no box, the radius bound or -1); the whole plane as x0 > x1 with no
+    // escape bound
     const nE = GLChain.reptLevels();
-    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(2 * nE);
+    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(3 * nE);
     for (let r = 0; r < nE; r++) {
       const e = prep.rept && prep.rept.E[r];
       d.repE.set(e && !e.empty ? [e.x0, e.y0, e.x1, e.y1] : [1, 0, -1, 0], 4 * r);
-      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0] : [-1, 0], 2 * r);
+      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0, e.rad > 0 ? e.rad : -1] : [-1, 0, -1], 3 * r);
     }
     const sing = (prep.sing || []).slice(0, 4);
     sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
@@ -722,7 +723,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxAB) gl.uniform4fv(P.loc.uIxAB, d.AB);
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
     if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
-    if (P.loc.uIxRepS) gl.uniform2fv(P.loc.uIxRepS, d.repS);
+    if (P.loc.uIxRepS) gl.uniform3fv(P.loc.uIxRepS, d.repS);
     u1i(P, 'uIxRepNodes', reptNodes);
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
