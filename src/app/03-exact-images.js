@@ -99,18 +99,20 @@
   // polylines), is drawn on pane (svOutlines, the colour plot's outlines): always but under a REPT plan, whose
   // copies' expansion can scatter the carried boundary. There it is drawn while the boundary stays resolved: every
   // piece of every segment maps, on the CPU twin, to finite ends at most REPT_PIECE_PX px apart, unless both ends lie
-  // past the same side of the pane, where the piece draws nothing on it. A Repeat ×2 keeps the shape's outline, as
-  // every other step does; past that (a Repeat ×20) the exact fill's own edge is the only outline. Cached on r by its
-  // lines, map and view
+  // past the same side of a box around the pane, where the piece draws nothing on it. The rule is the resolution, not
+  // the number of copies: the bite at ×2 keeps its outline, the gallery's ×20 does not.
+  // Cached on r by its lines, map, scale and the pane's size and place to half a pane: the box is the pane widened by
+  // a pane on each side about that place, so a pan checks again only once it moves half a pane
   function reptOutline(map, r, pane) {
     if (!reptExact(map)) return true;
     const ps = r.lpolys, v = pane.view;
     if (!ps || !ps.length) return false;
-    const key = `${r.lineKey}|${r.refKey}|${mapKeyOf(map)}|${v.cx},${v.cy},${v.s}|${pane.w}x${pane.h}`;
+    const hw = pane.w / 2 / v.s, hh = pane.h / 2 / v.s, gx = Math.round(v.cx / hw), gy = Math.round(v.cy / hh);
+    const key = `${r.lineKey}|${r.refKey}|${mapKeyOf(map)}|${v.s}|${pane.w}x${pane.h}|${gx},${gy}`;
     if (r.reptLine && r.reptLine.key === key) return r.reptLine.ok;
-    const F = cpuMap(map), hw = pane.w / 2 / v.s, hh = pane.h / 2 / v.s, lim = REPT_PIECE_PX / v.s;
-    const x0 = v.cx - hw, x1 = v.cx + hw, y0 = v.cy - hh, y1 = v.cy + hh;
-    // (the sides of the pane a point lies past, one bit each)
+    const F = cpuMap(map), lim = REPT_PIECE_PX / v.s, cx = gx * hw, cy = gy * hh;
+    const x0 = cx - 3 * hw, x1 = cx + 3 * hw, y0 = cy - 3 * hh, y1 = cy + 3 * hh;
+    // (the sides of the box a point lies past, one bit each)
     const past = (w) => (w.re < x0 ? 1 : 0) | (w.re > x1 ? 2 : 0) | (w.im < y0 ? 4 : 0) | (w.im > y1 ? 8 : 0);
     let ok = true;
     lines: for (const p of ps) {
