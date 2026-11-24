@@ -135,7 +135,9 @@ await cam(-30, 35);
 
 // ---- the edits survive a reload and a link
 {
-  const sq = await square(), to = await onGlass([1.4, 0]);
+  // (out to c + 0.45: far enough on the foreshortened glass to be a drag, past the pick's slop)
+  const sq = await square(), to = await onGlass([1.55, 0]);
+  info.saved = { sq, to };
   if (sq && to) await dragTo(false, sq, to);
   const a = await onGlass([1.1, 0.3]), b = await onGlass([1.0, 0.3]);
   await dragTo(false, a, b);
@@ -144,7 +146,7 @@ await cam(-30, 35);
   await ev(`(Params.encodeLink(__cmwFigureState()).then((p) => { window.__seLink = p; }), 1)`);
   let payload = null;
   for (let i = 0; i < 50 && !payload; i++) { await sleep(100); payload = await ev('window.__seLink || null'); }
-  info.saved = { d0 };
+  Object.assign(info.saved, { d0 });
   await open(1440, 900, false, { st: null, ns: NS });
   const d1 = await disc();
   info.saved.reload = d1;
