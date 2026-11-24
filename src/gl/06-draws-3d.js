@@ -1444,9 +1444,12 @@
       // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, and they a little behind
       // their depth (further than the pole patches' offset), so it is the one shown where a copy meets it or nearly
       // coincides with it: under |F| a root's other sheet has the principal's height, and early in a glide its copy lies
-      // in the principal surface's place on triangles of its own, which a tie in depth would show pixel by pixel)
+      // in the principal surface's place on triangles of its own, which a tie in depth would show pixel by pixel.
+      // A seam (band) is twice as far behind: it fills the slit the surfaces leave along the cut's image, and where it
+      // meets them there, on their steep walls, its finer triangles about the turned cut would come out in front at a
+      // copy's offset and draw a translucent band down the cut)
       info.copies = 0;
-      if (st.carry.copies && st.carry.copies.length) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(4, 32); }
+      if (st.carry.copies && st.carry.copies.length) gl.enable(gl.POLYGON_OFFSET_FILL);
       for (const [i, cp] of (st.carry.copies || []).entries()) {
         cp.draw(() => {
           if (!carryReady(st.carry.map)) return;
@@ -1455,6 +1458,7 @@
           const n = band ? SEAM_N : N, sc = band ? Object.assign({}, st, { carry: Object.assign({}, st.carry, { src: band }) }) : st;
           const o = carryHeights(sc, n, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {}));
           setUp(band || sb);
+          gl.polygonOffset(band ? 8 : 4, band ? 64 : 32);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, o.tex1);
           gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, o.tex2);
           u1i(Pc, 'uN', o.N);
