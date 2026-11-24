@@ -8,8 +8,8 @@
 const Examples = (() => {
   let A = null;
   let EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit,
-    defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph,
-    nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
+    drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph,
+    nSteps, newShape, onPaneResize, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
     setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
@@ -109,7 +109,6 @@ const Examples = (() => {
     // (a new scene: every view starts from its own fitted plane)
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     morph.open = false; morph.T = 0; morph.seg = null; morph.playing = false;
-    defMem.y = null; defMem.d = null; defMem.dkey = '';
     // an example with a melody shows its Try line before the layout, so its plane is fitted with the
     // line's room already taken (shown after the fit, the line pushed the spiral's top out of the plane)
     const laned = !spec && (ex.song || ex.shapes.some((sh) => sh.listen)) && sndPieceHint(true);
@@ -162,13 +161,12 @@ const Examples = (() => {
     commit();
     // (what opened, with Undo, when there is work to go back to; the button names it until an edit)
     if (!spec) { A.exAt = A.hi; exLabelSync(); if (A.hi > 0) undoToast($t('Opened {name}.', { name: ex.name })); }
-    if (ex.morph || ev.deform) openTransport();
     if (piece && !spec && !laned) sndPieceHint();
     // every other example says what to try, in the tour's docked line, Show me starting the chapter about
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
     if (!spec && !piece && !(opt && opt.quiet) && exTryText(ex) && Tour.lane && !laned) {
       Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: exTryText(ex), drop: 'title', onClose: exTryStop,
-        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics', opener: Tour.helpAnchor() }); } }] });
+        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics', opener: Tour.asker() }); } }] });
       exTryWatch(ex);
     }
   }
@@ -322,9 +320,10 @@ const Examples = (() => {
   // The guide's sections are the h3 blocks. Each is wrapped, so the contents row can jump to it and the search can fold
   // the others away; a section about something the tour teaches ends in Show me, which starts that chapter
   function guideNav(m, close) {
-    // (the steps view's tour has Planes and Playing the chain where the classic tour has Views and Deformation)
+    // (the steps view's tour has Planes and Playing the chain where the classic tour has Views; the Deformation section is
+    // the steps view's only)
     const chap = (/** @type {string} */ id, /** @type {string} */ sv) => (Tour.chapters().some((/** @type {any} */ c) => c.id === id) ? id : sv);
-    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), chap('views', 'planes')], [$t('Deformation'), chap('deform', 'playing')], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
+    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), chap('views', 'planes')], [$t('Deformation'), 'playing'], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
       [$t('Zeros and poles'), 'edit'], [$t('Export'), 'export']];
     const secs = [];
     for (const hd of [...m.querySelectorAll('h3')]) {
@@ -334,7 +333,7 @@ const Examples = (() => {
       sec.append(hd);
       for (let e = sec.nextElementSibling; e && e.tagName !== 'H3' && !e.classList.contains('modal-foot');) { const nx = e.nextElementSibling; sec.append(e); e = nx; }
       const show = SHOW.find(([t]) => t === hd.textContent.trim());
-      if (show && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1], opener: Tour.helpAnchor() }); } }, $t('Show me'))));
+      if (show && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1], opener: Tour.asker() }); } }, $t('Show me'))));
       secs.push(sec);
     }
     if (secs.length < 4) return;
@@ -378,7 +377,8 @@ const Examples = (() => {
       [`${k('H')} ${k('N')} ${k('K')}`, $t('Half-plane, annulus, sector')], [k('T'), $t('Type a region formula')],
       [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
       [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
-      [k('M'), $t('Deformation on or off, in every view')], [k('⇧ M'), $t('Sound on or off')], [k('P'), $t('Deformation: paths on or off (in X → Y; else the Point tool)')],
+      // (the steps view: K or M plays the chain, P shows its paths; the classic view has no deformation, and P is the Point tool)
+      ...(exSv() ? [[`${k('K')} ${k('M')}`, $t('Play the chain, or pause it')], [k('P'), $t('Paths t ↦ Hₜ(z) on or off')]] : []), [k('⇧ M'), $t('Sound on or off')],
       [k('Z'), $t('Fit view')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
       [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, X, Y, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s cards')],
@@ -430,6 +430,8 @@ const Examples = (() => {
       <h3>${$t(`Keys`)}</h3>
       <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
     if (touchUI()) guideTouch(m);
+    // (the classic view has no deformation: its guide leaves out the Deformation section)
+    if (!exSv()) { const dh = [...m.querySelectorAll('h3')].find((x) => x.textContent.trim() === $t('Deformation')); if (dh) { for (let e = dh.nextElementSibling; e && e.tagName !== 'H3';) { const nx = e.nextElementSibling; e.remove(); e = nx; } dh.remove(); } }
     guideNav(m, close);
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
     const pb = m.querySelector('[data-play="piece"]');
@@ -447,7 +449,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();

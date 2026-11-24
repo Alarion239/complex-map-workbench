@@ -173,6 +173,12 @@ float checker(vec2 p, vec2 w) {
 }
 // lines at integer x, px device pixels wide; w = fwidth(x)
 float iso(float x, float w, float px) { float d = abs(fract(x + 0.5) - 0.5) / max(w, 1e-6); return 1.0 - smoothstep(0.5 * px - 0.5, 0.5 * px + 0.6, d); }
+// the grey no-value hatch (a value that is NaN, or unresolved) at a pixel fc of the pane's framebuffer: #7F7F7F with
+// 45 degree lines of #6A6A6A, 6 css px apart at dpr
+vec3 nanHatch(vec2 fc, float dpr) {
+  float h = (fc.x + fc.y) * 0.70710678 / (6.0 * dpr);
+  return mix(vec3(0.49804), vec3(0.41569), iso(h, 1.0 / (6.0 * dpr), dpr));
+}
 // the single line x = 0
 float iso0(float x, float w, float px) { float d = abs(x) / max(w, 1e-30); return 1.0 - smoothstep(0.5 * px - 0.5, 0.5 * px + 0.6, d); }
 float moire(vec2 w) { return smoothstep(0.18, 0.45, max(w.x, w.y)); }
@@ -241,8 +247,7 @@ vec3 dcolorAt(vec2 w, float r, float th, float lr, float flr, float faw, vec2 g,
   vec3 pb = uPal == 0 ? vec3(0.0) : arbc(th, lr);
   if (!(abs(w.x) < 3e38 && abs(w.y) < 3e38)) {
     if (abs(w.x) > 3e38 || abs(w.y) > 3e38) return vec3(0.96078);  // +-infinity: #F5F5F5
-    float h = (gl_FragCoord.x + gl_FragCoord.y) * 0.70710678 / (6.0 * uDpr);  // NaN: #7F7F7F, 45 deg hatch #6A6A6A
-    return mix(vec3(0.49804), vec3(0.41569), iso(h, 1.0 / (6.0 * uDpr), uDpr));
+    return nanHatch(gl_FragCoord.xy, uDpr);  // NaN: the no-value hatch
   }
   if (uStyle == 2) {        // Phase
     vec3 c = pwheel(th, 0.75, 0.75, pb);
@@ -490,7 +495,7 @@ ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
 ${o.carry ? glsl`  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));
-  // (the sheet key's error across the triangle, for the resolve of ties (uKRes 2, PRE_KEY_RES): the fragment stage
+  // (the sheet key's error across the triangle, for the resolve of ties (uKRes.x 2, PRE_KEY_RES): the fragment stage
   // interpolates the source point linearly across the triangle's places, that is it interpolates g = f^-1, whose error is
   // up to |g''| hw^2 / 8 = |f''| h^2 / (8 |f'|), h the longest source edge, at an edge's middle. f' is fitted to the edges;
   // f is analytic, so f'' is one complex number, which the centroid's place wm gives: off the corners' mean by
@@ -499,7 +504,7 @@ ${o.carry ? glsl`  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));
   // pole or a critical point of f the estimate grows. The error in units of s: the key's gradient (by differences, so
   // the key's own poles count) times that distance)
   vKErr = 0.0; vKDz = 0.0;
-  if (uKRes == 2) {
+  if (uKRes.x == 2) {
     vec2 z0 = srcOf(s0), z1 = srcOf(s1), z2 = srcOf(s2), zb = (z0 + z1 + z2) / 3.0;
     vec2 a1 = z1 - z0, a2 = z2 - z0, b1 = w1 - w0, b2 = w2 - w0;
     vec2 fp = (vec2(b1.x * a1.x + b1.y * a1.y, b1.y * a1.x - b1.x * a1.y) + vec2(b2.x * a2.x + b2.y * a2.y, b2.y * a2.x - b2.x * a2.y)) / max(dot(a1, a1) + dot(a2, a2), 1e-30);
@@ -785,7 +790,7 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // uPeelD holds (a 32-bit float depth); the 1e-7 lets the layer's own fragments, which compare equal, drop out
   const PEEL_DECL = 'uniform int uPeelOn; uniform highp sampler2D uPeelD;\n';
   const PRE_KEY_DECL = glsl`${PEEL_DECL}uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN; uniform vec2 uKSingT;
-uniform int uKRes; uniform float uKBand;
+uniform ivec2 uKRes; uniform float uKBand;
 const float KEY_STEPS = 16384.0;
 const float KEY_DMAX = 63.0;
 const float KEY_SMAX = 68141.0;
@@ -810,12 +815,12 @@ float preKeyDepth(vec2 sa, bool stepped) {
   return ((stepped ? floor(d + 0.5) : d) + tie) / (KEY_SMAX + 1.0);
 }
 `;
-  // The resolve of ties (GLR.carryResolve, uKRes 1 then 2; fragment stages only). Pass 1 writes s / (KEY_SMAX + 1) alone as
+  // The resolve of ties (GLR.carryResolve, uKRes.x 1 then 2; fragment stages only). Pass 1 writes s / (KEY_SMAX + 1) alone as
   // the depth, so each pixel keeps its smallest key smin (a 32-bit float depth, uKMin in pass 2), and its source point less
   // the key window's centre as the colour, so the pixel keeps the front fragment's (uKPos). Pass 2 puts in front, ordered
   // by their tie order alone, as the inverse pass orders the keys within its band (Inverse.order), the fragments that tie
   // with that one: a key within the band of smin (KEY_ERR_K times the key's error across the fragment's triangle, vKErr,
-  // at least uKBand; units of s) and, where the frame's rotation has an order uKOrd (svTies: n > 1), a source point in the
+  // at least uKBand; units of s) and, where the frame's rotation has an order uKRes.y (svTies: n > 1), a source point in the
   // front one's orbit under it, by the rotation R_k (k = 0, ..., n - 1) its angle about the key's centre is nearest:
   // - with an estimate of the error: by a rotation other than the identity, n times their angles equal mod 2 pi within
   //   KEY_ERR_K times the source point's own error, vKDz, over its distance from the centre; by the identity, the same
@@ -830,25 +835,25 @@ float preKeyDepth(vec2 sa, bool stepped) {
   // square, sin also has F(-z + 2 pi i) = F(z), a rotation about i pi). Past it, two sheets the rotation does not carry
   // into each other are kept in the key's order. The others go behind them, by s.
   const PRE_KEY_RES = glsl`flat in float vKErr; flat in float vKDz;
-uniform highp sampler2D uKMin; uniform highp sampler2D uKPos; uniform int uKOrd;
+uniform highp sampler2D uKMin; uniform highp sampler2D uKPos;
 const float KEY_ERR_K = 4.0, KEY_BAND_WIDE = 1024.0, KEY_ORBIT_TOL = 0.01;
 float preKeyRes(vec2 sa) {
   float tie, s = preKeyS(sa, tie);
-  if (uKRes == 1) return s / (KEY_SMAX + 1.0);
+  if (uKRes.x == 1) return s / (KEY_SMAX + 1.0);
   float smin = texelFetch(uKMin, ivec2(gl_FragCoord.xy), 0).r * (KEY_SMAX + 1.0);
-  bool est = vKErr >= 0.0, orb = uKOrd > 1;
+  bool est = vKErr >= 0.0, orb = uKRes.y > 1;
   float d = s - smin;
   bool tied = d <= 1.0 || d <= (est ? max(uKBand, KEY_ERR_K * vKErr) : orb ? KEY_BAND_WIDE : uKBand);
   if (tied && d > 1.0 && orb) {
     vec2 c = 0.5 * (uKWin.xy + uKWin.zw), u = sa - c, v = texelFetch(uKPos, ivec2(gl_FragCoord.xy), 0).xy;
-    float n = float(uKOrd), ph = n * (atan(u.y, u.x) - atan(v.y, v.x)), k = mod(floor(ph / TAU + 0.5), n);
+    float n = float(uKRes.y), ph = n * (atan(u.y, u.x) - atan(v.y, v.x)), k = mod(floor(ph / TAU + 0.5), n);
     if (est) tied = k > 0.5 ? abs(sin(0.5 * ph)) <= 0.5 * n * KEY_ERR_K * vKDz / max(length(u), 1e-30) + 1e-3 : length(u - v) <= KEY_ERR_K * vKDz;
     else { float a = k * TAU / n; tied = length(u - mat2(cos(a), sin(a), -sin(a), cos(a)) * v) <= KEY_ORBIT_TOL * length(u); }
   }
   return tied ? 0.5 * tie : 0.5 + 0.5 * s / (KEY_SMAX + 1.0);
 }
 `;
-  const PRE_KEY = '  float kd = uKeyOn > 0 ? (uKRes > 0 ? preKeyRes(sa) : preKeyDepth(sa, true)) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
+  const PRE_KEY = '  float kd = uKeyOn > 0 ? (uKRes.x > 0 ? preKeyRes(sa) : preKeyDepth(sa, true)) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
@@ -1348,7 +1353,7 @@ ${key ? PRE_KEY_DECL + PRE_KEY_RES : ''}${centroid ? 'centroid in' : 'in'} vec2 
 ${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY + '  if (uKRes == 1) { o = vec4(sa - 0.5 * (uKWin.xy + uKWin.zw), 0.0, 0.0); return; }\n' : ''}${cz ? `  bool cz = uCT >= 0;
+${key ? PRE_KEY + '  if (uKRes.x == 1) { o = vec4(sa - 0.5 * (uKWin.xy + uKWin.zw), 0.0, 0.0); return; }\n' : ''}${cz ? `  bool cz = uCT >= 0;
   vec2 sw = carryW(sa);
   o = vec4(cz ? cauchyCol(sa, sa - uEdgeO, sw) : dcolor(sw), 1.0);` : `  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`}
 }

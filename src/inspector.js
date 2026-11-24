@@ -65,7 +65,7 @@ const Inspector = (() => {
       const el = parSec.querySelector('.params-mount');
       const has = typeof Params.mount === 'function';
       parSec.hidden = !has;
-      // (review regress-7: a rebuilt panel destroys its old mount before it mounts again)
+      // (a rebuilt panel destroys its old mount before it mounts again)
       if (has && !mounted) { mounted = true; try { if (pmount && pmount.destroy) pmount.destroy(); pmount = Params.mount(el); } catch (e) { console.error('Params.mount', e); } }
     }
     // indexed coefficient labels: a step's own coefficients carry its index (a₂, b₂); the special symbols keep theirs
@@ -258,7 +258,7 @@ const Inspector = (() => {
       R.more.disabled = !!r.by || r.n >= A.Funcs.REPEAT_MAX;
     }
     // the fold of the split offer is remembered for this viewer (folding it is the dismissal); open without storage. The
-    // key is the app's (lsk: namespaced on a ?ns= page, as every other setting: review regress-2)
+    // key is the app's (lsk: namespaced on a ?ns= page, as every other setting)
     const FOLD_KEY = A.lsk ? A.lsk('cmw-split-fold') : 'cmw-split-fold';
     function foldOpen() { try { return localStorage.getItem(FOLD_KEY) !== '0'; } catch (e) { return true; } }
     function foldSave(open) { try { localStorage.setItem(FOLD_KEY, open ? '1' : '0'); } catch (e) { /* ignore */ } }

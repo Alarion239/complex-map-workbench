@@ -6,12 +6,13 @@
     try {
       gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
       if (!gl) return false;
+      shadowUniforms(gl);
       // (the GLSL library's sin and cos for this renderer, before the first program: GLChain.useRenderer, #1739)
       GLChain.useRenderer(gl);
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
       GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
-      rtOK = !!gl.getExtension('EXT_color_buffer_float'); halfOK = !!gl.getExtension('EXT_color_buffer_half_float');
+      rtOK = !!gl.getExtension('EXT_color_buffer_float');
       const dri = gl.getExtension('WEBGL_debug_renderer_info');
       swiftShader = /SwiftShader/i.test(String(gl.getParameter(dri ? dri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
       ok = true;
@@ -37,13 +38,14 @@
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = standInTex = standInKey = ptsTex = rtFbo = null;
         peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
+        reptAccs.clear(); ctxGen++;
         lands.clear(); lastLand = landS = null;
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
         rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null;
         maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
         GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
-        rtOK = !!gl.getExtension('EXT_color_buffer_float'); halfOK = !!gl.getExtension('EXT_color_buffer_half_float');
+        rtOK = !!gl.getExtension('EXT_color_buffer_float'); halfOK = null;
         ok = true; lost = false;
         prestart(PRESTART_2D);
         if (api.onRestore) api.onRestore();
@@ -393,7 +395,10 @@
   let layerFrames = 0;   // the frames carryLayers composited (the tests read it: carryLayerFrames)
   let resOn = 0, resBand = 0, resOrd = 0;   // carryResolve's pass (1, 2; 0 outside it), its band in units of the key's s, and the rotation's order its last frame tested the orbit of (0: none; the tests read it: carryResolveOrd)
   let kposBad = false;   // the source points' float target cannot be drawn into here: the resolve ties by the band alone
-  let halfOK = false;    // EXT_color_buffer_half_float: the source points' target is RG16F where RG32F cannot be drawn into
+  // EXT_color_buffer_half_float: the source points' target is RG16F where RG32F cannot be drawn into. Asked for there
+  // alone, the first time (null: not yet), so a context that draws into RG32F enables no extension for it
+  let halfOK = null;
+  const halfOn = () => halfOK ?? (halfOK = !!gl.getExtension('EXT_color_buffer_half_float'));
   let resFrames = 0;   // the frames carryResolve drew (the tests read it: carryResolveFrames)
   function peelFree() {
     if (!peel) return;
@@ -476,7 +481,7 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
     resBand = band;
-    const fmt = carryProbe.kpos === 'none' || kposBad ? 0 : rtOK && carryProbe.kpos !== 'half' ? gl.RG32F : halfOK ? gl.RG16F : 0;
+    const fmt = carryProbe.kpos === 'none' || kposBad ? 0 : rtOK && carryProbe.kpos !== 'half' ? gl.RG32F : halfOn() ? gl.RG16F : 0;
     resOrd = ord > 1 && fmt ? ord : 0;
     if (resOrd && T.kpos && T.kposFmt !== fmt) { gl.deleteTexture(T.kpos); T.kpos = null; }
     if (resOrd && !T.kpos) {
@@ -748,8 +753,9 @@
   function keyUniforms(Q, k) {
     u1i(Q, 'uKeyOn', k ? 1 : 0);
     u1i(Q, 'uPeelOn', k && peelOn > 1 ? 1 : 0); u1i(Q, 'uPeelD', PEEL_UNIT);
-    u1i(Q, 'uKRes', k ? resOn : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
-    u1i(Q, 'uKOrd', k && resOn === 2 ? resOrd : 0); u1i(Q, 'uKPos', KPOS_UNIT);
+    // (uKRes: the pass, and the frame's rotation's order in pass 2; one vector, as the chain's uniform slots are counted)
+    u2i(Q, 'uKRes', k ? resOn : 0, k && resOn === 2 ? resOrd : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
+    u1i(Q, 'uKPos', KPOS_UNIT);
     if (!k) return;
     const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
     sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
