@@ -290,17 +290,18 @@ const Views = (() => {
     if (mode === 'sphere') return sphereMode === 'color' ? 'L' : 'R';
     return 'R';
   }
-  // The steps view's state (behind ?view=steps): S.sv = {at, T, scope, surf, speed, alone}. at: the shown position in
+  // The steps view's state (behind ?view=steps): S.sv = {at, T, scope, surf, links, cam, speed, alone}. at: the shown position in
   // planes, fractional when the view is parked between two; T: the colour plane's stage (-1: the last plane); scope:
-  // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land' | 'stack'; speed: the glide's setting, one of the four, kept per state so a shared link plays at
+  // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land' | 'stack'; links: the Stack's connectors, 'straight' |
+  // 'curved'; speed: the glide's setting, one of the four, kept per state so a shared link plays at
   // its own speed (a state without one takes the device's). alone: the step shown alone, an active step's index, a key only
   // while one is shown; at and T are then the whole chain's place (what leaving it goes back to). planes: the stages of
   // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state holds
   // no steps view): a fractional or far `at` is clamped to the planes, a T the chain does not have
-  // is -1, an unknown scope or surface is the default, an unknown speed is dropped. cam: the Stack's camera, [yaw, pitch] in
-  // degrees, yaw taken into [−180, 180) and pitch into [10, 90] (STACK_PITCH_MIN up to straight down); anything else is
-  // dropped (the Stack then opens on its own camera, 19-stack.js).
-  const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land', 'stack'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
+  // is -1, an unknown scope or surface is the default, an unknown kind of connector or speed is dropped. cam: the Stack's
+  // camera, [yaw, pitch] in degrees, yaw taken into [−180, 180) and pitch into [10, 90] (STACK_PITCH_MIN up to straight
+  // down); anything else is dropped (the Stack then opens on its own camera, 19-stack.js).
+  const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land', 'stack'], SV_LINKS = ['straight', 'curved'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
   function cleanSv(v, planes) {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
     const n = Math.max(1, planes ? planes.length : 1), num = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -310,6 +311,7 @@ const Views = (() => {
       scope: SV_SCOPES.includes(v.scope) ? v.scope : 'all',
       surf: SV_SURFS.includes(v.surf) ? v.surf : 'plane',
     };
+    if (SV_LINKS.includes(v.links)) o.links = v.links;
     if (SV_SPEEDS.includes(v.speed)) o.speed = v.speed;
     if (Array.isArray(v.cam) && v.cam.length === 2 && v.cam.every(num)) o.cam = [((v.cam[0] % 360) + 540) % 360 - 180, Math.max(10, Math.min(90, v.cam[1]))];
     if (Number.isInteger(v.alone) && v.alone > 0 && planes && planes.includes(v.alone)) o.alone = v.alone;   // (a step the chain lacks or bypasses is not shown alone)

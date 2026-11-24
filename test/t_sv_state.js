@@ -24,6 +24,8 @@ check('a bypassed step is not a plane for T', Views.cleanSv({ ...ok, T: 2 }, [0,
 check('unknown scope', Views.cleanSv({ ...ok, scope: 'x' }, P).scope, 'all');
 check('unknown surface', Views.cleanSv({ ...ok, surf: 'cube' }, P).surf, 'plane');
 check('the Stack is a surface', Views.cleanSv({ ...ok, surf: 'stack' }, P).surf, 'stack');
+check('the Stack\'s connectors are kept', [Views.cleanSv({ ...ok, links: 'curved' }, P).links, Views.cleanSv({ ...ok, links: 'straight' }, P).links], ['curved', 'straight']);
+check('an unknown kind of connector is dropped', 'links' in Views.cleanSv({ ...ok, links: 'wavy' }, P), false);
 // the Stack's camera: [yaw, pitch] in degrees, kept through JSON, yaw into [−180, 180), pitch into [10, 90]; anything else dropped
 check('cam: the Stack\'s camera is kept', Views.cleanSv({ ...ok, surf: 'stack', cam: [-30, 35] }, P).cam, [-30, 35]);
 check('cam: a JSON round trip keeps it', Views.cleanSv(JSON.parse(JSON.stringify({ sv: { ...ok, cam: [0, 90] } })).sv, P).cam, [0, 90]);
