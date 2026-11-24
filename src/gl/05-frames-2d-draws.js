@@ -11,7 +11,7 @@
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
       GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
-      rtOK = !!gl.getExtension('EXT_color_buffer_float'); halfOK = !!gl.getExtension('EXT_color_buffer_half_float');
+      rtOK = !!gl.getExtension('EXT_color_buffer_float');
       const dri = gl.getExtension('WEBGL_debug_renderer_info');
       swiftShader = /SwiftShader/i.test(String(gl.getParameter(dri ? dri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
       ok = true;
@@ -43,7 +43,7 @@
         maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
         GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
-        rtOK = !!gl.getExtension('EXT_color_buffer_float'); halfOK = !!gl.getExtension('EXT_color_buffer_half_float');
+        rtOK = !!gl.getExtension('EXT_color_buffer_float'); halfOK = null;
         ok = true; lost = false;
         prestart(PRESTART_2D);
         if (api.onRestore) api.onRestore();
@@ -393,7 +393,10 @@
   let layerFrames = 0;   // the frames carryLayers composited (the tests read it: carryLayerFrames)
   let resOn = 0, resBand = 0, resOrd = 0;   // carryResolve's pass (1, 2; 0 outside it), its band in units of the key's s, and the rotation's order its last frame tested the orbit of (0: none; the tests read it: carryResolveOrd)
   let kposBad = false;   // the source points' float target cannot be drawn into here: the resolve ties by the band alone
-  let halfOK = false;    // EXT_color_buffer_half_float: the source points' target is RG16F where RG32F cannot be drawn into
+  // EXT_color_buffer_half_float: the source points' target is RG16F where RG32F cannot be drawn into. Asked for there
+  // alone, the first time (null: not yet), so a context that draws into RG32F enables no extension for it
+  let halfOK = null;
+  const halfOn = () => halfOK ?? (halfOK = !!gl.getExtension('EXT_color_buffer_half_float'));
   let resFrames = 0;   // the frames carryResolve drew (the tests read it: carryResolveFrames)
   function peelFree() {
     if (!peel) return;
@@ -476,7 +479,7 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
     resBand = band;
-    const fmt = carryProbe.kpos === 'none' || kposBad ? 0 : rtOK && carryProbe.kpos !== 'half' ? gl.RG32F : halfOK ? gl.RG16F : 0;
+    const fmt = carryProbe.kpos === 'none' || kposBad ? 0 : rtOK && carryProbe.kpos !== 'half' ? gl.RG32F : halfOn() ? gl.RG16F : 0;
     resOrd = ord > 1 && fmt ? ord : 0;
     if (resOrd && T.kpos && T.kposFmt !== fmt) { gl.deleteTexture(T.kpos); T.kpos = null; }
     if (resOrd && !T.kpos) {
