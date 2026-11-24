@@ -55,7 +55,10 @@ info.skipped = await M.walk(CFG, `http://localhost:${PORT}/test.html`, async (p)
   const vs = await ev(`__layout.all({ touch: ${p.dev === 'phone'}, focus: ${p.last} })`);
   if (!Array.isArray(vs)) { fails.push(`${where}: the checks threw ${JSON.stringify(vs)}`); return; }
   info.points++;
+  // (a state that names its `checks` is measured by those alone: its other rows are other issues')
+  const only = (M.STATES.find((x) => x.name === p.state) || {}).checks;
   for (const v of vs) {
+    if (only && !only.includes(v.check)) continue;
     const d = declared(v);
     if (d) { const i = DECLARED.indexOf(d); meant.set(i, (meant.get(i) || 0) + 1); continue; }
     const id = `${v.check} ${v.key}${v.okey ? ' × ' + v.okey : ''}`;

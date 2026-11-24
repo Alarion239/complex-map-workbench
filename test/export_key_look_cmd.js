@@ -14,6 +14,8 @@
 //   («цвет» has nothing above the x-height, «перенесён» has «ё»), and a pane key's caption KEY_CAP_GAP pt more under the
 //   strip's words: the carried key in the plain still and in Two planes, and the pane's key (example 9), in English,
 //   Russian and Italian. A line's baseline and size are read from its glyph box, against its TeX's ascent and descent.
+// - A carried key's line never leaves the plane's name alone on a line of its own («из z» stays together): in English and
+//   Russian (Italian's words are Pietro's team's).
 // A command file for a CDP daemon:  <runner> test/export_key_look_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -58,6 +60,11 @@ const look = async (tag, opts, want = {}) => {
     // (box axes have no axis titles: nothing to stand clear of)
     ok(`${tag}: the carried key stands at least ${KEY_TITLE_CLEAR} pt from every axis title`, !worst || worst.gap >= KEY_TITLE_CLEAR, { closest: worst, titles: r.names.map((t) => t.tex) });
     info[tag + ' (titles)'] = worst;
+    // (a line that is only math is the plane's name alone: "z", "w_{1}")
+    if (want.lone !== false) {
+      const lone = r.key.filter((b) => b.k === 'key' && !/\\text\{/.test(b.tex || ''));
+      ok(`${tag}: no line of the carried key is the plane's name alone`, lone.length === 0, { lines: r.key.filter((b) => b.k === 'key').map((b) => b.tex) });
+    }
   }
   // (a key's lines under its ring, one under another, by baseline: a pane key's first is its strip's factor, above the
   // strip, and its caption the first line with arg)
@@ -120,8 +127,8 @@ for (const lang of ['ru', 'it']) {
   const nl = await ev('__cmwSteps().planes.length');
   await ev(`(__cmwSteps({ go: ${nl - 1}, now: true }), 1)`);
   await settled({ until: `__cmwSteps().i === ${nl - 1} && !__cmwSteps().moving && __cmwSteps().T === 0`, max: 15000, floor: 600 });
-  await look(`${lang}: example 1, plane ${nl - 1} (carried key), overleaf11`, PRESETS.overleaf11, { carried: true });
-  await look(`${lang}: example 1, Two planes z → plane ${nl - 1} (carried key), overleaf11`, TWO(nl - 1), { carried: true, pictures: 2 });
+  await look(`${lang}: example 1, plane ${nl - 1} (carried key), overleaf11`, PRESETS.overleaf11, { carried: true, lone: lang !== 'it' });
+  await look(`${lang}: example 1, Two planes z → plane ${nl - 1} (carried key), overleaf11`, TWO(nl - 1), { carried: true, pictures: 2, lone: lang !== 'it' });
   await view(1600, 480, false);
   await open(9, false, lang);
   await look(`${lang}: example 9, wide window, overleaf11`, PRESETS.overleaf11, { pane: true });
