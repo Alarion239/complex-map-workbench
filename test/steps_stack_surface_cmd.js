@@ -5,7 +5,7 @@
 //    at the Tilt camera; one Undo takes the disc away;
 //  - on the desk the head shows the Stack's view control, Tilt | Look down | Plane, on the Stack only: a radio group with
 //    one Tab stop (the checked radio); Look down turns the camera straight down (yaw 0), Tilt back to Tilt, Plane leaves
-//    for the Plane surface; an arrow key moves the check and keeps the focus on the radio it checked (rvE's row), ← at
+//    for the Plane surface; an arrow key moves the check and keeps the focus on the radio it checked, ← at
 //    Tilt stays there (no wrap), and → onto Plane leaves with the focus on the Surface button;
 //  - on the Stack the disc card's Look down switch is hidden (the control has a Look down of its own), and on the Plane
 //    it shows;

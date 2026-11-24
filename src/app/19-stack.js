@@ -126,7 +126,7 @@
     stackCamSet = true;
     tweenCam(stackCam, name === 'down' ? STACK_DOWN : { yaw: STACK_CAM.yaw, pitch: STACK_CAM.pitch });
   }
-  // The Stack's view control (rvE's ruling on #1989): Tilt and Look down, its two cameras, and Plane, which leaves for
+  // The Stack's view control (#1989): Tilt and Look down, its two cameras, and Plane, which leaves for
   // the Plane surface. On the desk it is a three-state segment in the head beside the Surface button, shown only on the
   // Stack; on a phone the head has no room, so the plane's key column has one toggle key, named Tilt and pressed while
   // the camera is not straight down, and the Display sheet carries the segment (the head's is hidden there: page.html).
@@ -137,7 +137,7 @@
   // a segment v of the control chose
   function stackChoose(v) {
     if (v === 'plane') {
-      // (the segment goes with the Stack: a focus on it moves to the Surface button, which now reads Plane)
+      // (the segment goes with the Stack: a focus on it moves to the Surface button, which reads Plane)
       const held = !!document.activeElement && !!document.activeElement.closest('.sv-camseg');
       svSetSurface('plane');
       if (held) setTimeout(() => { if (SV.els && SV.els.surf1) SV.els.surf1.focus(); }, 0);
