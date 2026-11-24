@@ -874,5 +874,6 @@
  "Glide paths": "Пути перехода",
  "Straight": "Прямые",
  "torn here by the glide’s cut, not a split": "здесь разрезано разрезом перехода, это не разделение",
- "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Этот повтор слишком длинный, чтобы нарисовать его точно: образ областей здесь неизвестен, и плоскость заштрихована. С меньшим числом копий рисунок получается точным."
+ "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Этот повтор слишком длинный, чтобы нарисовать его точно: образ областей здесь неизвестен, и плоскость заштрихована. С меньшим числом копий рисунок получается точным.",
+ "Part of this plane is hatched: the exact image is not resolved there.": "Часть плоскости заштрихована: точный образ здесь не найден."
 }

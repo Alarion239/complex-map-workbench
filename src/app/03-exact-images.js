@@ -83,7 +83,7 @@
   // mask's pass leaves them uncovered and marks them (drawScene's opt.fills, GLR.drawInverse), so the picture painted
   // through the mask shows them here
   function reptHatch(pane, map) {
-    if (reptExact(map) && GLR.reptHatchFill) GLR.reptHatchFill(pane.dpr);
+    if (reptExact(map) && GLR.reptHatchFill && GLR.reptHatchFill(pane.dpr) === true) hatchNotes.set(pane, $t('Part of this plane is hatched: the exact image is not resolved there.'));
   }
   // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
   // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
@@ -93,12 +93,13 @@
     const plan = invPlan(m.a || 0, m.b || 0);
     return !plan.ok && !!plan.tooLong && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
   }
-  // the panes whose open frame holds a refused repeat's hatch: glStatusNote says why at the frame's end
-  const refusedPanes = new Set();
+  // what a pane's open frame says of the no-value hatch it drew (reptHatch, refusedHatch), by pane: glStatusNote says it at the
+  // frame's end
+  const hatchNotes = new Map();
   // the no-value hatch over the whole plane drawn in pane for map when its repeat is refused (no image of the regions is known
   // anywhere), after the picture painted through the regions' mask
   function refusedHatch(pane, map) {
-    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) refusedPanes.add(pane);
+    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) hatchNotes.set(pane, $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.'));
   }
   // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
   // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;
@@ -796,20 +797,23 @@
   // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
   function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
-    const refused = refusedPanes.has(pane) ? $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.') : '';
-    if (!quiet) refusedPanes.delete(pane);
+    const hatched = hatchNotes.get(pane) || '';
+    if (!quiet) hatchNotes.delete(pane);
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
-    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || refused) : '';
+    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || hatched) : '';
     if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
     // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
     const rept = !!(GLR.reptPendingTake && GLR.reptPendingTake());
+    // (a note that comes or goes changes the LED's state and tip with it)
+    const noted = paneGl[role] && paneGl[role].note;
     paneGl[role] = { pending: !!(st && st.pending) || rept, rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
     invPendN = 0;
+    if ((noted || '') !== note) updateLeds();
     if (quiet) return;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);

@@ -209,6 +209,10 @@ if (main) {
   ok('gallery square: ambiguous samples are few', main.faint <= FAINT_MAX_SHARE * (main.n + main.edge + main.unres + main.faint), `${main.faint} ambiguous`);
 }
 // the renderer's own unresolved pixels: the grey no-value hatch over the plane canvas (#1444's measure)
+// what the left pane says of its picture: the note's box, the LED's class and tip, and the description a screen reader reads
+const HATCHED_NOTE = 'Part of this plane is hatched: the exact image is not resolved there.';
+const HATCH_SAID = "(document.getElementById('overlayLSay') || { textContent: '' }).textContent === " + JSON.stringify(HATCHED_NOTE);   // a page condition: the pane has said it (the hatch's answer comes a frame after its draw)
+const paneSaid = () => ev(`(() => { const led = document.getElementById('leftLed'), say = document.getElementById('overlayLSay'); return { note: __cmwNoteBox('L'), led: led && led.className, tip: led && led.getAttribute('data-tip'), said: say ? say.textContent : '' }; })()`);
 const hatchCount = () => ev(`(() => {
   const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
   let h = 0;
@@ -224,10 +228,15 @@ const hatchCount = () => ev(`(() => {
   ok('a fresh page\'s first open walks the parked plane once: one tile of the first pass, one accumulation entry kept', !!first && first.tilesA === 1 && first.kept === 1, first);
   const h0 = await hatchCount();
   ok('gallery square: the plane draws no unresolved hatch', h0.hatch === 0, h0);
+  const s0 = await paneSaid();
+  ok('gallery square: no note on the pane, the LED up to date, nothing said of a hatch', !s0.note && !/\berr\b/.test(s0.led || '') && s0.tip !== HATCHED_NOTE && s0.said !== HATCHED_NOTE, s0);
   const hooked = await ev('typeof __cmwRept === "function"');
-  if (hooked) { await ev(`__cmwRept({ nodes: ${STARVED_NODES} }); 1`); await settled({ max: SETTLE_LONG, panes: true }); }
-  const h1 = await hatchCount();
+  if (hooked) { await ev(`__cmwRept({ nodes: ${STARVED_NODES} }); 1`); await settled({ max: SETTLE_LONG, panes: true, until: HATCH_SAID }); }
+  const h1 = await hatchCount(), s1 = await paneSaid();
   if (hooked) { await ev('__cmwRept({ nodes: 0 }); 1'); await settled({ max: SETTLE_LONG, panes: true }); }
+  const s2 = await paneSaid();
+  ok('control: the starved plane says it is hatched: a note on the pane, the LED red with the sentence as its tip, and the sentence as the pane\'s description', hooked && !!s1.note && /\berr\b/.test(s1.led || '') && s1.tip === HATCHED_NOTE && s1.said === HATCHED_NOTE, s1);
+  ok('control: the note goes with the hatch (the search restored, nothing is hatched or said)', hooked && !s2.note && !/\berr\b/.test(s2.led || '') && s2.said !== HATCHED_NOTE, s2);
   info['starved search'] = Object.assign({ nodes: STARVED_NODES, hooked }, h1);
   ok(`control: a search starved to ${STARVED_NODES} root solves hatches at least ${STARVED_MIN_SHARE * 100} % of the plane`, hooked && h1.hatch >= STARVED_MIN_SHARE * h1.pixels, h1);
   for (const poison of ['nan', 'inf']) {
