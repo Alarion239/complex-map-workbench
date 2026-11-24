@@ -1089,7 +1089,8 @@
   // focused map and the shapes are outlined. o.hom: the steps view's glide, its map and F (below). o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
   // globe (GLR.drawSphere's st.carried); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
-  // globe under it (drawSphere's regions, each an inverse record with its carry). Returns the frame's {MVP, eye,
+  // globe under it (drawSphere's regions, each an inverse record with its carry), or with o.carryBase the colour globe of
+  // o.colorMap under it (the arrival plane's rest colour under a glide). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
   function sphereView(pane, c, base, o) {
     // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
@@ -1220,7 +1221,7 @@
         if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}` } });
       }
     }
-    const colorMap = o.colorMap || (hom ? hom.map : focusMap()), colorGlobe = !imageMode && !o.carryRegions;
+    const colorMap = o.colorMap || (hom ? hom.map : focusMap()), colorGlobe = !imageMode && (!o.carryRegions || !!o.carryBase);
     const info = GLR.drawSphere({
       map: colorMap, mode: colorGlobe ? 'color' : 'image', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
       standIn: colorGlobe ? globeStandIn(pane, colorMap) : null,
