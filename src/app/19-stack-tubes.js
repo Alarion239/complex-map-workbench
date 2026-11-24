@@ -21,7 +21,16 @@
   const NARROW_TOL = 1e-6;                     // F′ counts as real when |Im F′| ≤ NARROW_TOL·|F′|
   const TUBE_CRIT_DOTS = [0, 4];               // css px: a critical strand's dots (round caps make each dash of length 0 a dot)
   const TUBE_DOT = 2.5, TUBE_LABEL_DX = 7, TUBE_FONT = 12, TUBE_PLATE = 3;   // css px: a narrowing's dot, its words' gap from it, their size, their plate's margin
-  const tubeCache = new Map();
+  // A label's placement (drawStackLabels) is scored on what it covers of the marks drawn, a mark by its weight: a tube's slice ring
+  // or strand 1, a critical strand or a line to the target 2, a critical cross, a critical value's dot or the target's centre 4,
+  // the target's ring and the join ring 8 (the ring is dragged with the Pick tool, so a plate over it hides a handle)
+  const TUBE_AVOID_W = { tube: 1, strand: 2, line: 2, mark: 4, ring: 8 };
+  // Beyond the plate's places beside its dot, farther ones: TUBE_FAR_DIRS directions at TUBE_FAR_AT plate heights from the dot,
+  // joined to it by a leader line where the plate is more than a plate height away; each px of leader costs TUBE_LEADER_COST, and
+  // each mark it crosses a quarter of the mark's weight
+  const TUBE_KEPT_MAX = 8;   // the labels whose last place is kept (tubeKept)
+  const TUBE_FAR_DIRS = 16, TUBE_FAR_AT = [1.5, 2.5, 4, 6, 9, 13], TUBE_LEADER_COST = 0.002, TUBE_LEADER_CROSS = 0.25, TUBE_LEADER_A = 0.6;
+  const tubeCache = new Map(), tubeKept = new Map();   // tubeKept: a label's last place as an offset from its dot, by its words
   // n of a closed loop's points, about evenly spaced by arc length: the loop's own points (preimages of the rim, so a
   // tube's ends lie exactly on the patch's edge and the rim), all of them when it has n or fewer
   function tubeResample(path, n) {
@@ -70,22 +79,106 @@
     const name = svMapName('text', leftStage(), shapeStage(findShape(selected))) || 'f', f = name.includes('∘') ? `(${name})` : name;
     return $t('narrows here: {d}, not a join', { d: `${f}′(${tubeNum(n.z)}) = ${tubeNum(n.d)}` });
   }
+  // whether the segment a–b meets box B = [x0, y0, x1, y1]
+  function tubeSegMeets(a, b, B) {
+    if ((a[0] < B[0] && b[0] < B[0]) || (a[0] > B[2] && b[0] > B[2]) || (a[1] < B[1] && b[1] < B[1]) || (a[1] > B[3] && b[1] > B[3])) return false;
+    const inside = (p) => p[0] >= B[0] && p[0] <= B[2] && p[1] >= B[1] && p[1] <= B[3];
+    if (inside(a) || inside(b)) return true;
+    let t0 = 0, t1 = 1;
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    for (const [d, q] of [[-dx, a[0] - B[0]], [dx, B[2] - a[0]], [-dy, a[1] - B[1]], [dy, B[3] - a[1]]]) {
+      if (d === 0) { if (q < 0) return false; continue; }
+      const t = q / d;
+      if (d < 0) { if (t > t1) return false; t0 = Math.max(t0, t); } else { if (t < t0) return false; t1 = Math.min(t1, t); }
+    }
+    return t0 <= t1;
+  }
+  // whether the segments a–b and c–d cross
+  function tubeSegCross(a, b, c, d) {
+    const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b);
+  }
+  // the weight (TUBE_AVOID_W) of the marks in avoid ({lines: [{kind, pts}], dots: [{kind, x, y, r}]}, css px) that box B meets
+  function tubeCovered(avoid, B) {
+    let n = 0;
+    for (const l of avoid.lines) {
+      // (a polyline's own box, made when first asked, keeps a plate far from it from reading its segments)
+      let bb = l.bb;
+      if (!bb) {
+        bb = l.bb = [Infinity, Infinity, -Infinity, -Infinity];
+        for (const p of l.pts) { if (p[0] < bb[0]) bb[0] = p[0]; if (p[0] > bb[2]) bb[2] = p[0]; if (p[1] < bb[1]) bb[1] = p[1]; if (p[1] > bb[3]) bb[3] = p[1]; }
+      }
+      if (bb[0] > B[2] || bb[2] < B[0] || bb[1] > B[3] || bb[3] < B[1]) continue;
+      for (let i = 1; i < l.pts.length; i++) if (tubeSegMeets(l.pts[i - 1], l.pts[i], B)) n += TUBE_AVOID_W[l.kind];
+    }
+    for (const q of avoid.dots) if (q.x + q.r >= B[0] && q.x - q.r <= B[2] && q.y + q.r >= B[1] && q.y - q.r <= B[3]) n += TUBE_AVOID_W[q.kind];
+    return n;
+  }
+  // the cost of a leader line a–b over the marks it crosses (TUBE_LEADER_CROSS of the weight of each of a mark's kinds above a tube's)
+  function tubeLeaderCost(avoid, a, b) {
+    let n = 0;
+    for (const l of avoid.lines) if (TUBE_AVOID_W[l.kind] > 1) for (let i = 1; i < l.pts.length; i++) if (tubeSegCross(a, b, l.pts[i - 1], l.pts[i])) n += TUBE_AVOID_W[l.kind];
+    for (const q of avoid.dots) if (segDist([q.x, q.y], a, b) <= q.r) n += TUBE_AVOID_W[q.kind];
+    return TUBE_LEADER_CROSS * n + TUBE_LEADER_COST * Math.hypot(b[0] - a[0], b[1] - a[1]);
+  }
   // the narrowings' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the
-  // narrowing and the words beside it on a halo plate, to its right, or to its left where the room R the box is fitted in
-  // ([x0, y0, x1, y1], css px: stackRoom) has none there; kept across inside the room, and above the dot where that would
-  // cover it. Each label's box [x0, y0, x1, y1] (css px, the plate's) is kept on it
-  function drawStackLabels(ctx, labels, fade, R) {
+  // narrowing and the words on a halo plate, in the room R the box is fitted in ([x0, y0, x1, y1], css px: stackRoom), where
+  // the plate covers least of the marks drawn (avoid: drawStackTubes' and Look down's shapes, tubeCovered). Its places, the
+  // first of equal cover winning: the one beside the dot (to its right, or to its left where R has no room there, and
+  // above it where that would cover it), then to its right, to its left, above and below it; where none is clear, the place it
+  // had at the last frame (an offset from the dot, so that it stays as the camera turns), then any of TUBE_FAR_DIRS directions at TUBE_FAR_AT plate heights from the dot, joined to it by a leader line where it is a plate height
+  // or more away. Each label's box [x0, y0, x1, y1] (css px, the plate's), its place (`place`: 'beside', 'right',
+  // 'left', 'above', 'below', 'kept', 'far'), what it covers (`covered`, in marks' weight) and its leader line ([x, y, x, y] or null) are kept on it
+  function drawStackLabels(ctx, labels, fade, R, avoid) {
     ctx.save();
     ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle';
+    const ph = TUBE_FONT + 2 * TUBE_PLATE, taken = { lines: avoid.lines.slice(), dots: avoid.dots };
     for (const L of labels) {
-      const [x, y] = L.at, tw = ctx.measureText(L.text).width, right = x + TUBE_LABEL_DX + tw <= R[2] - TUBE_LABEL_DX;
-      const x0 = Math.max(R[0] + TUBE_LABEL_DX, Math.min(R[2] - TUBE_LABEL_DX - tw, right ? x + TUBE_LABEL_DX : x - TUBE_LABEL_DX - tw));
-      const ty = x0 - TUBE_PLATE <= x + TUBE_DOT && x0 + tw + TUBE_PLATE >= x - TUBE_DOT ? y - TUBE_FONT - TUBE_PLATE : y;
-      L.box = [x0 - TUBE_PLATE, ty - TUBE_FONT / 2 - TUBE_PLATE, x0 + tw + TUBE_PLATE, ty + TUBE_FONT / 2 + TUBE_PLATE];
-      ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(L.box[0], L.box[1], L.box[2] - L.box[0], L.box[3] - L.box[1]);
+      const [x, y] = L.at, tw = ctx.measureText(L.text).width;
+      const room = (x0, ty) => [Math.max(R[0] + TUBE_LABEL_DX, Math.min(R[2] - TUBE_LABEL_DX - tw, x0)), Math.max(R[1] + ph / 2, Math.min(R[3] - ph / 2, ty))];
+      const boxOf = (x0, ty) => [x0 - TUBE_PLATE, ty - ph / 2, x0 + tw + TUBE_PLATE, ty + ph / 2];
+      const covers = (B) => B[0] <= x + TUBE_DOT && B[2] >= x - TUBE_DOT && B[1] <= y + TUBE_DOT && B[3] >= y - TUBE_DOT;
+      const right = x + TUBE_LABEL_DX + tw <= R[2] - TUBE_LABEL_DX;
+      const [bx, by] = room(right ? x + TUBE_LABEL_DX : x - TUBE_LABEL_DX - tw, y);
+      const beside = covers(boxOf(bx, by)) ? [bx, y - ph] : [bx, by];
+      let best = null;
+      const consider = (place, pos, leader) => {
+        const [x0, ty] = pos;
+        const box = boxOf(x0, ty);
+        if (place !== 'beside' && covers(box)) return;
+        const covered = tubeCovered(taken, box);
+        if (best && covered >= best.cost) return;
+        const cost = covered + (leader ? tubeLeaderCost(taken, [x, y], leader) : 0);
+        if (!best || cost < best.cost) best = { place, x0, ty, box, covered, cost, leader };
+      };
+      consider('beside', beside, null);
+      consider('right', room(x + TUBE_LABEL_DX, y), null);
+      consider('left', room(x - TUBE_LABEL_DX - tw, y), null);
+      consider('above', room(x - tw / 2, y - ph), null);
+      consider('below', room(x - tw / 2, y + ph), null);
+      // (and where it was last, so that a plate that is still clear stays where it was as the camera turns)
+      const kept = tubeKept.get(L.text);
+      if (best.covered > 0 && kept) {
+        const pos = room(x + kept[0], y + kept[1]), B = boxOf(...pos), end = [Math.max(B[0], Math.min(B[2], x)), Math.max(B[1], Math.min(B[3], y))];
+        consider('kept', pos, Math.hypot(end[0] - x, end[1] - y) >= ph ? end : null);
+      }
+      if (best.covered > 0) {
+        // (the nearest ring of places with one that covers nothing is the last asked: farther ones only cost more leader)
+        for (const k of TUBE_FAR_AT) if (best.covered > 0) for (let a = 0; a < TUBE_FAR_DIRS; a++) {
+          const pos = room(x + k * ph * Math.cos(a * TAU / TUBE_FAR_DIRS) - tw / 2, y + k * ph * Math.sin(a * TAU / TUBE_FAR_DIRS)), B = boxOf(...pos);
+          const end = [Math.max(B[0], Math.min(B[2], x)), Math.max(B[1], Math.min(B[3], y))];
+          consider('far', pos, Math.hypot(end[0] - x, end[1] - y) >= ph ? end : null);
+        }
+      }
+      tubeKept.set(L.text, [best.x0 - x, best.ty - y]);
+      if (tubeKept.size > TUBE_KEPT_MAX) tubeKept.delete(tubeKept.keys().next().value);
+      L.box = best.box; L.place = best.place; L.covered = best.covered; L.leader = best.leader && [x, y, ...best.leader];
+      taken.lines.push({ kind: 'ring', pts: [[best.box[0], best.box[1]], [best.box[2], best.box[1]], [best.box[2], best.box[3]], [best.box[0], best.box[3]], [best.box[0], best.box[1]]] });
+      if (best.leader) { ctx.globalAlpha = TUBE_LEADER_A * fade; ctx.strokeStyle = TH.ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(...best.leader); ctx.stroke(); }
+      ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(best.box[0], best.box[1], best.box[2] - best.box[0], best.box[3] - best.box[1]);
       ctx.globalAlpha = fade; ctx.fillStyle = TH.ink;
       ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill();
-      ctx.fillText(L.text, x0, ty);
+      ctx.fillText(L.text, best.x0, best.ty);
     }
     ctx.restore();
   }
@@ -102,6 +195,8 @@
     };
     const mix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
     const ink = (P) => TH.c[P.ink];
+    // (what is drawn, for the labels to keep off: the slices' rings, the strands between them, the critical strands)
+    const avoid = { lines: [], dots: [] };
     ctx.save();
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     for (let j = 0; j <= TUBE_LEVELS; j++) {
@@ -110,14 +205,23 @@
       if (j > 0) {
         for (const P of d.pieces) {
           ctx.globalAlpha = TUBE_RULE_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.beginPath();
-          for (const L of P.loops) for (let i = 0; i < L.z.length; i += TUBE_RULE_EVERY) { ctx.moveTo(...at(mix(L.z[i], L.w[i], t0), t0)); ctx.lineTo(...at(mix(L.z[i], L.w[i], t), t)); }
+          for (const L of P.loops) for (let i = 0; i < L.z.length; i += TUBE_RULE_EVERY) {
+            const a = at(mix(L.z[i], L.w[i], t0), t0), b = at(mix(L.z[i], L.w[i], t), t);
+            ctx.moveTo(...a); ctx.lineTo(...b); avoid.lines.push({ kind: 'tube', pts: [a, b] });
+          }
           ctx.stroke();
         }
       }
-      if (j === 0 || j === TUBE_LEVELS) continue;
+      // (the floor's and the glass's rings are the patch's edge and the target's rim, which those layers draw)
+      const drawn = j > 0 && j < TUBE_LEVELS;
       for (const P of d.pieces) {
-        ctx.beginPath();
-        for (const L of P.loops) { L.z.forEach((z, i) => { const [x, y] = at(mix(z, L.w[i], t), t); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); }
+        if (drawn) ctx.beginPath();
+        for (const L of P.loops) {
+          const ring = L.z.map((z, i) => at(mix(z, L.w[i], t), t));
+          avoid.lines.push({ kind: 'tube', pts: [...ring, ring[0]] });
+          if (drawn) { ring.forEach(([x, y], i) => { if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); }
+        }
+        if (!drawn) continue;
         ctx.globalAlpha = TUBE_FILL_A * fade; ctx.fillStyle = ink(P).c0; ctx.fill('evenodd');
         ctx.globalAlpha = TUBE_RING_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.stroke();
       }
@@ -130,6 +234,7 @@
       if (!CX.isFin(w)) continue;
       const a = at(z, 0), b = at(w, 1);
       ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
+      avoid.lines.push({ kind: 'strand', pts: [a, b] });
       strands.push({ z: [z.re, z.im], w: [w.re, w.im], from: a, to: b });
     }
     ctx.restore();
@@ -137,5 +242,8 @@
     const c = C(s.c[0], s.c[1]);
     const labels = d.narrows.map((n) => ({ text: tubeNarrowText(n), z: [n.z.re, n.z.im], s: n.s, at: at(mix(n.z, c, n.s), n.s) }));
     const pts = (L, key, t) => L[key].filter((_, i) => i % TUBE_RULE_EVERY === 0).map((p) => ({ p: [p.re, p.im], px: at(p, t) }));
-    return { fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, pieces: d.pieces.map((P) => ({ ink: P.ink, colour: ink(P).edge, loops: P.loops.map((L) => ({ floor: pts(L, 'z', 0), glass: pts(L, 'w', 1) })) })), strands, labels };
+    const rec = { fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, pieces: d.pieces.map((P) => ({ ink: P.ink, colour: ink(P).edge, loops: P.loops.map((L) => ({ floor: pts(L, 'z', 0), glass: pts(L, 'w', 1) })) })), strands, labels };
+    // (not an enumerable field: what the labels keep off stays out of the record stackDrawn keeps)
+    Object.defineProperty(rec, 'avoid', { value: avoid });
+    return rec;
   }

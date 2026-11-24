@@ -147,7 +147,13 @@
       lines: () => { edges(); if (mk) drawLookLayer(ctx, mk, lv, 'lines'); },
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
-      labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera)); },
+      labels: () => {
+        if (!tubes) return;
+        const look = mk ? lookMarkShapes(mk, lv) : { lines: [], dots: [] };
+        const t0 = performance.now();
+        drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera), { lines: tubes.avoid.lines.concat(look.lines), dots: tubes.avoid.dots.concat(look.dots) });
+        tubes.labelMs = performance.now() - t0;
+      },
     };
     const order = ['floor'];
     for (const layer of STACK_ORDER.slice(1)) { layers[layer](); order.push(layer); }

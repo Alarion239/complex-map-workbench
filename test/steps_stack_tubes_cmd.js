@@ -166,6 +166,79 @@ const phTop = (await hooked()) ? await ev(`__cmwStack({ same: { yaw: 0, pitch: $
 info.phoneTop = phTop;
 ok('phone: straight down, with the key open, the Stack\'s floor is pixel-equal to Look down\'s plane', !!phTop && phTop.px > 0 && phTop.main === 0, phTop);
 
+// M1's narrowing label: where its plate lies against the marks drawn. Every mark is rebuilt here from the draw's record
+// (the tubes' end rings and strands, the critical strand, the critical cross on the floor, the critical value's dot, the
+// target's ring, its centre and the join ring on the glass, the lines from the preimages to the target), in the pane's css px,
+// and the plate (the label's box) is counted against them, a class at a time.
+const PLATE_CLASSES = ['tube', 'strand', 'cross', 'value', 'centre', 'target', 'join', 'line'];
+const plateHits = async (join) => ev(`(() => {
+  const d = __cmwStack().drawn, T = d.tubes, G = d.glass, Fm = d.floor, o = document.getElementById('overlayL').getBoundingClientRect();
+  const thru = (m, p) => [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]];
+  const w2s = (re, im) => { const p = __cmwPlaneMenu().w2s('L', re, im); return [p[0] - o.left, p[1] - o.top]; };
+  const c = [1, 0], r = 0.5, lines = [], dots = [];
+  const poly = (kind, pts, closed) => lines.push({ kind, pts: closed ? [...pts, pts[0]] : pts });
+  for (const P of T.pieces) for (const L of P.loops) {
+    poly('tube', L.floor.map((q) => q.px), true); poly('tube', L.glass.map((q) => q.px), true);
+    L.floor.forEach((q, i) => poly('tube', [q.px, L.glass[i].px], false));
+  }
+  for (const s of T.strands) { poly('strand', [s.from, s.to], false); dots.push({ kind: 'cross', p: s.from, r: 5 }); dots.push({ kind: 'value', p: s.to, r: 5 }); }
+  const ring = (kind, rr) => poly(kind, Array.from({ length: 64 }, (_, k) => thru(G, w2s(c[0] + rr * Math.cos(k * Math.PI / 32), c[1] + rr * Math.sin(k * Math.PI / 32)))), true);
+  ring('target', r); ring('join', ${join});
+  const gc = thru(G, w2s(...c));
+  dots.push({ kind: 'centre', p: gc, r: 5 });
+  for (const z of [[1, 0], [-1, 0]]) poly('line', [thru(Fm, w2s(...z)), gc], false);
+  // a segment meets the box [x0, y0, x1, y1]: either end inside it, or it crosses an edge
+  const seg = (a, b, B) => {
+    const inside = (p) => p[0] >= B[0] && p[0] <= B[2] && p[1] >= B[1] && p[1] <= B[3];
+    if (inside(a) || inside(b)) return true;
+    let t0 = 0, t1 = 1; const dx = b[0] - a[0], dy = b[1] - a[1];
+    for (const [pp, qq] of [[-dx, a[0] - B[0]], [dx, B[2] - a[0]], [-dy, a[1] - B[1]], [dy, B[3] - a[1]]]) {
+      if (pp === 0) { if (qq < 0) return false; } else { const t = qq / pp; if (pp < 0) { if (t > t1) return false; t0 = Math.max(t0, t); } else { if (t < t0) return false; t1 = Math.min(t1, t); } }
+    }
+    return t0 <= t1;
+  };
+  const L = T.labels[0], B = L.box, out = {};
+  for (const k of ${JSON.stringify(PLATE_CLASSES)}) out[k] = 0;
+  for (const l of lines) for (let i = 1; i < l.pts.length; i++) if (seg(l.pts[i - 1], l.pts[i], B)) out[l.kind]++;
+  for (const q of dots) if (q.p[0] + q.r >= B[0] && q.p[0] - q.r <= B[2] && q.p[1] + q.r >= B[1] && q.p[1] - q.r <= B[3]) out[q.kind]++;
+  return { box: B, dot: L.at, hits: out };
+})()`);
+const platePlaces = [
+  { name: 'Tilt at 1440 × 900', w: 1440, h: 900, phone: false },
+  { name: 'Tilt at 360 × 640', w: 360, h: 640, phone: true },
+  { name: 'Tilt at 740 × 360', w: 740, h: 360, phone: true },
+  { name: 'Tilt at 390 × 844', w: 390, h: 844, phone: true },
+  { name: 'Tilt at 360 × 640, key open', w: 360, h: 640, phone: true, unfold: true },
+  { name: 'Tilt at 390 × 844, key open', w: 390, h: 844, phone: true, unfold: true },
+  { name: '75° pitch at 1440 × 900', w: 1440, h: 900, phone: false, pitch: 75 },
+  { name: '85° pitch at 1440 × 900', w: 1440, h: 900, phone: false, pitch: 85 },
+  { name: '75° pitch at 360 × 640', w: 360, h: 640, phone: true, pitch: 75 },
+];
+for (const P of platePlaces) {
+  await open('M1', { w: P.w, h: P.h, phone: P.phone });
+  if (P.unfold) await unfold();
+  if (P.pitch && (await hooked())) {
+    await ev(`__cmwCam('L', { yaw: ${-30 * DEG}, pitch: ${P.pitch * DEG} }); 1`);
+    await until(`(() => { const d = __cmwStack().drawn; return !!d && !!d.tubes && Math.abs(d.camera.pitch - ${P.pitch * DEG}) < 1e-6; })()`, 10000);
+    await frames();
+  }
+  const d = await drawn(), L = d && d.tubes && d.tubes.labels[0];
+  if (!L || !L.box) { ok(`narrowing label, ${P.name}: the label is drawn`, false, d && d.tubes); continue; }
+  const paneBox = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.width, r.height]; })()`);
+  const h = await plateHits(1);
+  info[`plate ${P.name}`] = h;
+  ok(`narrowing label, ${P.name}: the plate crosses no tube outline, no critical mark, no target or join ring, no line to the target`, PLATE_CLASSES.every((k) => h.hits[k] === 0), h);
+  // (what the draw says of its own choice: where it went, what it covers by its own count (0 where the count above is), the leader line
+  // when the plate is a plate height or more from its dot, ending on the plate)
+  const leaderOk = !L.leader || (Math.hypot(L.leader[2] - L.leader[0], L.leader[3] - L.leader[1]) >= 18 && L.leader[2] >= L.box[0] - 1e-6 && L.leader[2] <= L.box[2] + 1e-6 && L.leader[3] >= L.box[1] - 1e-6 && L.leader[3] <= L.box[3] + 1e-6);
+  ok(`narrowing label, ${P.name}: the draw reports its place and that it covers no mark; a leader line is at least a plate height long and ends on the plate`, ['beside', 'right', 'left', 'above', 'below', 'kept', 'far'].includes(L.place) && L.covered === 0 && leaderOk, { place: L.place, covered: L.covered, leader: L.leader, box: L.box });
+  if (P.unfold) {
+    const key = await ev(`(() => { const o = document.getElementById('overlayL').getBoundingClientRect(), k = document.querySelector('#plotL .ld-key'), r = k.getBoundingClientRect(); return k.classList.contains('folded') ? null : [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; })()`);
+    ok(`narrowing label, ${P.name}: the plate is clear of the open key`, !!key && !(L.box[0] < key[2] && key[0] < L.box[2] && L.box[1] < key[3] && key[1] < L.box[3]), { box: L.box, key });
+  }
+  ok(`narrowing label, ${P.name}: the plate lies inside the pane, its words unchanged`, L.text === MAPS.M1.label && L.box[0] >= 0 && L.box[1] >= 0 && L.box[2] <= paneBox[0] && L.box[3] <= paneBox[1], { box: L.box, pane: paneBox, text: L.text });
+}
+
 // the tubes' cost a frame while a phone's Tilt turns (M3, the CPU slowed 4×, as the perf suite's phone): reported, not
 // gated (ci/browser_suites.js TIMING)
 await open('M3', { w: 360, h: 640, phone: true });
@@ -185,5 +258,24 @@ ms.sort((a, b) => a - b);
 const med = ms.length ? ms[ms.length >> 1] : null, p90 = ms.length ? ms[Math.floor(ms.length * 0.9)] : null;
 info.cost = { frames: ms.length, med, p90, worst: ms.length ? ms[ms.length - 1] : null };
 ok('timing: a phone\'s Tilt turn draws M3\'s tubes in at most 4 ms a frame (median) and 8 ms (90th percentile)', ms.length === 24 && med <= 4 && p90 <= 8, info.cost);
+
+// the narrowing's label costs a frame while a phone's Tilt turns (M1, the CPU slowed 4×): its placement scans the drawn marks
+await open('M1', { w: 360, h: 640, phone: true });
+const lms = [];
+if (await hooked()) {
+  await send('Emulation.setCPUThrottlingRate', { rate: 4 });
+  for (let i = 0; i < 24; i++) {
+    await ev(`__cmwCam('L', { yaw: ${-30 * DEG} + ${i} * ${15 * DEG}, pitch: ${(20 + (i % 6) * 8) * DEG} }); 1`);
+    await frames();
+    const d = await drawn();
+    if (d && d.tubes && d.tubes.labelMs != null && d.tubes.labels.length) lms.push(d.tubes.labelMs);
+  }
+  await send('Emulation.setCPUThrottlingRate', { rate: 1 });
+}
+info.labelEach = lms.map((x) => +x.toFixed(1));
+lms.sort((a, b) => a - b);
+const lmed = lms.length ? lms[lms.length >> 1] : null, lp90 = lms.length ? lms[Math.floor(lms.length * 0.9)] : null;
+info.labelCost = { frames: lms.length, med: lmed, p90: lp90, worst: lms.length ? lms[lms.length - 1] : null };
+ok('timing: a phone\'s Tilt turn places M1\'s label in at most 2 ms a frame (median) and 4 ms (90th percentile)', lms.length === 24 && lmed <= 2 && lp90 <= 4, info.labelCost);
 
 return { pass: fails.length === 0, passed: pass, fails, info };

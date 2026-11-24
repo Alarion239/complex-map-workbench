@@ -16,6 +16,7 @@
   const LD_HIT = 16;                     // css px: the ring's and the lines' width to the touch
   const LD_CROSS = 5, LD_DOT = 3.5;      // css px: a critical point's cross arm, a critical value's dot radius
   const LD_DASH = [6, 4];                // css px: the join ring's dashes
+  const LD_RING_PTS = 64;                // the points a ring is sampled at for the Stack's labels to keep off (lookMarkShapes)
   const LD_CAP = 24;                     // the most critical points drawn (an infinite set: those in the window)
   let lookDown = true;                   // the readout card's Look down switch
   let lookDrawn = null;                  // the marks as drawn, in the pane's css px (lookHit, __cmwLookDown)
@@ -71,6 +72,18 @@
       }
     }
     ctx.restore();
+  }
+  // The marks' shapes in the pane's css px through the levels lv, for the Stack's labels to keep off (drawStackLabels): lines,
+  // polylines {kind, pts} (the target's ring and the join ring, kind 'ring'; the lines from the preimages to the target's
+  // centre, 'line'), and dots {kind: 'mark', x, y, r} (the critical points' crosses, the target's centre, the critical values')
+  function lookMarkShapes(m, lv) {
+    const ring = (r) => Array.from({ length: LD_RING_PTS + 1 }, (_, k) => lv.glass.at(m.c[0] + r * Math.cos(k * TAU / LD_RING_PTS), m.c[1] + r * Math.sin(k * TAU / LD_RING_PTS)));
+    const [cx, cy] = lv.glass.at(...m.c), lines = [{ kind: 'ring', pts: ring(m.r) }], dots = [{ kind: 'mark', x: cx, y: cy, r: LD_DOT + 1.5 }];
+    if (m.join !== null) lines.push({ kind: 'ring', pts: ring(m.join) });
+    for (const p of m.zs) lines.push({ kind: 'line', pts: [lv.floor.at(...p), [cx, cy]] });
+    for (const p of m.crit) { const [x, y] = lv.floor.at(...p); dots.push({ kind: 'mark', x, y, r: LD_CROSS }); }
+    for (const p of m.vals) { const [x, y] = lv.glass.at(...p); dots.push({ kind: 'mark', x, y, r: LD_DOT + 1.5 }); }
+    return { lines, dots };
   }
   function drawLookDown(pane) {
     lookDrawn = null;
