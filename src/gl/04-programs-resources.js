@@ -1458,8 +1458,11 @@ float wabs(vec2 w) {
   // first ones wait on the JIT: an estimate on the high side). The entry's L is its template size, which drawLines
   // draws it at. null when not even size 1 fits (res.cpuNo then keeps the map and chain, so later frames do not try
   // again), res has no source segments (the chain has evaluated it), or the CPU twin throws. cpuLines keeps the last
-  // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms} (tests: GLR.lineStandIns)
+  // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms} (tests: GLR.lineStandIns). The
+  // budget is a time, so the size depends on how fast the machine runs the probe: ?glline=ms (tests) sets it, a large
+  // one fixes the size at M
   const CPU_LINE_MS = 25, CPU_LINE_PROBE = 8, CPU_LINE_LOG = 8, cpuLines = [];
+  const cpuLineMs = (() => { try { const v = +new URLSearchParams(location.search).get('glline'); return v > 0 ? v : CPU_LINE_MS; } catch (err) { return CPU_LINE_MS; } })();
   const cpuLineNote = (n, m, t0) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1) }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
   function cpuEntry(res, M, map, cpuOf) {
     if (!res.src) return null;
@@ -1485,9 +1488,9 @@ float wabs(vec2 w) {
           const w = F({ re: ax + t * (bx - ax), im: ay + t * (by - ay) });
           vals[o++] = w ? w.re : NaN; vals[o++] = w ? w.im : NaN;
         }
-        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > CPU_LINE_MS) {
+        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > cpuLineMs) {
           const now = performance.now(), per = (now - r0) / ((j + 1) * ts.length);
-          if (now - t0 + per * (res.n - j - 1) * ts.length > CPU_LINE_MS) return { per };
+          if (now - t0 + per * (res.n - j - 1) * ts.length > cpuLineMs) return { per };
         }
       }
       return { vals, W, H, P: ts.length };
@@ -1497,7 +1500,7 @@ float wabs(vec2 w) {
       for (;;) {
         got = run(m);
         if (got.vals) break;
-        const left = CPU_LINE_MS - (performance.now() - t0), per = got.per;
+        const left = cpuLineMs - (performance.now() - t0), per = got.per;
         m = [4, 2, 1].find((k) => k < m && res.n * (2 * k + 1) * per <= left);
         if (!m) { res.cpuNo = want; cpuLineNote(res.n, 0, t0); return null; }
       }

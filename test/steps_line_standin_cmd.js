@@ -4,8 +4,10 @@
 // drawn from the map's CPU twin (the lines' stand-in, drawLines' st.cpu): at points along each shape's image on w₂, the
 // frame drawn while the links are held is the frame drawn once they land (each point's pixel within 32 levels of one of
 // the 3 x 3 pixels about it in the linked frame, at least 95 % of the points), each shape's made at the lines' own
-// template size within the stand-in's CPU budget (CPU_LINE_MS, 25 ms). An expensive series (about 2 ms an evaluation on
-// the CI machines) gets none: the lines are refused within the budget and a segment, as GLR.lineStandIns records.
+// template size (8). The stand-in's CPU budget (CPU_LINE_MS, 25 ms) picks a smaller size when the first segments' time
+// extrapolates past it, which a busy machine stretches, so this page sets the budget to 1e6 ms (?glline) and the size
+// is the one the stand-in takes when it fits. An expensive series (about 2 ms an evaluation on the CI machines) gets
+// none under the real budget: the lines are refused within the budget and a segment, as GLR.lineStandIns records.
 // A command file for a CDP daemon; CI runs it in the views shard (ci/browser_shards.js). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -21,7 +23,7 @@ const pts = SHAPES.flatMap((s) => Array.from({ length: 48 }, (_, k) => {
 }));
 const ns = 'sls' + Date.now();
 await seed(ns, { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'custom', params: { expr: 'z+1', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 2, T: 0, scope: 'all', surf: 'plane' } });
-await go(`${base}/test.html?ns=${ns}&view=steps&glhold`);
+await go(`${base}/test.html?ns=${ns}&view=steps&glhold&glline=1e6`);
 await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'function' && !!window.GLR && GLR.ok" });
 // (held: the frame pending on the lines' own program, read once two reads 300 ms apart agree: the regions' stand-in
 // meshes are made in idle slices)
@@ -39,7 +41,7 @@ info.outline = K.tally(held.px, rel.px, { tol: 32, note: (k) => ({ w: pts[k].map
 ok('while the links are held: the outlines on w₂ are the linked frame\'s (at least 95 % of the points within 32 levels)', info.outline.n >= 80 && info.outline.wrong <= 0.05 * info.outline.n, info.outline);
 info.made = held.made;
 ok('while the links are held: each shape\'s outline is a stand-in at the lines\' template size (8)', held.made.length === SHAPES.length && held.made.every((r) => r.m === 8), info.made);
-ok('timing: each outline\'s stand-in is made within its CPU budget (25 ms)', held.made.length === SHAPES.length && held.made.every((r) => r.ms <= 25), info.made);
+ok('timing: each outline\'s stand-in takes at most the real budget here (25 ms; the page\'s own budget is set)', held.made.length === SHAPES.length && held.made.every((r) => r.ms <= 25), info.made);
 // an expensive series: its stand-in is refused (the first segment's evaluations show it would not fit), not made
 const ns2 = 'slx' + Date.now();
 await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 1, T: 0, scope: 'all', surf: 'plane' } });
