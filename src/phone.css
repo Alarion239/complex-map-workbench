@@ -29,7 +29,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .top > #tourHeadSlot:not([hidden]) { order: 20; flex: 1 1 260px; min-width: 0; align-self: stretch; display: flex; }
 /* (and under the header in portrait, or in a 48 px row when the header has no room: the stage's first child) */
 :root.ph .stage > #tourSlot:not([hidden]) { flex: 0 0 var(--ph-tour, 0px); height: var(--ph-tour, 0px); position: relative; z-index: 16; }
-/* (r3 review: the tour's row under a landscape header keeps the full width while a sheet takes the right 360 px of the
+/* (the tour's row under a landscape header keeps the full width while a sheet takes the right 360 px of the
    layout under it; its slot still reserves the row) */
 :root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
 :root.ph .top > #hdrMoreBtn { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }

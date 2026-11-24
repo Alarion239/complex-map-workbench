@@ -427,6 +427,10 @@
   // the other plane figures (Crop, Axes); on the sphere the frames are the stage's pictures, as in the filmstrip.
   // a TeX plane or map name as plain text: w_{2} -> w₂, f_{2}\circ f_{1} -> f₂∘f₁
   const plainName = (tex) => tex.replace(/_\{(\d+)\}/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[+c]).join('')).replace(/\\circ ?/g, '∘').replace(/\\cdots/g, '⋯');
+  // whether a box meets an axis name already placed (XD.boxes), within NAME_GAP pt; the passes that settle the left margin
+  // with the panel it leaves, and the pt it may still be short by
+  const NAME_GAP = 1, MARGIN_PASSES = 6, MARGIN_EPS = 0.01;
+  const nameMeets = (b) => XD.boxes.some((q) => q.kind === 'axis-name' && q.x0 < b.x1 + NAME_GAP && q.x1 > b.x0 - NAME_GAP && q.y0 < b.y1 + NAME_GAP && q.y1 > b.y0 - NAME_GAP);
   async function figSvTwo(o, P, W, T) {
     const [tp, lp] = T, frames = A.svFrames(), n = frames.length;
     const from = Math.max(0, Math.min(n - 2, o.svFrom == null ? 0 : o.svFrom | 0)), to = Math.max(from + 1, Math.min(n - 1, o.svTo == null ? n - 1 : o.svTo | 0));
@@ -447,7 +451,8 @@
     const arrowSpan = Math.max(axes === 'box' ? 22 : 26, arrowLab.w + 12);
     const titles = names.map((nm) => [`\\operatorname{Re} ${nm}`, `\\operatorname{Im} ${nm}`]);
     const ah = 4.6;
-    let mL, gut, mR, top, bottom;
+    // (imHalf: with cross axes, half the width of the first panel's imaginary-axis name, which stands centred over that axis)
+    let mL, gut, mR, top, bottom, imHalf = 0;
     if (axes === 'box') {
       mL = tickW(boxes[0], steps[0], tp) + 3; gut = arrowSpan + 10 + tickW(boxes[1], steps[1], tp) + 3; mR = Math.max(2, overR(boxes[1], steps[1], tp));
       top = lp * 1.15 + 3; bottom = tp * 1.05 + 4.2;
@@ -457,14 +462,28 @@
       const nA = XD.tex(titles[0][0], lp).w, nB = XD.tex(titles[1][0], lp).w, t1 = XD.tex(titles[0][1], lp);
       mL = 3; gut = ah * 0.3 + 2 + nA + 8 + arrowSpan + 8; mR = ah * 0.3 + 2 + nB + 2;
       top = Math.max(t1.a + t1.d + ah + 5, lp * 1.15 + 3); bottom = 3;
+      imHalf = t1.w / 2;
     }
     // (past the colour plane the To plane's pane key, as the plain still of that plane carries it: the hue ring and the line
-    // saying where the colour is carried from, in a column right of the second picture)
+    // saying where the colour is carried from, in a column right of the second picture and of its real-axis name)
     const sk = A.svKey ? A.svKey(to) : null;
     const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
+    // (the key's column starts after the room kept right of the second picture, as in the plain still)
+    const keyAt = mR;
     mR += keyW ? keyW + KEY_GAP : 0;
-    let h = (W - mL - gut - mR) / (asp[0] + asp[1]);
-    h = Math.min(h, W * 0.62, P.maxH - top - bottom);
+    const heightOf = () => Math.min((W - mL - gut - mR) / (asp[0] + asp[1]), W * 0.62, P.maxH - top - bottom);
+    let h = heightOf();
+    // (the first panel's imaginary axis stands at its left edge when its window is right of 0, and its name, centred over it,
+    // and its tick labels, left of it, reach left of the panel: the left margin holds what reaches past it)
+    // (the axis stands f of the panel's width in, and the panel narrows as the margin grows: a few passes settle the two)
+    if (imHalf) {
+      const b = boxes[0], f = Math.min(1, Math.max(0, -b.x0 / (b.x1 - b.x0))), reach = Math.max(imHalf + 1, tickW(b, steps[0], tp) + 3);
+      for (let pass = 0; pass < MARGIN_PASSES; pass++) {
+        const over = reach - f * h * asp[0];
+        if (over <= mL + MARGIN_EPS) break;
+        mL = over; h = heightOf();
+      }
+    }
     const used = mL + gut + mR + h * (asp[0] + asp[1]), x0 = (W - used) / 2, y = top;
     const xs = [x0 + mL, x0 + mL + h * asp[0] + gut];
     const items = [], lines = [];
@@ -483,8 +502,12 @@
         items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(wpt)}" height="${f2(h)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
         lines.push({ x0: x, y0: y, x1: x + wpt, y1: y + h, kind: 'frame' });
       }
+      // (the name heads its panel at the top left corner; where the imaginary axis stands near that corner its name is there,
+      // and the plane's name heads the panel at the top right corner)
       const nm = XD.tex(names[k], lp);
-      items.push(XD.at(nm, x, y - 3, 'start', 'base', 'title'));
+      const corners = [[x, 'start'], [x + wpt, 'end']];
+      const [nx, na] = corners.find(([cx, ca]) => !nameMeets(XD.boxOf(nm, cx, y - 3, ca, 'base'))) || corners[0];
+      items.push(XD.at(nm, nx, y - 3, na, 'base', 'title'));
     }
     // (cross axes: the arrow keeps clear of both real axes, so it never reads as their continuation)
     const oys = axes === 'cross' ? boxes.map((b) => Math.min(y + h, Math.max(y, y + (b.y1 / (b.y1 - b.y0)) * h))) : [];
@@ -492,7 +515,7 @@
     items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     let keyBottom = 0;
     if (keyW) {
-      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
+      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + keyAt + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
       items.push(...k.items);
       keyBottom = k.bottom;
     }

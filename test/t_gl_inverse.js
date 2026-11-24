@@ -422,5 +422,14 @@ for (const t of TYPES) {
   const src5 = inv5 && inv5.ok ? inv5.lib + inv5.walker : '', at5 = src5.search(/void ix\d+_roots\(/), body5 = at5 >= 0 ? src5.slice(at5, src5.indexOf('\n}\n', at5)) : '';
   check('the RAT5 op\'s root polish carries the guard', at5 >= 0 && body5.includes('!(cx_abs(fv) < cx_abs(f))'), { len: src5.length, at: at5 });
 }
+// QUAD and RAT2 (z^2 + z + 1, and (z^2 + 2z + 3)/(z^2 - z + 2)) take their roots from ixQuadratic, the one stable
+// quadratic in the program: their sources hold one discriminant, ixQuadratic's, and call it, and carry no ixRoots (no
+// Cardano)
+for (const [name, expr] of [['QUAD', 'z^2+z+1'], ['RAT2', '\\frac{z^2+2z+3}{z^2-z+2}']]) {
+  const s = [St('custom', { expr, cut: 180 })], inv = GLChain.build(s, s.map(Funcs.build)).inverse;
+  const src = inv && inv.ok ? inv.lib + inv.walker : '', ops = inv && inv.ops ? inv.ops.map((o) => o.kind) : [];
+  const info = { ops, disc: (src.match(/disc = csqrtp/g) || []).length, calls: (src.match(/ixQuadratic\(/g) || []).length, cardano: src.includes('ixCardano') };
+  check(`${name}: its roots come from ixQuadratic, the program's one quadratic, without ixRoots`, ops.includes(name) && info.disc === 1 && info.calls >= 2 && !info.cardano, JSON.stringify(info));
+}
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);
