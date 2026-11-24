@@ -19,6 +19,8 @@
 // - a pan: PAN_STEPS drags of 1 / (2 PAN_STEPS) of the pane's width each, each drawn, move the image left by half the
 //   pane and refine the outline again at most PAN_RUNS_MAX times (__cmwRept({ outline }).runs: the refinement is kept
 //   per pane-wide cell of the view, not redone per frame), and the outline is still there;
+// - a Repeat no exact plan takes (sin, REFUSED_N times: its plane hatched, repeatRefused) draws no carried outline
+//   over the hatch, though the sines carry the boundary smoothly: at most NOISE_MAX of the canvas in the shape's ink;
 // - the gallery (the same step repeated twenty times over the square [−2, 2]²): its image covers the plane, and its
 //   carried boundary is scattered by the copies' expansion. The frame with the strokes hidden differs from the frame
 //   with them in at most NOISE_MAX of the canvas's pixels in the shape's ink: no carried outline comes back as noise.
@@ -45,6 +47,7 @@ const HIT_MIN = 0.9;       // least share of them with a stroke pixel in the sha
 const CTRL_MAX = 0.2;      // most share of them with a stroke pixel in the control's ink
 const PAN_STEPS = 10;      // the pan's steps
 const PAN_RUNS_MAX = 1;    // most refinements over the pan
+const REFUSED_N = 20;      // the refused repeat's count
 const NOISE_MAX = 1e-4;    // most share of the gallery's canvas in its shape's ink where the strokes changed it
 const SETTLE = 120000;     // ms: the most a wait for the parked plane takes
 const { PARKED_DRAWN, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
@@ -168,6 +171,18 @@ await bite('D', DESK, DEEP, edge[tipK], deepEdge);
   const own = await measure('N', 's1', `(ring) => ring(${JSON.stringify(edge)})`);
   info.panned = own;
   ok(`pan: the outline still in the shape's ink along the image of its boundary (at least ${HIT_MIN} of the points)`, own.n >= MIN_EDGE && own.hit / own.n >= HIT_MIN, own);
+}
+
+// ---- a Repeat no exact plan takes (sin ×20: more ops than a plan holds, its plane hatched): no carried outline over
+// the hatch either, though the sines carry the boundary smoothly toward 0
+{
+  await view(DESK[0], DESK[1], false, false);
+  await loadView('steps', 'reptolref' + Date.now(), Object.assign({}, BITE_STATE, { steps: [{ type: 'sin', params: {}, on: true, repeat: { n: REFUSED_N, len: 1 } }] }));
+  await parkInside(SETTLE);
+  await grabBoth('R');
+  const ref = await measure('R', 's1', '(ring, inked) => inked()');
+  info.refused = ref;
+  ok(`a refused repeat (sin ×${REFUSED_N}): the strokes ink at most ${NOISE_MAX} of the canvas in the shape's colour`, ref.m / ref.of <= NOISE_MAX, ref);
 }
 
 // ---- the gallery: Repeat ×20, no carried outline as noise

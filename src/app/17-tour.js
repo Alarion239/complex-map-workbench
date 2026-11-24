@@ -100,6 +100,7 @@
   const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
   function tourSnapshot() {
     phHold();
+    if (typeof svStore === 'function') svStore();   // (S.sv holds the steps view's place: the tour moves it, and the restore puts it back)
     const xl = document.querySelector('#examplesBtn .exlabel');
     return {
       state: tourState(),
@@ -131,6 +132,7 @@
     morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     setState(st);
+    if (typeof svRestored === 'function') svRestored();   // (the steps view takes its place, scope and surface from S.sv again)
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
     if (m) { setHidden('L', !!m.hideLeft); setHidden('R', !!m.hideRight); } else { if (isDrawer('R')) setHidden('R', true); if (isDrawer('L')) setHidden('L', true); }
     if (m && m.viewMem) Object.assign(viewMem, m.viewMem);
