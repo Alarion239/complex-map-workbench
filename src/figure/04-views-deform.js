@@ -451,9 +451,8 @@
     const arrowSpan = Math.max(axes === 'box' ? 22 : 26, arrowLab.w + 12);
     const titles = names.map((nm) => [`\\operatorname{Re} ${nm}`, `\\operatorname{Im} ${nm}`]);
     const ah = 4.6;
-    // (imHalf: with cross axes, half the width of the first panel's imaginary-axis name, which stands centred over that axis;
-    // nameR: the room right of the second panel that its real-axis name takes, before the key's column)
-    let mL, gut, mR, top, bottom, imHalf = 0, nameR = 0;
+    // (imHalf: with cross axes, half the width of the first panel's imaginary-axis name, which stands centred over that axis)
+    let mL, gut, mR, top, bottom, imHalf = 0;
     if (axes === 'box') {
       mL = tickW(boxes[0], steps[0], tp) + 3; gut = arrowSpan + 10 + tickW(boxes[1], steps[1], tp) + 3; mR = Math.max(2, overR(boxes[1], steps[1], tp));
       top = lp * 1.15 + 3; bottom = tp * 1.05 + 4.2;
@@ -461,7 +460,7 @@
       mL = 3; gut = arrowSpan + 16; mR = 2; top = lp * 1.15 + 3; bottom = 3;
     } else {
       const nA = XD.tex(titles[0][0], lp).w, nB = XD.tex(titles[1][0], lp).w, t1 = XD.tex(titles[0][1], lp);
-      mL = 3; gut = ah * 0.3 + 2 + nA + 8 + arrowSpan + 8; mR = nameR = ah * 0.3 + 2 + nB + 2;
+      mL = 3; gut = ah * 0.3 + 2 + nA + 8 + arrowSpan + 8; mR = ah * 0.3 + 2 + nB + 2;
       top = Math.max(t1.a + t1.d + ah + 5, lp * 1.15 + 3); bottom = 3;
       imHalf = t1.w / 2;
     }
@@ -469,6 +468,8 @@
     // saying where the colour is carried from, in a column right of the second picture and of its real-axis name)
     const sk = A.svKey ? A.svKey(to) : null;
     const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
+    // (the key's column starts after the room kept right of the second picture, as in the plain still)
+    const keyAt = mR;
     mR += keyW ? keyW + KEY_GAP : 0;
     const heightOf = () => Math.min((W - mL - gut - mR) / (asp[0] + asp[1]), W * 0.62, P.maxH - top - bottom);
     let h = heightOf();
@@ -514,7 +515,7 @@
     items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     let keyBottom = 0;
     if (keyW) {
-      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + nameR + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
+      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + keyAt + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
       items.push(...k.items);
       keyBottom = k.bottom;
     }

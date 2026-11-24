@@ -66,6 +66,15 @@ function failureLines(page, r, { rows = 20 } = {}) {
   if (page === 'inverse') {
     // (the multiple-roots rows are also at the head of the walk's list, so they are listed once, there)
     if (r.failCount || (r.fails || []).length) add(section('walk', r.failCount, r.fails, rows, seen));
+    // (the Repeat section's rows, and its certificate of the root enclosures: their counts and its first rows)
+    const rp = r.rept, ct = rp && rp.cert;
+    if (rp && (rp.failCount || (rp.fails || []).length)) add(section('repeat', rp.failCount, rp.fails, rows, seen));
+    if (ct && (ct.misses || ct.refinedAboveCrude || (ct.fails || []).length)) {
+      out.push(`repeat certificate: ${ct.misses} of ${ct.certified} certified nodes missed (${ct.nodes} nodes), ${ct.refinedAboveCrude} refined above the crude, ${ct.controlMisses} control misses`);
+      const cf = ct.fails || [];
+      out.push(...cf.slice(0, rows).map((f) => `- ${cut(JSON.stringify(f))}`));
+      left += Math.max(0, cf.length - rows);
+    }
     if (r.anchors && (r.anchors.failCount || (r.anchors.fails || []).length)) add(section('anchors', r.anchors.failCount, r.anchors.fails, rows, seen));
     if (r.clip && (r.clip.failCount || (r.clip.fails || []).length)) add(section('clip', r.clip.failCount, r.clip.fails, rows, seen));
     if (r.fs && !(r.fs.flat && r.fs.sphere)) out.push(`fullscreen shader: flat ${r.fs.flat}, sphere ${r.fs.sphere}`);

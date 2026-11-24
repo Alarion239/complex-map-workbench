@@ -81,6 +81,12 @@ ok('adv: the steps are in the form of the page\'s rows', g.includes('steps exp')
 const dh = failureLines('dh', { orbit: { rows: [{ set: 'a', points: 5, arrayVsRegistersDiffer: 0 }, { set: 'b', points: 5, arrayVsRegistersDiffer: 2 }] }, stop: { rows: [{ chain: 'c', set: 'd', points: 3, early: { over: 0, nanDiff: 1 } }, { chain: 'e', set: 'f', points: 3, early: { over: 0, nanDiff: 0 } }] }, errors: [] }).lines.join('\n');
 ok('dh: the differing rows are listed, the equal ones not', dh.includes('orbit: 1') && dh.includes('- b') && dh.includes('stop: 1') && dh.includes('- c / d') && !dh.includes('- a') && !dh.includes('e / f'), dh);
 
+// the inverse page's Repeat section: its rows and its certificate of the root enclosures, which the walk's count includes
+const rept = failureLines('inverse', { failCount: 3, fails: [], rept: { failCount: 3, fails: [{ chain: 'newton20', w: [0.25, -0.5], bad: ['covered gpu 0 cpu 1'] }, { chain: 'newton20', bad: ['a far root: 3 of 9 points unresolved'] }], cert: { nodes: 1024, certified: 900, misses: 1, controlMisses: 40, refinedAboveCrude: 0, fails: [{ v: [0.5, 0.5], rho: [1e-3] }] } }, errors: [] }).lines.join('\n');
+ok('the Repeat section has its heading and its rows', rept.includes('repeat: 3 (2 recorded)') && rept.includes('covered gpu 0 cpu 1') && rept.includes('w (0.25, -0.5)') && rept.includes('a far root: 3 of 9 points unresolved'), rept);
+ok('the Repeat certificate has its counts and its rows', rept.includes('repeat certificate: 1 of 900 certified nodes missed (1024 nodes), 0 refined above the crude, 40 control misses') && rept.includes('- {"v":[0.5,0.5],"rho":[0.001]}'), rept);
+ok('a clean Repeat section has no lines', failureLines('inverse', { failCount: 0, fails: [], rept: { failCount: 0, fails: [], cert: { nodes: 9, certified: 9, misses: 0, controlMisses: 3, refinedAboveCrude: 0, fails: [] } }, errors: [] }).lines.length === 0);
+
 // a page that ran clean has nothing to say; a page that did not run says why
 ok('a clean result has no lines', failureLines('inverse', { failCount: 0, fails: [], clip: { failCount: 0, fails: [] }, fs: { flat: true, sphere: true }, flip: { ok: true }, errors: [] }).lines.length === 0);
 ok('a setup problem is the first line', failureLines('glsl', { setup: 'timeout after 14400 s' }).lines[0] === 'did not run: timeout after 14400 s');
