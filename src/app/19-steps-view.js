@@ -1481,9 +1481,10 @@
   let svRestRec = null;
   const SV_CARRY_L = 2;
   // the carried colour's length cap, as a share of the pane's larger side: a mapped triangle longer than the pane is left
-  // out, a guard against a point the map sends far, whose triangle would cover the pane many times over; a shorter one may
-  // be the front sheet's own, stretched (about cos's critical values under z³ then cos a whole-plane cell is drawn about
-  // half the pane long), and the sheet key's depth puts it in front of or behind the others
+  // out, a point the map sends far, whose triangle would cover the pane many times over (with no cap, z³ then cos on the
+  // phone at dpr 2 shows other sheets over steps_mesh_arc's arc); a shorter one may be the front sheet's own, stretched
+  // (about cos's critical values under z³ then cos a whole-plane cell is drawn about half the pane long:
+  // steps_carry_lim's legs), and the sheet key's depth puts it in front of or behind the others
   const SV_CARRY_LIM = 1;
   const svCarryLim = (pane) => SV_CARRY_LIM * Math.max(pane.w, pane.h) / pane.view.s;
   // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's

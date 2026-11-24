@@ -15,7 +15,8 @@
 // paper, and the front sheet, its one preimage 1/w (a pixel of plane z within NEAR of 1/w: plane z's axes and lines are
 // thin, and a preimage on one is read off it), at no fewer than FRONT_MIN of the grid's points. (Its frame is the same with
 // no length cap at all: the polar mesh about the key's singular point puts the pole on a vertex, so this guards the pole's
-// drawing, not the cap.)
+// drawing, not the cap. The cap's other side, that it leaves out what the map sends far: steps_mesh_arc's phone legs at
+// dpr 2, which fail with no cap.)
 // The page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
