@@ -3,12 +3,12 @@
   // leaves, w_a = …, then the formula of the plane it goes to, w_b = …, with the glide's position (a plane's
   // formula: the steps through it composed, compositeTexShort; z for plane z). It is of low priority: it takes the first
   // spot clear of every visible control, chip, key, toast, sheet and the plane's note (svTileSpot), and is hidden when
-  // there is none, where the formula of that part of the glide does not fit it (SV_TILE_W of the plane's width, the
-  // math at its own size), and whenever the thread is on a plane. It pictures what the head already names, and an
-  // arrival is spoken by the steps view's live region, so it is hidden from assistive technology and takes no pointer
-  // and no focus. Only the formula shown takes room in it, and the two are never shown at once: while the glide moves
-  // the first fades out before its half and the second in after it; with the thread at rest between two planes, and
-  // under reduced motion, they change over at the half
+  // there is none (a tour's layers cover the viewport, so while one runs there is none), where the formula of that part
+  // of the glide does not fit it (SV_TILE_W of the plane's width, the math at its own size), and whenever the thread is
+  // on a plane. It pictures what the head already names, and an arrival is spoken by the steps view's live region, so it
+  // is hidden from assistive technology and takes no pointer and no focus. Only the formula shown takes room in it, and
+  // the two are never shown at once: while the glide moves the first fades out before its half and the second in after
+  // it; with the thread at rest between two planes, and under reduced motion, they change over at the half
   const SV_TILE_GAP = 8;   // (px: from the plane's edges and from what it keeps clear of)
   const SV_TILE_W = (plotW) => (plotW < 560 ? 0.62 : 0.45) * plotW;   // (px: the widest it may be)
   // the two formulas' opacities at the glide's position u: the first fades out over SV_TILE_X before the half, the
@@ -108,7 +108,8 @@
     if (!el) return;
     const bt = svBetween(), still = bt.b === bt.a || bt.u <= SV_REST_U || bt.u >= 1 - SV_REST_U;
     if (still) { if (!el.hidden) el.hidden = true; return; }
-    const key = bt.a + '|' + bt.b, plot = $('plotL');
+    // (the key holds the chain's formulas too: an edit, an undo, a load or the tour's end changes what a pair of planes says)
+    const key = bt.a + '|' + bt.b + '|' + svStepsSig(), plot = $('plotL');
     if (key !== svTile.key) {
       svTile.key = key; full = true;
       svTile.texA = svTileTex(bt.a); svTile.texB = svTileTex(bt.b);

@@ -85,6 +85,26 @@ for (const c of CASES) {
     const a = r.after = await tileNow();
     ok(`${c.tag}: just before the half, the first formula alone, whole`, b.shown && b.f[0].shown && b.f[0].op > 0.98 && !b.f[1].shown, b);
     ok(`${c.tag}: just after the half, the second formula alone, whole`, a.shown && a.f[1].shown && a.f[1].op > 0.98 && !a.f[0].shown, a);
+    // (and while the thread is dragged between w₁ and w₂, 45% of the way: the one real motion between planes under reduced motion, where
+    // the formula changes over at the half: the first whole, the second not shown, where a fade would show it part way)
+    await ev(`__cmwSteps({ go: 1, now: true }); 1`);
+    await settled({ max: 60000, until: '!__cmwSteps().moving' });
+    await frames();
+    const geo = await evJson(`JSON.stringify((() => { const C = (e) => { const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; };
+      const t = document.querySelector('#svStrip .sv-thumb'), p = [...document.querySelectorAll('#svStrip .sv-plane')]; return { thumb: t ? C(t) : null, p1: p[1] ? C(p[1]) : null, p2: p[2] ? C(p[2]) : null }; })())`);
+    ok(`${c.tag}: the thread's thumb and planes w₁, w₂ are on the strip`, !!(geo.thumb && geo.p1 && geo.p2), geo);
+    if (geo.thumb && geo.p1 && geo.p2) {
+      const to = [geo.thumb[0] + 0.45 * (geo.p2[0] - geo.p1[0]), geo.thumb[1] + 0.45 * (geo.p2[1] - geo.p1[1])];
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: geo.thumb[0], y: geo.thumb[1], button: 'none' });
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: geo.thumb[0], y: geo.thumb[1], button: 'left', buttons: 1, clickCount: 1 });
+      for (let n = 1; n <= 6; n++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: geo.thumb[0] + (to[0] - geo.thumb[0]) * n / 6, y: geo.thumb[1] + (to[1] - geo.thumb[1]) * n / 6, button: 'left', buttons: 1 });
+      await frames();
+      const d = r.dragged = await tileNow();
+      r.dragX = await ev(`__cmwSteps().x`);
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to[0], y: to[1], button: 'left', buttons: 0, clickCount: 1 });
+      ok(`${c.tag}: dragged to about 45% of the way (between w₁ and w₂)`, r.dragX > 1.3 && r.dragX < 1.5, r.dragX);
+      ok(`${c.tag}: dragged, the first formula alone and whole, not part way through a fade`, d.shown && d.f[0].shown && d.f[0].op > 0.98 && !d.f[1].shown, d);
+    }
     continue;
   }
   await hold(1.75);
@@ -102,6 +122,7 @@ for (const c of CASES) {
   await hold(1.25);
   const q = r.quarter = await tileNow();
   await shot(`${name}-q1`);
+  check(`${c.tag}, held at a quarter`, q, !c.phone);
   if (q.shown) ok(`${c.tag}: at rest at a quarter, one formula shown, whole: the first`, q.f[0].shown && q.f[0].op > 0.98 && !q.f[1].shown, q.f);
   await hold(1.5);
   // (a long toast up)
@@ -134,6 +155,67 @@ for (const c of CASES) {
   await frames();
   r.parked2 = await tileNow();
   ok(`${c.tag}: parked on w₂, no tile`, !r.parked2.shown, r.parked2);
+}
+// (#2357) the chain changed under the tile, and the Look down key appearing under it, the thread held between w₁ and w₂ at desktop 1200 × 800:
+// the tile names the formulas of the chain now there, not those it typeset for the same pair before (another example loaded over
+// the chain, its Undo, the tour's Esc); and it clears the Look down key once the key is there
+{
+  const tex2 = () => ev(`(document.querySelectorAll('#svTile .sv-tile-f')[1] || { dataset: {} }).dataset.tex || null`);
+  const ready = () => settled({ max: 60000, until: '__cmwSteps().ready.ready' });
+  await view(1200, 800, false, false);
+  await loadView('steps', 'svtilechain' + Date.now(), { shapes: [{ id: 'd', kind: 'disc', c: [1, 0], r: 0.5, stage: 2 }], steps: TILE_CHAIN }, { lang: 'en' });
+  await settled({ max: 30000, until: READY });
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  await hold(1.5);
+  const tex0 = info.chainTex0 = await tex2();
+  ok('the chain: held at 1.5, the tile shows the second formula, with the chain\'s sin', /sin/.test(tex0 || ''), tex0);
+  // (another chain over it: an example loaded)
+  await ev(`__cmwExample(1); 1`); await ready();
+  await hold(1.25); await hold(1.5);
+  const tex1 = info.chainTex1 = await tex2();
+  ok('another example loaded: held at 1.5 again, the tile shows its formula (e^z), not the old chain\'s', /e\^\{z\}/.test(tex1 || '') && !/sin/.test(tex1 || ''), tex1);
+  // (and its Undo)
+  await ev(`document.getElementById('undoBtn').click(); 1`); await ready();
+  await hold(1.25); await hold(1.5);
+  const tex2u = info.chainTexUndo = await tex2();
+  ok('after Undo: held at 1.5 again, the tile shows the chain\'s formula again (sin)', /sin/.test(tex2u || ''), tex2u);
+  // (the Look down key appearing, the thread held at a quarter: the disc is on the second plane, whose key shows between w₁ and w₂)
+  await hold(1.25);
+  await ev(`__cmwSelect('d'); 1`);
+  await settled({ max: 10000, until: `(() => { const k = document.querySelector('#plotL .ld-key'); return !!k && !k.hidden; })()` });
+  await frames();
+  const tk = info.keyShown = await tileNow();
+  check('the Look down key shown, the thread held at a quarter', tk, true);
+  // (the hook's list of what the tile keeps clear of, in the page's px, covers each box over the plane that the suite's own list names, the key's included)
+  const covered = info.obstacles = await evJson(`JSON.stringify((() => {
+    const P = document.getElementById('plotL').getBoundingClientRect(), app = __cmwTile().obstacles, e = 1;
+    const own = ${OBSTACLES}.filter((o) => o.l < P.right && o.r > P.left && o.t < P.bottom && o.b > P.top);
+    return { n: own.length, missing: own.filter((o) => !app.some((a) => a[0] <= o.l + e && a[1] <= o.t + e && a[2] >= o.r - e && a[3] >= o.b - e)).map((o) => o.what) };
+  })())`);
+  ok('the app\'s obstacle list covers every box the suite names, the Look down key among them', covered.n > 0 && covered.missing.length === 0, covered);
+}
+// (the tour's Esc gives the chain back, the thread parked where it was between w₁ and w₂: the tile names the chain's formulas again,
+// not those the tour's scene had there)
+{
+  const tex2 = () => ev(`(document.querySelectorAll('#svTile .sv-tile-f')[1] || { dataset: {} }).dataset.tex || null`);
+  await view(1200, 800, false, false);
+  await loadView('steps', 'svtiletour' + Date.now(), { shapes: [], steps: TILE_CHAIN }, { lang: 'en' });
+  await settled({ max: 30000, until: READY });
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  await hold(1.5);
+  const own = info.tourOwn = await tex2();
+  await ev(`Tour.start({ chapter: 'planes' })`);
+  await settled({ max: 30000, until: `!!document.querySelector('.tour-strip')` });
+  await hold(1.5);
+  const during = info.tourDuring = await tex2();
+  ok('the tour: its scene\'s formula is on the tile\'s second line while it runs (the setup of the next row)', !!during && during !== own, { own, during });
+  await key('Escape');
+  await settled({ max: 30000, until: `!document.querySelector('.tour-strip')` });
+  await frames(); await frames(); await frames();
+  const back = info.tourBack = await tex2();
+  ok('after the tour\'s Esc: the tile names the chain\'s formula again (sin), not the tour scene\'s', back === own, { own, during, back });
 }
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 return { pass: fails.length === 0, fails, info };
