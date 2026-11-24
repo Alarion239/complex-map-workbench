@@ -2600,10 +2600,10 @@
       const p = reached && reached.get(s);
       // (an open region's outline dashed as at rest, OPEN_DASH along its arc at rest: GLR.drawInverse's st.edge.dash)
       if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => Object.assign(svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k), kindType(x) === 'area' && Region.isOpen(x) ? { dash: OPEN_DASH } : {})); continue; }
-      const map = svShapeMap(s, map0), r = map && !reptExact(map) && shapeGPU(s);
-      if (!r || !r.lineRes) continue;
+      const map = svShapeMap(s, map0), r = map && shapeGPU(s);
+      if (!r || !r.lineRes || !reptOutline(map, r, pane)) continue;
       const dash = openDash(r, map);
-      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
+      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: OUTLINE_M, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);
   }

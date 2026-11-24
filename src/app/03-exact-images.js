@@ -85,14 +85,48 @@
   function reptHatch(pane, map) {
     if (reptExact(map) && GLR.reptHatchFill) GLR.reptHatchFill(pane.dpr);
   }
-  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
-  // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;
-  // the exact fill's own edge is the outline (svOutlines, the colour plot's outlines)
+  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search)
   function reptExact(map) {
     const m = normalizeMap(map);
     if ((m.mode || 0) !== 0) return false;
     const plan = invPlan(m.a || 0, m.b || 0);
     return plan.ok && plan.ops.some((o) => o.kind === 'REPT');
+  }
+  // The pieces GLR.drawLines draws each segment of an outline in (its st.M), and the most CSS px a piece may span on a
+  // pane under a REPT plan for the outline to be drawn (reptOutline)
+  const OUTLINE_M = 8, REPT_PIECE_PX = 4;
+  // whether a shape's outline, its boundary carried forward under map (r: its shapeGPU record, r.lpolys the drawn
+  // polylines), is drawn on pane (svOutlines, the colour plot's outlines): always but under a REPT plan, whose
+  // copies' expansion can scatter the carried boundary. There it is drawn while the boundary stays resolved: every
+  // piece of every segment maps, on the CPU twin, to finite ends at most REPT_PIECE_PX px apart, unless both ends lie
+  // past the same side of the pane, where the piece draws nothing on it. A Repeat ×2 keeps the shape's outline, as
+  // every other step does; past that (a Repeat ×20) the exact fill's own edge is the only outline. Cached on r by its
+  // lines, map and view
+  function reptOutline(map, r, pane) {
+    if (!reptExact(map)) return true;
+    const ps = r.lpolys, v = pane.view;
+    if (!ps || !ps.length) return false;
+    const key = `${r.lineKey}|${r.refKey}|${mapKeyOf(map)}|${v.cx},${v.cy},${v.s}|${pane.w}x${pane.h}`;
+    if (r.reptLine && r.reptLine.key === key) return r.reptLine.ok;
+    const F = cpuMap(map), hw = pane.w / 2 / v.s, hh = pane.h / 2 / v.s, lim = REPT_PIECE_PX / v.s;
+    const x0 = v.cx - hw, x1 = v.cx + hw, y0 = v.cy - hh, y1 = v.cy + hh;
+    // (the sides of the pane a point lies past, one bit each)
+    const past = (w) => (w.re < x0 ? 1 : 0) | (w.re > x1 ? 2 : 0) | (w.im < y0 ? 4 : 0) | (w.im > y1 ? 8 : 0);
+    let ok = true;
+    lines: for (const p of ps) {
+      let a = F(CX.C(p[0], p[1]));
+      for (let i = 2; i + 1 < p.length; i += 2) {
+        const ax = p[i - 2], ay = p[i - 1], dx = p[i] - ax, dy = p[i + 1] - ay;
+        for (let k = 1; k <= OUTLINE_M; k++) {
+          const b = F(CX.C(ax + dx * k / OUTLINE_M, ay + dy * k / OUTLINE_M));
+          const fin = Number.isFinite(a.re + a.im + b.re + b.im);
+          if (!fin || (!(past(a) & past(b)) && Math.hypot(b.re - a.re, b.im - a.im) > lim)) { ok = false; break lines; }
+          a = b;
+        }
+      }
+    }
+    r.reptLine = { key, ok };
+    return ok;
   }
   // the shape-level preparation (SPEC 3.6) and the image box of the scissor (4.8), cached by plan, clipWin and shape;
   // prepMs: the preparation work of the current frame (SPEC 10.2: past 4 ms, an uncached bounded shape waits a frame)
