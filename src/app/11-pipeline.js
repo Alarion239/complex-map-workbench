@@ -2,12 +2,6 @@
   const fsub = (k) => `<i>f</i><sub>${k}</sub>`;
   const brPhone = () => document.documentElement.classList.contains('ph');
   const fUni = (k) => 'f' + sub(k);
-  // runs of consecutive active steps as text or HTML: f₁–f₃, f₅
-  function stepRuns(ks, html) {
-    const f = (k) => (html ? `<i>f</i>${sub(k)}` : fUni(k)), out = [];
-    for (let i = 0; i < ks.length;) { let j = i; while (j + 1 < ks.length && ks[j + 1] === ks[j] + 1) j++; out.push(j > i ? `${f(ks[i])}–${f(ks[j])}` : f(ks[i])); i = j + 1; }
-    return out.join(', ');
-  }
   // ---------------- Repeat × N: a block of steps applied N times ----------------
   // step.repeat = {n, len} on a block's last step (Funcs.applyRepeats). N is 1 … Funcs.REPEAT_MAX (typed, or the arrow
   // keys), or the name of a shared number whose value, rounded, is N (repeat.by: its slider or Play runs the passes; the
@@ -87,18 +81,6 @@
     }
     return kids;
   }
-  // a deformation range the user just chose plays from its start, so the change shows; not under reduced motion
-  function playNewRange() {
-    if (morph.open && !morph.playing && !matchMedia('(prefers-reduced-motion: reduce)').matches) togglePlay();
-  }
-  // what the deformation deforms in words, for Y's title: "Deforming f₁–f₂" (the active steps inside its range);
-  // null when it deforms every step
-  function rangeWords(fmt) {
-    const r = homRangeOk();
-    if (!r) return null;
-    const ks = activeSteps().filter((k) => k >= r.a && k <= r.b);
-    return $t('Deforming {steps}', { steps: stepRuns(ks, fmt === 'html') });
-  }
   // the ⋯ menu's Deformation ▸ (SPEC 6.5): Only f_k inside F, Steps f_k–f_n, Steps f_1–f_k, Every step; deduped by
   // their normal forms; disabled with the reason when the d/dz rule moves b past the item's end or f_k is bypassed
   function deformItems(k) {
@@ -130,8 +112,6 @@
   function chooseRange(r) {
     if (S.focus > 0) setFocus(0);
     setHomRange(r);
-    if (!morph.open) openTransport();
-    playNewRange();
     return null;
   }
   function regionSummary() {

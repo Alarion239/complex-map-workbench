@@ -2,7 +2,7 @@
 // rightMode, sphereMode, leftSphere, material and solo; the U-b `view`; a deformation range and the Deformation's time
 // figMorph; a right pane's camera rightView) opens in the steps view on its equivalent (Views.svOf through svAdopt), and
 // the links that carry such a state open the same way: #cmw=0. (plain JSON), #cmw=1. (deflate-raw), and a hash with cmw
-// after another part. The steps view also honours the query flags ?ns= (a page's own storage) and ?i18n-debug (the recorded lookup
+// after another part, and links that name the right pane, the Morph view or the Deformation open. The steps view also honours the query flags ?ns= (a page's own storage) and ?i18n-debug (the recorded lookup
 // misses). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info, errs }.
 // (the classic view's own picture is not tested here: this suite proves that the steps view shows the same thing)
 const { BASE, linkOf, reloadedFigure } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'link_kit.js'), 'utf8'));
@@ -113,6 +113,23 @@ for (const [name, url] of FORMS) {
   for (const k of Object.keys(LINK_WANT)) ok(`${name}: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
   await grab(name);
 }
+// links of classic-era figures that name the right pane (expanded, with its own camera) or the Morph view: each opens in
+// the steps view, with no deformation open and no error (a link with the Deformation open at its time: figMorph, below)
+const OLD_LINKS = [
+  ['link naming the right pane (solo R, rightView)', { ...LINK_STATE, solo: 'R', rightView: { cx: 0.5, cy: -0.25, s: 120 } }, { ...LINK_WANT, solo: 'L', morphOpen: false }],
+  ['link of the Morph view (rightMode morph)', { ...LINK_STATE, rightMode: 'morph' }, { ...LINK_WANT, morphOpen: false }],
+];
+for (const [name, st, want] of OLD_LINKS) {
+  n++;
+  const ns = 'lmig' + n + Date.now();
+  const old = await ev('performance.timeOrigin');
+  await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(st, true)}`);
+  await reloadedFigure(old, 'Opened the figure from the link.');
+  const got = await ev(READ);
+  info[name] = got;
+  for (const k of Object.keys(want)) ok(`${name}: ${k}`, eq(got[k], want[k]), { k, want: want[k], got });
+  await grab(name);
+}
 
 // a link that carries the figure's camera (figCam) and its figMorph: the steps view reads both once, at the load, and its save
 // keeps neither. The camera's value is read through __cmwState().cam, and figMorph's T is the steps view's place x (it has no
@@ -126,6 +143,7 @@ n++;
   const got = await ev(READ);
   info['link with figCam and figMorph'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], k === 'x' ? 1.5 : LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  ok('figMorph link: no deformation open', got.morphOpen === false, got);
   const cam = await ev('__cmwState().cam');
   ok('figCam link: the camera is the link\'s', !!cam && [['yaw', 0.4], ['pitch', -0.3], ['d', 1.5], ['tx', 0.1], ['ty', -0.2]].every(([c, v]) => Math.abs(cam[c] - v) < 1e-9), cam);
   await ev('window.dispatchEvent(new Event("pagehide")); 1');

@@ -143,7 +143,7 @@ const Tour = (() => {
     {
       id: 'basics', title: 'Basics', time: '2 min', rev: 3, scene: 'strip',
       steps: [
-        { id: 'welcome', anchor: null, title: 'Welcome to the Workbench', before: [['view', 'xy'], ['deform', false], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select']],
+        { id: 'welcome', anchor: null, title: 'Welcome to the Workbench', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select']],
           lead: 'Practice freely: what you draw here is cleared at the end.',
           body: 'Draw a set in the $z$-plane, send it through a chain of functions and watch its image: about two minutes. What you draw during the tour is cleared when it ends, and your own work comes back exactly as it was.' },
         { id: 'x', anchor: 'paneL', title: 'X: the domain', before: [['plane', 'L'], ['tool', 'select']],
@@ -225,7 +225,7 @@ const Tour = (() => {
       steps: [
         // (pictures: the chain shows its cards' pictures for this step, Pictures rather than Names and tall enough;
         // the user's setting comes back when the tour leaves the step, and a note says so when it was changed)
-        { id: 'cards', anchor: 'chain', also: ['viewSwitch'], pictures: true, title: 'Cards follow the view', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane']],
+        { id: 'cards', anchor: 'chain', also: ['viewSwitch'], pictures: true, title: 'Cards follow the view', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
           touch: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.', deskTouch: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.', phoneFine: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.',
           try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land', ctl: ['viewLand'], then: 'Each card now shows its own landscape.' } },
@@ -257,7 +257,7 @@ const Tour = (() => {
       steps: [
         // (the Circle through 3 points tool itself; on a phone the More tools sheet opens with its tile, and once
         // it is picked the More key, which then shows it, is lit)
-        { id: 'c3', anchor: 'tool:circle3', also: ['paneL'], live: true, title: 'Circle through three points', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L'], ['panel', 'sheet', 'tools:construct']],
+        { id: 'c3', anchor: 'tool:circle3', also: ['paneL'], live: true, title: 'Circle through three points', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L'], ['panel', 'sheet', 'tools:construct']],
           body: 'Pick three points: points already on the page, crossings, or empty spots. The circle and its disc follow them.',
           try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', deskTouch: 'Choose Circle through 3 points and tap $z_0$, $z_1$, $z_2$.', phoneFine: 'Choose Circle through 3 points in More, then click $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3', work: ['ctxUndo'], then: 'Its three points are its handles now.' } },
         // (after: the drag needs the circle c3 makes; without it the step is read)
@@ -272,33 +272,9 @@ const Tour = (() => {
       ],
     },
     {
-      id: 'deform', title: 'Deformation', time: '1 min', rev: 3, scene: 'strip',
-      steps: [
-        { id: 'toggle', anchor: 'deformToggle', also: ['panes'], title: 'Deformation', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['deform', false]],
-          body: 'Plays a homotopy $H_t$ from the identity to $F$, step by step, in every view. In X → Y the two panes merge into one plane.',
-          try: { text: 'Click it, or press {M}.', touch: 'Tap it.', on: 'deformation-toggled', test: (e) => !e || e.on !== false, advance: true } },
-        // (deformation-t: the user's own input on t; the deformation's own loop never sends it)
-        { id: 'transport', anchor: 'transport', also: ['panes'], title: 'Play and scrub', before: [['deform', true]],
-          body: 'Play, or drag $t$. Each step follows its natural path when it has one (the caption names it): $H_t$ is analytic for every $t$, so angles are kept wherever $H_t\'\\neq0$.',
-          try: { text: 'Drag $t$.', on: 'deformation-t', ctl: ['playBtn', 'tSlider'], then: 'Angles are kept wherever $H_t\'\\neq0$.' } },
-        { id: 'paths', anchor: 'paths', also: ['panes'], title: 'Paths', before: [['deform', true]],
-          body: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$. Key {P}.',
-          touch: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$.',
-          try: { text: 'Click Paths twice, or press {P} twice.', touch: 'Tap Paths twice.', on: 'paths-toggled', count: 2, then: 'Each path runs from $z$ to $F(z)$.' } },
-        // (on a phone the order select is in the deformation bar's Steps picker, which the step opens)
-        { id: 'order', anchor: 'allAtOnce', also: ['panes'], needs: 'allAtOnce', title: 'All steps at once', before: [['deform', true], ['look', { allAtOnce: false }], ['panel', 'sheet', 'steps']],
-          body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.',
-          try: { text: 'Choose All at once.', on: 'order-changed', test: (e) => !e || e.all === true, ctl: ['allAtOnce'], then: 'Both steps now deform at the same $t$.' } },
-        // (notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
-        { id: 'range', anchor: 'bracketL', also: ['panes'], title: 'Part of the chain', before: [['deform', true], ['look', { allAtOnce: false }], ['range', null]],
-          body: 'The bracket over the cards marks the steps that deform. Steps before it act first, in full; steps after it, last. Bracket $f_2$ alone and the Möbius map deforms the half-plane $f_1(X)$: $H_t=G_t\\circ f_1$.',
-          try: { text: "Drag the bracket's left end past $f_1$.", touch: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", deskTouch: "Drag the bracket's left end past $f_1$.", phoneFine: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", on: 'deformation-range', test: (e) => !e || e.a === 2, work: ['card2Menu'], then: 'Only the Möbius map deforms; $f_1$ acts first, in full.' } },
-      ],
-    },
-    {
       id: 'analysis', title: 'Analysis', time: '1½ min', rev: 2, scene: 'roots',
       steps: [
-        { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R']],
+        { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R']],
           lead: 'The target $0$ marks the three cube roots of unity.',
           body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.',
           try: { text: 'Choose Disc, then drag in Y.', on: 'shape-added', test: (e) => !e || e.plane === 'w', ctl: ['tool:disc'], then: 'X shades its preimage under $F$.' } },
@@ -328,7 +304,7 @@ const Tour = (() => {
     {
       id: 'branches', title: 'Branches and inverses', time: '1 min', rev: 3, scene: 'logAnnulus',
       steps: [
-        { id: 'cut', anchor: 'paneL', title: 'Branch cuts', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select'], ['plane', 'L']],
+        { id: 'cut', anchor: 'paneL', title: 'Branch cuts', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select'], ['plane', 'L']],
           body: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.',
           touch: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step\'s editor adds $2\\pi i k$.', deskTouch: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.', phoneFine: "$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step's editor adds $2\\pi i k$.",
           try: { text: 'Drag the red cut.', on: 'cut-moved', ctl: ['tool:select'], then: 'The seam moved; across it the values jump by $2\\pi i$.' } },
@@ -351,7 +327,7 @@ const Tour = (() => {
       // Palette and keys leaves to this chapter. No step plays on arrival: music starts only from the strip's Listen
       id: 'sound', title: 'Sound', time: '1½ min', rev: 2, scene: 'song', needs: 'sound',
       steps: [
-        { id: 'song', anchor: 'panes', needs: 'song', act: 'listen', title: 'Grieg on a curve', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane'], ['tool', 'select']],
+        { id: 'song', anchor: 'panes', needs: 'song', act: 'listen', title: 'Grieg on a curve', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['tool', 'select']],
           body: 'Grieg\'s theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and plays each colour line $\\arg F$ crosses; the branch cut before each downbeat is the drum.',
           try: { text: 'Click ▶ to listen.', touch: 'Tap ▶ to listen.', off: 'Click ▶ to turn sound on and listen.', offTouch: 'Tap ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || ((!!e.piece || !!e.fn) && (!!e.full || e.heard >= Math.min(9, 0.45 * (e.dur || 20)))), then: 'Every note was $\\arg F$ crossing one of its colour lines.' },
           // (Hear the function: Listen along plays the function, so the captions are fractions of its duration
@@ -405,7 +381,7 @@ const Tour = (() => {
     },
   ];
   // the steps view's chapter, "Planes". Not under ?view=classic (a property of the page, fixed at its load): there
-  // it takes the place of Basics' X and Y steps (x, y, preimages, chain) and of the whole Deformation chapter. Each step puts the
+  // it takes the place of Basics' X and Y steps (x, y, preimages, chain). Each step puts the
   // view where its task needs it (svPlace) and is done by one of the events the steps view sends
   const SV_ON = (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })();
   const PLANES = {
@@ -490,9 +466,8 @@ const Tour = (() => {
     const cardsAt = edit.findIndex((/** @type {any} */ st) => st.id === 'cards');
     if (cardsAt < 0) throw new Error('the tour has no cards step to replace');
     edit[cardsAt] = reorderStep;
-    const bi = CHAPTERS.findIndex((c) => c.id === 'basics'), di = CHAPTERS.findIndex((c) => c.id === 'deform');
+    const bi = CHAPTERS.findIndex((c) => c.id === 'basics');
     if (bi >= 0) chs[bi].steps = chs[bi].steps.filter((/** @type {any} */ st) => !['x', 'y', 'preimages', 'chain'].includes(st.id));
-    if (di >= 0) chs.splice(di, 1);
     const vwi = chs.findIndex((/** @type {any} */ c) => c.id === 'views');
     if (vwi >= 0) chs.splice(vwi, 1, PLAYING);
     chs.splice(bi + 1, 0, PLANES);
@@ -542,7 +517,7 @@ const Tour = (() => {
     svSpeed: () => vis1('#svStrip .sv-speed'), svLoop: () => vis1('#svStrip .sv-loop'),
     // (the thread's Add function button, in either form; the second chip's ⋯ menu, or on a phone, where chips have none, the chip)
     svPrev: () => vis1('#svStrip .sv-prev'), svAdd: () => vis1('#svStrip .sv-add'), svMenu2: () => vis1(SV_K2 + ' .sv-more') || ANCHORS.svChip2(),
-    viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
+    viewSwitch: '#viewSwitch', tools: '#secDraw', toolsRail: '#railTools',
     // (the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = /** @type {HTMLElement | null} */ (document.querySelector('#constructTools')); return e && e.offsetParent ? e : null; },
     formula: '#secFormula', shapes: '#secShapes',
@@ -554,10 +529,7 @@ const Tour = (() => {
     // (on a phone the chain, its Add tile and F are rows of the chain sheet; while it is closed, its "N steps ▾"
     // button in the chain bar, which opens it)
     chain: '.pipe-wrap', addStep: () => inChainSheet('#addStepBtn'), panes: '#panes', paneL: '#paneL', paneR: '#paneR',
-    surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
-    // (the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
-    // (on a phone the chain is the chain sheet's; while it is closed, its "N steps ▾" in the chain bar)
-    bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : inChainSheet('#pipeline'); },
+    surfaceL: '#leftTabs', surfaceR: '#rightTabs',
     // (the right panel is the Inspector; F's formula, guarantees and domain show there with the F tile selected,
     // which the app's api.anchor does for these names)
     rightPanel: '#rightPanel', composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
@@ -599,9 +571,8 @@ const Tour = (() => {
     card1: () => inChainSheet('#pipeline .card[data-k="1"]'),
     card2: () => inChainSheet('#pipeline .card[data-k="2"]'),
     card2Menu: () => (phoneLayout() && vis1('.ph-sheet:not([hidden]) .insp-step[data-k="2"] .ihead .more')) || vis1('#pipeline .card[data-k="2"]'),
-    // the slider of the first shared number; the deformation's t slider and Play
+    // the slider of the first shared number
     paramSlider: () => vis1('#propsPanel .prm-row input[type="range"]'),
-    tSlider: () => vis1('#morphRange'), playBtn: () => vis1('#morphPlay'),
     // F's Copy LaTeX button, in the head of the Inspector with the F tile selected
     copyTex: '#propsPanel .insp-F .ihead .icon-btn',
   };
@@ -1571,12 +1542,11 @@ const Tour = (() => {
     sizeDesk(r);
     wire(r);
     if (!prev) call('onTour', true);
-    // (a start from the Help menu or a suggestion has its control gone with the menu or the toast, so the focus fell to the page: it goes to the strip's
-    // first action, where Tab goes on through the strip's controls before the page's)
-    const fromControl = !!opt.opener;
+    // (a start the user asks for names its control as the opener (the Help menu, the palette, a Show me, a suggestion): the control goes with the menu or the
+    // toast, or the palette or the guide hands the focus back to it as it closes, so the focus goes to the strip's first action, where Tab goes on
+    // through the strip's controls before the page's)
     return show(r.ci, r.si, 1).then(() => {
-      const at = document.activeElement;
-      if (fromControl && run === r && (!at || at === document.body || !at.isConnected || at.closest('[role=menu]'))) { try { r.ui.next.focus({ preventScroll: true }); } catch (e) { /* */ } }
+      if (opt.opener && run === r && !r.ui.strip.contains(document.activeElement)) { try { r.ui.next.focus({ preventScroll: true }); } catch (e) { /* */ } }
       return true;
     });
   }
@@ -1647,7 +1617,7 @@ const Tour = (() => {
       if (ui.whyOpen && ui.whyPanel) setWhy(r, false);
     };
     // a focused text field holds the countdown while it holds text not yet sent (the user may still be typing); the app
-    // empties a field it has taken in (a set added with Enter), which ends the hold (r3 review regress-1). Checked on
+    // empties a field it has taken in (a set added with Enter), which ends the hold. Checked on
     // focus, on input and four times a second (the app empties it without an input event)
     const isField = (a) => !!a && a.nodeType === 1 && (a.isContentEditable || a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|color|file)$/i.test(a.type || 'text')));
     const unsent = (a) => isField(a) && !inStrip(a) && String(a.isContentEditable ? a.textContent : a.value || '').trim() !== '';
@@ -1962,7 +1932,7 @@ const Tour = (() => {
     tin.append(d, ' ');
   }
   // A desktop's strip height: 52 px, plus while Why is open inline the tallest body of the steps seen so far at this
-  // width (measured off screen at each chapter's start; r3 review regress-4: it never shrinks during the tour, so the
+  // width (measured off screen at each chapter's start; it never shrinks during the tour, so the
   // panes change size at most when a taller chapter comes, not at every chapter). At most 45 % of the view, and never
   // so tall that the panes keep less than 360 px (Why scrolls inside).
   const ROW_H = 52, SLOT_GAP = 8;
@@ -2135,7 +2105,7 @@ const Tour = (() => {
       if (s.phase === 'held' && before && before.phase !== 'held' && !red) ui.next.classList.add('counting');
     }
     nextLabel(r, red && live && !s.door ? Math.ceil((s.phase === 'running' ? L : s.dur) / 1000) : null);
-    // (r3 review regress-5: the countdown is announced when it starts: at done when nothing holds it, else here, when the
+    // (the countdown is announced when it starts: at done when nothing holds it, else here, when the
     // last hold ends)
     if (r.done && !s.door && s.phase === 'running' && before && before.phase === 'held') ui.live.textContent = nextIn();
     if (L == null) return;
@@ -2192,7 +2162,7 @@ const Tour = (() => {
     return k.find((x) => !(SCENES[x] && [].concat(SCENES[x].needs || []).some(featureOff))) || k[k.length - 1];
   }
   // the actions that change the scene or the view: only when the tour can put the user's work back (borrow)
-  const CHANGES = new Set(['scene', 'range', 'view', 'surface', 'deform', 'focus', 'panel', 'tool', 'look', 'select', 'plane', 'svPlace']);
+  const CHANGES = new Set(['scene', 'range', 'view', 'surface', 'focus', 'panel', 'tool', 'look', 'select', 'plane', 'svPlace']);
   function absent(ci, si, scenes) {
     const ch = CHAPTERS[ci], st = ch.steps[si], k = sceneAt(ch, si), sc = k != null ? SCENES[k] : null;
     if (scenes === false && (k != null || (st.before || []).some((a) => CHANGES.has(a[0])))) return true;
@@ -2227,7 +2197,7 @@ const Tour = (() => {
     r.scene = key; r.sceneOk[key] = ok;
     return ok;
   }
-  const ACTIONS = { range: 'setRange', view: 'setView', surface: 'setSurface', deform: 'setDeformation', focus: 'focusStep', panel: 'showPanel', tool: 'setTool', look: 'setLook', select: 'selectStep', plane: 'showPlane' };
+  const ACTIONS = { range: 'setRange', view: 'setView', surface: 'setSurface', focus: 'focusStep', panel: 'showPanel', tool: 'setTool', look: 'setLook', select: 'selectStep', plane: 'showPlane' };
   function act(r, a) {
     const [name, ...args] = a;
     if (name === 'scene') return loadScene(r, pickScene(args[0]));
@@ -2617,7 +2587,7 @@ const Tour = (() => {
     const rects = litParts(step, tgt).map((q, i) => (i > 0 ? sideCut(q.el, partRect(q, pad)) : partRect(q, pad))).filter((q, i) => !q.hidden && (i === 0 || (q.r - q.l > 0.5 && q.b - q.t > 0.5)));
     return areasOf(rects, true);
   }
-  // (r3 review fix pass) a lit part beside the anchor that an open layer covers along one whole side, X under the left
+  // a lit part beside the anchor that an open layer covers along one whole side, X under the left
   // drawer the step opened at 768-1023 px, is lit only where it shows: cut back to the layer's edge, square corners
   // there. Not on a phone, whose sheets the spotlight is drawn into (hostPlan)
   function sideCut(e, q) {
@@ -3073,7 +3043,7 @@ const Tour = (() => {
     // the user's work comes back exactly as it was; the message says so only when it did
     const back = giveBack(r.lend, false);
     call('onTour', false);
-    // (r3 review regress-7: no style attribute left on the root that it did not have)
+    // (no style attribute left on the root that it did not have)
     noStyle();
     if (!opt.silent) {
       const where = helpWhere();
@@ -3392,8 +3362,9 @@ const Tour = (() => {
   const Tour = {
     VERSION, init, start, stop: (o) => Promise.resolve(stop(o || {})), next: () => go(1), back: () => go(-1),
     suggest, dismissSuggestion: () => hideSuggest(false), openHelpMenu,
-    // (the control a start that the user asks for names as its opener: Help, or the phone's More, where the focus goes back to when the tour ends)
-    helpAnchor: () => anchorEl(['helpBtn', 'moreBtn']),
+    // (the control a start that the user asks for names as its opener, where the focus goes back to when the tour ends: the one that has the focus, the control a
+    // palette or a guide has handed it back to as it closed, else Help, or the phone's More)
+    asker: () => { const a = document.activeElement; return a && a !== document.body && a.isConnected && !a.closest('[role=menu]') ? a : anchorEl(['helpBtn', 'moreBtn']); },
     // (for tests) the line that continues a tour cut short, at once: -> whether it is shown
     offerContinue: () => { load(); if (run || sugg) return false; return showContinue(); },
     // the learning lane: one closable line in the tour's docked slot (an example's Try line)

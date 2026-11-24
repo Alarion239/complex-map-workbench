@@ -1,8 +1,8 @@
 // Sound (notes/sound/DESIGN.md; the engine is src/sound.js, the hooks the "sound" block of app.js): the browser side.
 // Consent (no AudioContext and no per-event work until the user turns sound on; a remembered "on" waits for a click or
-// key of the new page), the default tiers silent on hover, Shift+M (and M still the Deformation), the palette entries,
+// key of the new page), the default tiers silent on hover, Shift+M, the palette entries,
 // the settings in lsk('cmw-sound') and never in the saved work, Interface and Mathematical-event cues from the app, the
-// pointer tier (the voice, exact winding by ear, zero orders, the guards during view gestures and the deformation),
+// pointer tier (the voice, exact winding by ear, zero orders, the guards during view gestures),
 // loops (the winding, the first loop plays itself, Esc), Height contours in the Landscape, the keyboard probe (arrows,
 // Z, O, D, Enter, L, Esc), the engine's queue and cluster guards and the suspended-context rule in a live context, the
 // silent off, the loudness and phone targets (the lab of DESIGN §2.2 as assertions), the phone header, and the
@@ -21,9 +21,8 @@ const loadHere = async (ns, st, extra) => {
   return ev(`({lamps: __qa.lamps()})`);
 };
 const fails = [], R = {};
-// the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
-// the digit keys and the toggle button are gone
-const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
+// the main view through its hook (the view keys are gone)
+const mainView = async (m) => { await ev(`__cmwSetMain(${JSON.stringify(m)}); 1`); await settled(); };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // (Hear the function: the marimba notes replace the pointer harp, perfwin/sound/impl/SOUND-PLAN.md 5.1. The
@@ -81,23 +80,14 @@ await settle(300);
 R.quiet = { made: await made(true), live: await ev('(() => { const h = Sound.hear.state(); return h.counts.notes + (h.stroke ? 1 : 0); })()'), argStep: await ev('__calls.argStep') };
 ok('default tiers: hovering zeros makes no cue, no voice, no tracking', !R.quiet.made.length && R.quiet.live === 0 && R.quiet.argStep === 0, R.quiet);
 
-// 4. Shift+M toggles sound (silently off); M alone is still the Deformation
+// 4. Shift+M toggles sound (silently off) (standards-ok: the M-key Deformation rows went with the classic transport, #994;
+// the steps view's play is sound_steps_cmd)
 await key('M', 8); await settle(250);
 R.shiftM = { on: await ev('Sound.prefs().on'), made: await made(true), active: await ev('Sound.debug().active'), audio: await ev('Sound.state().audio'), deform: (await ev('__cmwLayout()')).deform };
 ok('Shift+M: off, silent, suspended, not the Deformation', !R.shiftM.on && !R.shiftM.made.length && R.shiftM.active === 0 && R.shiftM.audio === 'suspended' && !R.shiftM.deform, R.shiftM);
 await key('M', 8); await settle(300);
 R.shiftM2 = { on: await ev('Sound.prefs().on'), made: await made(true), audio: await ev('Sound.state().audio') };
 ok('Shift+M again: on with its key', R.shiftM2.on && R.shiftM2.made.join() === 'toggleOn' && R.shiftM2.audio === 'running', R.shiftM2);
-// M: the deformation plays (the swell once per play), arrives once, and loop repeats stay silent
-await morphKey();
-ok('M opens the Deformation', (await ev('__cmwLayout()')).deform === true);
-let mm = [];
-for (let i = 0; i < 40 && !mm.includes('morphEnd'); i++) { await sleep(150); mm = await made(); }
-await sleep(2500);
-mm = await made(true);
-R.morph = mm;
-ok('deformation: one swell and one arrival per play, none on loop repeats', count(mm, 'morphStart') === 1 && count(mm, 'morphEnd') === 1, mm);
-await morphKey();
 
 // 5. the palette entries
 await key('k', 4); await settle(300);
@@ -174,8 +164,6 @@ await move(...(await W(0.6, 0.6))); await settle(700); await made(true);
 }
 ok('pan: no pointer cue during the gesture and the 250 ms after', !R.pan.made.some((x) => x === 'zero' || x === 'pole' || x === 'cut' || x === 'dense'), R.pan);
 await ev(`document.getElementById('leftFit') && document.getElementById('leftFit').click(); 1`); await settle(600);
-// (while the deformation plays, the probe follows H_t in (z, t) and its cues fire as for the pointer: section 16,
-// test/sound_deform_cmd.js; until 2026-10-23 pointer cues were held during a play)
 
 // 8. loops: the Lasso around both zeros: two rising bells while drawing, W = 2 announced, the first loop plays itself;
 // Esc stops it at once and keeps sound on; a second loop sounds its winding and waits
@@ -431,17 +419,16 @@ for (const w of [360, 390]) {
 await view(1440, 900, false, false);
 await ev(`Sound.set({ on: false }); 1`);
 
-// 16. the function under a still probe changes (notes/sound/DEFORMATION.md): the Deformation played and scrubbed with
-// the pointer still over X's Phase plane, the merged deformation plane and the Landscape; a zero dragged while the
-// pointer rests elsewhere; sound off. The cases are test/sound_deform_cmd.js (also run alone).
-// (the section reads the console log itself: what came before is kept for the check of exceptions below)
+// 16. the function under a still probe changes (notes/sound/DEFORMATION.md): a zero dragged while the pointer rests
+// elsewhere, sound off, and the layout changed under a still pointer. The cases are test/sound_still_probe_cmd.js (also
+// run alone). (the section reads the console log itself: what came before is kept for the check of exceptions below)
 const logsBefore = logs();
 {
   const AF = Object.getPrototypeOf(async function () {}).constructor;
   const H = { ev, go, nav, view, shot, key, type, click, move, drag, clickSel, load, logs, send, sleep, settled, img, fs, path, DIR };
-  const D = await new AF(...Object.keys(H), fs.readFileSync(path.join(DIR, '..', 'sound_deform_cmd.js'), 'utf8'))(...Object.values(H));
-  R.deform = D.R;
-  for (const f of D.fails || [{ name: 'did not run', got: D }]) fails.push(Object.assign({}, f, { name: 'deformation: ' + f.name }));
+  const D = await new AF(...Object.keys(H), fs.readFileSync(path.join(DIR, '..', 'sound_still_probe_cmd.js'), 'utf8'))(...Object.values(H));
+  R.stillProbe = D.R;
+  for (const f of D.fails || [{ name: 'did not run', got: D }]) fails.push(Object.assign({}, f, { name: 'still probe: ' + f.name }));
   await ev(`Sound.set({ on: false }); 1`);
 }
 // 17. defaults (notes/sound/README.md, the user's decision of 2026-10-23), on a page without ?ns= (the published
