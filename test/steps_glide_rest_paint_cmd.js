@@ -13,6 +13,9 @@
 //    match is plane 1's own picture and not any coloured frame.
 // The glide is drawn by the inverse pass (path 'inverse'), the path the Douady–Hubbard glide takes (#1339); the paint is
 // under the carried colour, so the carried meshes' path takes it too.
+// On the Sphere (#2383), the same glide on the globe: at u in PAPER_U the globe has no more paper pixels than the globe
+// at rest on plane 1, give or take PAPER_SLACK of the pane (the arrival plane's colour under the carried globe, as on the
+// plane). The camera is the same in all three frames, so the paper around the globe counts alike in each.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -90,4 +93,25 @@ const a = info.arrive = await disc('X' + ARRIVE_U, 'X1');
 ok(`at u = ${ARRIVE_U}, inside the unit disc where plane 0 has a value, the glide shows parked plane 1 (at least ${MATCH_MIN * 100} % of ${MIN_DISC}+ pixels)`, a.n >= MIN_DISC && a.frac >= MATCH_MIN, a);
 const c0 = info.control = await disc('X0', 'X1');
 ok(`control: parked plane 0 is not parked plane 1 there (at most ${CONTROL_MAX * 100} % match)`, c0.n >= MIN_DISC && c0.frac <= CONTROL_MAX, c0);
+// ---- the Sphere: the same glide on the globe ----
+await ev(`__cmwSteps({ go: 0, now: true }), 1`);
+await settled({ max: SETTLE_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 0 && GLR.pendingLinks === 0' });
+await ev(`__cmwSteps({ surf: 'sphere' }), 1`);
+await settled({ max: SETTLE_MS, until: `__cmwSteps().surf === 'sphere' && __cmwSteps().ready.ready` });
+const parkS = async (x) => {
+  await ev(`__cmwSteps({ x: ${x} }), 1`);
+  await settled({ max: SETTLE_MS, until: `Math.abs(__cmwSteps().x - ${x}) < 1e-12 && GLR.pendingLinks === 0 && !__cmwSteps().hold` });
+  return grab('S' + x);
+};
+for (const u of PAPER_U) ok(`Sphere: the frame at u = ${u} settles`, await parkS(u), null);
+await ev(`__cmwSteps({ go: 1, now: true }), 1`);
+const at1s = await settled({ max: SETTLE_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 1 && __cmwSteps().i === 1 && GLR.pendingLinks === 0' });
+ok('Sphere: the thread parks on plane 1', at1s.ok, at1s);
+ok('Sphere: the globe at rest on plane 1 settles', await grab('S1'), null);
+const s1 = info.sphereBlank1 = await blank('S1');
+ok('Sphere: the globe at rest on plane 1 is drawn (fewer paper pixels than the pane)', s1.n < 0.9 * s1.of, s1);
+for (const u of PAPER_U) {
+  const q = info[`sphere blank ${u}`] = await blank('S' + u);
+  ok(`Sphere: at u = ${u} the globe is not blank where no point arrives: no more paper pixels than the globe at rest on plane 1, give or take ${PAPER_SLACK * 100} % of the pane`, q.n <= s1.n + PAPER_SLACK * q.of, { glide: q, plane1: s1 });
+}
 return { pass: fails.length === 0, fails, info };
