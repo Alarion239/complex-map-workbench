@@ -82,6 +82,7 @@ const VIEWS = {
   'steps_land_glide_sheets_cmd.js': steps(),
   'steps_land_sheets_prestart_cmd.js': steps(),
   'steps_land_cracks_cmd.js': steps(),
+  'steps_glide_tile_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
@@ -160,6 +161,7 @@ const VIEWS = {
   'steps_lookdown_phone_cmd.js': steps(),
   'steps_stack_levels_cmd.js': steps(),
   'steps_stack_tubes_cmd.js': steps(),
+  'steps_stack_links_cmd.js': steps(),
   'floor_pick_cmd.js': steps({ pin: true }),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
