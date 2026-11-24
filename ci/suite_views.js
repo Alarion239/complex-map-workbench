@@ -74,6 +74,7 @@ const VIEWS = {
   'steps_judge_rational_cmd.js': steps(),
   'steps_glide_closed_cmd.js': steps(),
   'steps_ahead_cmd.js': steps(),
+  'steps_stack_ahead_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_negpow_glide_cmd.js': steps({ pin: true }),
@@ -168,15 +169,15 @@ const VIEWS = {
   'steps_chipname_cmd.js': steps(),
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
-  'steps_colour_pick_cmd.js': steps(),
-  'steps_colour_parity_cmd.js': steps(),
+  'steps_colour_pick_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
+  'steps_colour_parity_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
   'steps_sheet_grid_cmd.js': steps({ pin: true }),
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_mesh_tie_cmd.js': steps(),
   'steps_mesh_tie_newt_cmd.js': steps(),
   'steps_exact_saved_false_cmd.js': steps(),
-  'steps_drawplane_cmd.js': steps(),
+  'steps_drawplane_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
   'steps_readout_cmd.js': steps(),
   'steps_regions_note_cmd.js': steps({ pin: true }),
   'steps_order_cmd.js': steps(),
@@ -259,7 +260,7 @@ const VIEWS = {
   'export_stage_points_cmd.js': classic('the classic Image figure\'s two panels at a focused step: a point of w₁ carried from its own plane, and the caption that names its plane'),
   'figure_ticks_cmd.js': classic('the classic Image figure\'s two panels of points only, and the composer\'s tick labels'),
   'export_arrow_clear_cmd.js': steps(),
-  'figure_ticks_views_cmd.js': classic('the axes the video, the Landscape figure and the deformation filmstrip label themselves, over a zoomed window and a wide one'),
+  'figure_ticks_views_cmd.js': steps(),   // (the video's axes on the steps view's glide; the classic Landscape figure's by ?view=classic)
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
   'phone_plane_cmd.js': steps({ pin: true }),
@@ -302,7 +303,7 @@ const VIEWS = {
   'v15_merge_cmd.js': steps({ pin: true }),
   'v15_params_cmd.js': steps({ pin: true }),
   'v15_planemenu_cmd.js': steps({ pin: true }),
-  'zp_classic_cmd.js': classic('the right pane\'s renderer paths by degree, the frame held mid-drag and the deformation: the steps view shows one plane, with no right pane and no deformation transport'),
+  'zp_classic_cmd.js': classic('the right pane\'s renderer paths by degree and the frame held mid-drag: the steps view shows one plane, with no right pane'),
   'zp_cmd.js': steps({ pin: true }),
   'zpfix_cmd.js': steps({ pin: true }),
   'deform_nat_cmd.js': steps({ pin: true }),
@@ -376,7 +377,6 @@ const VIEWS = {
   'complex_lang_export_cmd.js': steps({ pin: true }),
   'export_cmd.js': steps({ pin: true }),
   'export_deform_cmd.js': steps({ pin: true }),
-  'export_deform_classic_cmd.js': classic('the classic views\' deformation export: the X → Y, Phase, globe and Landscape figures and videos, the display-style F, their Russian captions and the dialog\'s classic Deformation row; the steps view\'s export is export_deform_cmd, export_steps_cmd and morphfig_cmd'),
   'export_fit_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
@@ -384,7 +384,6 @@ const VIEWS = {
   'morphfig_cmd.js': steps({ pin: true }),
   'steps_paths_sphere_cmd.js': steps({ pin: true }),
   'steps_paths_sphere_fig_cmd.js': steps({ pin: true }),
-  'morphfig_classic_cmd.js': classic('the classic view\'s deformation as one picture: pathsGen\'s selection on the Y pane, the transport and the 3 prototype cases; the steps view\'s paths figure is morphfig_cmd'),
 
   // to port: geometry
   'between_cmd.js': steps({ pin: true }),
@@ -401,8 +400,6 @@ const VIEWS = {
   'meetnear_coincide_cmd.js': steps({ pin: true }),
   'perp_cmd.js': steps({ pin: true }),
   'poly_verts_cmd.js': steps({ pin: true }),
-  'rel162_sheets_cmd.js': port('geometry', 'the release check of All sheets on a Landscape with a multivalued step, its sheets and their count, as the classic Landscape draws them: the steps view has the check in its plane options (sv_all_sheets_cmd), not this case'),
-  'sheets_deform_cmd.js': port('geometry', 'All sheets while a glide plays: the steps view has the check (sv_all_sheets_cmd) and its glide, and every sheet drawn over a 2D glide (steps_glide_sheets_cmd) and a Landscape glide (steps_land_glide_copies_cmd), but not yet over a sphere glide (#1413)'),
   'touch_cmd.js': steps({ pin: true }),
   'ux165_rail_cmd.js': steps({ pin: true }),
 
@@ -434,7 +431,6 @@ const VIEWS = {
   'seasong_cmd.js': port('sound', 'the Mountain King example: its gallery entry, its circle menu with Listen along and the first samples it prepares, in English, Russian, desktop and phone; it waits on the sound checks in the steps view'),
   'sound_cmd.js': port('sound', 'the browser side of sound: consent, the tiers and their palette entries, the settings, the cues, the pointer voice, loops and the Landscape contours; it waits on the sound checks in the steps view'),
   'sound_v152_cmd.js': steps({ pin: true }),
-  'sound_v152_deform_classic_cmd.js': classic('the loop singing while the Deformation plays and Esc while it plays: the steps view has no open Deformation'),
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
