@@ -685,7 +685,7 @@
   // multiple of it, up to LAND_DUP_M, that the height has too, checked at LAND_DUP_AT points of the box), each point of the
   // strip within sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the
   // inner ring draw with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span
-  // several periods there, and their facets stood out of the surface they copy (#1137). [n.x, n.y, half-width, 1], n the
+  // several periods there, and their facets would stand out past the surface they copy. [n.x, n.y, half-width, 1], n the
   // unit normal to P; null where no such period is found
   const LAND_DUP_M = 4, LAND_DUP_AT = [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7], [0.35, 0.85], [0.7, 0.15]], LAND_DUP_TOL = 1e-7;
   function svLandFarDup(carry, src, R) {

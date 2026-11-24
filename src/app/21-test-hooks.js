@@ -398,16 +398,18 @@
   // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
   // default). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
   // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
+  // whether the plane point (x, y) lies in the strip of a far ring's copies (ring [x, y, ...] with dup [n.x, n.y, half-width],
+  // LAND_CARRY_VS uDup); false for a ring without one
+  const landInStrip = (ring, x, y) => !!ring.dup && Math.abs((x - ring[0]) * ring.dup[0] + (y - ring[1]) * ring.dup[1]) < ring.dup[2];
   window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = [], where = null) => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets) return null;
     const F = cpuMap(c.map), b = c.box, cov = new Uint8Array(nx * ny);
     const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0), lim2 = c.lim * c.lim;
     // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell; with discs, a triangle
-    // whose corners all lie in one of them is left out, as LAND_CARRY_VS leaves the box's to a seamed patch; with dup (the
-    // outer far ring's [x, y, n.x, n.y, half-width]), one whose corners all lie in the strip of its copies, as it leaves the
-    // ring's to the box and the inner ring)
-    const grid = (n, place, discs = [], dup = null) => {
+    // whose corners all lie in one of them is left out, as LAND_CARRY_VS leaves the box's to a seamed patch; with ring (a far
+    // ring with its copies' strip), one whose corners all lie in that strip, as it leaves the ring's to the box and the inner ring)
+    const grid = (n, place, discs = [], ring = null) => {
       const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n);
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
         const z = place(i, j), w = F(C(z[0], z[1])), o = 2 * (j * n + i);
@@ -416,7 +418,7 @@
       }
       const at = (i, j) => 2 * (j * n + i);
       const inDisc = (...v) => discs.some(([x, y, r]) => v.every((o) => Math.hypot(Z[o] - x, Z[o + 1] - y) < r));
-      const inDup = (...v) => !!dup && v.every((o) => Math.abs((Z[o] - dup[0]) * dup[2] + (Z[o + 1] - dup[1]) * dup[3]) < dup[4]);
+      const inDup = (...v) => !!ring && v.every((o) => landInStrip(ring, Z[o], Z[o + 1]));
       const tri2 = (a, d, e) => { if (!inDisc(a, d, e) && !inDup(a, d, e)) tri(P, a, d, e); };
       for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
         tri2(at(i, j), at(i + 1, j), at(i + 1, j + 1));
@@ -442,7 +444,7 @@
     grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
     for (const p of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
       const n = p[4] || c.patchN || 96;
-      grid(n, (i, j) => svPatchZ(p, i, j, n), [], p.dup ? [p[0], p[1], ...p.dup.slice(0, 3)] : null);
+      grid(n, (i, j) => svPatchZ(p, i, j, n), [], p.dup ? p : null);
     }
     let bare = 0, counted = 0;
     const at = [];
@@ -468,7 +470,7 @@
     return (of === 'polar' ? (c.polar || []).slice(0, c.patches || 0).map((q) => [...q, c.patchN]) : c.far).map((ring) => {
       const [px, py, r0, r1, N] = ring, d = of === 'polar' ? null : ring.dup;
       const m = (N || c.patchN || 96) - 1, at = (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return C(px + r * Math.cos(th), py + r * Math.sin(th)); };
-      const inDup = (i, j) => { const z = at(i, j); return Math.abs((z.re - px) * d[0] + (z.im - py) * d[1]) < d[2]; };
+      const inDup = (i, j) => { const z = at(i, j); return landInStrip(ring, z.re, z.im); };
       const out = { cells: 0, bad: 0, worst: 0, at: null, copies: 0, copiesBad: 0 }, V = new Float64Array((m + 1) * (m + 1));
       for (let j = 0; j <= m; j++) for (let i = 0; i <= m; i++) V[j * (m + 1) + i] = L(at(i, j));
       for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {

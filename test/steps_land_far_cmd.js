@@ -14,8 +14,8 @@
 // - with the pole patches' discs counted too, cells are off by more than that: the check reads something;
 // - the carried frame covers its block (no point bare, __cmwLandCover).
 // The outer ring (past four times the box's inscribed circle) is read and not checked there: it reaches out to infinity, where
-// every pole is a spike the patches cannot all reach. With T = w₁ (the height is exp's, no pole), held at u = 0.25 and 0.5
-// (#1137), the glide map (e^{uz} − 1)/u + u and the height have the period 2πi/u, and the outer ring's cells that the glide
+// every pole is a spike the patches cannot all reach. With T = w₁ (the height is exp's, no pole), held at u = 0.25 and 0.5,
+// the glide map (e^{uz} − 1)/u + u and the height have the period 2πi/u, and the outer ring's cells that the glide
 // brings into the block lie on its copies of the box (|Im z| up to 16,000, several periods a cell):
 // - the outer ring draws no cell whose chord is off by more than 0.1: the ones in the strip of its copies are left out to
 //   the box and the inner ring (LAND_CARRY_VS uDup);
