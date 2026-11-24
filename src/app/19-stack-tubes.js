@@ -74,30 +74,69 @@
     return $t('narrows here: {d}, not a join', { d: `${f}′(${tubeNum(n.z)}) = ${tubeNum(n.d)}` });
   }
   // the tubes' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the place and
-  // the words beside it on a halo plate, to its right, or to its left where the room R the box is fitted in ([x0, y0, x1,
-  // y1], css px: stackRoom) has none there. Words too long for either side go on two lines, broken at the space nearest
-  // their middle, so the dot stays at the plate's end; kept across inside the room, and above the dot where that would
-  // cover it. Each label's box [x0, y0, x1, y1] (css px, the plate's) is kept on it, and its lines
-  function drawStackLabels(ctx, labels, fade, R) {
+  // the words on a halo plate. Each label's plate lies inside the room R the box is fitted in ([x0, y0, x1, y1], css px:
+  // stackRoom), clear of the labels placed before it and of the marks drawn ([x, y] css px: the tubes', the strands' and
+  // Look down's), counted on a grid of TUBE_CELL px. It takes the first of TUBE_SPOTS beside its dot (the dot at the
+  // plate's end or corner) that is clear, on one line and then on two (broken at the space nearest the middle); where
+  // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate;
+  // where there is none, the spot beside the dot over the fewest marks. Each label's box [x0, y0, x1, y1] (css px, the
+  // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it
+  const TUBE_SPOTS = ['right', 'left', 'above right', 'above left', 'below right', 'below left'];
+  const TUBE_CELL = 4, TUBE_STEP = 6;
+  function drawStackLabels(ctx, labels, fade, R, marks = []) {
     ctx.save();
     ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle';
-    const width = (lines) => Math.max(...lines.map((t) => ctx.measureText(t).width));
+    const width = (lines) => Math.max(...lines.map((t) => ctx.measureText(t).width)), lh = TUBE_FONT + 2, P = TUBE_PLATE, g = TUBE_LABEL_DX;
+    // (the marks counted in TUBE_CELL px cells of the room, as a summed-area table: a plate's count in four reads)
+    const nx = Math.max(1, Math.ceil((R[2] - R[0]) / TUBE_CELL)), ny = Math.max(1, Math.ceil((R[3] - R[1]) / TUBE_CELL));
+    const cell = new Float64Array(nx * ny), sat = new Float64Array((nx + 1) * (ny + 1));
+    const put = (x, y, n) => { const i = Math.floor((x - R[0]) / TUBE_CELL), j = Math.floor((y - R[1]) / TUBE_CELL); if (i >= 0 && i < nx && j >= 0 && j < ny) cell[j * nx + i] += n; };
+    for (const [x, y] of marks) put(x, y, 1);
+    const sum = () => { for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) sat[(j + 1) * (nx + 1) + i + 1] = cell[j * nx + i] + sat[j * (nx + 1) + i + 1] + sat[(j + 1) * (nx + 1) + i] - sat[j * (nx + 1) + i]; };
+    sum();
+    const over = (b) => {
+      const i0 = Math.max(0, Math.floor((b[0] - R[0]) / TUBE_CELL)), j0 = Math.max(0, Math.floor((b[1] - R[1]) / TUBE_CELL));
+      const i1 = Math.min(nx, Math.ceil((b[2] - R[0]) / TUBE_CELL)), j1 = Math.min(ny, Math.ceil((b[3] - R[1]) / TUBE_CELL));
+      return i1 <= i0 || j1 <= j0 ? 0 : sat[j1 * (nx + 1) + i1] - sat[j0 * (nx + 1) + i1] - sat[j1 * (nx + 1) + i0] + sat[j0 * (nx + 1) + i0];
+    };
+    const inRoom = (b) => b[0] >= R[0] && b[1] >= R[1] && b[2] <= R[2] && b[3] <= R[3];
     for (const L of labels) {
-      const [x, y] = L.at, roomR = R[2] - TUBE_LABEL_DX - (x + TUBE_LABEL_DX), roomL = x - TUBE_LABEL_DX - (R[0] + TUBE_LABEL_DX);
-      let lines = [L.text];
-      if (width(lines) > Math.max(roomR, roomL)) {
-        const sp = [...L.text.matchAll(/ /g)].map((m) => m.index), mid = L.text.length / 2;
-        if (sp.length) { const i = sp.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a)); lines = [L.text.slice(0, i), L.text.slice(i + 1)]; }
+      const [x, y] = L.at, sp = [...L.text.matchAll(/ /g)].map((m) => m.index), mid = L.text.length / 2;
+      const two = sp.length ? (() => { const i = sp.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a)); return [L.text.slice(0, i), L.text.slice(i + 1)]; })() : null;
+      const options = two ? [[L.text], two] : [[L.text]], size = (lines) => [width(lines) + 2 * P, lines.length * lh - 2 + 2 * P];
+      let best = null, near = null;
+      for (const lines of options) {
+        const [w, h] = size(lines);
+        for (const spot of TUBE_SPOTS) {
+          const x0 = spot === 'right' ? x + g - P : spot === 'left' ? x - g + P - w : spot.endsWith('right') ? x + TUBE_DOT : x - TUBE_DOT - w;
+          const y0 = spot.startsWith('above') ? y - TUBE_DOT - 2 - h : spot.startsWith('below') ? y + TUBE_DOT + 2 : y - h / 2;
+          const b = [x0, y0, x0 + w, y0 + h];
+          if (!inRoom(b)) continue;
+          const hits = over(b);
+          if (!near || hits < near.hits) near = { b, lines, hits, leader: null };
+          if (hits === 0) { best = near; break; }
+        }
+        if (best) break;
       }
-      const tw = width(lines), right = tw <= roomR || (tw > roomL && roomR >= roomL), lh = TUBE_FONT + 2, th = lines.length * lh - 2;
-      const x0 = Math.max(R[0] + TUBE_LABEL_DX, Math.min(R[2] - TUBE_LABEL_DX - tw, right ? x + TUBE_LABEL_DX : x - TUBE_LABEL_DX - tw));
-      const ty = x0 - TUBE_PLATE <= x + TUBE_DOT && x0 + tw + TUBE_PLATE >= x - TUBE_DOT ? y - th / 2 - TUBE_FONT / 2 - TUBE_PLATE : y;
-      L.box = [x0 - TUBE_PLATE, ty - th / 2 - TUBE_PLATE, x0 + tw + TUBE_PLATE, ty + th / 2 + TUBE_PLATE];
-      L.lines = lines;
+      // (none beside the dot is clear: the clear spot nearest it, with a leader)
+      for (const lines of best ? [] : options) {
+        const [w, h] = size(lines);
+        for (let y0 = R[1]; y0 + h <= R[3]; y0 += TUBE_STEP) for (let x0 = R[0]; x0 + w <= R[2]; x0 += TUBE_STEP) {
+          const b = [x0, y0, x0 + w, y0 + h], cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
+          if ((!best || dd < best.dd) && over(b) === 0) best = { b, lines, hits: 0, leader: [cx, cy], dd };
+        }
+      }
+      if (!best) best = near || (() => { const [w, h] = size([L.text]), x0 = Math.max(R[0], Math.min(R[2] - w, x + g - P)), b = [x0, y - h / 2, x0 + w, y + h / 2]; return { b, lines: [L.text], hits: over(b), leader: null }; })();
+      L.box = best.b; L.lines = best.lines; L.hits = best.hits; L.leader = best.leader;
+      // (a plate placed is a mark for the labels after it)
+      for (let yy = best.b[1]; yy <= best.b[3]; yy += TUBE_CELL) for (let xx = best.b[0]; xx <= best.b[2]; xx += TUBE_CELL) put(xx, yy, 1);
+      sum();
+      ctx.globalAlpha = fade; ctx.strokeStyle = TH.ink; ctx.lineWidth = 1;
+      if (L.leader) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(...L.leader); ctx.stroke(); }
       ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(L.box[0], L.box[1], L.box[2] - L.box[0], L.box[3] - L.box[1]);
       ctx.globalAlpha = fade; ctx.fillStyle = TH.ink;
       ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill();
-      lines.forEach((t, i) => ctx.fillText(t, x0, ty - th / 2 + TUBE_FONT / 2 + i * lh));
+      L.lines.forEach((t, i) => ctx.fillText(t, L.box[0] + P, L.box[1] + P + TUBE_FONT / 2 + i * lh));
     }
     ctx.restore();
   }
@@ -107,7 +146,7 @@
   // height, a strand as far as it is inside (stackClipPath), a critical strand with an open ring where it leaves it.
   // Labelled: straight, a narrowing; curved, a slice the glide's cut tears; and in both, where a tube leaves the window
   // (tubeExits) and where two pieces' tubes meet (ln.crosses). Returns what was drawn, in the plane's coordinates and
-  // the pane's css px (stackDrawn's tubes), or null
+  // the pane's css px (stackDrawn's tubes; marks: the points drawn, which the labels keep clear of), or null
   function drawStackTubes(pane, ctx, s, Fm, Gm, tilt, ln) {
     const d = tubeData(s), fade = tubeFade(tilt);
     if (!d || fade <= 0) return null;
@@ -117,46 +156,6 @@
     const at = (p, t) => lift(pane.w2s(p), t);
     const mix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
     const ink = (P) => TH.c[P.ink], per = LINK_N / TUBE_LEVELS, box = [[0, 0], [pane.w, 0], [pane.w, pane.h], [0, pane.h]];
-    // (a point's path through the heights J0..J1 of the connectors' samples, as far as it is inside the box: its runs
-    // there, and the points where it leaves it)
-    const clipped = (get, J0, J1) => { const q = []; for (let J = J0; J <= J1; J++) q.push([...pane.w2s(get(J)), J / LINK_N]); return stackClipPath(pane, q); };
-    const runs = (c) => { for (const r of c.runs) r.forEach((p, i) => { const [x, y] = lift(p, p[2]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); };
-    ctx.save();
-    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    for (let j = 0; j <= TUBE_LEVELS; j++) {
-      // every piece's strands between the slice below and this one, then every piece's slice here (its fill, and its ring)
-      if (j > 0) {
-        d.pieces.forEach((P, n) => {
-          ctx.globalAlpha = TUBE_RULE_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.beginPath();
-          for (const lev of ln.pieces[n].loops) for (let i = 0; i < lev[0].length; i += TUBE_RULE_EVERY) runs(clipped((J) => lev[J][i], (j - 1) * per, j * per));
-          ctx.stroke();
-        });
-      }
-      if (j === 0 || j === TUBE_LEVELS) continue;
-      const t = j / TUBE_LEVELS;
-      ctx.save();
-      ctx.beginPath(); box.forEach((q, i) => { const [x, y] = lift(q, t); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); ctx.clip();
-      d.pieces.forEach((P, n) => {
-        ctx.beginPath();
-        for (const lev of ln.pieces[n].loops) { lev[j * per].forEach((z, i) => { const [x, y] = at(z, t); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); }
-        ctx.globalAlpha = TUBE_FILL_A * fade; ctx.fillStyle = ink(P).c0; ctx.fill('evenodd');
-        ctx.globalAlpha = TUBE_RING_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.stroke();
-      });
-      ctx.restore();
-    }
-    // the critical points' strands, dotted, to their values, and an open ring where one leaves the box
-    const strands = [];
-    for (const lev of ln.crit) {
-      const z = lev[0], w = lev[LINK_N];
-      if (!CX.isFin(w)) continue;
-      const c = clipped((J) => lev[J], 0, LINK_N);
-      ctx.globalAlpha = fade; ctx.strokeStyle = TH.cut; ctx.lineWidth = 2; ctx.setLineDash(TUBE_CRIT_DOTS);
-      ctx.beginPath(); runs(c); ctx.stroke();
-      ctx.setLineDash([]); ctx.lineWidth = 1.5;
-      for (const e of c.ends) { ctx.beginPath(); ctx.arc(...lift(e, e[2]), TUBE_OFF, 0, TAU); ctx.stroke(); }
-      strands.push({ z: [z.re, z.im], w: [w.re, w.im], from: at(z, 0), to: at(w, 1), off: c.ends.length, pts: lev.filter((_, J) => J % per === 0).map((p, J) => at(p, J / TUBE_LEVELS)) });
-    }
-    ctx.restore();
     // the labels (drawStackLabels): straight, the narrowings; curved, the tears; the tubes out of the window and the
     // pieces that meet (of the tubes the glide brings together, the lowest meeting alone)
     const c = C(s.c[0], s.c[1]), exits = tubeExits(pane, ln), num = (x) => I18N.num(x.toFixed(2));
@@ -166,34 +165,98 @@
       .concat(exits.map((x) => ({ text: x.s1 < 1 ? $t('out of the window from here to height {s}', { s: num(x.s1) }) : $t('out of the window from here up'), kind: 'exit', piece: x.piece, s: x.s0, s1: x.s1, at: lift(x.at, x.at[2]) })))
       .concat(ln.crosses.filter((x, i) => x.kind === 'cross' || ln.crosses.findIndex((y) => y.kind === 'sooner') === i)
         .map((x) => ({ text: x.kind === 'cross' ? $t('the pieces cross here, not a join') : $t('the glide brings the pieces together from here, not a join'), kind: x.kind, pieces: x.pieces, z: [x.z.re, x.z.im], s: x.s, s1: x.s1, at: at(x.z, x.s) })));
+    // (what is drawn, as points in the canvas's css px, for the labels to keep clear of: gathered only where there are
+    // labels)
+    const marks = [], keep = labels.length > 0, fl = tubeFlat(pane, ln);
+    const put = (x, y, first) => { if (keep) marks.push([x, y]); if (first) ctx.moveTo(x, y); else ctx.lineTo(x, y); };
+    // (a point's path through the heights J0..J1 of the connectors' samples, xy[J][i] in the flat plane's css px, as far as
+    // it is inside the box: whole where it all is, else its runs there (stackClipPath)); returns where it leaves the box
+    const path = (xy, ins, i, J0, J1) => {
+      let all = true;
+      for (let J = J0; J <= J1 && all; J++) all = ins[J][i];
+      if (all) { for (let J = J0; J <= J1; J++) { const [x, y] = lift(xy[J][i], J / LINK_N); put(x, y, J === J0); } return []; }
+      const q = [];
+      for (let J = J0; J <= J1; J++) q.push([...xy[J][i], J / LINK_N]);
+      const cl = stackClipPath(pane, q);
+      for (const r of cl.runs) r.forEach((p, k) => { const [x, y] = lift(p, p[2]); put(x, y, k === 0); });
+      return cl.ends;
+    };
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (let j = 0; j <= TUBE_LEVELS; j++) {
+      // every piece's strands between the slice below and this one, then every piece's slice here (its fill, and its ring)
+      if (j > 0) {
+        d.pieces.forEach((P, n) => {
+          ctx.globalAlpha = TUBE_RULE_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.beginPath();
+          for (const L of fl.pieces[n]) for (let i = 0; i < L.xy[0].length; i += TUBE_RULE_EVERY) path(L.xy, L.ins, i, (j - 1) * per, j * per);
+          ctx.stroke();
+        });
+      }
+      if (j === 0 || j === TUBE_LEVELS) continue;
+      const t = j / TUBE_LEVELS, J = j * per, cut = !fl.pieces.every((P) => P.every((L) => L.all[J]));
+      // (clipped to the box's rectangle at this height only where a slice goes out of it)
+      if (cut) { ctx.save(); ctx.beginPath(); box.forEach((q, i) => { const [x, y] = lift(q, t); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); ctx.clip(); }
+      d.pieces.forEach((P, n) => {
+        ctx.beginPath();
+        for (const L of fl.pieces[n]) { L.xy[J].forEach((q, i) => { const [x, y] = lift(q, t); put(x, y, i === 0); }); ctx.closePath(); }
+        ctx.globalAlpha = TUBE_FILL_A * fade; ctx.fillStyle = ink(P).c0; ctx.fill('evenodd');
+        ctx.globalAlpha = TUBE_RING_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.stroke();
+      });
+      if (cut) ctx.restore();
+    }
+    // (the lit patches' edges on the floor and the rim on the glass, the tubes' ends)
+    if (keep) for (const P of fl.pieces) for (const L of P) for (const J of [0, LINK_N]) L.xy[J].forEach((q, i) => { if (L.ins[J][i]) marks.push(lift(q, J / LINK_N)); });
+    // the critical points' strands, dotted, to their values, and an open ring where one leaves the box
+    const strands = [];
+    ln.crit.forEach((lev, k) => {
+      const z = lev[0], w = lev[LINK_N];
+      if (!CX.isFin(w)) return;
+      ctx.globalAlpha = fade; ctx.strokeStyle = TH.cut; ctx.lineWidth = 2; ctx.setLineDash(TUBE_CRIT_DOTS);
+      ctx.beginPath();
+      const ends = path(fl.crit[k].xy, fl.crit[k].ins, 0, 0, LINK_N);
+      ctx.stroke();
+      ctx.setLineDash([]); ctx.lineWidth = 1.5;
+      for (const e of ends) { ctx.beginPath(); ctx.arc(...lift(e, e[2]), TUBE_OFF, 0, TAU); ctx.stroke(); }
+      strands.push({ z: [z.re, z.im], w: [w.re, w.im], from: at(z, 0), to: at(w, 1), off: ends.length, pts: lev.filter((_, J) => J % per === 0).map((p, J) => at(p, J / TUBE_LEVELS)) });
+    });
+    ctx.restore();
     const pts = (lev, J) => lev[J].map((p, i) => [p, i]).filter(([, i]) => i % TUBE_RULE_EVERY === 0).map(([p]) => ({ p: [p.re, p.im], px: at(p, J / LINK_N) }));
     return {
-      fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, mode: ln.mode, strands, labels,
+      fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, mode: ln.mode, strands, labels, marks,
       pieces: d.pieces.map((P, n) => ({ ink: P.ink, colour: ink(P).edge, loops: ln.pieces[n].loops.map((lev) => ({ floor: pts(lev, 0), glass: pts(lev, LINK_N) })) })),
     };
   }
+  // The connectors' samples in the flat plane's css px for the view of pane, and which lie inside the box (the pane's
+  // rectangle): {pieces: [[{xy, ins, all}]] per piece and loop, crit: [{xy, ins}]}, xy[J][i] a sample's [x, y], ins[J][i]
+  // whether it is inside, all[J] whether the whole slice is; kept while the connectors and the view (the pane's size, and
+  // where it puts 0 and 1) are the same, so a turn of the camera maps the kept points only
+  const tubeFlatKept = new WeakMap();
+  const tubeViewKey = (pane) => [pane.w, pane.h, ...pane.w2s(C(0, 0)), ...pane.w2s(C(1, 0))].join();
+  function tubeFlat(pane, ln) {
+    const key = tubeViewKey(pane), kept = tubeFlatKept.get(ln);
+    if (kept && kept.key === key) return kept.fl;
+    const inside = (q) => q[0] >= 0 && q[0] <= pane.w && q[1] >= 0 && q[1] <= pane.h;
+    const of = (lev) => { const xy = lev.map((q) => q.map((z) => pane.w2s(z))), ins = xy.map((q) => q.map(inside)); return { xy, ins, all: ins.map((q) => q.every(Boolean)) }; };
+    const fl = { pieces: ln.pieces.map((P) => P.loops.map(of)), crit: ln.crit.map((path) => of(path.map((z) => [z]))) };
+    tubeFlatKept.set(ln, { key, fl });
+    return fl;
+  }
   // Where the tubes leave the window (the pane's rectangle, at every height): for each piece whose slices go out of it,
   // the first stretch of heights they are out, s0 to s1 (1: they do not come back in), and the point (the flat plane's
-  // css px, with its height) where the first of its strands to go out leaves the box: [{piece, s0, s1, at}]; kept while
-  // the connectors and the view (the pane's size, and where it puts 0 and 1) are the same
-  const tubeExitsKept = new WeakMap();   // per connectors (stackLinks'), the exits for the view they were found in
+  // css px, with its height) where the first of its strands to go out leaves the box: [{piece, s0, s1, at}], from the
+  // samples' places for the view (tubeFlat)
   function tubeExits(pane, ln) {
-    const zero = pane.w2s(C(0, 0)), one = pane.w2s(C(1, 0)), key = [pane.w, pane.h, ...zero, ...one].join(), kept = tubeExitsKept.get(ln);
-    if (kept && kept.key === key) return kept.out;
-    const out = [], inside = (q) => q[0] >= 0 && q[0] <= pane.w && q[1] >= 0 && q[1] <= pane.h;
-    ln.pieces.forEach((P, n) => {
+    const out = [], fl = tubeFlat(pane, ln);
+    fl.pieces.forEach((P, n) => {
       let J0 = -1, J1 = LINK_N, first = null;
       for (let J = 1; J < LINK_N; J++) {
-        const away = [];
-        P.loops.forEach((lev, l) => lev[J].forEach((z, i) => { if (!inside(pane.w2s(z))) away.push([l, i]); }));
-        if (away.length && J0 < 0) { J0 = J; first = away[0]; } else if (!away.length && J0 >= 0) { J1 = J; break; }
+        const l = P.findIndex((L) => !L.all[J]);
+        if (l >= 0 && J0 < 0) { J0 = J; first = [l, P[l].ins[J].indexOf(false)]; } else if (l < 0 && J0 >= 0) { J1 = J; break; }
       }
       if (J0 < 0) return;
-      const lev = P.loops[first[0]], q = [];
-      for (let J = 0; J <= J0; J++) q.push([...pane.w2s(lev[J][first[1]]), J / LINK_N]);
-      const e = stackClipPath(pane, q).ends[0] || q[J0];
-      out.push({ piece: n, s0: J0 / LINK_N, s1: J1 / LINK_N, at: e });
+      const L = P[first[0]], q = [];
+      for (let J = 0; J <= J0; J++) q.push([...L.xy[J][first[1]], J / LINK_N]);
+      out.push({ piece: n, s0: J0 / LINK_N, s1: J1 / LINK_N, at: stackClipPath(pane, q).ends[0] || q[J0] });
     });
-    tubeExitsKept.set(ln, { key, out });
     return out;
   }

@@ -164,15 +164,24 @@ for (const m of ['M1', 'M2', 'M3']) {
     const wc = r.worstCurved = Math.max(...[...Array(n - 1)].map((_, j) => worstStep(L.data, j + 1)));
     ok('M1: curved, the −1 tube rises whole: no slice has a step 10 times its median', wc < 10, wc);
     ok('M1: curved, no tear and no label', L.data.tears.length === 0 && d1.tubes.labels.length === 0, { tears: L.data.tears, labels: d1.tubes.labels });
-    // (a pick's strand from a point of the −1 piece below the axis rises on that piece's branch: at half way it lies on
-    // the tube's slice there)
+    // (a pick's strand from a point of the −1 piece below the axis rises on that piece's branch: at ¼, ½ and ¾ of the way
+    // it lies on the tube's slice there, in both kinds)
     const neg = L.data.pieces.findIndex((P) => P.loops[0][0].some((p) => p[0] < -0.5));
     const iBelow = neg < 0 ? -1 : L.data.pieces[neg].loops[0][0].findIndex((p) => p[1] < -0.05);
+    // (the strand's point at height t, along its polyline: straight, its two ends)
+    const along = (st, t) => { for (let k = 1; k < st.length; k++) if (st[k][2] >= t - 1e-9) { const a = st[k - 1], b = st[k], u = (t - a[2]) / (b[2] - a[2]); return [a[0] + u * (b[0] - a[0]), a[1] + u * (b[1] - a[1])]; } return null; };
+    const strandOff = async (kind) => {
+      await press(kind);
+      const Lk = await links(), lev = Lk.data.pieces[neg].loops[0], z = lev[0][iBelow], v = await ev(`__cmwPlaneMenu().stage(1, ${z[0]}, ${z[1]})`);
+      const st = (await links({ flat: [z[0], z[1], v[0], v[1]] })).flat;
+      let worst = 0;
+      for (const J of [n / 4, n / 2, (3 * n) / 4]) { const p = along(st, J / n), q = await flat(...lev[J][iBelow]); worst = Math.max(worst, p ? Math.hypot(p[0] - q[0], p[1] - q[1]) : Infinity); }
+      return worst;
+    };
     if (iBelow >= 0) {
-      const lev = L.data.pieces[neg].loops[0], z = lev[0][iBelow], v = await ev(`__cmwPlaneMenu().stage(1, ${z[0]}, ${z[1]})`);
-      const st = (await links({ flat: [z[0], z[1], v[0], v[1]] })).flat, mid = st[n / 2], want = await flat(...lev[n / 2][iBelow]);
-      r.strand = { z, mid, want };
-      ok('M1: curved, a pick\'s strand from a point of the −1 piece below the axis lies on its tube half way up', st.length === n + 1 && Math.hypot(mid[0] - want[0], mid[1] - want[1]) < 0.5, r.strand);
+      const off = r.strandOff = { curved: await strandOff('curved'), straight: await strandOff('straight') };
+      await press('curved');
+      ok('M1: a pick\'s strand from a point of the −1 piece below the axis lies on its tube at ¼, ½ and ¾ of the way, in both kinds', off.curved < 0.5 && off.straight < 0.5, off);
     } else ok('M1: a point of the −1 piece below the axis', false, null);
     // (on the steps' own cuts: the principal z^(1 + t) tears the −1 piece, and the tear is labelled)
     const T = await links({ branch: false });
@@ -233,15 +242,28 @@ if (await hooked()) {
   ok('phone: each radio lies inside the switch\'s box', inBox.radios.length === 2 && inBox.radios.every((r) => r.inside), inBox);
   await shot('links-phone');
 }
-// a phone, Russian, M3 with glide paths: the meeting's words, too long for either side of their dot, keep the dot at
-// the plate's end (on two lines)
+// a phone (390 × 844), en and ru, M2 and M3 with glide paths: each label's plate lies inside the pane, clear of every mark
+// drawn (the tubes', the strands' and Look down's: the record's marks), with its dot at the plate's end or corner, or a
+// leader from the dot to the plate's edge
 if (await hooked()) {
-  await open('M3', { phone: true, lang: 'ru' });
-  await press('curved');
-  const lb = info.phoneLabel = ((await drawn()).tubes.labels || []).filter((x) => x.kind === 'sooner');
-  const atEnd = (L) => !!L.box && (Math.abs(L.box[0] - L.at[0]) <= 12 || Math.abs(L.box[2] - L.at[0]) <= 12) && L.at[1] >= L.box[1] - 2 && L.at[1] <= L.box[3] + 2;
-  ok('phone, ru: the meeting label keeps its dot at the plate\'s end', lb.length === 1 && atEnd(lb[0]), lb);
-  await shot('links-phone-m3-ru');
+  for (const lang of ['en', 'ru']) for (const m of ['M2', 'M3']) {
+    await open(m, { phone: true, lang });
+    await press('curved');
+    const d = await drawn(), lb = (d.tubes.labels || []).filter((x) => x.kind === 'exit' || x.kind === 'sooner');
+    const W = await ev(`document.getElementById('overlayL').getBoundingClientRect().width`), H = await ev(`document.getElementById('overlayL').getBoundingClientRect().height`);
+    const over = (b) => d.tubes.marks.filter(([x, y]) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3]).length;
+    // (the dot at the plate's end or corner, or a leader from it to the plate's edge)
+    const atEnd = (L) => {
+      const [x, y] = L.at, b = L.box, nx = Math.min(Math.abs(b[0] - x), Math.abs(b[2] - x)), ny = Math.min(Math.abs(b[1] - y), Math.abs(b[3] - y));
+      if (L.leader) { const [lx, ly] = L.leader; return lx >= b[0] - 0.5 && lx <= b[2] + 0.5 && ly >= b[1] - 0.5 && ly <= b[3] + 0.5 && (Math.abs(lx - b[0]) < 0.5 || Math.abs(lx - b[2]) < 0.5 || Math.abs(ly - b[1]) < 0.5 || Math.abs(ly - b[3]) < 0.5); }
+      return (nx <= 12 && y >= b[1] - 2 && y <= b[3] + 2) || (nx <= 12 && ny <= 12);
+    };
+    const got = info[`phone ${lang} ${m}`] = lb.map((L) => ({ text: L.text, lines: L.lines, box: L.box && L.box.map(Math.round), at: L.at.map(Math.round), leader: L.leader && L.leader.map(Math.round), hits: L.hits, over: L.box ? over(L.box) : null }));
+    ok(`phone ${lang}, ${m}: its label shows`, lb.length === 1, got);
+    ok(`phone ${lang}, ${m}: the label lies inside the pane, clear of every mark, its dot at the plate's end or corner or led to it`, lb.length === 1 && !!lb[0].box && lb[0].box[0] >= 0 && lb[0].box[1] >= 0 && lb[0].box[2] <= W && lb[0].box[3] <= H && lb[0].hits === 0 && over(lb[0].box) === 0 && atEnd(lb[0]), got);
+    await shot(`links-phone-${m}-${lang}`);
+  }
+
 }
 
 // curved, seen straight down, the Stack's frame is still Look down's (its lines to the target straight): the frame

@@ -178,6 +178,19 @@
       return [...pane.w2s(C((1 - up) * (z.re + t * (w.re - z.re)) + up * p.re, (1 - up) * (z.im + t * (w.im - z.im)) + up * p.im)), t];
     })).runs.map((r) => r.map(([x, y, t]) => { const m = F.map((v, n) => v + t * (G[n] - v)); return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }));
     const lines = ln && ln.mode === 'curved' && up > 0 ? Object.assign({ link: (i) => ln.zs[i] && link(ln.zs[i]) }, lv) : lv;
+    // (Look down's marks as points in the canvas's css px, for the labels to keep clear of: the critical points on the
+    // floor, the critical values, the target's ring and centre on the glass, and the lines to the target)
+    const lookPts = () => {
+      if (!mk) return [];
+      const out = mk.crit.map((p) => lv.floor.at(...p)).concat(mk.vals.map((p) => lv.glass.at(...p)), [lv.glass.at(...mk.c)]);
+      for (let a = 0; a < 32; a++) out.push(lv.glass.at(mk.c[0] + mk.r * Math.cos((a * TAU) / 32), mk.c[1] + mk.r * Math.sin((a * TAU) / 32)));
+      mk.zs.forEach((p, i) => {
+        const runs = lines.link && lines.link(i);
+        if (runs) for (const r of runs) out.push(...r);
+        else { const a = lv.floor.at(...p), b = lv.glass.at(...mk.c); for (let k = 0; k <= 16; k++) out.push([a[0] + (k / 16) * (b[0] - a[0]), a[1] + (k / 16) * (b[1] - a[1])]); }
+      });
+      return out;
+    };
     const layers = {
       'floor marks': () => mk && drawLookLayer(ctx, mk, lv, 'floor'),
       tubes: () => { if (!mk) return; const t0 = performance.now(); tubes = drawStackTubes(pane, ctx, s, F, G, tilt, ln); if (tubes) tubes.ms = performance.now() - t0; },
@@ -185,7 +198,7 @@
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
       picks: () => { picks = drawStackPicks(pane, ctx, F, G); },
-      labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera)); },
+      labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera), tubes.marks.concat(lookPts())); },
     };
     const order = ['floor'];
     for (const layer of STACK_ORDER.slice(1)) { layers[layer](); order.push(layer); }
