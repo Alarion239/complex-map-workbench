@@ -20,6 +20,13 @@
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
   let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time)}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
+  // On a phone the box fits the plane's room that is left in sight: above the context bar, and beside Look down's key
+  // while it is open (above it, right of it or below it, whichever lets the box be largest), STACK_ROOM_GAP css px clear
+  // of the key; right of the key, the room stops short of the plane's button column by its lane (STACK_ROOM_LANE, as
+  // phone.css's). Tilted to STACK_ROOM_PITCH and below, the box fits that room; from there to straight down it eases back
+  // to the whole pane, so that straight down the map is still the identity and the frame Look down's.
+  const STACK_ROOM_GAP = 6, STACK_ROOM_LANE = 66, STACK_ROOM_PITCH = 60 * DEG;
+  let stackRooms = null;                      // [[x0, y0, x1, y1], ...] in the pane's css px; null: the whole pane
   // the Stack is shown, and its camera draws: not while its floor is drawn flat, which the flat plane's own draw does
   const stackOn = () => SV.on && SV.surf === 'stack' && !stackFlat;
   // the shown plane is drawn as the flat plane: the Plane surface, or the Stack's floor while it is drawn flat. floor:
@@ -29,16 +36,49 @@
   const stackTilt = (camera) => (camera.pitch >= 90 * DEG ? 0 : Math.cos(camera.pitch));
   // The camera's map of a level of the box in pane, up = 0 the floor or 1 the glass: [a, b, c, d, e, f] as setTransform
   // takes them, from the flat plane's css px to the pane's. The box (the pane's rectangle, the glass H above it) is
-  // turned by −yaw about the pane's centre, seen at pitch, and scaled to fit the pane, never up; seen straight down with
-  // yaw 0 the map is the identity. In the pane's css px (y down), a point (x, y) of the level goes to
+  // turned by −yaw about the pane's centre, seen at pitch, and scaled by k to fit its room (stackRoom: the pane, or on a
+  // phone the room left in sight), never up, about the room's centre (cx, cy); seen straight down with yaw 0 the map is
+  // the identity. In the pane's css px (y down), a point (x, y) of the level goes to
   //   X' = co·X − si·Y, Y' = si·X + co·Y, with X = x − w/2, Y = h/2 − y, co = cos yaw, si = −sin yaw;
-  //   (w/2 + k·X', h/2 − k·(sin pitch·Y' + cos pitch·(up − 1/2)·H)).
+  //   (cx + k·X', cy − k·(sin pitch·Y' + cos pitch·(up − 1/2)·H)).
   function stackLevel(pane, camera, up) {
     const w = pane.w, h = pane.h, H = STACK_GLASS_H * Math.min(w, h);
     const cp = stackTilt(camera), sp = cp === 0 ? 1 : Math.sin(camera.pitch), co = Math.cos(camera.yaw), si = -Math.sin(camera.yaw);
-    const ax = (w / 2) * Math.abs(co) + (h / 2) * Math.abs(si), ay = (w / 2) * Math.abs(si) + (h / 2) * Math.abs(co);
-    const k = Math.min(1, (w / 2) / ax, (h / 2) / (ay * sp + H * cp / 2));
-    return [k * co, -k * sp * si, k * si, k * sp * co, w / 2 - k * (co * w / 2 + si * h / 2), h / 2 + k * sp * (si * w / 2 - co * h / 2) - k * cp * (up - 0.5) * H];
+    const R = stackRoom(pane, camera), k = stackFit(pane, camera, R), cx = (R[0] + R[2]) / 2, cy = (R[1] + R[3]) / 2;
+    return [k * co, -k * sp * si, k * si, k * sp * co, cx - k * (co * w / 2 + si * h / 2), cy + k * sp * (si * w / 2 - co * h / 2) - k * cp * (up - 0.5) * H];
+  }
+  // the scale, never above 1, at which the camera's view of pane's box fits the room R = [x0, y0, x1, y1] (css px)
+  function stackFit(pane, camera, R) {
+    const w = pane.w, h = pane.h, H = STACK_GLASS_H * Math.min(w, h), cp = stackTilt(camera), sp = cp === 0 ? 1 : Math.sin(camera.pitch);
+    const co = Math.abs(Math.cos(camera.yaw)), si = Math.abs(Math.sin(camera.yaw)), ax = (w / 2) * co + (h / 2) * si, ay = (w / 2) * si + (h / 2) * co;
+    return Math.min(1, (R[2] - R[0]) / 2 / ax, (R[3] - R[1]) / 2 / (ay * sp + H * cp / 2));
+  }
+  // the room [x0, y0, x1, y1] (css px) the camera fits pane's box into: of stackRooms, the one it is largest in, eased to
+  // the whole pane from STACK_ROOM_PITCH up to straight down; the whole pane where there are none
+  function stackRoom(pane, camera) {
+    const whole = [0, 0, pane.w, pane.h], cp = stackTilt(camera), u = stackRooms && cp > 0 ? Math.min(1, cp / Math.cos(STACK_ROOM_PITCH)) : 0;
+    if (u === 0) return whole;
+    const best = stackRooms.reduce((a, b) => (stackFit(pane, camera, b) > stackFit(pane, camera, a) ? b : a));
+    return whole.map((v, i) => v + u * (best[i] - v));
+  }
+  // The rooms the box may fit on a phone (stackRooms), measured again when Look down's key or the plane changes size, the
+  // key is folded or unfolded, or the root's classes change (fitLookKey); the Stack is drawn again when they move
+  function stackMeasureRooms() {
+    const o = $('overlayL'), host = $('plotL');
+    let rooms = null;
+    if (document.documentElement.classList.contains('ph') && o && host) {
+      const r = o.getBoundingClientRect(), w = r.width, h = r.height - (parseFloat(getComputedStyle(host).getPropertyValue('--ph-lift')) || 0);
+      const k = lookKey && !lookKey.hidden && !lookKey.classList.contains('folded') ? lookKey.getBoundingClientRect() : null, g = STACK_ROOM_GAP;
+      rooms = [[0, 0, w, h]];
+      if (k && k.width > 0) {
+        const x1 = k.right - r.left, y0 = k.top - r.top, y1 = k.bottom - r.top;
+        rooms = [[0, 0, w, Math.min(h, y0 - g)], [x1 + g, 0, w - STACK_ROOM_LANE, h], [0, y1 + g, w, h]].filter(([a, b, c, d]) => c - a > 1 && d - b > 1);
+      }
+      rooms = rooms.length ? rooms.map((q) => q.map((v) => Math.round(v))) : null;
+    }
+    if (JSON.stringify(rooms) === JSON.stringify(stackRooms)) return;
+    stackRooms = rooms;
+    if (stackOn()) requestRender('L');
   }
   // a level of the marks (drawLookLayer's) from its map m
   const stackMarkLevel = (m) => ({
@@ -65,9 +105,16 @@
   // camera. False when the Stack is not shown
   function stackDrawPlane(pane, flat) {
     if (!stackOn()) return false;
-    stackFlat = true;
-    try { stackFloor(pane, flat, stackCam); } finally { stackFlat = false; }
+    stackAsFlat(() => stackFloor(pane, flat, stackCam));
     return true;
+  }
+  // f() run as the Stack's floor is drawn flat: on the Stack, under stackFlat, so lFlat() and svFlatSurf() read the flat
+  // plane's (the floor's own draw, and whether a glide's frames can be drawn ahead, svAheadCan); elsewhere as it is.
+  // -> f's result
+  function stackAsFlat(f) {
+    if (!SV.on || SV.surf !== 'stack' || stackFlat) return f();
+    stackFlat = true;
+    try { return f(); } finally { stackFlat = false; }
   }
   // The Stack's layers after the floor on ctx (css px, pane's overlay), for the flat view of pane: the floor's marks, the
   // tubes, the box's edges and the lines, the glass, the glass's marks, the tubes' labels (STACK_ORDER). The marks are Look down's, for the selected
@@ -110,7 +157,7 @@
       lines: () => { edges(); if (mk) drawLookLayer(ctx, mk, lines, 'lines'); },
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
-      labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, pane.w); },
+      labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera)); },
     };
     const order = ['floor'];
     for (const layer of STACK_ORDER.slice(1)) { layers[layer](); order.push(layer); }
