@@ -63,23 +63,24 @@
     while (tubeCache.size > 16) tubeCache.delete(tubeCache.keys().next().value);
     return d;
   }
-  // a number or a complex number as the labels write it: the language's decimal mark and a true minus sign
-  const tubeNum = (z) => I18N.num(CX.fmt(z, 3)).replace(/-/g, '−');
+  // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
+  // one number) and a true minus sign
+  const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
   // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map named as the plane's title names it)
   function tubeNarrowText(n) {
     const name = svMapName('text', leftStage(), shapeStage(findShape(selected))) || 'f', f = name.includes('∘') ? `(${name})` : name;
     return $t('narrows here: {d}, not a join', { d: `${f}′(${tubeNum(n.z)}) = ${tubeNum(n.d)}` });
   }
   // the narrowings' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the
-  // narrowing and the words beside it on a halo plate, to its right, or to its left where the pane (w css px wide) has no
-  // room there; kept inside the pane, and above the dot where that would cover it. Each label's box [x0, y0, x1, y1] (css
-  // px, the plate's) is kept on it
-  function drawStackLabels(ctx, labels, fade, w) {
+  // narrowing and the words beside it on a halo plate, to its right, or to its left where the room R the box is fitted in
+  // ([x0, y0, x1, y1], css px: stackRoom) has none there; kept across inside the room, and above the dot where that would
+  // cover it. Each label's box [x0, y0, x1, y1] (css px, the plate's) is kept on it
+  function drawStackLabels(ctx, labels, fade, R) {
     ctx.save();
     ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle';
     for (const L of labels) {
-      const [x, y] = L.at, tw = ctx.measureText(L.text).width, right = x + TUBE_LABEL_DX + tw <= w - TUBE_LABEL_DX;
-      const x0 = Math.max(TUBE_LABEL_DX, Math.min(w - TUBE_LABEL_DX - tw, right ? x + TUBE_LABEL_DX : x - TUBE_LABEL_DX - tw));
+      const [x, y] = L.at, tw = ctx.measureText(L.text).width, right = x + TUBE_LABEL_DX + tw <= R[2] - TUBE_LABEL_DX;
+      const x0 = Math.max(R[0] + TUBE_LABEL_DX, Math.min(R[2] - TUBE_LABEL_DX - tw, right ? x + TUBE_LABEL_DX : x - TUBE_LABEL_DX - tw));
       const ty = x0 - TUBE_PLATE <= x + TUBE_DOT && x0 + tw + TUBE_PLATE >= x - TUBE_DOT ? y - TUBE_FONT - TUBE_PLATE : y;
       L.box = [x0 - TUBE_PLATE, ty - TUBE_FONT / 2 - TUBE_PLATE, x0 + tw + TUBE_PLATE, ty + TUBE_FONT / 2 + TUBE_PLATE];
       ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(L.box[0], L.box[1], L.box[2] - L.box[0], L.box[3] - L.box[1]);

@@ -5,9 +5,8 @@
 // It runs in either view (ci/suite_views.js: the steps view here, the classic views in test/tour_cmd_classic_cmd.js) and
 // addresses steps by id, their index read from the tour's chapters: the generic task step is X's pan in the classic views and
 // Planes' first step in the steps view, the chapter after Basics Views or Planes. The strip's arrow keys (in the steps view ← →
-// glide the planes), the Views chapter (the view switch, Phase, Sphere, Phase key) and the Deformation chapter are the classic
-// views' only; the steps view checks its own chapter end (Edit a
-// step) and Playing the chain's Part of the chain in their place.
+// glide the planes) and the Views chapter (the view switch, Phase, Sphere, Phase key) are the classic views' only; the steps
+// view checks its own chapter end (Edit a step) and Playing the chain's Part of the chain in their place.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const R = [];
@@ -180,7 +179,7 @@ g = { over, away: await tipVis() };
 await ev(`document.querySelector('#tip').hidden = true`);
 check('a tooltip over the callout is hidden, and shows again away from it', g.over === 'hidden' && g.away === 'visible', g);
 
-// 5. the steps on the deformation round's features show in this build: All at once, the zeros-and-poles step (the classic views' Deformation chapter; the steps view's Part of the chain is in Playing the chain)
+// 5. the steps view's Part of the chain, in Playing the chain (the classic view has no deformation)
 if (SV) {
   await open('t4', at('playing/range'));
   g = await ev(`({ id: Tour.current().id, count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent })`);
@@ -334,8 +333,8 @@ await open('t7');
 await ev(`localStorage.setItem('cmw-tour:t7', ${JSON.stringify(JSON.stringify({ v: 2, shown: 1, outcome: 'taken', done: { basics: 3 }, last: { ch: SECOND.id, i: 1 } }))})`);
 await clickSel('#helpBtn'); await settle(500);
 g = await ev(`(() => { const m = document.querySelector('.tour-menu'); return m && { items: [...m.querySelectorAll('.mi')].map(x => x.textContent.trim()), focus: m.contains(document.activeElement), role: m.getAttribute('role'), done: m.querySelectorAll('.tour-done').length }; })()`);
-// (ten chapters, with Constructions and Sound)
-check('menu: continue, ten chapters, guide, shortcuts', g && g.items.length === 13 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
+// (ten chapters in the steps view, with Constructions and Sound; nine in the classic view, which has no Deformation chapter)
+check('menu: continue, the chapters, guide, shortcuts', g && g.items.length === (SV ? 13 : 12) && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
 check('menu: focus inside', g && g.focus);
 await snap('tour-menu-light');
 await view(1440, 900, true); await settle(300);
@@ -371,7 +370,7 @@ await nav(U + '?ns=t10');
 await ev(`window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push(n))`);
 await key('k', 4); await settle(500); await type('tour'); await settle(500);
 g = await ev(`[...document.querySelectorAll('#palList [role=option]')].map((x) => x.textContent.trim()).filter((t) => /^Tour:/.test(t))`);
-check('palette: ten "Tour: …" entries', g.length === 10 && g.some((t) => /Tour: Analysis/.test(t)), g);
+check('palette: a "Tour: …" entry per chapter (ten, nine in the classic view)', g.length === (SV ? 10 : 9) && g.some((t) => /Tour: Analysis/.test(t)), g);
 await ev(`(() => { const o = [...document.querySelectorAll('#palList [role=option]')].find((x) => /Tour: Analysis/.test(x.textContent)); o && o.click(); })()`); await settle(2000);
 g = await ev(`({ cur: Tour.current(), calls: window.__calls })`);
 check('palette: Tour: Analysis starts it; the tour loads its scene through the app', g.cur && g.cur.chapter === 'analysis' && g.calls.includes('loadScene') && g.calls.includes(SV ? 'svPlace' : 'setView') && g.calls.includes('sandbox'), g);

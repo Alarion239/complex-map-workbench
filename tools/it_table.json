@@ -344,9 +344,6 @@
  "A typed formula that is a chain of catalog steps, such as <span class=\"chip ftag\" data-tex=\"\\sin(z^2+1)\"></span>, shows in its editor how it is built: <span class=\"chip ftag\" data-tex=\"z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)\"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class=\"chip ftag\" data-tex=\"z^2+\\sin z\"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.": "Una formula digitata che è una catena di passi del catalogo, come <span class=\"chip ftag\" data-tex=\"\\sin(z^2+1)\"></span>, mostra nel suo editor come è costruita: <span class=\"chip ftag\" data-tex=\"z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)\"></span>. <b>Scomponi in passi</b> la trasforma in quei passi, ciascuno con la propria scheda e miniatura; «Annulla» ripristina la formula. Una somma o un prodotto di due funzioni di <i>z</i>, come <span class=\"chip ftag\" data-tex=\"z^2+\\sin z\"></span>, non è una catena e resta un unico passo. Nella ricerca, una formula che è una sola funzione del catalogo, come sin z o z^i, aggiunge direttamente quella funzione.",
  "A typed formula that is a chain of catalog steps, such as <span class=\"chip ftag\" data-tex=\"\\sin(z^2+1)\"></span>, shows in the Inspector how it is built: <span class=\"chip ftag\" data-tex=\"z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)\"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class=\"chip ftag\" data-tex=\"z^2+\\sin z\"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.": "Una formula digitata che è una catena di passi del catalogo, come <span class=\"chip ftag\" data-tex=\"\\sin(z^2+1)\"></span>, mostra nell'Ispettore come è costruita: <span class=\"chip ftag\" data-tex=\"z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)\"></span>. <b>Scomponi in passi</b> la trasforma in quei passi, ciascuno con la propria scheda e miniatura; «Annulla» ripristina la formula. Una somma o un prodotto di due funzioni di <i>z</i>, come <span class=\"chip ftag\" data-tex=\"z^2+\\sin z\"></span>, non è una catena e resta un unico passo. Nella ricerca, una formula che è una sola funzione del catalogo, come sin z o z^i, aggiunge direttamente quella funzione.",
  "A vector figure with an exact caption, or LaTeX.": "Una figura vettoriale con una didascalia esatta, o LaTeX.",
- "A video records the deformation: add a function to the chain first": "Un video registra la deformazione: prima aggiungi una funzione alla catena",
- "A video records the deformation: choosing it turns the deformation on": "Un video registra la deformazione: sceglierlo attiva la deformazione",
- "A video records the deformation: it is on now.": "Un video registra la deformazione: ora è attiva.",
  "A zero and a pole cancel": "Uno zero e un polo si semplificano",
  "A zero and a pole cancel at {at}": "Uno zero e un polo si semplificano in {at}",
  "Actions": "Azioni",
@@ -573,13 +570,11 @@
  "Dashed boundaries do not belong to the sets.": "I bordi tratteggiati non appartengono agli insiemi.",
  "Deformation": "Deformazione",
  "Deformation arrives": "Deformazione completata",
- "Deformation on or off, in every view": "Attiva o disattiva la deformazione, in ogni vista",
  "Deformation plays": "Deformazione avviata",
  "Deformation: all steps at once": "Deformazione: tutti i passi insieme",
  "Deformation: every step": "Deformazione: tutti i passi",
  "Deformation: hide the paths t ↦ Hₜ(z)": "Deformazione: nascondi le traiettorie t ↦ Hₜ(z)",
  "Deformation: only {f}, inside F": "Deformazione: solo {f}, dentro F",
- "Deformation: paths on or off (in X → Y; else the Point tool)": "Deformazione: mostra o nascondi le traiettorie (in X → Y; altrimenti lo strumento «Punto»)",
  "Deformation: show the paths t ↦ Hₜ(z)": "Deformazione: mostra le traiettorie t ↦ Hₜ(z)",
  "Deformation: steps {f1}–{f2}": "Deformazione: passi {f1}–{f2}",
  "Deformation: the steps one after another": "Deformazione: i passi uno dopo l'altro",
@@ -3518,5 +3513,8 @@
  "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, pila, scatola, vetro, pavimento, inclinazione, controimmagini, bersaglio, 3d",
  "narrows here: {d}, not a join": "si restringe qui: {d}, non è un’unione",
  "tube of a piece": "tubo di un pezzo",
- "critical point to its value": "dal punto critico al suo valore"
+ "critical point to its value": "dal punto critico al suo valore",
+ "A video records a glide along the chain, which only the steps view has": "Un video registra un passaggio lungo la catena, che ha solo la vista a passi",
+ "Play the chain, or pause it": "Riproduci la catena o mettila in pausa",
+ "Paths t ↦ Hₜ(z) on or off": "Mostra o nascondi le traiettorie t ↦ Hₜ(z)"
 }

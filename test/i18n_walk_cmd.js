@@ -29,10 +29,6 @@ for (const m of ['phase', 'land', 'xy']) { await ev(`__cmwSetMain('${m}'), 1`); 
 await ev(`__cmwSetView('L', 'sphere'), 1`); await S('left sphere', 1200);
 await ev(`__cmwSetView('R', 'sphere'), 1`); await S('right sphere', 1200);
 await ev(`__cmwSetView('L', 'plane'), __cmwSetView('R', 'plane'), 1`); await S('planes', 800);
-// the deformation and its paths
-await ev(`__cmwMorph({ open: true }), 1`); await S('deformation', 1200);
-await key('p'); await S('deformation paths', 800);
-await ev(`__cmwMorph({ open: false }), 1`); await sleep(400);
 // every example, hover readouts
 const nEx = await ev(`(() => { let n = 0; for (const b of document.querySelectorAll('[data-example], .gal-item')) n++; return n; })()`);
 for (let i = 0; i < 40; i++) {
@@ -43,7 +39,6 @@ for (let i = 0; i < 40; i++) {
   await ev(`__cmwSetMain('phase'), 1`); await S(`example ${i} phase`, 900);
   await ev(`__cmwSetMain('land'), 1`); await S(`example ${i} land`, 900);
   await ev(`__cmwSetMain('xy'), 1`); await sleep(500);
-  await ev(`__cmwMorph({ open: true }), 1`); await S(`example ${i} deformation`, 900); await ev(`__cmwMorph({ open: false }), 1`);
 }
 // tools: each tool's hint
 const tools = await ev(`[...document.querySelectorAll('.tool[data-tool]')].map((b) => b.dataset.tool)`);
@@ -162,9 +157,7 @@ const ST16 = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', src
 await ev(`localStorage.setItem('complex-map-workbench-v1:${ns16}', ${JSON.stringify(JSON.stringify(ST16))}), 1`);
 await nav(`${BASE}test.html?ns=${ns16}&lang=ru`); await sleep(4000);
 await ev(SCAN);
-await tryEv(`(__cmwMorph({ open: true, playing: false }), 1)`); await S('v16 transport', 900);
 await tryEv(`(__cmwMorph({ range: { a: 2, b: 3 } }), 1)`); await S('v16 bracket 2-3 push-forward', 900);
-await tryEv(`(__cmwMorph({ T: 0.5 }), 1)`); await S('v16 bracket 2-3 t = 0.5', 600);
 await tryEv(`(__cmwMorph({ range: { a: 1, b: 2 } }), 1)`); await S('v16 bracket 1-2 pullback', 900);
 if (!PHONE) {
   for (const q of ['прообраз', 'скобк', 'bracket']) { await key('k', 4); await sleep(500); await type(q); await S('v16 palette ' + q, 600); await key('Escape'); await sleep(200); }

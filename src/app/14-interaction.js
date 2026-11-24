@@ -563,7 +563,7 @@
   // build caps (stored as disc, complement of a disc or half-plane; circle or line); Annulus, Sector and Polar grid
   // are off on the globes (the user's decision, panels.md 9.2).
   const GL3 = Region.Globe;
-  const globeEdit = (side) => (side === 'L' ? lGlobe() && solo() !== 'R' : rGlobe() && !morphOn() && solo() !== 'L');
+  const globeEdit = (side) => (side === 'L' ? lGlobe() && solo() !== 'R' : rGlobe() && solo() !== 'L');
   const GLOBE_OFF = new Set(['annulus', 'sector', 'pgrid']);
   // the snap net of a tool (panels.md 9.5): round kinds snap to the polar net, Cartesian kinds to the lifted lattice;
   // the globe's graticule draws the net of the active tool (the polar net with Select)
@@ -1280,9 +1280,8 @@
       if (w && ro && !ro.classList.contains('copied')) ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`|${vout}|`, fmtR(CX.abs(w)));
       if (!w && ro && !ro.classList.contains('copied')) ro.innerHTML = idleRight();
       copyValue.R = w ? CX.fmt(w, 6).replace(/\s/g, '') : '';
-      // (not while the plane shows a deformation: its points are no values of F)
-      setHoverW(w && !morphOn() && !trans.k ? w : null);
-      if (solo() === 'R' && morphOn()) sndMove(x, y, w, 'merged');
+      // (not during Y's step transition: its points are no values of F)
+      setHoverW(w && !trans.k ? w : null);
       if (w && tourL.probe) tourEmit('probe', { pane: 'R', w: [w.re, w.im] });
       requestRender('OL', 'OR');
     }
@@ -1431,7 +1430,7 @@
       const d = CX.scale(CX.sub(F(C(z.re + hh, z.im)), F(C(z.re - hh, z.im))), 1 / (2 * hh));
       const fd = CX.isFin(d) ? (CX.abs(d) < 1e-9 ? $t('critical point') : `${fmtR(CX.abs(d))} ∠ ${fmtR(Math.atan2(d.im, d.re) / DEG).replace(/0+$/, '').replace(/[.,]$/, '')}°`) : '—';
       let clamp = '';
-      if (tool === 'select' && !morphOn() && CX.isFin(d) && paneL && paneR) {
+      if (tool === 'select' && CX.isFin(d) && paneL && paneR) {
         const rimg = CX.abs(d) * (10 / paneL.view.s) * V.right.s;
         const factor = rimg > 120 ? 120 / rimg : rimg < 3 && rimg > 0 ? 3 / rimg : 1;
         if (factor !== 1) clamp = rk($t('gauge'), '×' + I18N.num(CX.fmtNum(factor, 3)));
@@ -1635,8 +1634,6 @@
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
       if (e.key === '?') { openGuide(); return; }
       if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
-      // P: the deformation's Paths while it shows in X → Y (drawing is off there), the Point tool otherwise
-      if (key === 'p' && morphOn() && S.view.main === 'xy') { e.preventDefault(); if (!morphHasDeriv()) setMorphPaths(!(S.morphPaths !== false)); return; }
       if (key === 'z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
       const tl = TOOLS.find((x) => x[2] && x[2].toLowerCase() === key);
       if (tl) { e.preventDefault(); setTool(tl[0]); }
