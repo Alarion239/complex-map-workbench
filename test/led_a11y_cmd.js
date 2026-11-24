@@ -79,6 +79,14 @@ await open('classic', 1280, 800, false);
 const cl = await states('classic', [['L', 'leftLed']]);
 info.classic = cl;
 await announced('classic', { busy: cl.leftLed.busy.tip, ok: cl.leftLed.ok.tip });
+// the failed state in the classic view: X's LED, the one shown, says a step that does not parse
+await open('classic', 1280, 800, false, BAD);
+await settled({ max: 20000, only: true, until: `document.getElementById('leftLed').classList.contains('err')` });
+const clErr = await led('leftLed');
+info.classicErr = clErr;
+ok('classic: a failed step makes X\'s LED err, with the step named in its tip', clErr.cls.includes('err') && /^f₁: /.test(clErr.tip || ''), clErr);
+const clErrLive = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(String(clErr.tip))})` });
+ok('classic: a failed step is announced', clErrLive.ok, await live());
 // ---- the steps view: the left LED
 await open('steps', 1280, 800, false);
 const sv = await states('steps', [['L', 'leftLed']]);
