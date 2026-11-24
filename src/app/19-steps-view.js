@@ -3748,8 +3748,9 @@
   // panes draw, which the warm-up starts in the init part (WARM's first group, in the same modes), any inverse one
   // still compiling), the carried colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the
   // meshes), with M (the motion the gate is about to start) the frames it may draw ahead (svAheadPart), and the inverse
-  // programs of the glides a press starts linked (inverse: svInvList, which svInvWarmNext's jobs ask for; their first draw
-  // is the jobs' own, and a cold program is drawn by the glide's frame, svLinkHold); while a pane's last frame had a REPT
+  // programs of the glides a press starts linked while the thread rests on a plane (inverse: svInvList, which
+  // svInvWarmNext's jobs ask for; their first draw is the jobs' own, and a cold program is drawn by the glide's frame,
+  // svLinkHold; no part while a frame is held between planes or a glide runs); while a pane's last frame had a REPT
   // draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a part not done; while svRedrawDue, the left
   // pane's frame that draws with the program that landed, a part not done. The programs of a view no pane shows are no
   // part of it (GLR's offView). total is 0 only while the GPU layer or the chain is not up; ready is true only when
@@ -3775,12 +3776,16 @@
     let done = 0, total = 0;
     for (const k in parts) { done += parts[k].done; total += parts[k].total; }
     const rest = total > 0 && done === total;
-    let inv = { done: 0, total: 0 };
-    try { inv = GLR.inverseWarmup ? GLR.inverseWarmup(svInvList()) : inv; } catch (e) { svInvStates = []; }
-    parts.inverse = inv;
-    if (!peek && inv.done < inv.total && !svInvFlushing && (!svInvJobs.length || svInvWarmKey !== svInvKey())) svPrestartInv();
-    done += inv.done;
-    total += inv.total;
+    // (the inverse part only while the thread rests on a plane: its glides are the ones a press starts from there. A frame
+    // held between planes, or a glide under way, is ready when its own programs are, which its frame asks for itself)
+    if (!svMoving()) {
+      let inv = { done: 0, total: 0 };
+      try { inv = GLR.inverseWarmup ? GLR.inverseWarmup(svInvList()) : inv; } catch (e) { svInvStates = []; }
+      parts.inverse = inv;
+      if (!peek && inv.done < inv.total && !svInvFlushing && (!svInvJobs.length || svInvWarmKey !== svInvKey())) svPrestartInv();
+      done += inv.done;
+      total += inv.total;
+    }
     return { done, total, parts, ready: total > 0 && done === total, rest };
   }
   // The glide's carried colour drawn once on a speck (SV_WARM's mesh, at x = 1/2 of the first step) into the GL canvas,
