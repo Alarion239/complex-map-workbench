@@ -51,9 +51,11 @@ const PLAN = [
   [/#\d+ (?:item|step|phase|part) \d+/i, 'an issue number as a plan step'],
   [/\b(?:item|step|phase) \d+ of #\d+/i, 'an issue number as a plan step'],
   [/\[[A-Za-z]{1,3}\d+(?: [^\]]*)?\]/, 'a bracketed plan label'],
-  // (the number of a review round's finding, bracketed or not: a review, check or verify item, a UX item; a suite under
-  // test/ names the finding its rows pin, so the rule leaves test/ alone)
-  [/\b(?:review|check) (?:user|app|ux)-\d+\b|\bverify-\d+\b|\bUX ?\d{1,3}\b/, 'a review label', /^test\//],
+  // (the number of a review round's finding, bracketed or not: a review, check or verify item, a UX item, a
+  // regression or speed item; a numbered review round itself, outside a path; a suite under test/ names the finding
+  // its rows pin, so the rule leaves test/ alone)
+  [/\b(?:review|check) (?:user|app|ux)-\d+\b|\b(?:verify|regress|speed)-\d+\b|\bUX ?\d{1,3}\b|(?<!\/)\br\d+ review\b/, 'a review label',
+    /^test\//],
 ];
 const MARKER = /standards-ok:(.*)$/;
 // a call that checks something: check(, ok(, assert( and assert.method(; not a definition (function check(, ok = (...))

@@ -530,7 +530,7 @@
       for (const s of S.shapes) {
         if (!outlineShown(s)) continue;
         const map = shapeMap(s, map0);
-        if (!map) continue;
+        if (!map || reptExact(map)) continue;
         const r = shapeGPU(s);
         if (!r.lineRes) continue;
         const dash = openDash(r, map);
@@ -753,7 +753,7 @@
     // leaves it as the screen's last frame set it)
     const standing = !!(info && info.standIn);
     if (!offRender && standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets) { updateFocusUI(); svSync(); } }
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, hmap: carry.hmap, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
@@ -1252,7 +1252,7 @@
     const limb = artCamAsp ? GLR.globeLimb(info.eye, (p) => project(pane, info.MVP, p)) : null, centre = limb ? project(pane, info.MVP, [0, 0, 0]) : null;
     for (const [lab, p] of pts) {
       const f = facing(p);
-      const u = Math.max(0, Math.min(1, (f - 0.05) / 0.25)), a = u * u * (3 - 2 * u);   // smoothstep(0.05, 0.3, n·v)
+      const a = smoothstep(0.05, 0.3, f);
       if (a <= 0) continue;
       // poles: just beyond the globe; equator points: just above the |z| = 1 line, so the label never sits on it
       let q = project(pane, info.MVP, p[2] === 0 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
