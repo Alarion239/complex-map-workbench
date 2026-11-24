@@ -12,16 +12,17 @@
   // The marks are drawn level by level, the floor's under the glass's (LD_LAYERS), as the Stack draws them from any
   // angle: where a critical value is a critical point (z² at 0), its dot lies over the cross.
   // It shows with the disc's readout card (readoutOn), unless the card's Look down switch is off. The ring and the
-  // lines are LD_HIT css px wide to the touch: a press there with the Pick tool drags the target (pickDown).
+  // lines are LD_HIT css px wide to the touch: a press there with the Pick tool drags the target with the pointer (pickDown).
   const LD_HIT = 16;                     // css px: the ring's and the lines' width to the touch
   const LD_CROSS = 5, LD_DOT = 3.5;      // css px: a critical point's cross arm, a critical value's dot radius
   const LD_DASH = [6, 4];                // css px: the join ring's dashes
   const LD_CAP = 24;                     // the most critical points drawn (an infinite set: those in the window)
   let lookDown = true;                   // the readout card's Look down switch
   let lookDrawn = null;                  // the marks as drawn, in the pane's css px (lookHit, __cmwLookDown)
-  // whether the marks draw for shape s on any surface (the Stack's levels too), and whether Look down draws them on the
-  // flat plane: only where the disc's readout card, with the switch, is built (readoutShown)
-  const lookMarksOn = (s) => lookDown && readoutShown(s);
+  // whether the marks draw for shape s on any surface (the Stack's levels too: there always, as the card hides the switch
+  // there), and whether Look down draws them on the flat plane: only where the disc's readout card, with the switch, is
+  // built (readoutShown)
+  const lookMarksOn = (s) => (lookDown || stackOn()) && readoutShown(s);
   const lookDownOn = (s) => lFlat() && lookMarksOn(s);
   // the join radius drawn for a disc of radius r: the least above r, else the largest
   const ldJoin = (joins, r) => { const up = joins.filter((q) => q > r); return up.length ? Math.min(...up) : joins.length ? Math.max(...joins) : null; };
@@ -87,12 +88,12 @@
     for (const layer of LD_LAYERS) drawLookLayer(pane.octx, m, lv, layer);
     lookDrawn = { id: m.id, c: m.c, r: m.r, join: m.join, lines: m.zs.map((p) => [...p, ...m.c]), crit: m.crit, vals: m.vals };
   }
-  // the disc whose ring or lines are within LD_HIT / 2 css px of (x, y) in the left pane, or null
-  function lookHit(x, y) {
+  // the disc whose ring or (with lines) lines are within LD_HIT / 2 css px of (x, y) in the left pane, or null
+  function lookHit(x, y, lines = true) {
     const d = lookDrawn;
     if (!d) return null;
     const near = Math.abs(Math.hypot(x - d.c[0], y - d.c[1]) - d.r) <= LD_HIT / 2
-      || d.lines.some(([x0, y0, x1, y1]) => segDist([x, y], [x0, y0], [x1, y1]) <= LD_HIT / 2);
+      || (lines && d.lines.some(([x0, y0, x1, y1]) => segDist([x, y], [x0, y0], [x1, y1]) <= LD_HIT / 2));
     return near ? findShape(d.id) : null;
   }
   // the key chip over the left plane, shown with the marks: titled Look down, or Stack on the Stack, where it also names

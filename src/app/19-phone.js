@@ -36,6 +36,7 @@
       // (the steps view's Display sheet is the colour panel: it names the shown plane)
       displayTitle: () => (SV.on ? `${$t('Colour')} · ${svName(svStage())}` : ''),
       scopeSeg: () => (SV.on ? svSheetScope() : null),   // the Display sheet's scope switch (null outside the steps view)
+      stackSeg: () => (SV.on && SV.surf === 'stack' ? stackSeg('sv-sheet-stack') : null),   // the Display sheet's Tilt | Look down | Plane, on the Stack (19-stack.js)
       targetNote: () => (SV.on ? svTargetNote() : null),   // what the shown plane draws or shades from shapes on later planes: the Display sheet's first line
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),

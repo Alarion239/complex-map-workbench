@@ -9,7 +9,8 @@
 //  - tilted, the overlay holds the glass's ink where the target's ring and the glass's rim project, wherever the camera;
 //  - the head's Surface button reads Stack and is named so, and the Surface menu checks it; at 320 × 568, where the head
 //    shows the button as its icon and ▾, the Stack has an icon;
-//  - a hover on the tilted floor reads no point (the flat plane's values there would be another point's);
+//  - a hover on the tilted Stack reads the point of the level under it (19-stack-pick.js): never the flat plane's point
+//    at the pointer, which is another point there;
 //  - a drag on the plane turns the Stack's camera, and its pitch stays at or above 10°.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -21,7 +22,7 @@ const until = (expr, max = READY_MS) => settled({ until: expr, max });
 const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
 const DEG = Math.PI / 180;
 const M3 = [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }];
-const ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'labels'];
+const ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: M3, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
 const open = async (w, h, phone) => {
   const ns = `stack-${Date.now()}`;
@@ -108,10 +109,14 @@ ok('the Surface menu closes on Escape', !menuOpen, menuOpen);
 info.head = { head, checked };
 ok('the head\'s Surface button reads Stack, and is named "Surface: Stack"', !!head && head.text === 'Stack' && head.label === 'Surface: Stack', head);
 ok('the Surface menu checks Stack', checked.length === 1 && checked[0] === 'Stack', checked);
-// the pointer over the tilted floor reads no point: the flat plane's values would be another point's
+// the pointer over the tilted Stack reads the point of the level under it, not the flat plane's point at the pointer
+await ev(`__cmwCam('L', { yaw: ${-30 * DEG}, pitch: ${35 * DEG} }); 1`);
+await frames();
 const hovered = await hoverText();
-info.hover = { flat: flatHover, stack: hovered };
-ok('a hover on the Stack reads no point in the readout', !hovered.includes('|z|'), info.hover);
+const under = hooked ? await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(), x = r.width / 2 + 12, y = r.height * 0.6, k = __cmwStack({ pick: [x, y] }), flat = __cmwPlaneMenu().s2w('L', r.left + x, r.top + y); return { k, flat }; })()`) : null;
+info.hover = { flat: flatHover, stack: hovered, under };
+const reads = !!under && (under.k.hover === 'glass' ? /preimages? of/.test(hovered) : under.k.hover === 'floor' && hovered.includes('|z|'));
+ok('a hover on the Stack reads the point of the level under the pointer, not the flat plane\'s point there', reads && !!under.k[under.k.hover] && Math.hypot(...(under.k.hover === 'glass' ? under.k.glass.w : under.k.floor.z).map((v, i) => v - under.flat[i])) > 1e-6, info.hover);
 
 // a drag turns the camera
 await ev(`__cmwCam('L', { yaw: ${-30 * DEG}, pitch: ${35 * DEG} }); 1`);
