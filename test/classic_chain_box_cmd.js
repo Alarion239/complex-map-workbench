@@ -29,6 +29,13 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
       return { toast: [T.left, T.top, T.right, T.bottom].map(Math.round), panesBottom: Math.round(P.bottom), hit, placed: document.getElementById('toastHost').getAttribute('data-placed') }; })()`);
     ok(`${tag}: a message stands at the planes' foot (its bottom within 40 px above it)`, t.toast[3] <= t.panesBottom && t.toast[3] >= t.panesBottom - 40, t);
     ok(`${tag}: a message meets no zoom column, readout or colour key`, t.hit.length === 0, t);
+    // the classic tour anchors steps on the chain box (basics/chain, basics/add, edit/cards): it stays on screen while the tour runs, and goes with it
+    await ev(`Tour.start({ chapter: 'basics' })`);
+    await settled({ max: 15000, until: `!!document.querySelector('.tour-strip')` });
+    const tour = info[tag + ' tour'] = await ev(`(() => { const w = document.querySelector('.pipe-wrap'); return { shown: !!w && w.getClientRects().length > 0 }; })()`);
+    ok(`${tag}: the chain box is on screen while the tour runs (its steps anchor on it)`, tour.shown, tour);
+    await ev(`Tour.stop(), 1`);
+    await settled({ max: 15000, until: `!document.querySelector('.tour-strip') && !document.querySelector('.pipe-wrap')?.getClientRects().length` });
   }
 }
 return { pass: fails.length === 0, fails, info };
