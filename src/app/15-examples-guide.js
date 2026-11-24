@@ -975,10 +975,12 @@
       st.bottom = Math.round(H0() - floor + 12) + 'px';
       return;
     }
-    const chain = box(document.querySelector('.pipe-wrap'));
-    if (!chain || !(chain.width > 0)) { clear(); return; }
+    // (over the chain box's top; while the box is hidden (the classic view with no cards, #2269) over the planes' foot, 12 px above it)
+    const chain = box(document.querySelector('.pipe-wrap')), panes = chain ? null : box($('panes'));
+    const base = chain && chain.width > 0 ? chain : panes && panes.width > 0 ? panes : null;
+    if (!base) { clear(); return; }
     const H = window.innerHeight, W = window.innerWidth;
-    let lo = 8, hi = W - 8, top = chain.top;
+    let lo = 8, hi = W - 8, top = chain ? chain.top : base.bottom - 4;
     const dock = [...document.querySelectorAll('.tdock:not([hidden])')].map(box).filter(Boolean);
     for (const d of dock) top = Math.min(top, d.top);
     const inset = box(document.querySelector('.panes > .pane.ph-inset'));

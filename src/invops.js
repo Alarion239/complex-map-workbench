@@ -1089,7 +1089,8 @@ const InvOps = (() => {
     return E.map((e, r) => (r >= open ? null : e));
   }
   // a Repeat built step (Funcs.repeatBuilt) whose block is one step with a rational form P/Q of degree REPT_DEG,
-  // deg P = REPT_DEG > deg Q -> {P, Q} (high-first, padded), or null
+  // deg P = REPT_DEG > deg Q -> {P, Q} (high-first, padded), or null; the step a formula (its rationalForm), a
+  // polynomial, or a catalog step that is a rational map (Integer power, P/Q, zeros and poles)
   function reptForm(b) {
     const rp = b.repeat, blk = rp && rp.block;
     if (!rp || !blk || blk.length !== 1 || rp.n < 2 || rp.n > REPEAT_COPIES_MAX) return null;
@@ -1106,8 +1107,19 @@ const InvOps = (() => {
       if (!rf.ok || rf.removed.length) return null;
       P = rf.P; Q = rf.Q;
     } else if (id === 'poly') { P = CX.polyTrim(v.co); Q = [ONE]; }
+    // (the catalog steps that are rational maps: Integer power z^n, P/Q and zeros and poles, whose coprime P and Q are
+    // their own; Integer power z^n with n = REPT_DEG is z^n over 1)
+    else if (id === 'pown' && v.n === REPT_DEG) { P = [ONE].concat(Array.from({ length: REPT_DEG }, () => ZERO)); Q = [ONE]; }
+    else if (id === 'rational' && s.props && s.props.rational && s.props.degExact) { P = CX.polyTrim(v.p); Q = CX.polyTrim(v.q); }
+    else if (id === 'zp' && s.zp) { P = CX.polyTrim(s.zp.P); Q = CX.polyTrim(s.zp.Q); }
     else return null;
     if (P.length - 1 !== REPT_DEG || Q.length - 1 >= REPT_DEG || isZero(P[0]) || !P.concat(Q).every(isFin)) return null;
+    // (a catalog step's coefficients scaled as rationalForm scales a formula's: by the power of 2 that brings the largest
+    // near 1, which keeps the GPU's float32 in range)
+    if (id !== 'custom') {
+      const sc = Math.pow(2, -Math.round(Math.log2(Math.max(...P.concat(Q).map(abs)))));
+      P = P.map((c) => scale(c, sc)); Q = Q.map((c) => scale(c, sc));
+    }
     return { P: padTo(P, REPT_DEG + 1), Q: padTo(Q, REPT_DEG + 1) };
   }
   // the op: p = {P, Q, n, escR (reptEscR)}; its members come from Inverse.enumerate's search (rept), not from pre(); pre lists the leaves

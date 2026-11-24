@@ -85,6 +85,21 @@
   function reptHatch(pane, map) {
     if (reptExact(map) && GLR.reptHatchFill) GLR.reptHatchFill(pane.dpr);
   }
+  // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
+  // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
+  function repeatRefused(map) {
+    const m = normalizeMap(map);
+    if ((m.mode || 0) !== 0) return false;
+    const plan = invPlan(m.a || 0, m.b || 0);
+    return !plan.ok && !!plan.tooLong && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
+  }
+  // the panes whose open frame holds a refused repeat's hatch: glStatusNote says why at the frame's end
+  const refusedPanes = new Set();
+  // the no-value hatch over the whole plane drawn in pane for map when its repeat is refused (no image of the regions is known
+  // anywhere), after the picture painted through the regions' mask
+  function refusedHatch(pane, map) {
+    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) refusedPanes.add(pane);
+  }
   // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
   // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;
   // the exact fill's own edge is the outline (svOutlines, the colour plot's outlines)
@@ -519,8 +534,8 @@
     return { plan, inv, preps: new Map(), sing: null, per: undefined };
   }
   // the inverse path of area shape s from plane a to plane b through h (invOwnPlan's), prepared once for each window and
-  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing),
-  // and its period h.per
+  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing,
+  // weighted by h.wOf when the plan has one), and its period h.per
   function invOwnPath(h, s, a, b, own) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!h.plan.ok) return F(h.plan.reason);
@@ -528,7 +543,7 @@
     let prep = h.preps.get(wk);
     if (!prep) {
       try {
-        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin, h.per) };
+        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin, h.per, h.wOf || null) };
         prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: own || h.sing.v, per: h.per });
       } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
       h.preps.set(wk, prep);
@@ -583,8 +598,11 @@
   // (Inverse.homBuilt: no ops at t_k = 0, the step itself at 1) and every step up to lo for itself; its inverse op list
   // (GLChain.buildInverse, invOwnPlan) and the shape's preparation (invOwnPath). Same answer as invHomPath's, and its key's
   // period as invHomPer takes it: Inverse.keyPeriod of the span's plan at u, so the key at u -> 1 meets plane b's (eᶻ's
-  // homotopy has 2 pi i / t); with no plan, the steps' up to lo. Forward where a step's homotopy has no exact inverse at
-  // its time or a NEWT op (those spans keep the carried meshes)
+  // homotopy has 2 pi i / t); with no plan, the steps' up to lo. Its key's points: those of each step k of the span weigh
+  // t_k (h.wOf, Inverse.keySing), so that the key goes from plane lo's at u = 0 to plane b's at u = 1 with no jump, a
+  // pole that step k's homotopy brings in from infinity coming in with no weight (where it lands beside a pole of an
+  // earlier step, as Cayley's pulled back through Joukowski lands beside 0, the two would count twice up to t_k = 0).
+  // Forward where a step's homotopy has no exact inverse at its time or a NEWT op (those spans keep the carried meshes)
   function invSpanPath(s, a, lo, b, u, stepT, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
@@ -605,6 +623,8 @@
       }
       h = plan ? { plan, inv: null, preps: new Map(), sing: null, per: undefined } : invOwnPlan(S.steps, bh, a, b);
       h.per = h.plan.ok ? Inverse.keyPeriod(h.plan) : lo > a ? Inverse.keyPeriod(invPlan(a, lo)) : null;
+      const tOf = new Map(ts);
+      h.wOf = (o) => (tOf.has(o.step) ? Math.min(1, tOf.get(o.step)) : 1);
       if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
       invHoms.set(ck, h);
     }
@@ -767,10 +787,12 @@
   // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
   function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
+    const refused = refusedPanes.has(pane) ? $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.') : '';
+    if (!quiet) refusedPanes.delete(pane);
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
-    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane)) : '';
+    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || refused) : '';
     if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
