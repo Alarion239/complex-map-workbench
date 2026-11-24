@@ -266,7 +266,7 @@ const Commands = (() => {
         [$t('Hear the function on/off'), () => soundHear(), ''],
         ...(Sound.hear ? [[$t('Hear the function: notes'), () => soundMode(false), ''], [$t('Hear the function: glide'), () => soundMode(true), '']] : []),
         [$t('Stop sound'), () => soundStop(), 'Esc'],
-        ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id, opener: Tour.helpAnchor() }), '']),
+        ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id, opener: Tour.asker() }), '']),
         ...Construct.paletteActs(),   // (the four tools; Make free, Use complement)
         ...dhActs(),
       ];

@@ -300,6 +300,10 @@ for (const cfg of runs) {
         await settle();
         const vLanded = await ev(`({ tour: Tour.isActive(), inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), on: document.activeElement ? document.activeElement.tagName + '.' + (document.activeElement.id || document.activeElement.className) : null })`);
         check(`${tag} focus: the tour started from the ${via} opened on a control has the focus in the strip`, vOn.ok && vLanded.tour && vLanded.inStrip, vLanded);
+        // (Esc ends the tour: the focus goes back to the control the user started it from, not to Help)
+        await key('Escape'); await calm();
+        const vEsc = await ev(`({ tour: Tour.isActive(), on: document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null })`);
+        check(`${tag} focus: Esc in the tour started from the ${via} opened on the Examples button ends it and gives the focus back to that button`, !vEsc.tour && vEsc.on === 'examplesBtn', vEsc);
         await ev('Tour.isActive() && Tour.stop()'); await calm();
       }
     }
