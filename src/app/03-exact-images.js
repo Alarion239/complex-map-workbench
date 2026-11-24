@@ -424,17 +424,18 @@
   // back and forth; at the cap the whole map is cleared, which is safe because the next glide builds its part once
   const INV_HOM_SKELS_MAX = 8;
   // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
-  // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
-  // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
-  // step k's homotopy at a new t decompose no step again. Its ops are shared by the homotopy's ops at every t, where one
-  // op can sit at another node (a recognised formula's sub-step comes after its predecessors' ops once the glide has
-  // passed them); each plan made from it copies them (planChain), so it keeps its own step, node and j
+  // standing for itself with its ops decomposed once with the chain's options (Inverse.chainOpts; Inverse.stepOps reads
+  // __homOps), and so the steps of a formula recognized as a chain of them (b.rec, which step k's homotopy walks at t),
+  // so the plan, the inverse op list and step k's homotopy at a new t decompose no step again. Its ops are shared by the
+  // homotopy's ops at every t, where one op can sit at another node (a recognised formula's sub-step comes after its
+  // predecessors' ops once the glide has passed them); each plan made from it copies them (planChain), so it keeps its
+  // own step, node and j
   const invHomSkels = new Map();
-  function invHomOnce(b) {
+  function invHomOnce(b, opts) {
     if (!b || b.error || !b.def) return b;
-    const r = Inverse.stepOps(b);
+    const r = Inverse.stepOps(b, opts);
     const o = Object.assign({}, b, { __homOps: () => r });
-    if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
+    if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map((sb) => invHomOnce(sb, opts)) });
     return o;
   }
   // whether a live d/dz step lies between planes a and k, so that invHomBase(a, k) is the substitute chain
@@ -457,7 +458,8 @@
     if (!bs) {
       const c = invHomBase(a, k);
       if (!c.steps) return null;
-      bs = c.built.map((b, i) => (!c.steps[i] || c.steps[i].on === false ? b : invHomOnce(b)));
+      const opts = Inverse.chainOpts(c.steps, c.built);
+      bs = c.built.map((b, i) => (!c.steps[i] || c.steps[i].on === false ? b : invHomOnce(b, opts)));
       if (invHomSkels.size >= INV_HOM_SKELS_MAX) invHomSkels.clear();
       invHomSkels.set(sk, bs);
     }

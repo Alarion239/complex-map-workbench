@@ -90,7 +90,10 @@ check('a block of two steps is not REPT', !/^REPT/.test(kinds(chainOf([St('mul',
 const AN = chainOf([St('mul', { c: '2' }), St('custom', { expr: NEWTON, cut: 180 }, { n: 20, len: 1 })]);
 const planAN = Inverse.planChain(AN.steps, AN.built, 0, 2);
 check('Newton x 20 after x 2 is too long for a plan, not REPT', !planAN.ok && planAN.tooLong === true && planAN.reason === 'chain too long', planAN.reason);
-check('the REPT plane alone has a plan', Inverse.planChain(AN.steps, AN.built, 1, 2).ok);
+// (the chain decides a repeat's form once, for all its plans and its one GLSL inverse program: the repeat's own plane
+// (1, 2] plans its copies too)
+const planAN12 = Inverse.planChain(AN.steps, AN.built, 1, 2);
+check('... and its plane (1, 2] alone plans the copies too: too long, not REPT', !planAN12.ok && planAN12.tooLong === true, planAN12.reason);
 const planKinds = (steps) => { const c = chainOf(steps), p = Inverse.planChain(c.steps, c.built, 0, steps.length); return p.ok ? p.ops.map((o) => o.kind).join('>') : `X: ${p.reason}${p.tooLong ? ' (tooLong)' : ''}`; };
 const TIMES2 = St('mul', { c: '2' });
 const NEXT_TO = [
@@ -106,6 +109,24 @@ const NEXT_TO = [
 for (const [name, steps, want] of NEXT_TO) check(`${name}: ${want}`, planKinds(steps) === want, planKinds(steps));
 check('a rational step of degree 3 x 3, then x 2, has a plan with no REPT op', !/REPT|^X/.test(planKinds([St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 }), TIMES2])), planKinds([St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 }), TIMES2]));
 check('Integer power z^3 x 20 alone plans as REPT', planKinds([St('pown', { n: 3 }, { n: 20, len: 1 })]) === 'REPT', planKinds([St('pown', { n: 3 }, { n: 20, len: 1 })]));
+// (each plan's ops are ops of the chain's GLSL inverse program, by step, node and kind, as the GPU's pass data reads them:
+// a plane's plan and the program decompose a repeat the same way; a chain too long for a program has none to match)
+{
+  const chains = NEXT_TO.map(([name, steps]) => [name, steps]).concat([['Integer power z^3 x 20 alone', [St('pown', { n: 3 }, { n: 20, len: 1 })]],
+    ['Integer power z^3 x 3, then x 2, on plane 1', [St('pown', { n: 3 }, { n: 3, len: 1 }), TIMES2], 1]]);
+  let plans = 0;
+  const bad = [];
+  for (const [name, steps, top = steps.length] of chains) {
+    const c = chainOf(steps), inv = GLChain.buildInverse(c.steps, c.built);
+    for (let a = 0; a < top; a++) {
+      const p = Inverse.planChain(c.steps, c.built, a, top);
+      if (!p.ok) continue;
+      plans++;
+      if (inv.ok && !p.ops.every((o) => inv.ops.some((q) => q.step === o.step && q.node === o.node && q.kind === o.kind))) bad.push(`${name} (${a}, ${top}]`);
+    }
+  }
+  check('every plan\'s ops are ops of its chain\'s GLSL inverse program (step, node, kind)', plans >= 6 && bad.length === 0, `${plans} plans, ${JSON.stringify(bad)}`);
+}
 const plan20 = Inverse.planChain(N20.steps, N20.built, 0, 1);
 check('the gallery plane has a plan', plan20.ok && plan20.ops.length === 1);
 check('a REPT plan is not injective, and a point\'s preimages are past the exact cap', !plan20.injective && !Inverse.pointPre(plan20, C(0.3, 0.1)).exact);

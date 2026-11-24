@@ -3252,13 +3252,14 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
   const invTextCache = new Map();
   function buildInverse(steps, built) {
     if (!IX_FIN.RAT5) ixRatTables();
-    // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
-    const ops = [], sigs = [];
+    // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step with the
+    // chain's options, Inverse.chainOpts, as the chain's plans take them)
+    const ops = [], sigs = [], opts = Inverse.chainOpts(steps, built);
     steps.forEach((st, i) => {
       const b = built[i];
       if (!st || st.on === false) { sigs.push('off'); return; }
       if (!b || b.error || !b.def) { sigs.push('err'); return; }
-      const r = Inverse.stepOps(b);
+      const r = Inverse.stepOps(b, opts);
       if (!r.ok) { sigs.push('X'); ops.push({ kind: 'X', step: i + 1, node: 0, op: null }); return; }
       sigs.push(r.ops.map(Inverse.opSig));
       r.ops.forEach((o, n) => ops.push({ kind: o.kind, step: i + 1, node: n, op: o }));
