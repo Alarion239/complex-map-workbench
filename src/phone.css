@@ -532,6 +532,15 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land.view-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip { top: 4px; }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 120px); }
+/* (and, in the steps view, the folded colour key stands left of the keys' row, at the row's level, a 44 px target 8 px clear of the row's first
+   key (Fit view's lane: its right edge 60 px in, 121 px with the key's own 16 px of hit area and gap, a pixel over for the row's half
+   pixels): its bottom is the row's, 8 px and the lift, and 7 px more, so its centre is on the row's centre line (22 px up: half of 44 less
+   half of 30 more). The card it unfolds into keeps the top row at the right, over the row, as before. The readout and the construction chip stop 8 px short of
+   the key, folded or not, so they do not change width when it opens: 8 + 8 + 30 + 8 + 121 px, the left inset, the gap, the key's glyph
+   and its hit area, and the lane) */
+:root.ph.ph-land.sv:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip.collapsed { top: auto; bottom: calc(15px + var(--ph-lift)); right: 121px; }
+:root.ph.ph-land.sv.view-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip.collapsed { bottom: calc(15px + var(--ruler) + var(--ph-lift)); }
+:root.ph.ph-land.sv:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > :is(.draft-chip.cm-on, .chip.readout:not(:has(> .rglobe:not([hidden])))) { max-width: calc(100% - 175px); }
 /* (the construction chip keeps its place, top: 40px as the plane's chips have, when the colour key unfolds: the key stands in the top row at the right
    here, not over the chip's column, and the drop below an unfolded key that a plane's chip takes where the key stands at the top left (page.html) would
    put the chip under the bar) */
@@ -544,6 +553,9 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
+  /* (in the steps view the row is one key longer: the folded colour key stands left of Fit view's lane, 173 px in, and what stops short of it, 227 px) */
+  :root.ph.ph-land.sv:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip.collapsed { right: 173px; }
+  :root.ph.ph-land.sv:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > :is(.draft-chip.cm-on, .chip.readout:not(:has(> .rglobe:not([hidden])))) { max-width: calc(100% - 227px); }
 }
 /* (a landscape phone under 390 px tall: the classic view's plane is half the screen, and the chip's words lack room: 52 to 172 px wide beside the keys'
    row at 320 px tall, a letter or two a line; at 360 and 375 px, planes 276 to 326 px wide, two lines that lose the tool's name, their end. The context bar
