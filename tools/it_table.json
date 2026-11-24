@@ -3460,6 +3460,7 @@
  "A starter disc added on {w}, with its preimage on {z}": "Disco iniziale aggiunto su {w}, con la sua controimmagine su {z}",
  "Disc added on {w}, about the image of the lit point": "Disco aggiunto su {w}, attorno all’immagine del punto illuminato",
  "The pieces of its preimage are not counted for these steps": "Per questi passi i pezzi della controimmagine non si contano",
+ "The pieces of its preimage are not counted through step {k} ({f})": "I pezzi della controimmagine non si contano attraverso il passo {k} ({f})",
  "{n} preimage\u0004{n} preimages": {
   "one": "{n} controimmagine",
   "other": "{n} controimmagini"

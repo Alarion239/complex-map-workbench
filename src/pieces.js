@@ -153,7 +153,48 @@ const Pieces = (() => {
     }
     return { counted: true, roots, pieces, loops, holes: pieces.reduce((s, P) => s + P.holes, 0), joins: radii.filter((e) => e.r < r) };
   }
-  return { count };
+  // a root of the next level within LINK_TOL (1 + |w|) of a root's image is its image
+  const LINK_TOL = 1e-7;
+  // Pieces.tree(steps, built, levels, c, r) -> the pieces of the disc's preimage on each of the planes levels (stage
+  // indices, increasing, the last b: the disc's own plane) and how they nest, each piece in the piece of the next level
+  // that its roots map into:
+  //   {counted: true, levels: [{stage, count (Pieces.count from that stage to b; null for b), pieces: [{roots: [index into
+  //   count.roots], parent: index into the next level's pieces (-1 for b's), covers}]}]} | {counted: false, reason, step}
+  // The disc itself is b's one piece, its root c. A piece maps into one piece of the next level (a connected set's image is
+  // connected, and the pieces are the components of the preimage), so all its roots agree on the parent. Levels are
+  // counted from the top down; not counted at the first level that is not (step: the first step on from it to the next
+  // level, the one the card names) or whose roots' images are not the next level's roots (step: the next level's)
+  function tree(steps, built, levels, c, r) {
+    if (levels.length < 2 || levels.some((k, i) => i && k <= levels[i - 1])) throw new Error('Pieces.tree: levels must increase, two or more');
+    const b = levels[levels.length - 1], out = [{ stage: b, count: null, pieces: [{ roots: [0], parent: -1, covers: 1 }] }];
+    // (the roots' places, per level: c for b's)
+    let above = [c];
+    for (let i = levels.length - 2; i >= 0; i--) {
+      const k = levels[i], next = levels[i + 1], pc = count(steps, built, k, b, c, r);
+      if (!pc.counted) {
+        const on = steps.findIndex((st, j) => j >= k && j < next && st.on !== false);
+        return { counted: false, reason: pc.reason, step: on >= 0 ? on + 1 : next };
+      }
+      const plan = Inverse.pointPlan(steps, built, k, next), up = out[0];
+      // (the piece of the level above that holds the image of root z)
+      const into = (z) => {
+        const w = Inverse.critForward(plan.ops, 0, z);
+        if (!w || !isFin(w)) return -1;
+        const j = above.findIndex((q) => q && abs(sub(q, w)) <= LINK_TOL * (1 + abs(w)));
+        return j < 0 ? -1 : up.pieces.findIndex((P) => P.roots.includes(j));
+      };
+      const pieces = pc.pieces.map((P, pi) => {
+        const roots = pc.roots.map((e, ri) => (e.piece === pi ? ri : -1)).filter((ri) => ri >= 0);
+        const ps = [...new Set(roots.map((ri) => into(pc.roots[ri].z)))];
+        return { roots, parent: ps.length === 1 ? ps[0] : -1, covers: P.covers };
+      });
+      if (pieces.some((P) => P.parent < 0)) return { counted: false, reason: 'the pieces could not be linked to the next plane\'s', step: next };
+      out.unshift({ stage: k, count: pc, pieces });
+      above = pc.roots.map((e) => e.z);
+    }
+    return { counted: true, levels: out };
+  }
+  return { count, tree };
 })();
 import { CX } from './cx.js';
 import { Inverse } from './inverse.js';

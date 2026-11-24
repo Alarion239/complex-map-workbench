@@ -6,9 +6,9 @@
   // (straight down). Each level is a plane, so the camera sees it as an affine map of the flat plane's css px
   // (stackLevel). The levels are drawn in one fixed order, STACK_ORDER, whatever the camera:
   // - the floor's picture, on the main canvas;
-  // - then on the overlay: the floor's marks, the tubes (19-stack-tubes.js), the box's edges and the lines from the
-  //   floor to the glass, the glass (its tint and rim), the glass's marks, the picks (19-stack-pick.js), and the tubes'
-  //   labels.
+  // - then on the overlay: the floor's marks, the tubes (19-stack-tubes.js), the middle levels of a chain
+  //   (19-stack-chain.js), the box's edges and the lines from the floor to the glass, the glass (its tint and rim), the
+  //   glass's marks, the picks (19-stack-pick.js), and the tubes' labels.
   // The camera is never under the floor, so a higher level is always nearer to it: the fixed order is the order in depth.
   // Seen straight down with yaw 0 both levels' maps are the identity, and the frame is Look down's.
   const STACK_PITCH_MIN = 10 * DEG;
@@ -20,9 +20,9 @@
   let stackCamSet = false;                    // the Stack's camera was opened by a state or turned in this page
   const STACK_GLASS_H = 0.5;                  // the glass's height above the floor, a share of the pane's shorter side
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
-  const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
+  const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'levels', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
-  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time), picks}
+  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time), levels, mids, why, picks}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
   // On a phone the box fits the plane's room that is left in sight: above the context bar, and beside Look down's key
   // while it is open (above it, right of it or below it, whichever lets the box be largest), STACK_ROOM_GAP css px clear
@@ -242,8 +242,9 @@
     try { return f(); } finally { stackFlat = false; }
   }
   // The Stack's layers after the floor on ctx (css px, pane's overlay), for the flat view of pane: the floor's marks, the
-  // tubes, the box's edges and the lines, the glass, the glass's marks, the picks, the tubes' labels (STACK_ORDER). The marks are Look down's, for the selected
-  // disc while its readout card shows (lookMarksOn). Returns the frame's record (stackDrawn's)
+  // tubes, the middle levels, the box's edges and the lines, the glass, the glass's marks, the picks, the tubes' labels
+  // (STACK_ORDER). The marks are Look down's, for the selected disc while its readout card shows (lookMarksOn). Returns
+  // the frame's record (stackDrawn's)
   function stackMarks(pane, ctx, camera) {
     const s = findShape(selected), on = lookMarksOn(s), mk = on ? lookMarks(pane, s) : null;
     const F = stackLevel(pane, camera, 0), G = stackLevel(pane, camera, 1), lv = { floor: stackMarkLevel(F), glass: stackMarkLevel(G) };
@@ -265,20 +266,22 @@
       ctx.globalAlpha = STACK_EDGE_A * tilt; ctx.strokeStyle = TH.ink; ctx.lineWidth = 1; ctx.stroke();
       ctx.restore();
     };
-    // (the connectors, by the kind the key's switch shows. Curved, the lines to the target rise along them, through the
-    // levels' maps at their heights, as far as the tubes stand up (tubeFade): straight down they are the lines from the
-    // floor to the glass that Look down draws, as they are straight)
-    let tubes = null, picks = null;
-    const ln = mk ? stackLinks(s, linkMode(), mk.zsZ, mk.critZ) : null, up = tubeFade(tilt);
+    // (the connectors, by the kind the key's switch shows. Curved, or straight through a chain's middle levels, the lines
+    // to the target rise along them, through the levels' maps at their heights, as far as the tubes stand up (tubeFade):
+    // straight down they are the lines from the floor to the glass that Look down draws, as they are straight)
+    let tubes = null, picks = null, mids = [];
+    const ln = mk ? stackLinks(s, linkMode(), mk.zsZ, mk.critZ) : null, up = tubeFade(tilt), chain = mk ? stackChain(s) : null;
     const link = (path) => path.map((p, J) => {
       const t = J / LINK_N, m = F.map((v, n) => v + t * (G[n] - v)), z = path[0], w = path[LINK_N];
       const [x, y] = pane.w2s(C((1 - up) * (z.re + t * (w.re - z.re)) + up * p.re, (1 - up) * (z.im + t * (w.im - z.im)) + up * p.im));
       return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
     });
-    const lines = ln && ln.mode === 'curved' && up > 0 ? Object.assign({ link: (i) => ln.zs[i] && link(ln.zs[i]) }, lv) : lv;
+    const bent = ln && up > 0 && (ln.mode === 'curved' || (!!chain && chain.levels.length > 2));
+    const lines = bent ? Object.assign({ link: (i) => ln.zs[i] && link(ln.zs[i]) }, lv) : lv;
     const layers = {
       'floor marks': () => mk && drawLookLayer(ctx, mk, lv, 'floor'),
       tubes: () => { if (!mk) return; const t0 = performance.now(); tubes = drawStackTubes(pane, ctx, s, F, G, tilt, ln); if (tubes) tubes.ms = performance.now() - t0; },
+      levels: () => { mids = drawStackLevels(pane, ctx, chain, F, G, tilt); },
       lines: () => { edges(); if (mk) drawLookLayer(ctx, mk, lines, 'lines'); },
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
@@ -287,7 +290,10 @@
     };
     const order = ['floor'];
     for (const layer of STACK_ORDER.slice(1)) { layers[layer](); order.push(layer); }
-    return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk, tubes, picks, links: ln ? ln.mode : null, plane: TH.plane };
+    // (the chain's levels: each one's stage, height and pieces, their parents, the centre's preimages in them and inks)
+    const xy = (z) => [z.re, z.im];
+    const levels = chain ? chain.levels.map((L) => ({ stage: L.stage, up: L.up, pieces: L.pieces.map((P) => ({ parent: P.parent, covers: P.covers, ink: P.ink, roots: P.roots.map(xy) })) })) : null;
+    return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk, tubes, levels, mids, why: chain ? chain.why : null, picks, links: ln ? ln.mode : null, plane: TH.plane };
   }
   // the Stack's overlay on the left pane (renderOverlays'), with Look down's key chip when the marks show. False when the
   // Stack is not shown

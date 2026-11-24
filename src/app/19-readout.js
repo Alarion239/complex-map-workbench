@@ -39,7 +39,8 @@
   // whether s's card is built: in the Inspector, or under its editor in its row in Shapes (a phone, or the panel hidden;
   // the row's sheet may be closed)
   const readoutShown = (s) => readoutOn(s) && (inspEditsShapes() || !!(shapeRows.get(s.id) && shapeRows.get(s.id).ro));
-  // {pc: Pieces.count's answer, joins: the join radii about the disc's centre}, kept per plane, stage, chain and disc
+  // {pc: Pieces.count's answer, joins: the join radii about the disc's centre, stuck: where pc is not counted, the step
+  // the count stops at (chainStuck)}, kept per plane, stage, chain and disc
   function readoutData(s) {
     const k = leftStage(), T = shapeStage(s), c = C(s.c[0], s.c[1]), key = JSON.stringify([k, T, chainSig[nSteps()], s.c, s.r]);
     let d = roCache.get(key);
@@ -50,15 +51,19 @@
         const cr = stageCritical(k, T);
         if (cr && cr.values.known) joins = Critical.joinRadii(cr.values.list, c).map((e) => e.r).filter((r) => r > 0);
       } catch (e) { joins = []; }
-      d = { pc, joins };
+      let stuck = null;
+      if (!pc.counted) { try { stuck = chainStuck(k, T, c, s.r); } catch (e) { stuck = null; } }
+      d = { pc, joins, stuck };
       roCache.set(key, d);
       while (roCache.size > 32) roCache.delete(roCache.keys().next().value);
     }
     return d;
   }
   const roNum = (x) => I18N.num(CX.fmtNum(x, 3));
-  // the counts in words: "3 preimages · 2 pieces · one covers the disc twice"
-  function readoutCounts(pc) {
+  // the counts in words: "3 preimages · 2 pieces · one covers the disc twice"; not counted, the step the count stops at
+  // (stuck: readoutData's) where it is known
+  function readoutCounts(pc, stuck = null) {
+    if (!pc.counted && stuck) return $t('The pieces of its preimage are not counted through step {k} ({f})', { k: stuck.step, f: stuck.name || '?' });
     if (!pc.counted) return $t('The pieces of its preimage are not counted for these steps');
     const n = pc.roots.reduce((a, q) => a + (q.z === null ? 0 : q.mult), 0), multi = pc.pieces.filter((q) => q.covers > 1);
     const parts = [$tn('{n} preimage', '{n} preimages', n, { n }), $tn('{n} piece', '{n} pieces', pc.pieces.length, { n: pc.pieces.length })];
@@ -112,8 +117,8 @@
   }
   // the card filled for shape s: the counts, the slider, the join radii in words, the pieces off the window
   function readoutFill(E, s) {
-    const { pc, joins } = readoutData(s);
-    const text = readoutCounts(pc);
+    const { pc, joins, stuck } = readoutData(s);
+    const text = readoutCounts(pc, stuck);
     if (E.counts.textContent !== text) E.counts.textContent = text;
     roFillRange(E, s);
     const jt = joins.length ? $t('Pieces join at r = {list}', { list: joins.map(roNum).join(', ') }) : pc.counted ? $t('No pieces join as r grows') : '';

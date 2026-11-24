@@ -85,5 +85,34 @@ for (const [name, steps, c, r] of [['M1 at r = 1 (through 0)', M1, C(1), 1], ['M
   const p = count(steps, c, r);
   check(`${name}: not counted, with the reason`, !!Pieces && !p.counted && typeof p.reason === 'string' && p.reason.length > 0, p);
 }
+// The tree of a chain's levels (Pieces.tree; #1990, the Stack's chains): M4 with the disc c = 0.5 + 0.5i, r = 0.2 on w₂
+// and the levels z, w₁, w₂: 4 pieces on z, 2 on w₁ and the disc; each level's pieces are Pieces.count's from it to w₂,
+// each piece's parent the piece of the next level its roots map into (z² for z, w₁² − 1 for w₁), so each w₁ piece has
+// the 2 z pieces about ±√(its root) as children. Past the join (r = 1.6) one piece on each level. A level that a step
+// with no exact inverse lies above (exp, then z²) gives no tree, and names the step.
+const tree = (steps, levels, c, r) => (Pieces && Pieces.tree ? Pieces.tree(steps, steps.map((st) => Funcs.build(st)), levels, c, r) : { counted: false, reason: 'no Pieces.tree' });
+{
+  const c = C(0.5, 0.5), t = tree(M4, [0, 1, 2], c, 0.2), L = t.counted ? t.levels : [];
+  check('tree M4, r = 0.2: counted, levels z, w₁, w₂', t.counted && JSON.stringify(L.map((l) => l.stage)) === '[0,1,2]', t.reason || L.map((l) => l.stage));
+  check('tree M4, r = 0.2: 4, 2 and 1 pieces', JSON.stringify(L.map((l) => l.pieces.length)) === '[4,2,1]', L.map((l) => l.pieces.length));
+  const same = L.length === 3 && [0, 1].every((i) => { const p = count(M4, c, 0.2, i); return p.counted && p.pieces.length === L[i].pieces.length && L[i].count.pieces.length === p.pieces.length; });
+  check('tree M4, r = 0.2: each level\'s pieces are Pieces.count\'s from it', same);
+  check('tree M4, r = 0.2: each w₁ piece has 2 children, the disc 2', L.length === 3 && [0, 1].every((j) => L[0].pieces.filter((P) => P.parent === j).length === 2) && L[1].pieces.every((P) => P.parent === 0) && L[2].pieces[0].parent === -1,
+    L.map((l) => l.pieces.map((P) => P.parent)));
+  // (every root of a piece maps by its step into a root of its parent piece)
+  const sq = (z) => CX.mul(z, z), f = [sq, (w) => CX.sub(sq(w), C(1))];
+  const into = L.length === 3 && [0, 1].every((i) => L[i].pieces.every((P) => P.roots.every((ri) => {
+    const w = f[i](L[i].count.roots[ri].z), up = L[i + 1];
+    const near = i + 1 === 2 ? [c] : up.pieces[P.parent].roots.map((rj) => up.count.roots[rj].z);
+    return near.some((q) => abs(sub(q, w)) < 1e-9 * (1 + abs(w)));
+  })));
+  check('tree M4, r = 0.2: every root maps by its step into a root of its parent piece', into);
+  const j = tree(M4, [0, 1, 2], c, 1.6);
+  check('tree M4, r = 1.6: one piece on each level, linked', j.counted && JSON.stringify(j.levels.map((l) => l.pieces.length)) === '[1,1,1]' && j.levels[0].pieces[0].parent === 0 && j.levels[1].pieces[0].parent === 0, j.reason || j.levels.map((l) => l.pieces.map((P) => P.parent)));
+  const x = tree([St('exp'), St('pown', { n: 2 })], [0, 1, 2], C(1, 0.5), 0.2);
+  check('tree [exp, z²]: not counted, and names step 1 (exp)', !!Pieces && !x.counted && x.step === 1 && typeof x.reason === 'string', x);
+  const two = tree(M4, [0, 2], c, 0.2);
+  check('tree M4 on [z, w₂]: 4 pieces, each the disc\'s child', two.counted && two.levels.length === 2 && two.levels[0].pieces.length === 4 && two.levels[0].pieces.every((P) => P.parent === 0), two.reason || two);
+}
 console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);

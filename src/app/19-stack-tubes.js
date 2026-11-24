@@ -41,15 +41,19 @@
   }
   // The tubes of disc s over the plane shown, in the plane's coordinates, or null where its pieces are not counted:
   // {pieces: [{ink: index into TH.c, loops: [{z: C[], w: C[]}] (each loop's points and their images on the glass)}],
-  //  narrows: [{z, d (F′(z)), s (the height it narrows at)}]}, kept per plane, stage, chain and disc
+  //  narrows: [{z, d, s, p, a, b}]}, kept per plane, stage, chain, disc and All at once. A narrowing is where the straight
+  //  connectors from a preimage z₀ of the centre narrow to a point: on the part from level a to level b of the planes
+  //  between (stackLevelStages; the floor and the glass alone when there are none), at z, z₀'s image on level a, where
+  //  the step's map f from a to b has f′(z) = d a negative real number, at the height s, where it passes the plane point p
   function tubeData(s) {
-    const k = leftStage(), T = shapeStage(s), key = JSON.stringify([k, T, chainSig[nSteps()], s.c, s.r]);
+    const k = leftStage(), T = shapeStage(s), key = JSON.stringify([k, T, chainSig[nSteps()], s.c, s.r, !!S.homAll]);
     if (tubeCache.has(key)) return tubeCache.get(key);
     const pc = readoutData(s).pc;
     let d = null;
     if (pc.counted) {
-      const F = rangeF(k, T);
-      const dF = (z) => { const h = 1e-6 * (1 + CX.abs(z)); return CX.scale(CX.sub(F(CX.add(z, C(h, 0))), F(CX.sub(z, C(h, 0)))), 0.5 / h); };
+      const F = rangeF(k, T), L = stackLevelStages(k, T), m = L.length - 1;
+      const G = L.map((b) => (b === k ? (z) => z : rangeF(k, b))), f = L.slice(1).map((b, n) => rangeF(L[n], b));
+      const dF = (g, z) => { const h = 1e-6 * (1 + CX.abs(z)); return CX.scale(CX.sub(g(CX.add(z, C(h, 0))), g(CX.sub(z, C(h, 0)))), 0.5 / h); };
       const pieces = pc.pieces.map((P, i) => ({ ink: TUBE_INKS[i % TUBE_INKS.length], loops: P.loops.map((li) => {
         const z = tubeResample(pc.loops[li].path, TUBE_PTS);
         return { z, w: z.map(F) };
@@ -57,8 +61,12 @@
       const narrows = [];
       for (const r of pc.roots) {
         if (!r.z || r.mult !== 1) continue;
-        const dz = dF(r.z);
-        if (dz.re < 0 && Math.abs(dz.im) <= NARROW_TOL * CX.abs(dz)) narrows.push({ z: r.z, d: C(dz.re, 0), s: 1 / (1 - dz.re) });
+        for (let n = 0; n < m; n++) {
+          const z = G[n](r.z), dz = dF(f[n], z);
+          if (!(dz.re < 0 && Math.abs(dz.im) <= NARROW_TOL * CX.abs(dz))) continue;
+          const u = 1 / (1 - dz.re), w = G[n + 1](r.z);
+          narrows.push({ z, d: C(dz.re, 0), s: (n + u) / m, p: C(z.re + u * (w.re - z.re), z.im + u * (w.im - z.im)), a: L[n], b: L[n + 1] });
+        }
       }
       d = { pieces, narrows };
     }
@@ -69,9 +77,10 @@
   // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
   // one number) and a true minus sign
   const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
-  // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map named as the plane's title names it)
+  // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map from its part's lower level to its upper one,
+  // named as the plane's title names it)
   function tubeNarrowText(n) {
-    const name = svMapName('text', leftStage(), shapeStage(findShape(selected))) || 'f', f = name.includes('∘') ? `(${name})` : name;
+    const name = svMapName('text', n.a, n.b) || 'f', f = name.includes('∘') ? `(${name})` : name;
     return $t('narrows here: {d}, not a join', { d: `${f}′(${tubeNum(n.z)}) = ${tubeNum(n.d)}` });
   }
   // the narrowings' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the
@@ -105,7 +114,6 @@
       const [x, y] = pane.w2s(p), m = Fm.map((v, i) => v + t * (Gm[i] - v));
       return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
     };
-    const mix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
     const ink = (P) => TH.c[P.ink], per = LINK_N / TUBE_LEVELS;
     // (a point's path through the heights J0..J1 of the connectors' samples)
     const path = (get, J0, J1) => { for (let J = J0; J <= J1; J++) { const q = at(get(J), J / LINK_N); if (J === J0) ctx.moveTo(...q); else ctx.lineTo(...q); } };
@@ -139,10 +147,9 @@
     }
     ctx.restore();
     // the labels (drawStackLabels): straight, the narrowings; curved, the tears
-    const c = C(s.c[0], s.c[1]);
     const labels = ln.mode === 'curved'
       ? ln.tears.map((r) => ({ text: linkTearText(), kind: 'tear', piece: r.piece, z: [r.z.re, r.z.im], s: r.s, at: at(r.z, r.s) }))
-      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(mix(n.z, c, n.s), n.s) }));
+      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(n.p, n.s) }));
     const pts = (lev, J) => lev[J].map((p, i) => [p, i]).filter(([, i]) => i % TUBE_RULE_EVERY === 0).map(([p]) => ({ p: [p.re, p.im], px: at(p, J / LINK_N) }));
     return {
       fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, mode: ln.mode, strands, labels,

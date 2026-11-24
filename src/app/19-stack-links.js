@@ -2,7 +2,9 @@
   // A connector carries a point z of the plane shown (the floor, stage k) up to F(z) on the disc's plane (the glass,
   // stage T). Its place at height s, 0 the floor and 1 the glass, in the floor's own coordinates, is one of two kinds
   // (SV.links, the Stack key's switch, saved with the steps view's place):
-  // - 'straight': (1 − s)·z + s·F(z), so the box's slice at s is the graph of F turned in C²;
+  // - 'straight': (1 − s)·z + s·F(z), so the box's slice at s is the graph of F turned in C²; with planes between (the
+//   Stack's middle levels, stackLevelStages), straight from each plane's image of z to the next one's, plane n of m at
+//   s = n / m;
   // - 'curved': the glide's own path from plane k to plane T, as the steps view glides it. With m steps between, s runs
   //   them in turn, step j (0-based) at u = m·s − j through its natural homotopy (homF), from the plane before it; with
   //   All at once (S.homAll, two steps or more), every step at once at u = s.
@@ -52,6 +54,13 @@
   };
   // the active steps from plane k to plane T
   const linkSteps = (k, T) => activeSteps().filter((b) => b > k && b <= T);
+  // The planes the Stack shows from plane k up to plane T, k and T included: the live planes between them, at equal
+  // heights; k and T alone where the glide between them goes all at once (svAllOk: two steps or more, no d/dz), whose
+  // frames pass no plane between
+  function stackLevelStages(k, T) {
+    const P = svPlanes(), i0 = P.indexOf(k), i1 = P.indexOf(T);
+    return i0 < 0 || i1 <= i0 || svAllOk(i0, i1) ? [k, T] : P.slice(i0, i1 + 1);
+  }
   // A group of plane points pts carried up by the given kind, from k to T: {lev, at}, lev[j][i] point i at height
   // j / LINK_N, with lev[0] = pts and lev[LINK_N] their images, and at(j, z) any plane point z at height j on the group's
   // branches.
@@ -60,8 +69,11 @@
   function linkLevels(k, T, mode, pts, outer) {
     const F = rangeF(k, T), mix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
     let at;
-    if (mode !== 'curved') at = (j, z) => mix(z, F(z), j / LINK_N);
-    else {
+    if (mode !== 'curved') {
+      // (straight from each level's image of z to the next one's: stackLevelStages' planes, the nth of m at j = n·LINK_N / m)
+      const L = stackLevelStages(k, T), G = L.map((b) => (b === k ? (z) => z : rangeF(k, b))), m = L.length - 1;
+      at = (j, z) => { const x = (j / LINK_N) * m, n = Math.min(m - 1, Math.floor(x)); return mix(G[n](z), G[n + 1](z), x - n); };
+    } else {
       const steps = linkSteps(k, T), m = steps.length, ring = (q) => (outer ? outer.map((i) => q[i]) : null);
       if (S.homAll && m > 1 && !steps.some((b) => isDeriv(b))) {
         // (all at once: each step's input moves with t, so its branch is picked again at each height from the outer loop
