@@ -4112,7 +4112,8 @@
     b.addEventListener('contextmenu', (e) => { if (document.documentElement.classList.contains('ph')) e.preventDefault(); });
   }
   function setupStepsView() {
-    if (!SV.on) return;
+    // (the root says it when the page opened the classic views: rules for them cannot reach the steps view while it starts)
+    if (!SV.on) { document.documentElement.classList.add('classic'); return; }
     document.documentElement.classList.add('sv');
     setFocusStep(0);
     svBuild();
