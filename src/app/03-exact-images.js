@@ -106,20 +106,25 @@
   // on it. A segment that does not get there (the gallery's Repeat ×20), or more than REPT_VERTS vertices, and the
   // shape has no outline: the exact fill's own edge is its only one. The rule is the resolution at the view, not the
   // number of copies: the bite at ×2 keeps its outline, zoomed in as at rest.
-  // Cached on r by its lines and map, the scale's half octave (refined for its largest scale, so the pieces stay within
-  // REPT_PIECE_PX at every scale of it) and the pane's size and place to a pane: the box is the view at the half
-  // octave's smallest scale about that place, widened by a pane on each side, so a pan refines again only once it
+  // Cached on r per pane by its lines and map, the scale's half octave (refined for its largest scale, so the pieces
+  // stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a pane: the box is the view at the
+  // half octave's smallest scale about that place, widened by a pane on each side, so a pan refines again only once it
   // crosses a pane
   function outlineRes(map, r, pane) {
-    if (!reptExact(map)) return r.lineRes ? { res: r.lineRes, rec: r } : null;
+    // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves REPT)
+    const slot = pane === paneR ? 'R' : 'L', had = r.rept && r.rept[slot];
+    if (!reptExact(map)) {
+      if (had) { GLR.destroy(had.res); r.rept[slot] = null; }
+      return r.lineRes ? { res: r.lineRes, rec: r } : null;
+    }
     const ps = r.lpolys, v = pane.view;
     if (!ps || !ps.length) return null;
     const oct = Math.floor(2 * Math.log2(v.s)), sHi = 2 ** ((oct + 1) / 2), sLo = 2 ** (oct / 2);
     const hw = pane.w / 2 / sLo, hh = pane.h / 2 / sLo, gx = Math.round(v.cx / (2 * hw)), gy = Math.round(v.cy / (2 * hh));
     const key = `${r.lineKey}|${r.refKey}|${mapKeyOf(map)}|${oct}|${pane.w}x${pane.h}|${gx},${gy}`;
-    if (r.rept && r.rept.key === key) return r.rept.out;
+    if (had && had.key === key) return had.out;
     reptOutlineRuns++;
-    if (r.rept) GLR.destroy(r.rept.res);
+    if (had) GLR.destroy(had.res);
     const F = cpuMap(map), lim = REPT_PIECE_PX / sHi, cx = 2 * gx * hw, cy = 2 * gy * hh;
     const x0 = cx - 3 * hw, x1 = cx + 3 * hw, y0 = cy - 3 * hh, y1 = cy + 3 * hh;
     // (the sides of the box a point lies past, one bit each)
@@ -156,8 +161,8 @@
     reptOutlineVerts = verts;
     const res = ok && polys.length && GLR.ok ? GLR.createLines(polys, r.lorigin) : null;
     const rec = { open: r.open, lpolys: polys, lorigin: r.lorigin, lineKey: key, arcs: null };
-    r.rept = { key, res, out: res ? { res, rec } : null };
-    return r.rept.out;
+    (r.rept || (r.rept = {}))[slot] = { key, res, out: res ? { res, rec } : null };
+    return r.rept[slot].out;
   }
   // the shape-level preparation (SPEC 3.6) and the image box of the scissor (4.8), cached by plan, clipWin and shape;
   // prepMs: the preparation work of the current frame (SPEC 10.2: past 4 ms, an uncached bounded shape waits a frame)
