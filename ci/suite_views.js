@@ -50,6 +50,7 @@ const VIEWS = {
   'phone_palette_cmd.js': steps(),
   'sound_steps_cmd.js': steps(),   // (Hear the function in the steps view; one check opens the classic view)
   'steps_carry_cmd.js': steps(),
+  'steps_carry_lim_cmd.js': steps(),
   'steps_ddz_glide_cmd.js': steps(),
   'steps_ddz_glide_after_cmd.js': steps(),
   'steps_ddz_rest_cmd.js': steps(),
