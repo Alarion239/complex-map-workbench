@@ -173,6 +173,12 @@ float checker(vec2 p, vec2 w) {
 }
 // lines at integer x, px device pixels wide; w = fwidth(x)
 float iso(float x, float w, float px) { float d = abs(fract(x + 0.5) - 0.5) / max(w, 1e-6); return 1.0 - smoothstep(0.5 * px - 0.5, 0.5 * px + 0.6, d); }
+// the grey no-value hatch (a value that is NaN, or unresolved) at a pixel fc of the pane's framebuffer: #7F7F7F with
+// 45 degree lines of #6A6A6A, 6 css px apart at dpr
+vec3 nanHatch(vec2 fc, float dpr) {
+  float h = (fc.x + fc.y) * 0.70710678 / (6.0 * dpr);
+  return mix(vec3(0.49804), vec3(0.41569), iso(h, 1.0 / (6.0 * dpr), dpr));
+}
 // the single line x = 0
 float iso0(float x, float w, float px) { float d = abs(x) / max(w, 1e-30); return 1.0 - smoothstep(0.5 * px - 0.5, 0.5 * px + 0.6, d); }
 float moire(vec2 w) { return smoothstep(0.18, 0.45, max(w.x, w.y)); }
@@ -241,8 +247,7 @@ vec3 dcolorAt(vec2 w, float r, float th, float lr, float flr, float faw, vec2 g,
   vec3 pb = uPal == 0 ? vec3(0.0) : arbc(th, lr);
   if (!(abs(w.x) < 3e38 && abs(w.y) < 3e38)) {
     if (abs(w.x) > 3e38 || abs(w.y) > 3e38) return vec3(0.96078);  // +-infinity: #F5F5F5
-    float h = (gl_FragCoord.x + gl_FragCoord.y) * 0.70710678 / (6.0 * uDpr);  // NaN: #7F7F7F, 45 deg hatch #6A6A6A
-    return mix(vec3(0.49804), vec3(0.41569), iso(h, 1.0 / (6.0 * uDpr), uDpr));
+    return nanHatch(gl_FragCoord.xy, uDpr);  // NaN: the no-value hatch
   }
   if (uStyle == 2) {        // Phase
     vec3 c = pwheel(th, 0.75, 0.75, pb);

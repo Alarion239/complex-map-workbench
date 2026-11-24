@@ -524,6 +524,9 @@
       const t1 = XD.tex(titles(panels[0])[1], lp);
       top = t1.a + t1.d + ah + 5; bottom = 3;
     }
+    // (the key's column starts after the room kept right of the picture, the axis title's or the ticks', so a title that
+    // reaches past the picture, "Re w₂", stays clear of the key)
+    const keyAt = mR;
     mR += keyW ? keyW + KEY_GAP : 0;
     let h = (W - mL - gut - mR) / panels.reduce((a, s) => a + asp(s), 0);
     h = Math.min(h, W * (two ? 0.62 : 0.8), P.maxH - top - bottom);
@@ -594,7 +597,7 @@
     // column's width, the plane's name in math; the figure is as tall as its picture or its key, the taller)
     let keyBottom = 0;
     if (keyW) {
-      const kx = xs.L + h * asp('L') + KEY_GAP + keyW / 2, k = await carriedKey(sk.carried, kx, y, keyW, tp, P.lw.frame);
+      const kx = xs.L + h * asp('L') + keyAt + KEY_GAP + keyW / 2, k = await carriedKey(sk.carried, kx, y, keyW, tp, P.lw.frame);
       items.push(...k.items);
       keyBottom = k.bottom;
     }
