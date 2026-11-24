@@ -3,6 +3,8 @@
   // pointer is that map's inverse at the pointer: a point of the flat plane's css px, and so a point z of the floor (the
   // plane shown) or a point w of the glass (the target's plane T = svT(), in the floor's own coordinates, as Look down's
   // glass marks are). The pick follows the floor picker (19-floor-pick.js). With the Pick tool, in this order:
+  // - a press on the target's square on the glass (its radius handle at c + r, stackSquare) sets the target's radius to
+  //   the distance from c of the glass's point under the pointer;
   // - a press on a glass's mark, the target's ring, drags the target, its centre under the pointer as it moves;
   // - a press on a floor's mark (a lit patch, a lit twin's ring, a critical point's cross, seen through the glass) acts on
   //   the floor: a lit patch drags its area, as the floor picker's does;
@@ -13,7 +15,8 @@
   // - a press held or dragged reads the floor: z₀'s strand rises to F(z₀) and dashed strands come down to its twins,
   //   following the pointer, and the readouts read z₀ (the page's "hold and slide" grammar).
   // A hover shows the level a click acts on: the glass's w with its strands where the glass lies under the pointer, the
-  // floor's z elsewhere; over a mark the pointer is the move cursor, and the target's ring is drawn lit. With the Disc
+  // floor's z elsewhere; over a mark the pointer is the move cursor (over the square the resize cursor), and the mark
+  // under it, the target's ring or its square, is drawn lit. Each drag is one edit, one undo step (pickUp). With the Disc
   // tool, a press on the floor and a drag out draws a disc on T about F(z₀). Any tool reads the hovered point in the left
   // readout: z on the floor, w on the glass with its count of preimages. From the keyboard, with the plane focused and
   // the Pick tool, Shift+Enter pins the selected target's centre (or the view's centre) on the glass, and Enter lights the
@@ -68,6 +71,22 @@
     const least = Math.sqrt(Math.max(0, (sq - Math.sqrt(Math.max(0, sq * sq - 4 * det * det))) / 2));
     return ldRingNear(gap, inside, m.r * least, finger) ? s : null;
   }
+  // the target's square on the glass, its radius handle (Region.handlesOf's 'r', at c + r), shown with the Pick tool while
+  // the target's marks show: {s, p}, p its place in the canvas's css px through the glass's map G; or null
+  function stackSquare(pane, G = stackLevel(pane, stackCam, 1)) {
+    const s = findShape(selected);
+    if (tool !== 'pick' || !s || s.kind !== 'disc' || s.def || s.fixed || !lookMarksOn(s)) return null;
+    const hd = Region.handlesOf(s).find(([k]) => k === 'r');
+    if (!hd || !CX.isFin(hd[1])) return null;
+    const [u, v] = pane.w2s(hd[1]);
+    return { s, p: [G[0] * u + G[2] * v + G[4], G[1] * u + G[3] * v + G[5]] };
+  }
+  // the target when (x, y) is on its square: within LD_HIT / 2 css px of it, LD_HIT_TOUCH / 2 for a finger's or a pen's
+  // press (finger); else null
+  function stackSquareAt(pane, x, y, finger = false) {
+    const q = stackSquare(pane);
+    return q && Math.hypot(x - q.p[0], y - q.p[1]) <= (finger ? LD_HIT_TOUCH : LD_HIT) / 2 ? q.s : null;
+  }
   // whether a floor's mark lies under (x, y) at the floor's point z: a lit patch, a lit twin's ring or a critical point's
   // cross, seen through the floor's map; a finger's or a pen's press (finger) reaches a ring or a cross LD_HIT_TOUCH / 2
   // css px from its centre
@@ -87,7 +106,7 @@
   function stackPickLevel(pane, hit, x, y, how, finger = false) {
     const f = hit.floor && hit.floor.on ? hit.floor : null, g = hit.glass && hit.glass.on ? hit.glass : null;
     if (!f && !g) return null;
-    if (g && stackRingAt(pane, x, y, stackCam, finger)) return 'glass';
+    if (g && (stackSquareAt(pane, x, y, finger) || stackRingAt(pane, x, y, stackCam, finger))) return 'glass';
     if (f && stackFloorMark(pane, x, y, f.z, stackCam, finger)) return 'floor';
     return f && g ? stackOverlap(how) : f ? 'floor' : 'glass';
   }
@@ -140,9 +159,10 @@
     const hit = stackPick(pane, x, y), lv = stackPickLevel(pane, hit, x, y, 'hover');
     stackReadW = lv === 'glass' ? hit.glass.w : null;
     stackReadZ = null;
-    const mark = tool !== 'pick' || !lv ? null : lv === 'glass' ? (stackRingAt(pane, x, y) ? 'ring' : null) : stackFloorMark(pane, x, y, hit.floor.z) ? 'floor' : null;
+    const mark = tool !== 'pick' || !lv ? null : lv === 'glass' ? (stackSquareAt(pane, x, y) ? 'square' : stackRingAt(pane, x, y) ? 'ring' : null)
+      : stackFloorMark(pane, x, y, hit.floor.z) ? 'floor' : null;
     if (mark !== stackMarkHov) { stackMarkHov = mark; requestRender('OL'); }
-    if (tool === 'pick') pane.ocanvas.style.cursor = mark ? 'move' : 'crosshair';
+    if (tool === 'pick') pane.ocanvas.style.cursor = mark === 'square' ? 'ew-resize' : mark ? 'move' : 'crosshair';
     if (lv === 'floor') {
       probe = hit.floor.z;
       setReadouts(probe);
@@ -168,6 +188,13 @@
       const F = rangeF(k, T), w0 = F(f.z);
       if (!CX.isFin(w0)) return true;
       drag = { mode: 'pickOut', level: 'floor', T, F, w0, x0: x, y0: y, disc: null, moved: false };
+      return true;
+    }
+    const sq = g && stackSquareAt(pane, x, y, touch);
+    if (sq) {
+      // (the square sets the target's radius to the distance from its centre of the glass's point under the pointer)
+      selected = sq.id; zpSel = null; buildShapeList();
+      drag = { mode: 'pickMove', level: 'glass', shape: sq, size: true, F: (w) => w, w: g.w, x0: x, y0: y, moved: false };
       return true;
     }
     const ring = g && stackRingAt(pane, x, y, stackCam, touch);
@@ -253,8 +280,8 @@
   function drawStackPicks(pane, ctx, F, G) {
     const rec = { strands: 0, off: 0 };
     const lit = floorPickNow(), hv = stackHovNow(), s = stackMarkHov === 'ring' && tool === 'pick' ? findShape(selected) : null;
-    const lookRing = s && lookMarksOn(s) ? lookMarks(pane, s) : null;
-    if (!lit && !hv && !lookRing) return rec;
+    const lookRing = s && lookMarksOn(s) ? lookMarks(pane, s) : null, sq = stackSquare(pane, G);
+    if (!lit && !hv && !lookRing && !sq) return rec;
     // a point of the flat plane's css px at height t, through the levels' maps
     const at = (p, t) => { const m = F.map((v, i) => v + t * (G[i] - v)); return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; };
     const flat = (q) => pane.w2s(q), inside = (p) => p[0] >= 0 && p[0] <= pane.w && p[1] >= 0 && p[1] <= pane.h;
@@ -294,6 +321,13 @@
       for (const { z } of hv.zs) { const p = flat(z); if (inside(p)) ring(at(p, 0), PICK_RING, TH.accent, false); }
       // (a pin's point is a filled dot, a hover's an open one)
       if (inside(top)) ring(at(top, 1), STACK_PICK_DOT, TH.accent, hv.pinned);
+    }
+    // (the target's square, drawn as the flat plane draws a shape's handle; lit under the pointer)
+    if (sq) {
+      const hr = fingerNow() ? 6 : 3.5, [x, y] = sq.p;
+      ctx.fillStyle = TH.surface; ctx.strokeStyle = stackMarkHov === 'square' ? TH.probe : shapeInk(sq.s).edge; ctx.lineWidth = stackMarkHov === 'square' ? 2.5 : 1.5;
+      ctx.beginPath(); ctx.rect(x - hr, y - hr, 2 * hr, 2 * hr); ctx.fill(); ctx.stroke();
+      rec.square = [x, y];
     }
     ctx.restore();
     return rec;
