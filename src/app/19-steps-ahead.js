@@ -19,7 +19,8 @@
   // AHEAD_PROBE of its frames are drawn off-screen in idle moments after it ends, their median kept (svAheadCost). A later
   // motion of the chain then decides at once (svAheadPlan): at most AHEAD_MS it plays live; past AHEAD_WAIT_MAX_MS to draw
   // its frames, or past the memory budget to keep them, it plays live and says why once a chain and reason, with the next
-  // words the view says (svAheadTail); else the gate waits while its frames are drawn. Only on the flat plane, without
+  // words the view says (svAheadTail); else the gate waits while its frames are drawn. Only on the flat plane (the Stack's
+  // floor included: its frames are drawn flat, and the Stack's camera maps the one shown, stackFloor), without
   // reduced motion, and only for a motion started from rest (svGo, svPlay): a press during a motion, a scrub, a speed
   // change, a Split and an edit play live
   const AHEAD_DT = 1000 / 60, AHEAD_MS = 14, AHEAD_PROBE = 3, AHEAD_TRIES = 3, AHEAD_WAIT_MAX_MS = 3000;
@@ -53,8 +54,9 @@
     const N = Math.max(1, Math.ceil(M.ms / AHEAD_DT));
     return c <= aheadMs() ? 'live' : c * N > aheadWaitMs() ? 'time' : N * paneL.pw * paneL.ph * 4 > aheadBudget() ? 'memory' : 'ahead';
   }
-  // whether motion M can be drawn ahead
-  const svAheadCan = (M) => !!M && M.ms > 0 && SV.surf === 'plane' && lFlat() && !!GLR.ok && typeof OffscreenCanvas === 'function' && typeof MessageChannel === 'function' && !svReduced();
+  // whether motion M can be drawn ahead: on the flat plane, the Stack's floor included (its frames are the floor's flat
+  // picture, which the Stack's camera maps as it shows them, so the camera is no part of their key)
+  const svAheadCan = (M) => !!M && M.ms > 0 && stackAsFlat(() => svFlatSurf() && lFlat()) && !!GLR.ok && typeof OffscreenCanvas === 'function' && typeof MessageChannel === 'function' && !svReduced();
   function svAheadDrop() {
     const R = svAhead;
     svAhead = null;
@@ -138,8 +140,9 @@
     }
   }
   // frame k of R drawn off-screen (svAheadVisit) into R's scratch canvas through a proxy of the left pane, its labels
-  // placed at once -> { bm: the frame, mf, cm: its moving paths and cuts' marks, rec: its glide record }, or null when it
-  // is not the exact frame at its place (R.reject says why)
+  // placed at once (on the Stack, the floor's flat picture: a glide frame's draw reads nothing of the Stack) -> { bm: the
+  // frame, mf, cm: its moving paths and cuts' marks, rec: its glide record }, or null when it is not the exact frame at
+  // its place (R.reject says why)
   function svAheadDraw(R, k) {
     const pane = paneL, M = R.M, x = R.xs[k];
     if (!R.cv || R.cv.width !== pane.pw || R.cv.height !== pane.ph) R.cv = new OffscreenCanvas(pane.pw, pane.ph);

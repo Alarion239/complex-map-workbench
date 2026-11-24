@@ -1441,28 +1441,47 @@
       // (the other sheets' copies first (st.carry.copies: {draw, band}, draw running its function with the GPU's chain
       // on that sheet's combo, then putting the chain back): each its own heights over the box's grid, placed and
       // coloured on its sheet, with no patches; with band (an angle, degrees), over seamBand's box about that ray from
-      // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, and they a little behind
-      // their depth (further than the pole patches' offset), so it is the one shown where a copy meets it or nearly
-      // coincides with it: under |F| a root's other sheet has the principal's height, and early in a glide its copy lies
-      // in the principal surface's place on triangles of its own, which a tie in depth would show pixel by pixel)
+      // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, and every pass of a copy
+      // a little behind its depth (further than the pole patches' offset), so the principal surface is the one shown
+      // where a copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's height,
+      // and early in a glide its copy lies in the principal surface's place on triangles of its own, which a tie in
+      // depth would show pixel by pixel)
+      // A copy's alpha: one draws it opaque before the principal surface. Under one it is drawn after the
+      // principal surface and its patches: first every such copy's depth alone, then each one's colour blended over
+      // what is drawn, with LEQUAL and a stencil that takes one blend a pixel, so a pixel shows the nearest translucent
+      // surface once, also where a copy folds over itself or its seam's surface lies on it. 0 draws nothing
       info.copies = 0;
-      if (st.carry.copies && st.carry.copies.length) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(4, 32); }
-      for (const [i, cp] of (st.carry.copies || []).entries()) {
-        cp.draw(() => {
-          if (!carryReady(st.carry.map)) return;
+      const copies = st.carry.copies || [], alphaOf = (cp) => (cp.alpha == null ? 1 : cp.alpha), made = [];
+      // (pass: 'opaque', 'depth' (both make the copy's heights) or 'colour' (the heights the depth pass made))
+      const drawCopy = (cp, i, pass) => cp.draw(() => {
+        if (!carryReady(st.carry.map)) return;
+        if (pass !== 'colour') {
           const band = cp.band == null ? null : seamBand(sb, cp.band, N);
           if (cp.band != null && !band) return;
           const n = band ? SEAM_N : N, sc = band ? Object.assign({}, st, { carry: Object.assign({}, st.carry, { src: band }) }) : st;
-          const o = carryHeights(sc, n, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {}));
-          setUp(band || sb);
-          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, o.tex1);
-          gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, o.tex2);
-          u1i(Pc, 'uN', o.N);
-          gl.drawArrays(gl.TRIANGLES, 0, 6 * (o.N - 1) * (o.N - 1));
+          made[i] = { band, o: carryHeights(sc, n, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {})) };
+        }
+        const m = made[i];
+        if (!m) return;
+        setUp(m.band || sb);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, m.o.tex1);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, m.o.tex2);
+        u1i(Pc, 'uN', m.o.N);
+        const cells = 6 * (m.o.N - 1) * (m.o.N - 1);
+        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(4, 32);
+        if (pass === 'depth') {
+          gl.colorMask(false, false, false, false);
+          gl.drawArrays(gl.TRIANGLES, 0, cells);
+          gl.colorMask(true, true, true, true);
+        } else {
+          if (pass === 'colour') u1f(Pc, 'uFade', 1 - alphaOf(cp));
+          gl.drawArrays(gl.TRIANGLES, 0, cells);
+          if (pass === 'colour') u1f(Pc, 'uFade', 0);
           info.copies++;
-        });
-      }
-      gl.disable(gl.POLYGON_OFFSET_FILL);
+        }
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      });
+      copies.forEach((cp, i) => { if (alphaOf(cp) >= 1) drawCopy(cp, i, 'opaque'); });
       setUp(sb);
       u1i(Pc, 'uN', hd.N);
       // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
@@ -1483,6 +1502,17 @@
       gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
+      // (the translucent copies, over the principal surface; info.copyAlpha: the least alpha drawn, for the tests)
+      const fading = copies.map((cp, i) => [cp, i]).filter(([cp]) => alphaOf(cp) > 0 && alphaOf(cp) < 1);
+      if (fading.length) {
+        for (const [cp, i] of fading) drawCopy(cp, i, 'depth');
+        gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
+        gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
+        gl.depthMask(false); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        for (const [cp, i] of fading) drawCopy(cp, i, 'colour');
+        gl.disable(gl.BLEND); gl.depthMask(true); gl.disable(gl.STENCIL_TEST);
+      }
+      info.copyAlpha = copies.length ? Math.min(...copies.map(alphaOf)) : null;
       info.refine = null;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
     }

@@ -18,6 +18,7 @@
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
     glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
+    glideFade: null, // (a test hook's) the alpha of a Landscape glide's copies, fixed over the glide; null: their fade over u
     fits: 0,         // (for a test) the head's fits (svFitHead's) that ran past their key
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -41,7 +42,7 @@
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
-  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
+  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn, label} a glide (held, drawn: svLinkHold's; label: the words of a crossing not yet drawn, svMotionDrawn), or {slide, start, end, timer} one plane at a time
   SV.hold = null;   // a hold in the middle of a play, shown on ▶ after SV_GATE_SHOW_MS (svHoldWait): {btn, A (the play), t0, timer, shown, keep, fill, gauge (the ring's fill: the share of svHoldLeft gone), left0, ending (the full ring stands two animation frames)}
   SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svAtPlane, svGlideArt): the page is not written
   // the planes: z and the stage after each active step
@@ -515,6 +516,8 @@
       return best;
     };
   }
+  // a Landscape glide's copies fade in from u = 0 and are whole from u = SV_FADE_END on
+  const SV_FADE_END = 0.5;
   // The Landscape between two planes a and b: the points of plane s carried by the glide's map, each at its height and
   // colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s = F_b ∘ (the map
   // s → b). Across a d/dz step the points of z's plane move along the classic deformation's straight line from stage a
@@ -529,10 +532,14 @@
     // the Plane's glide draws them; not with All sheets, whose surfaces are the carry's own, nor under Inside regions,
     // where plane b shows the principal sheet's image of the regions)
     const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.a, g.b, carry.s) : [];
-    // (the seams first: drawLandscape draws the copies in this order, then the principal surface over them. band: the
-    // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
+    // (the seams first: drawLandscape draws the opaque copies in this order, then the principal surface over them, then
+    // the translucent ones. band: the cut's angle when a seam may draw a band about it alone (svSeamCut), else null.
+    // alpha: the copies and their seams fade in over the glide, none at plane a and whole from u = SV_FADE_END on, so
+    // the frame leaves plane a as it is parked and has plane b's sheets well before it parks there; the principal
+    // sheet's seam (the first) is its own surface and stays opaque. SV.glideFade: a test's fixed alpha)
     const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.a, g.b, carry.s) : [];
-    carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null }))];
+    const fade = SV.glideFade != null ? SV.glideFade : smoothstep(0, SV_FADE_END, g.u);
+    carry.copies = [...seams.map((v, n) => ({ draw: (f) => svOnSheets(v, f), band, alpha: n ? fade : 1 })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null, alpha: fade }))];
     render3D(pane, carry);
     return true;
   }
@@ -1295,7 +1302,7 @@
   // as the band's outer edge
   const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf, glide) => {
     return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1, shape, glide, carry.T),
-      carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
+      carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true, whole: offRender };
   };
   // At rest on plane a that is not coloured (past the colour plane T, or before it with a d/dz step between): exactly,
   // by the tiling's inverse pass (GLR.drawInverse, its carried colour variant): at each pixel w of plane a, the shapes'
@@ -1405,12 +1412,13 @@
     const first = !A.held;
     if (first) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
-    // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region goes back
-    // to A.said, its words before the crossing of the frame that starts the hold)
+    // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region has not been
+    // written for the crossing of the frame that starts the hold, A.label, which is dropped here and made by the crossing again once
+    // the hold ends)
     if (first && SV.play === A) svHoldWaitBegin(A);
     if (first) {
       const r = Math.round(A.held.at);
-      if (SV.play === A && r !== SV.i) { SV.i = r; if (SV.els && SV.els.live && A.said != null) SV.els.live.textContent = A.said; }
+      if (SV.play === A && r !== SV.i) { SV.i = r; A.label = null; }
       svSync();
     }
     return A.held.at;
@@ -1423,7 +1431,12 @@
   function svSetElapsed(A, ms) { A.el = ms; A.t0 = performance.now() - ms; }
   // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
   function svMotionDrawn(A) {
-    if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; A.said = null; }
+    if (A) {
+      A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) };
+      // (the crossing's words, once its frame is drawn: svPlayFrame)
+      if (A.label != null && SV.els && SV.els.live && SV.play === A) SV.els.live.textContent = SV.loop ? svAheadTail(A.label) : A.label;
+      A.label = null;
+    }
     svHoldWaitEnd(true);
   }
   // whether the glide frame g (svBetween: a step's glide, or an All-at-once span's) on the plane must wait: the inverse
@@ -2166,13 +2179,26 @@
       const v = variant(offs, `sheet${list.length + 1}`, false), vals = valsOf(v.steps, v.built);
       if (seen.some((w) => sheetValsSame(w, vals))) continue;
       seen.push(vals);
-      if (GLR.ok) v.gl = GLChain.build(v.steps, v.built);
       list.push(v);
+    }
+    // (the GPU chains, the chain's own first: a copy changes only a step's params.k and takes the chain's uniform slots, so
+    // a chain the build refuses (GLChain.build throws over the slot cap; rebuild() reported it) has no copies, and the
+    // memo keeps that answer: the glide draws the chain alone, which reads the refusal as the parked plane does)
+    let own = null;
+    if (GLR.ok && list.length) {
+      try {
+        own = GLChain.build(S.steps, built);
+        for (const v of list) v.gl = GLChain.build(v.steps, v.built);
+      } catch (e) {
+        // (the chain's own refusal is rebuild()'s to report; a copy's, after the chain's own built, is reported here)
+        if (own) console.error('GLChain', e);
+        own = null; list.length = 0;
+      }
     }
     // (the seams: every surface drawn, the chain as it is first, with its cuts turned, made when first asked for)
     let seams = null;
     const seamList = () => seams || (seams = [radix.map(() => 0), ...list.map((v) => v.offs)].map((offs, n) => { const v = variant(offs, `seam${n}`, true); if (GLR.ok) v.gl = GLChain.build(v.steps, v.built); return v; }));
-    svSheetMemo = { key, list, W, seamList, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
+    svSheetMemo = { key, list, W, seamList, own };
     return list;
   }
   // The seams of a Landscape glide's copies (svGlideSheets(a, b, from)): the carried grid leaves out a cell its map
@@ -2553,6 +2579,7 @@
           o.paint();
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
+          reptHatch(mp, map);
           if (o.after) o.after();
           onPage = true;
         },
@@ -2573,7 +2600,7 @@
       const p = reached && reached.get(s);
       // (an open region's outline dashed as at rest, OPEN_DASH along its arc at rest: GLR.drawInverse's st.edge.dash)
       if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => Object.assign(svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k), kindType(x) === 'area' && Region.isOpen(x) ? { dash: OPEN_DASH } : {})); continue; }
-      const map = svShapeMap(s, map0), r = map && shapeGPU(s);
+      const map = svShapeMap(s, map0), r = map && !reptExact(map) && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
@@ -2611,10 +2638,12 @@
     const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
     const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
     svMask(over, stageMap(k), k, { cc });
+    // (the pixels a REPT plan left unresolved, which the mask cannot show: counted, never read as uncovered unseen)
+    const unres = reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount() : 0;
     // (a pass that left a program linking drew its regions short: the mask is not kept under this key, so the frame
     // that follows the link draws it afresh)
     const linking = !!GLR.frameStatus().pending;
-    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true };
+    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
@@ -3681,7 +3710,8 @@
   // programs linked (both map modes, the carried colour and its cut fills, the glide's map mode of the programs the
   // panes draw, which the warm-up starts in the init part (WARM's first group, in the same modes), any inverse one
   // still compiling), the carried colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the
-  // meshes); while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
+  // meshes); while a pane's last frame had a REPT draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a
+  // part not done; while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
   // programs of a view no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain
   // is not up; ready is true only when done = total > 0
   // (test hook: the idle jobs count as unfinished while set)
@@ -3696,6 +3726,7 @@
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
     if (svJobsHold) jobs = 3;
     parts.jobs = { done: 3 - jobs, total: 3 };
+    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1 };
     if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
     // (M: the motion the gate is about to start, whose frames may be drawn ahead once all else is ready, svAheadPart)
     const ahead = M ? svAheadPart(M) : null;
@@ -3971,9 +4002,10 @@
     // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
     // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
     const r = Math.round(SV.g.x);
-    // (a play's note goes with the words of its stop, which stay; a loop has none, and says it at its first crossing. A.said:
-    // the live region's words before the crossing, which a hold that starts in this frame puts back, svLinkHold)
-    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) { A.said = SV.els.live.textContent; SV.els.live.textContent = SV.loop ? svAheadTail(svLabel()) : svLabel(); } }
+    // (a play's note goes with the words of its stop, which stay; a loop has none, and says it with the words of its first crossing
+    // drawn. A.label: the live region's words for the crossing, written when the frame is drawn (svMotionDrawn), not when a hold
+    // starts in this frame: the region then stays on the held place's words, svLinkHold)
+    if (r !== SV.i && v < 1) { SV.i = r; A.label = svLabel(); }
     dirty.L = true;
     svSync();
     if (v < 1) return true;
@@ -4448,17 +4480,12 @@
     const b = $('pathsBtn');
     if (b) syncPathsBtn(b, !!on, b.disabled);
     requestRender('R'); drawLegend(); save();
-    tourEmit('paths-toggled', { on: !!on });
   }
-  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
+  // one after another <-> all at once; morph.T goes to the end of the new range of t
   function setHomAll(all) {
-    const before = morphLen();
     setOpt('homAll', !!all);
-    const after = morphLen();
-    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
-    else if (!morph.open) morph.T = after;
+    morph.T = morphLen();
     scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
-    tourEmit('order-changed', { all: !!S.homAll });
   }
   function svStepMenu(anchor, k, lp) {
     if (!S.steps[k - 1]) return null;
