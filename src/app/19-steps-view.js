@@ -2765,7 +2765,8 @@
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
     // (under the carried colour, as the plane's frame paints it (svRenderMoving's colour): the arrival plane's own colour
     // when it is a coloured plane, so that a place no point of the glide reaches shows what plane b draws there at rest,
-    // not the bare globe. SV.restPaint 0 leaves it out, as on the plane)
+    // not the bare globe. SV.restPaint 0 leaves it out, as on the plane. The plane's second layer, plane a's no-value
+    // hatch over it, has no pass on the globe)
     const under = inv && map.mode === 1 && SV.restPaint !== 0 && svColoured(b) && !svMaskOn() ? { colorMap: svColourMap(b), carryBase: true } : null;
     let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }, under))
       : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));

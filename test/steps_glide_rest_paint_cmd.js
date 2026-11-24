@@ -15,7 +15,8 @@
 // under the carried colour, so the carried meshes' path takes it too.
 // On the Sphere (#2383), the same glide on the globe: at u in PAPER_U the globe has no more paper pixels than the globe
 // at rest on plane 1, give or take PAPER_SLACK of the pane (the arrival plane's colour under the carried globe, as on the
-// plane). The camera is the same in all three frames, so the paper around the globe counts alike in each.
+// plane). The camera is the same in all three frames, so the paper around the globe counts alike in each. Control: with
+// the rest paint off (SV.restPaint 0) the globe at u = 0.5 has more paper pixels than that, so the row can fail.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -114,4 +115,10 @@ for (const u of PAPER_U) {
   const q = info[`sphere blank ${u}`] = await blank('S' + u);
   ok(`Sphere: at u = ${u} the globe is not blank where no point arrives: no more paper pixels than the globe at rest on plane 1, give or take ${PAPER_SLACK * 100} % of the pane`, q.n <= s1.n + PAPER_SLACK * q.of, { glide: q, plane1: s1 });
 }
+// (control: the rest paint off, the globe at u = 0.5 shows the paper where no point arrives)
+await ev(`__cmwSteps({ restPaint: 0 }), 1`);
+ok('Sphere control: the frame at u = 0.5 with the rest paint off settles', await parkS(0.5), null);
+const sc = info.sphereControl = await blank('S0.5');
+ok(`Sphere control: with the rest paint off the globe at u = 0.5 has more paper pixels than at rest on plane 1, by over ${PAPER_SLACK * 100} % of the pane`, sc.n > s1.n + PAPER_SLACK * sc.of, { glide: sc, plane1: s1 });
+await ev(`__cmwSteps({ restPaint: 1 }), 1`);
 return { pass: fails.length === 0, fails, info };
