@@ -19,6 +19,7 @@
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
     glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
     glideFade: null, // (a test hook's) the alpha of a Landscape glide's copies, fixed over the glide; null: their fade over u
+    landBranches: 1, // (a test hook's) 0: the carried Landscape draws no patches about its map's branch points (svLandPatches); any other value draws them
     fits: 0,         // (for a test) the head's fits (svFitHead's) that ran past their key
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -253,6 +254,7 @@
     // (a step shown alone keeps the whole chain's place, which is what undo and a link restore)
     const b = SV.alone && SV.back ? SV.back : null;
     const o = { at: b ? b.i : SV.anim ? SV.anim.to : SV.g.x, T: b ? b.T : SV.T, scope: SV.scope, surf: SV.surf, links: SV.links, speed: SV.speed };
+    if (SV.surf === 'stack') o.cam = stackCamSaved();   // (the Stack's camera: a link opens in the view it was saved in)
     if (SV.alone) o.alone = SV.alone;   // (the step shown alone is part of the state: a reload, a language switch and a link keep it)
     return o;
   }
@@ -261,6 +263,7 @@
     const o = Views.cleanSv(S.sv, svAloneOk() ? svPlanes() : svPlanesOf(S.steps));
     if (!o) return false;
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf; SV.links = o.links || 'straight';
+    if (o.surf === 'stack' && (o.cam || onPageOpen)) stackCamOpen(o.cam || null);
     if (o.speed) { SV.speed = o.speed; svPlayRebase(); if (SV.els) { if (SV.els.speed) SV.els.speed.value = o.speed; if (SV.els.sheetSpeed) SV.els.sheetSpeed.value = o.speed; } }   // (a state without one keeps the device's)
     SV.anim = null; SV.g.max = svPlanes().length - 1; SV.g.set(o.at); SV.i = Math.round(o.at);
     SV.at = Math.abs(o.at - SV.i) < SV_REST_U ? SV.i : null;
@@ -550,18 +553,27 @@
     if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) return svLandRest(g.near);
     return svLandCarry((s) => svGlideMap(g, s), g.a, g.b, g.u);
   }
-  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
-  // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight
-  // cells, nearest the box's centre first, at most 4. Near a pole the map carries a small disc over the far plane, where
-  // the box's cells stretch past the tear limit and are left out.
+  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each, from a ten-thousandth of a cell of
+  // the box's N x N grid to eight cells: one about each pole of the carry's map (from plane s) in plane s's carried box
+  // src, nearest the box's centre first, at most 4; one about each of the map's branch points (svLandBranches) not within
+  // a cell of one of them, out to svLandBranchReach and marked hole; and with hF, one about each pole of the height map in
+  // the far patches' ring (svLandHeightPoles). Near a pole the map carries a small disc over the far plane, where the
+  // box's cells stretch past the tear limit and are left out; about a branch point the sheets meet and the cells stretch
+  // the same way. On the principal surface's carry a branch point's patch (hole) draws only where the box's cells and
+  // the pole patches leave a hole (GLR.drawLandscape): its coarse outer cells would otherwise lie over finer ones that
+  // draw the surface well. All sheets' carry draws it as it draws a pole's patch.
+  // The glide map's poles and branch points take the map's seam (svPatchSeam): a patch's rings start at the cut out of
+  // its point, so no cell straddles the cut. branchSeams false (the carry draws the other sheets' copies, which draw no
+  // patches of their own) leaves a branch point's patch without it, so it covers the point on both sides of the cut,
+  // where a seamed patch would leave the far side bare
   // The poles are searched for (svPolesIn) once per carry: its map but for t, and src. Then each frame follows the last
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
   // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
-  // Each patch's seam (svPatchSeam) is kept with them, by the patch: it is measured again only for a new key or a pole that
-  // moved, so a frame drawn again at rest (the camera turned, a readout) measures none. runs: the seams measured
+  // Each patch's seam (svPatchSeam) is kept with them, by the patch: it is measured again only for a new key or a pole or
+  // branch point that moved, so a frame drawn again at rest (the camera turned, a readout) measures none. runs: the seams measured
   const svLandPoleMemo = { key: '', poles: [], seams: new Map(), runs: 0 };
-  function svLandPatches(map, src, N, hF, hKey) {
+  function svLandPatches(map, src, N, hF, hKey, branchSeams = true) {
     const F = cpuMap(map);
     if (!F) return [];
     const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
@@ -571,16 +583,69 @@
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     const was = svLandPoleMemo.key === key ? svLandPoleMemo.seams : null, seams = new Map();
-    const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
-    // (the glide map's own points: each patch's rings start at the map's cut out of the point, if it has one)
-    const out = near.map((p) => {
-      const q = patch(p), id = q.join(',');
-      const seam = was && was.has(id) ? was.get(id) : (svLandPoleMemo.runs++, svPatchSeam(F, q));
+    const patch = (p, r1 = cell * 8) => [p.re, p.im, cell * 1e-4, r1];
+    const branches = SV.landBranches === 0 ? [] : svLandBranches(map, src, cell * 8).filter((b) => near.every((p) => Math.hypot(p.re - b.re, p.im - b.im) > cell));
+    // (each patch's rings start at the map's cut out of its point, if it has one; a branch point's only with branchSeams.
+    // The seam is kept by the patch, as svLandPoleMemo says)
+    const seamed = (q) => {
+      const id = q.join(','), seam = was && was.has(id) ? was.get(id) : (svLandPoleMemo.runs++, svPatchSeam(F, q));
       seams.set(id, seam);
       return Object.assign(q, { seam });
-    });
+    };
+    const branch = (b) => { const q = patch(b, svLandBranchReach(b, src, cell)); return Object.assign(branchSeams ? seamed(q) : q, { hole: true }); };
+    const out = near.map((p) => seamed(patch(p))).concat(branches.map(branch));
     Object.assign(svLandPoleMemo, { key, poles: near, seams });
-    return out.concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+    return out.concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map((p) => patch(p)) : []);
+  }
+  // The reach of a branch point b's patch (svLandPatches) over plane s's carried box src of cells cell wide: eight cells,
+  // or outside src, LAND_BRANCH_FAR cells of the far patch whose ring holds b (svLandFar, GLR.CARRY_FAR_N points a side)
+  // if those are wider. There the far patch's cells next to b straddle the cut out of it and are torn, leaving a hole as
+  // wide as they are, which a patch of the box's cells' size would fill only part of
+  const LAND_BRANCH_FAR = 2;
+  function svLandBranchReach(b, src, cell) {
+    if (b.re >= src.x0 && b.re <= src.x1 && b.im >= src.y0 && b.im <= src.y1) return cell * 8;
+    const [inner] = svLandFar(src), rho = Math.hypot(b.re - inner[0], b.im - inner[1]), k = rho <= inner[3] ? 0 : 1;
+    return Math.max(cell * 8, (LAND_BRANCH_FAR * 2 * Math.PI * rho) / (GLR.CARRY_FAR_N[k] - 1));
+  }
+  // The branch points of a carry's map from plane s: where the input of a multivalued step it applies (a root, power or
+  // logarithm, SV_SHEET_STEPS) is 0, in the carried box src or the far patches' inner ring about it (and within reach of
+  // it), nearest the box's centre first, at most LAND_BRANCHES. There the map's sheets meet, and a cell of the box's grid
+  // or of a far patch about the point is stretched past the tear limit and left out, leaving a hole; a pole patch's polar
+  // grid about it is not stretched. Plane s is map.a at rest (mode 0) and map.base on a glide (modes 1 and 3).
+  // The points are the zeros of each step's input as a map from plane s: rangeF(s, k - 1), which does not move with the
+  // glide, but in an All-at-once span (mode 3) the input of a step after the span's first runs the steps before it at
+  // the glide's time (cpuMap of the span up to k - 1), so its zeros move. They are searched for (svPolesIn of the
+  // reciprocal) once per plane s, steps and box, and in a span each frame follows the last frame's points by Newton's
+  // method (svPoleAt), as the glide map's poles do (svLandPatches)
+  const LAND_BRANCHES = 4, svLandBranchMemo = { key: '', pts: [] };
+  function svLandBranches(map, src, reach) {
+    const mode = map.mode || 0, base = mode === 0 ? map.a || 0 : map.base || 0, hi = mode === 1 ? map.hi || 0 : map.b || 0, ks = [];
+    for (let k = base + 1; k <= hi; k++) if (stepActive(k) && SV_SHEET_STEPS.includes(S.steps[k - 1].type)) ks.push(k);
+    // (step k's input from plane s, and whether it moves with the glide)
+    const moves = (k) => mode === 3 && k > (map.a || 0) + 1;
+    const input = (k) => (moves(k) ? cpuMap({ mode: 3, a: map.a || 0, b: k - 1, t: map.t || 0, base, stepT: map.stepT }) : rangeF(base, k - 1));
+    const inv = (G) => (z) => { const w = G(z); return w && CX.isFin(w) && !CX.isZero(w) ? CX.inv(w) : null; };
+    const key = JSON.stringify([chainSig[nSteps()], mode, base, mode === 3 ? [map.a || 0, svStepTKey(map.stepT)] : 0, ks, src.x0, src.x1, src.y0, src.y1, reach]);
+    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, ring = svLandRing(src, reach), E = { n: 0, at: 0 };
+    let pts;
+    if (svLandBranchMemo.key === key) {
+      if (!ks.some(moves)) return svLandBranchMemo.pts;
+      pts = svLandBranchMemo.pts.map((p) => (moves(p.k) ? Object.assign(svDrain(svPoleAt(inv(input(p.k)), p, ring, E)) || C(p.re, p.im), { k: p.k }) : p));
+    } else {
+      pts = [];
+      for (const k of ks) {
+        for (const p of svDrain(svPolesIn(inv(input(k)), ring, LAND_ZERO_GRID, ring, E))) if (pts.every((q) => Math.hypot(q.re - p.re, q.im - p.im) > LAND_ZERO_TOL * (1 + ring.r))) pts.push(Object.assign(p, { k }));
+      }
+    }
+    const out = pts.sort((p, q) => Math.hypot(p.re - x, p.im - y) - Math.hypot(q.re - x, q.im - y)).slice(0, LAND_BRANCHES);
+    Object.assign(svLandBranchMemo, { key, pts: out });
+    return out;
+  }
+  // the square about the carried box src's centre that holds the far patches' inner ring and reach beyond it (r: its half
+  // side), where svLandBranches and svLandHeightPoles look
+  function svLandRing(src, reach) {
+    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = LAND_FAR_NEAR * LAND_FAR_LAP * Math.min(src.x1 - src.x0, src.y1 - src.y0) / 2 + reach;
+    return { x0: x - r, x1: x + r, y0: y - r, y1: y + r, r };
   }
   // The cut of the glide map F out of the point of a pole's patch p ([x, y, r0, r1]), if it has one: the branch of a power
   // or a log that ends there (the √ of a Möbius step ends at the step's pole). Its angle on SEAM_K (GLR.SEAM_RINGS, the
@@ -647,18 +712,20 @@
     }
     return [p[0] + r * Math.cos(th), p[1] + r * Math.sin(th)];
   }
-  // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole
-  // patch's reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES:
-  // the height there is a log spike that the far patches' coarse cells facet, so each gets a pole patch of its own like
-  // the glide map's poles (svLandPatches). With sing, as svLandPatches searches: a point where hF is unbounded without
-  // being a pole (a root step after a Möbius step's pole, |hF| ~ |z - p|^-a with a < 1) is found too. hF does not move
-  // with the glide, so they are searched once per plane s and box (hKey names hF)
-  const LAND_HEIGHT_POLES = 8, LAND_HEIGHT_GRID = 64, svLandHeightMemo = { key: '', poles: [] };
+  // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
+  // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
+  // there is a log spike that the far patches' coarse cells facet, so each gets a pole patch of its own like the glide
+  // map's poles (svLandPatches). With sing, as svLandPatches searches: a point where hF is unbounded without being a
+  // pole (a root step after a Möbius step's pole, |hF| ~ |z - p|^-a with a < 1) is found too. hF does not move with the
+  // glide, so they are searched once per plane s and box (hKey names hF)
+  // (LAND_HEIGHT_GRID and LAND_ZERO_GRID: the grid a side the searches for the height map's poles and for the branch
+  // points (svLandBranches) run on in the ring (svPolesIn); LAND_ZERO_TOL: two branch points found closer than it times the
+  // ring's size are one)
+  const LAND_HEIGHT_POLES = 8, LAND_HEIGHT_GRID = 64, LAND_ZERO_GRID = 64, LAND_ZERO_TOL = 1e-9, svLandHeightMemo = { key: '', poles: [] };
   function svLandHeightPoles(hF, hKey, src, reach) {
     const key = JSON.stringify([hKey, src.x0, src.x1, src.y0, src.y1, reach]);
     if (svLandHeightMemo.key === key) return svLandHeightMemo.poles;
-    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = LAND_FAR_NEAR * LAND_FAR_LAP * Math.min(src.x1 - src.x0, src.y1 - src.y0) / 2 + reach;
-    const ring = { x0: x - r, x1: x + r, y0: y - r, y1: y + r };
+    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, ring = svLandRing(src, reach);
     const out = svDrain(svPolesIn(hF, ring, LAND_HEIGHT_GRID, ring, { n: 0, at: 0 }, true))
       .filter((p) => p.re < src.x0 || p.re > src.x1 || p.im < src.y0 || p.im > src.y1)
       .sort((p, q) => Math.hypot(p.re - x, p.im - y) - Math.hypot(q.re - x, q.im - y)).slice(0, LAND_HEIGHT_POLES);
@@ -2590,6 +2657,7 @@
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
           reptHatch(mp, map);
+          refusedHatch(pane, map);
           if (o.after) o.after();
           onPage = true;
         },
@@ -2772,7 +2840,12 @@
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
-    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
+    // (under the carried colour, as the plane's frame paints it (svRenderMoving's colour): the arrival plane's own colour
+    // when it is a coloured plane, so that a place no point of the glide reaches shows what plane b draws there at rest,
+    // not the bare globe. SV.restPaint 0 leaves it out, as on the plane. The plane's second layer, plane a's no-value
+    // hatch over it, has no pass on the globe)
+    const under = inv && map.mode === 1 && SV.restPaint !== 0 && svColoured(b) && !svMaskOn() ? { colorMap: svColourMap(b), carryBase: true } : null;
+    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }, under))
       : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
     if (!inv && !(info && info.carried) && near === b && b !== a) info = sphereView(pane, camL, CAML, look(b));
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
@@ -2955,7 +3028,10 @@
     const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svSurfMenu() });
     // (short of room the scope's two-way switch folds to one button that names the shown scope and opens a menu of the two)
     const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svScopeMenu() });
-    bar.append(title, cp, scope, scopeBtn, surf1);
+    // (the Stack's view control, shown on the Stack only: 19-stack.js)
+    const camSeg = stackSeg('sv-camseg');
+    camSeg.hidden = true;
+    bar.append(title, cp, scope, scopeBtn, surf1, camSeg);
     head.prepend(bar);
     // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
     const tnote = h('span', { class: 'head-note sv-tnote', role: 'note', tabindex: '0', hidden: '' }, h('span', { class: 'sv-tn-i', 'aria-hidden': 'true', html: ICONS.targets }), h('span', { class: 'sv-tn-n', 'aria-hidden': 'true' }), h('span', { class: 'sv-tn-t' }));
@@ -3044,7 +3120,7 @@
       }
       svFades(); svBandSync(E.centres || []);
     }, { passive: true });
-    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, camSeg, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -3175,6 +3251,7 @@
       svDisableWhy(E.cp, !svAloneOk() && parked ? $t('Stop on a plane to colour from it') : '', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
       const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], stack: MODE_ICONS.stack }[SV.surf] || '';
+      stackSyncControls();
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
       // (the Cauchy style draws everywhere: Inside regions would cut its outside part f₋ off, so the control reads Everywhere and says why it is off)
       const sc = svScope(), cWhy = S.dc === 'cauchy' ? $t('The Cauchy integral is drawn everywhere: its outside part is not cut to regions') : '';
@@ -3286,7 +3363,7 @@
   const svSurface = () => (SV.on ? SV.surf : null);
   // a surface's name as the Surface control reads it: 'Surface: Plane'
   function svSurfaceLabel(v) { return `${$t('Surface')}: ${{ plane: $t('Plane'), sphere: $t('Sphere'), land: $t('Landscape'), stack: $t('Stack') }[v]}`; }
-  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') prestartGlobe(); if (v !== 'plane') svPrestartSoon(300); svApply(); tourEmit('surface-changed', { s: v }); }
+  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') prestartGlobe(); if (v === 'stack') stackChosen(); if (v !== 'plane') svPrestartSoon(300); svApply(); tourEmit('surface-changed', { s: v }); }
   function svSurfMenu() { svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), svSetSurface); }
   function svSetScope(v) { SV.scope = v; svPrestartSoon(300); svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
   // the scope switch again, for the phone's Display sheet (the sheet shows it full width; svSync keeps it with the head's)
@@ -4113,7 +4190,8 @@
     b.addEventListener('contextmenu', (e) => { if (document.documentElement.classList.contains('ph')) e.preventDefault(); });
   }
   function setupStepsView() {
-    if (!SV.on) return;
+    // (the root says it when the page opened the classic views: rules for them cannot reach the steps view while it starts)
+    if (!SV.on) { document.documentElement.classList.add('classic'); return; }
     document.documentElement.classList.add('sv');
     setFocusStep(0);
     svBuild();
