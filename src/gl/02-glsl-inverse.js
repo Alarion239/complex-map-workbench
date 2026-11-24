@@ -74,7 +74,7 @@ float ixStopBand(float D) { return IX_STOP_D + ixTieBand(D); }
 #define IX_HASLAM(L) false
 #endif
 uniform vec4 uVp; uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uInvScale;
-uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing[4]; uniform int uSingN; uniform vec2 uSingT;
+uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec3 uSing[4]; uniform int uSingN; uniform vec2 uSingT;
 // uKsat: the front count K of the drawn alpha (uncapped); uKall = 1: every covering candidate counts (the shape's own
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
@@ -429,7 +429,8 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|_T)), c W's centre ----
+// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of w_p max(0, log2(rs / |z - p|_T)), c W's centre;
+// uSing[i]: the point p (xy) and its weight w_p (z), Inverse.keyW ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
 // z - p reduced modulo the key's period uSingT (0: none), Inverse's perReduce
 vec2 ixSingD(vec2 z, vec2 p) {
@@ -444,9 +445,9 @@ float ixSheetKey(vec2 z, bool zf, Lf L) {
   float D = log2(1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR);
   for (int i = 0; i < 4; i++) {
     if (i >= uSingN) break;
-    vec2 p = uSing[i];
-    if (IX_HASLAM(L) && L.lam.x < -60.0 && p.x == 0.0 && p.y == 0.0) D += max(0.0, log2(uWinRs) - L.lam.x / IX_LN2);
-    else D += max(0.0, log2(uWinRs / cx_abs(ixSingD(z, p))));
+    vec2 p = uSing[i].xy;
+    if (IX_HASLAM(L) && L.lam.x < -60.0 && p.x == 0.0 && p.y == 0.0) D += uSing[i].z * max(0.0, log2(uWinRs) - L.lam.x / IX_LN2);
+    else D += uSing[i].z * max(0.0, log2(uWinRs / cx_abs(ixSingD(z, p))));
   }
   return D;
 }
@@ -464,10 +465,14 @@ vec2 ixMobT(vec2 u) {
   vec2 num = cmul(uIxStopT[0].xy, u) + uIxStopT[0].zw, den = cmul(uIxStopT[1].xy, u) + uIxStopT[1].zw;
   return vec2(num.x * den.x + num.y * den.y, num.y * den.x - num.x * den.y) / dot(den, den);
 }
-// 2^D of a finite point without the logs (the same order as ixSheetKey)
+// 2^D of a finite point without the logs (the same order as ixSheetKey; a point of weight w raises its factor to w)
 float ixKeyExp(vec2 z) {
   float K = 1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR;
-  for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(ixSingD(z, uSing[i]))); }
+  for (int i = 0; i < 4; i++) {
+    if (i >= uSingN) break;
+    float f = max(1.0, uWinRs / cx_abs(ixSingD(z, uSing[i].xy)));
+    K *= uSing[i].z >= 1.0 ? f : pow(f, uSing[i].z);
+  }
   return K;
 }
 // the Mobius-prefix centre: the smallest key among the u-projection, the member nearest the reference in z and the
@@ -644,7 +649,7 @@ bool ixStopAdd(int j, vec2 p, bool goUp, vec2 umem, float dk) {
     if (dot(umem - uIxStopMob.xy, p) * (goUp ? 1.0 : -1.0) < 0.0) return false;
     vec2 pa = uIxStopMob.zw;
     float r = cx_abs(ixLastZ - pa);
-    float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + (uIxPAccInP > 0.5 ? max(0.0, log2(uWinRs / r)) : 0.0);
+    float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + uIxPAccInP * max(0.0, log2(uWinRs / r));
     return LB > dk + ixStopBand(dk);
   }
 #endif
@@ -666,8 +671,8 @@ bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
       lb = log2(1.0 + ixRayBoxDist(z, za - z, 1.0) / uWinR);
       for (int i = 0; i < 4; i++) {
         if (i >= uSingN) break;
-        float far = max(cx_abs(z - uSing[i]), cx_abs(za - uSing[i]));
-        if (far < uWinRs) lb += log2(uWinRs / far);
+        float far = max(cx_abs(z - uSing[i].xy), cx_abs(za - uSing[i].xy));
+        if (far < uWinRs) lb += uSing[i].z * log2(uWinRs / far);
       }
     }
   }

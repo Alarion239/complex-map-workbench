@@ -554,7 +554,7 @@
  "Try: hover near a pole: |Γ| grows without bound.": "Попробуйте: наведите на полюс: |Γ| неограниченно растёт.",
  "Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.": "Попробуйте: приблизьте место, где луч касается M, или нажмите f₁ и добавьте свой луч (θ = 1/7, 2/7, …).",
  "Go to {p}": "Перейти к %{p}",
- "key line\u0004colour carried from {p}": "цвет перенесён из %{p}",
+ "key line\u0004colour carried from {p}": "цвет перенесён из\u00a0%{p}",
  "Planes": "Плоскости",
  "Two planes": "Две плоскости",
  "Paths is for the Plane and Sphere surfaces": "Пути — только для поверхностей «Плоскость» и «Сфера»",
@@ -715,6 +715,7 @@
  "On a plane with the sound probe (steps view): move the probe": "На плоскости с указателем звука (вид шагов): сдвинуть указатель",
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
  "Preparing the glide…": "Готовим переход…",
+ "Preparing the glide… {p} %": "Готовим переход… {p} %",
  "Still preparing the glide.": "Переход всё ещё готовится.",
  "The glide draws as it goes: its frames would take too long to prepare.": "Переход рисуется на ходу: кадры готовились бы слишком долго.",
  "The glide draws as it goes: its frames would not fit in memory.": "Переход рисуется на ходу: кадры не поместились бы в памяти.",
@@ -872,5 +873,6 @@
  "Connectors": "Связи",
  "Glide paths": "Пути перехода",
  "Straight": "Прямые",
- "torn here by the glide’s cut, not a split": "здесь разрезано разрезом перехода, это не разделение"
+ "torn here by the glide’s cut, not a split": "здесь разрезано разрезом перехода, это не разделение",
+ "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Этот повтор слишком длинный, чтобы нарисовать его точно: образ областей здесь неизвестен, и плоскость заштрихована. С меньшим числом копий рисунок получается точным."
 }
