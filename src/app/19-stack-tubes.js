@@ -73,22 +73,31 @@
     const name = svMapName('text', leftStage(), shapeStage(findShape(selected))) || 'f', f = name.includes('∘') ? `(${name})` : name;
     return $t('narrows here: {d}, not a join', { d: `${f}′(${tubeNum(n.z)}) = ${tubeNum(n.d)}` });
   }
-  // the narrowings' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the
-  // narrowing and the words beside it on a halo plate, to its right, or to its left where the room R the box is fitted in
-  // ([x0, y0, x1, y1], css px: stackRoom) has none there; kept across inside the room, and above the dot where that would
-  // cover it. Each label's box [x0, y0, x1, y1] (css px, the plate's) is kept on it
+  // the tubes' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the place and
+  // the words beside it on a halo plate, to its right, or to its left where the room R the box is fitted in ([x0, y0, x1,
+  // y1], css px: stackRoom) has none there. Words too long for either side go on two lines, broken at the space nearest
+  // their middle, so the dot stays at the plate's end; kept across inside the room, and above the dot where that would
+  // cover it. Each label's box [x0, y0, x1, y1] (css px, the plate's) is kept on it, and its lines
   function drawStackLabels(ctx, labels, fade, R) {
     ctx.save();
     ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle';
+    const width = (lines) => Math.max(...lines.map((t) => ctx.measureText(t).width));
     for (const L of labels) {
-      const [x, y] = L.at, tw = ctx.measureText(L.text).width, right = x + TUBE_LABEL_DX + tw <= R[2] - TUBE_LABEL_DX;
+      const [x, y] = L.at, roomR = R[2] - TUBE_LABEL_DX - (x + TUBE_LABEL_DX), roomL = x - TUBE_LABEL_DX - (R[0] + TUBE_LABEL_DX);
+      let lines = [L.text];
+      if (width(lines) > Math.max(roomR, roomL)) {
+        const sp = [...L.text.matchAll(/ /g)].map((m) => m.index), mid = L.text.length / 2;
+        if (sp.length) { const i = sp.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a)); lines = [L.text.slice(0, i), L.text.slice(i + 1)]; }
+      }
+      const tw = width(lines), right = tw <= roomR || (tw > roomL && roomR >= roomL), lh = TUBE_FONT + 2, th = lines.length * lh - 2;
       const x0 = Math.max(R[0] + TUBE_LABEL_DX, Math.min(R[2] - TUBE_LABEL_DX - tw, right ? x + TUBE_LABEL_DX : x - TUBE_LABEL_DX - tw));
-      const ty = x0 - TUBE_PLATE <= x + TUBE_DOT && x0 + tw + TUBE_PLATE >= x - TUBE_DOT ? y - TUBE_FONT - TUBE_PLATE : y;
-      L.box = [x0 - TUBE_PLATE, ty - TUBE_FONT / 2 - TUBE_PLATE, x0 + tw + TUBE_PLATE, ty + TUBE_FONT / 2 + TUBE_PLATE];
+      const ty = x0 - TUBE_PLATE <= x + TUBE_DOT && x0 + tw + TUBE_PLATE >= x - TUBE_DOT ? y - th / 2 - TUBE_FONT / 2 - TUBE_PLATE : y;
+      L.box = [x0 - TUBE_PLATE, ty - th / 2 - TUBE_PLATE, x0 + tw + TUBE_PLATE, ty + th / 2 + TUBE_PLATE];
+      L.lines = lines;
       ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(L.box[0], L.box[1], L.box[2] - L.box[0], L.box[3] - L.box[1]);
       ctx.globalAlpha = fade; ctx.fillStyle = TH.ink;
       ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill();
-      ctx.fillText(L.text, x0, ty);
+      lines.forEach((t, i) => ctx.fillText(t, x0, ty - th / 2 + TUBE_FONT / 2 + i * lh));
     }
     ctx.restore();
   }
@@ -165,8 +174,12 @@
   }
   // Where the tubes leave the window (the pane's rectangle, at every height): for each piece whose slices go out of it,
   // the first stretch of heights they are out, s0 to s1 (1: they do not come back in), and the point (the flat plane's
-  // css px, with its height) where the first of its strands to go out leaves the box: [{piece, s0, s1, at}]
+  // css px, with its height) where the first of its strands to go out leaves the box: [{piece, s0, s1, at}]; kept while
+  // the connectors and the view (the pane's size, and where it puts 0 and 1) are the same
+  const tubeExitsKept = new WeakMap();   // per connectors (stackLinks'), the exits for the view they were found in
   function tubeExits(pane, ln) {
+    const zero = pane.w2s(C(0, 0)), one = pane.w2s(C(1, 0)), key = [pane.w, pane.h, ...zero, ...one].join(), kept = tubeExitsKept.get(ln);
+    if (kept && kept.key === key) return kept.out;
     const out = [], inside = (q) => q[0] >= 0 && q[0] <= pane.w && q[1] >= 0 && q[1] <= pane.h;
     ln.pieces.forEach((P, n) => {
       let J0 = -1, J1 = LINK_N, first = null;
@@ -181,5 +194,6 @@
       const e = stackClipPath(pane, q).ends[0] || q[J0];
       out.push({ piece: n, s0: J0 / LINK_N, s1: J1 / LINK_N, at: e });
     });
+    tubeExitsKept.set(ln, { key, out });
     return out;
   }

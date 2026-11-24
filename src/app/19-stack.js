@@ -171,6 +171,7 @@
     // are the lines from the floor to the glass that Look down draws, as they are straight)
     let tubes = null, picks = null;
     const ln = mk ? stackLinks(s, linkMode(), mk.zsZ, mk.critZ) : null, up = tubeFade(tilt);
+    linkShown = ln;
     // (a line's runs inside the box (stackClipPath), each a polyline in the canvas's css px)
     const link = (path) => stackClipPath(pane, path.map((p, J) => {
       const t = J / LINK_N, z = path[0], w = path[LINK_N];

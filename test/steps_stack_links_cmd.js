@@ -39,13 +39,13 @@ const MAPS = {
   M3: { steps: [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }], c: [1.1, 0], r: 0.25 },
 };
 const hooked = () => ev('typeof __cmwStackLinks === "function"');
-const open = async (m, { ns = `links-${Date.now()}`, fresh = true, stack = true, phone = false } = {}) => {
+const open = async (m, { ns = `links-${Date.now()}`, fresh = true, stack = true, phone = false, lang = 'en' } = {}) => {
   const M = MAPS[m];
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: M.c, r: M.r, stage: 1 }], steps: M.steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 110 } };
   await view(phone ? 390 : 1440, phone ? 844 : 900, false, phone);
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   if (fresh) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+  await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')", LOAD_MS);
   await until('__cmwSteps().ready.ready && __cmwSteps().i === 0');
   await ev(`__cmwSelect('d'); 1`);
@@ -67,6 +67,8 @@ const press = async (v) => { await ev(`(document.querySelector('#plotL .ld-key .
 const floorHash = () => ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data; let h = 2166136261; for (let i = 0; i < d.length; i += 4) h = Math.imul(h ^ (d[i] | d[i + 1] << 8 | d[i + 2] << 16), 16777619); return h >>> 0; })()`);
 const links = (o) => ev(`__cmwStackLinks(${o ? JSON.stringify(o) : ''})`);
 const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+// a plane point in the left pane's flat css px (the overlay's)
+const flat = async (re, im) => { const [x, y] = await ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`), o = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left, r.top]; })()`); return [x - o[0], y - o[1]]; };
 // a slice's worst step between two of its points over its median step, the most over every loop of every piece at height j
 const worstStep = (data, j) => {
   let worst = 0;
@@ -162,6 +164,16 @@ for (const m of ['M1', 'M2', 'M3']) {
     const wc = r.worstCurved = Math.max(...[...Array(n - 1)].map((_, j) => worstStep(L.data, j + 1)));
     ok('M1: curved, the −1 tube rises whole: no slice has a step 10 times its median', wc < 10, wc);
     ok('M1: curved, no tear and no label', L.data.tears.length === 0 && d1.tubes.labels.length === 0, { tears: L.data.tears, labels: d1.tubes.labels });
+    // (a pick's strand from a point of the −1 piece below the axis rises on that piece's branch: at half way it lies on
+    // the tube's slice there)
+    const neg = L.data.pieces.findIndex((P) => P.loops[0][0].some((p) => p[0] < -0.5));
+    const iBelow = neg < 0 ? -1 : L.data.pieces[neg].loops[0][0].findIndex((p) => p[1] < -0.05);
+    if (iBelow >= 0) {
+      const lev = L.data.pieces[neg].loops[0], z = lev[0][iBelow], v = await ev(`__cmwPlaneMenu().stage(1, ${z[0]}, ${z[1]})`);
+      const st = (await links({ flat: [z[0], z[1], v[0], v[1]] })).flat, mid = st[n / 2], want = await flat(...lev[n / 2][iBelow]);
+      r.strand = { z, mid, want };
+      ok('M1: curved, a pick\'s strand from a point of the −1 piece below the axis lies on its tube half way up', st.length === n + 1 && Math.hypot(mid[0] - want[0], mid[1] - want[1]) < 0.5, r.strand);
+    } else ok('M1: a point of the −1 piece below the axis', false, null);
     // (on the steps' own cuts: the principal z^(1 + t) tears the −1 piece, and the tear is labelled)
     const T = await links({ branch: false });
     await frames(); await frames();
@@ -220,6 +232,16 @@ if (await hooked()) {
   const inBox = info.phoneBoxes = await ev(`(() => { const g = document.querySelector('#plotL .ld-key .ld-links'), G = g.getBoundingClientRect(); return { seg: [G.top, G.bottom].map(Math.round), radios: [...g.querySelectorAll(':scope > button')].map((b) => { const r = b.getBoundingClientRect(); return { box: [r.left, r.top, r.right, r.bottom].map(Math.round), inside: r.left >= G.left - 0.5 && r.right <= G.right + 0.5 && r.top >= G.top - 0.5 && r.bottom <= G.bottom + 0.5 }; }) }; })()`);
   ok('phone: each radio lies inside the switch\'s box', inBox.radios.length === 2 && inBox.radios.every((r) => r.inside), inBox);
   await shot('links-phone');
+}
+// a phone, Russian, M3 with glide paths: the meeting's words, too long for either side of their dot, keep the dot at
+// the plate's end (on two lines)
+if (await hooked()) {
+  await open('M3', { phone: true, lang: 'ru' });
+  await press('curved');
+  const lb = info.phoneLabel = ((await drawn()).tubes.labels || []).filter((x) => x.kind === 'sooner');
+  const atEnd = (L) => !!L.box && (Math.abs(L.box[0] - L.at[0]) <= 12 || Math.abs(L.box[2] - L.at[0]) <= 12) && L.at[1] >= L.box[1] - 2 && L.at[1] <= L.box[3] + 2;
+  ok('phone, ru: the meeting label keeps its dot at the plate\'s end', lb.length === 1 && atEnd(lb[0]), lb);
+  await shot('links-phone-m3-ru');
 }
 
 // curved, seen straight down, the Stack's frame is still Look down's (its lines to the target straight): the frame

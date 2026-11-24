@@ -25,6 +25,7 @@
   const LINK_TEAR_KEEP = 0.25, LINK_TEAR_HALVES = 12;   // LINK_TEAR_KEEP of its length over LINK_TEAR_HALVES halvings (linkTear)
   const linkCache = new Map();
   let linkBranch = true;            // (a test hook's) false: every piece rises on the steps' own cuts
+  let linkShown = null;             // the connectors the Stack's last frame drew (stackMarks'), for the picks' strands drawn after its tubes
   const linkMode = () => (STACK_LINKS.includes(SV.links) ? SV.links : 'straight');
   // the middle of the turn about 0 that the closed loop q covers, as a lifted angle: the one nearest prev, or without one
   // the one whose branch gives the most of q's points their principal angle (the higher where two do, as the principal
@@ -120,7 +121,8 @@
   // The connectors of disc s's tubes (tubeData), of the preimages zs of its centre and of the critical points crit (plane
   // points), by the given kind: {mode, pieces: [{loops: [lev]}] (each loop's levels, lev[j][i]), zs: [path] and crit:
   // [path] (path[j], a point's place at height j / LINK_N), tears: [{piece, s, z}], crosses: [{pieces, kind, s, s1, z}]
-  // (linkCrosses)}. A preimage of the centre inside a piece rises with it, on its branch
+  // (linkCrosses)}, each piece also with its outer loop on the floor and at(j, z), any of its points at height j on its
+  // branches. A preimage of the centre inside a piece rises with it, on its branch
   function stackLinks(s, mode, zs, crit) {
     const k = leftStage(), T = shapeStage(s), d = tubeData(s);
     const key = JSON.stringify([k, T, chainSig[nSteps()], s.c, s.r, mode, !!S.homAll, zs.map((z) => [z.re, z.im]), crit.map((z) => [z.re, z.im])]);
@@ -139,7 +141,7 @@
       const [o0, o1] = spans[outers[n]], outer = [];
       for (let i = o0; i < o1; i++) outer.push(i);
       const L = linkLevels(k, T, mode, pts, outer), lev = L.lev;
-      out.pieces.push({ loops: spans.map(([a, b]) => lev.map((q) => q.slice(a, b))) });
+      out.pieces.push({ loops: spans.map(([a, b]) => lev.map((q) => q.slice(a, b))), floor: P.loops[outers[n]].z, at: L.at });
       mine.forEach((i, m) => { out.zs[i] = lev.map((q) => q[at0 + m]); });
       for (const [a, b] of spans) {
         const idx = [];
@@ -197,12 +199,16 @@
   }
   // The connector shown from the floor's point z up to v on the glass (plane points), in the flat plane's css px with its
   // heights, [[x, y, t], ...], for a strand that rises along it (the picks'): curved, the glide's path from the floor to
-  // the selected disc's plane, where it ends at v; else straight, its two ends
+  // the selected disc's plane, on the branches of the piece z lies in, where it ends at v; else straight, its two ends
   function stackLinkFlat(pane, z, v) {
     const s = findShape(selected);
     if (linkMode() === 'curved' && s) {
-      const lev = linkLevels(leftStage(), shapeStage(s), 'curved', [z], null).lev, w = lev[LINK_N][0];
-      if (CX.isFin(w) && CX.abs(CX.sub(w, v)) <= 1e-6 * (1 + CX.abs(v))) return lev.map((q, J) => [...pane.w2s(q[0]), J / LINK_N]);
+      // (a point of a piece rises on that piece's branches, as its tube does: the connectors the frame drew, linkShown)
+      const P = linkShown && linkShown.mode === 'curved' ? linkShown.pieces.find((q) => linkInside(q.floor, z)) : null;
+      const at = P ? P.at : linkLevels(leftStage(), shapeStage(s), 'curved', [z], null).at, pts = [];
+      for (let J = 0; J <= LINK_N; J++) pts.push(at(J, z));
+      const w = pts[LINK_N];
+      if (CX.isFin(w) && CX.abs(CX.sub(w, v)) <= 1e-6 * (1 + CX.abs(v))) return pts.map((q, J) => [...pane.w2s(q), J / LINK_N]);
     }
     return [[...pane.w2s(z), 0], [...pane.w2s(v), 1]];
   }
@@ -216,9 +222,11 @@
   }
   // TEST-HOOK (dropped from the published page by build.py): the selected disc's connectors by the kind shown, in plane
   // coordinates ([re, im]); o.links sets the kind, o.branch (false) has every piece rise on the steps' own cuts; o.glide:
-  // [x, re, im], the steps view's glide map at the place x applied to that point (glide: [re, im])
+  // [x, re, im], the steps view's glide map at the place x applied to that point (glide: [re, im]); o.flat: [re, im, vre,
+  // vim], the picks' strand from that floor point up to that glass point (stackLinkFlat's, flat: [[x, y, t], ...])
   window.__cmwStackLinks = (o) => {
     if (o && o.glide) { const [x, re, im] = o.glide, w = svBetween(x, null).F(C(re, im)); return { glide: [w.re, w.im] }; }
+    if (o && o.flat) { const [re, im, vr, vi] = o.flat; return { flat: stackLinkFlat(paneL, C(re, im), C(vr, vi)) }; }
     if (o && o.links) { SV.links = o.links; requestRender('L'); }
     if (o && 'branch' in o) { linkBranch = !!o.branch; linkCache.clear(); requestRender('L'); }
     const sh = findShape(selected);
