@@ -21,6 +21,8 @@
   const TUBE_FULL_TILT = 0.5;                  // cos(pitch) at 60°
   // how far the tubes stand up at a tilt: 0 straight down, 1 from TUBE_FULL_TILT
   const tubeFade = (tilt) => Math.min(1, tilt / TUBE_FULL_TILT);
+  // the point a share t of the way from z to w (complex numbers): a straight strand's place at height t
+  const tubeMix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
   const NARROW_TOL = 1e-6;                     // F′ counts as real when |Im F′| ≤ NARROW_TOL·|F′|
   const TUBE_CRIT_DOTS = [0, 4];               // css px: a critical strand's dots (round caps make each dash of length 0 a dot)
   const TUBE_DOT = 2.5, TUBE_LABEL_DX = 7, TUBE_FONT = 12, TUBE_PLATE = 3, TUBE_OFF = 3;   // css px: a narrowing's dot, its words' gap from it, their size, their plate's margin; the open ring where a critical strand leaves the box
@@ -40,7 +42,7 @@
     return out;
   }
   // The tubes of disc s over the plane shown, in the plane's coordinates, or null where its pieces are not counted:
-  // {pieces: [{ink: index into TH.c, loops: [{z: C[], w: C[]}] (each loop's points and their images on the glass)}],
+  // {pieces: [{ink: index into TH.c, loops: [{z: C[]}] (each loop's points)}],
   //  narrows: [{z, d (F′(z)), s (the height it narrows at)}]}, kept per plane, stage, chain and disc
   function tubeData(s) {
     const k = leftStage(), T = shapeStage(s), key = JSON.stringify([k, T, chainSig[nSteps()], s.c, s.r]);
@@ -52,7 +54,7 @@
       const dF = (z) => { const h = 1e-6 * (1 + CX.abs(z)); return CX.scale(CX.sub(F(CX.add(z, C(h, 0))), F(CX.sub(z, C(h, 0)))), 0.5 / h); };
       const pieces = pc.pieces.map((P, i) => ({ ink: TUBE_INKS[i % TUBE_INKS.length], loops: P.loops.map((li) => {
         const z = tubeResample(pc.loops[li].path, TUBE_PTS);
-        return { z, w: z.map(F) };
+        return { z };
       }) }));
       const narrows = [];
       for (const r of pc.roots) {
@@ -71,7 +73,8 @@
   // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map named as the plane's title names it)
   function tubeNarrowText(n) {
     const name = svMapName('text', leftStage(), shapeStage(findShape(selected))) || 'f', f = name.includes('∘') ? `(${name})` : name;
-    return $t('narrows here: {d}, not a join', { d: `${f}′(${tubeNum(n.z)}) = ${tubeNum(n.d)}` });
+    // (the formula kept whole where a label breaks onto two lines: its spaces are no-break ones)
+    return $t('narrows here: {d}, not a join', { d: `${f}′(${tubeNum(n.z)}) = ${tubeNum(n.d)}`.replace(/ /g, '\u00a0') });
   }
   // the tubes' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the place and
   // the words on a halo plate. Each label's plate lies inside the room R the box is fitted in ([x0, y0, x1, y1], css px:
@@ -154,14 +157,13 @@
     // height); a plane point there
     const lift = (q, t) => { const m = Fm.map((v, i) => v + t * (Gm[i] - v)); return [m[0] * q[0] + m[2] * q[1] + m[4], m[1] * q[0] + m[3] * q[1] + m[5]]; };
     const at = (p, t) => lift(pane.w2s(p), t);
-    const mix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
     const ink = (P) => TH.c[P.ink], per = LINK_N / TUBE_LEVELS, box = [[0, 0], [pane.w, 0], [pane.w, pane.h], [0, pane.h]];
     // the labels (drawStackLabels): straight, the narrowings; curved, the tears; the tubes out of the window and the
     // pieces that meet (of the tubes the glide brings together, the lowest meeting alone)
     const c = C(s.c[0], s.c[1]), exits = tubeExits(pane, ln), num = (x) => I18N.num(x.toFixed(2));
     const labels = (ln.mode === 'curved'
       ? ln.tears.map((r) => ({ text: linkTearText(), kind: 'tear', piece: r.piece, z: [r.z.re, r.z.im], s: r.s, at: at(r.z, r.s) }))
-      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(mix(n.z, c, n.s), n.s) })))
+      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(tubeMix(n.z, c, n.s), n.s) })))
       .concat(exits.map((x) => ({ text: x.s1 < 1 ? $t('out of the window from here to height {s}', { s: num(x.s1) }) : $t('out of the window from here up'), kind: 'exit', piece: x.piece, s: x.s0, s1: x.s1, at: lift(x.at, x.at[2]) })))
       .concat(ln.crosses.filter((x, i) => x.kind === 'cross' || ln.crosses.findIndex((y) => y.kind === 'sooner') === i)
         .map((x) => ({ text: x.kind === 'cross' ? $t('the pieces cross here, not a join') : $t('the glide brings the pieces together from here, not a join'), kind: x.kind, pieces: x.pieces, z: [x.z.re, x.z.im], s: x.s, s1: x.s1, at: at(x.z, x.s) })));

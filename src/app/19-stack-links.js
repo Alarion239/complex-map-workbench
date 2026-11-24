@@ -62,9 +62,9 @@
   // outer: the indices of the group's outer loop, whose turn about 0 picks a branch for each step that has a cut to move
   // (none: the steps' own cuts)
   function linkLevels(k, T, mode, pts, outer) {
-    const F = rangeF(k, T), mix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
+    const F = rangeF(k, T);
     let at;
-    if (mode !== 'curved') at = (j, z) => mix(z, F(z), j / LINK_N);
+    if (mode !== 'curved') at = (j, z) => tubeMix(z, F(z), j / LINK_N);
     else {
       const steps = linkSteps(k, T), m = steps.length, ring = (q) => (outer ? outer.map((i) => q[i]) : null);
       if (S.homAll && m > 1 && !steps.some((b) => isDeriv(b))) {
@@ -81,7 +81,7 @@
         const pre = steps.map((b) => rangeF(k, b - 1)), mids = steps.map((b, n) => { const r = ring(pts.map(pre[n])); return r ? linkMid(r, null) : null; });
         at = (j, z) => {
           const x = (j / LINK_N) * m, n = Math.min(m - 1, Math.floor(x)), b = steps[n], u = x - n, q = pre[n](z);
-          return isDeriv(b) ? mix(q, rangeF(k, b)(z), u) : linkHom(b, u, mids[n])(q);
+          return isDeriv(b) ? tubeMix(q, rangeF(k, b)(z), u) : linkHom(b, u, mids[n])(q);
         };
       }
     }
@@ -187,7 +187,7 @@
   const LINK_SOONER = 0.1;
   function linkCrosses(outer, curved) {
     const out = [], first = (p, q) => { for (let J = 1; J < LINK_N; J++) if (linkMeet(p(J), q(J))) return J; return LINK_N; };
-    const flat = (lev) => (J) => lev[0].map((z, i) => { const w = lev[LINK_N][i], t = J / LINK_N; return C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im)); });
+    const flat = (lev) => (J) => lev[0].map((z, i) => tubeMix(z, lev[LINK_N][i], J / LINK_N));
     for (let a = 0; a < outer.length; a++) for (let b = a + 1; b < outer.length; b++) {
       const meet = [null];
       for (let J = 1; J < LINK_N; J++) meet.push(linkMeet(outer[a][J], outer[b][J]));
@@ -218,7 +218,7 @@
   // own name for assistive technology)
   function stackLinksSwitch() {
     const el = seg(null, linkMode(), [['curved', $t('Glide paths')], ['straight', $t('Straight')]], (v) => { SV.links = v; save(); requestRender('L'); }, $t('Connectors'), { cls: 'ld-links' });
-    return h('span', { class: 'ld-links-row' }, h('span', { class: 'ld-links-l', 'aria-hidden': 'true' }, $t('Connectors')), el);
+    return h('span', { class: 'ld-links-row', id: 'ldLinks' }, h('span', { class: 'ld-links-l', 'aria-hidden': 'true' }, $t('Connectors')), el);
   }
   // TEST-HOOK (dropped from the published page by build.py): the selected disc's connectors by the kind shown, in plane
   // coordinates ([re, im]); o.links sets the kind, o.branch (false) has every piece rise on the steps' own cuts; o.glide:

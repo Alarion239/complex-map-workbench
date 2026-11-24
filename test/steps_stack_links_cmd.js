@@ -18,7 +18,7 @@
 //    join"; M3 straight, and M1 and M2 in both kinds, no meeting is labelled;
 //  - the choice is saved with the steps view's place (S.sv.links) and a reload opens on it; the switch takes the arrow keys
 //    (→ and ←) and the mouse, and keeps the focus on the radio checked; it shows its name, Connectors; on a phone
-//    (390 × 844) its radios are 44 px targets inside the switch's box;
+//    (390 × 844) its radios are 44 px targets inside the switch's box, and M1's narrowing keeps its formula whole on a line;
 //  - curved, seen straight down, the frame is Look down's (the lines to the target bend only as the tubes stand up);
 //  - timing (reported, not gated): a Tilt turn on M3 draws the tubes in about the same time a frame in both kinds (the
 //    curved connectors' samples are kept, not made again a frame).
@@ -176,12 +176,23 @@ for (const m of ['M1', 'M2', 'M3']) {
       const st = (await links({ flat: [z[0], z[1], v[0], v[1]] })).flat;
       let worst = 0;
       for (const J of [n / 4, n / 2, (3 * n) / 4]) { const p = along(st, J / n), q = await flat(...lev[J][iBelow]); worst = Math.max(worst, p ? Math.hypot(p[0] - q[0], p[1] - q[1]) : Infinity); }
-      return worst;
+      // (and from a point inside the piece, between that one and −1: its strand lies inside the tube's slice there)
+      const y = [0.6 * z[0] - 0.4, 0.6 * z[1]], vy = await ev(`__cmwPlaneMenu().stage(1, ${y[0]}, ${y[1]})`);
+      const sy = (await links({ flat: [y[0], y[1], vy[0], vy[1]] })).flat;
+      let inside = 0;
+      for (const J of [n / 4, n / 2, (3 * n) / 4]) {
+        const p = along(sy, J / n), poly = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return ${JSON.stringify(lev[J])}.map(([a, b]) => { const q = __cmwPlaneMenu().w2s('L', a, b); return [q[0] - r.left, q[1] - r.top]; }); })()`);
+        let c = false;
+        for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) { const A = poly[i], B = poly[k]; if ((A[1] > p[1]) !== (B[1] > p[1]) && p[0] < ((B[0] - A[0]) * (p[1] - A[1])) / (B[1] - A[1]) + A[0]) c = !c; }
+        if (c) inside++;
+      }
+      return { worst, inside };
     };
     if (iBelow >= 0) {
       const off = r.strandOff = { curved: await strandOff('curved'), straight: await strandOff('straight') };
       await press('curved');
-      ok('M1: a pick\'s strand from a point of the −1 piece below the axis lies on its tube at ¼, ½ and ¾ of the way, in both kinds', off.curved < 0.5 && off.straight < 0.5, off);
+      ok('M1: a pick\'s strand from a point of the −1 piece below the axis lies on its tube at ¼, ½ and ¾ of the way, in both kinds', off.curved.worst < 0.5 && off.straight.worst < 0.5, off);
+      ok('M1: a pick\'s strand from a point inside the −1 piece lies inside its tube\'s slices at ¼, ½ and ¾ of the way, in both kinds', off.curved.inside === 3 && off.straight.inside === 3, off);
     } else ok('M1: a point of the −1 piece below the axis', false, null);
     // (on the steps' own cuts: the principal z^(1 + t) tears the −1 piece, and the tear is labelled)
     const T = await links({ branch: false });
@@ -193,7 +204,7 @@ for (const m of ['M1', 'M2', 'M3']) {
     await links({ branch: true });
     await press('straight');
     const ds = await drawn();
-    ok(`M1: straight, the narrowing keeps its label "${NARROW}"`, ds.tubes.labels.length === 1 && ds.tubes.labels[0].text === NARROW, ds.tubes.labels);
+    ok(`M1: straight, the narrowing keeps its label "${NARROW}"`, ds.tubes.labels.length === 1 && ds.tubes.labels[0].text.replace(/\u00a0/g, ' ') === NARROW, ds.tubes.labels);
   }
 }
 // saved with the steps view's place, and a reload opens on it; the switch takes the arrow keys
@@ -240,7 +251,15 @@ if (await hooked()) {
   ok('phone: the switch\'s radios are at least 44 px tall', hs.length === 2 && hs.every(([, hh]) => hh >= 44), hs);
   const inBox = info.phoneBoxes = await ev(`(() => { const g = document.querySelector('#plotL .ld-key .ld-links'), G = g.getBoundingClientRect(); return { seg: [G.top, G.bottom].map(Math.round), radios: [...g.querySelectorAll(':scope > button')].map((b) => { const r = b.getBoundingClientRect(); return { box: [r.left, r.top, r.right, r.bottom].map(Math.round), inside: r.left >= G.left - 0.5 && r.right <= G.right + 0.5 && r.top >= G.top - 0.5 && r.bottom <= G.bottom + 0.5 }; }) }; })()`);
   ok('phone: each radio lies inside the switch\'s box', inBox.radios.length === 2 && inBox.radios.every((r) => r.inside), inBox);
+  const ctl = await ev(`(() => { const b = document.querySelector('#plotL .ld-key > button.ld-ttl'); const ids = b ? (b.getAttribute('aria-controls') || '').split(' ') : []; return { ids, found: ids.map((i) => !!document.getElementById(i)), row: ids.includes('ldLinks') && document.getElementById('ldLinks') === document.querySelector('#plotL .ld-key .ld-links-row') }; })()`);
+  ok('phone: the key\'s fold button controls the marks\' list and the switch\'s row', ctl.ids.length === 2 && ctl.found.every(Boolean) && ctl.row, ctl);
   await shot('links-phone');
+}
+// a phone (390 × 844), M1 straight: the narrowing's formula stays whole on its line, wherever the label breaks
+if (await hooked()) {
+  await open('M1', { phone: true });
+  const nl = info.phoneNarrow = ((await drawn()).tubes.labels || []).filter((x) => x.kind === 'narrow').map((L) => ({ lines: L.lines, hits: L.hits }));
+  ok('phone, M1: the narrowing\'s formula F′(−1) = −2 stays whole on one line', nl.length === 1 && nl[0].lines.some((l) => l.replace(/\u00a0/g, ' ').includes('F′(−1) = −2')), nl);
 }
 // a phone (390 × 844), en and ru, M2 and M3 with glide paths: each label's plate lies inside the pane, clear of every mark
 // drawn (the tubes', the strands' and Look down's: the record's marks), with its dot at the plate's end or corner, or a

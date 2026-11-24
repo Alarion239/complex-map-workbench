@@ -129,7 +129,7 @@
     if (!on) { fitLookKey(); return; }
     const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
     const title = stack ? $t('Stack') : $t('Look down');
-    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, title) : h('span', { class: 'ld-ttl' }, title);
+    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': stack && tubes ? 'ldList ldLinks' : 'ldList', onclick: () => fold(!lookKeyOpen) }, title) : h('span', { class: 'ld-ttl' }, title);
     // (the marks are a list, so a screen reader says them one by one)
     lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.concat(tubes ? LD_TUBE_KEY : []).map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
     // (with the tubes, the switch between the Stack's two kinds of connector, after the marks)
