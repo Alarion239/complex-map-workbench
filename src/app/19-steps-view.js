@@ -525,10 +525,10 @@
     };
   }
   // The sheets of a carried Landscape at rest on plane k past its source plane s (the pick on its sheets, pickLandSheet):
-  // fibre(w, seeds) -> [{z, v}], every point z of plane s's box src that the carry takes to w, with its image v in the
-  // height plane (carry.hmap). They are the exact preimages where the steps (s, k] have them (exactPre), else Newton's
-  // method from seeds (the points of a nearby w, as a ray's march passes them on) and from the LAND_PICK_FIBRE grid points
-  // whose images are nearest w, one point for points within LAND_PICK_SAME of the box's size. fibre.H is the height map,
+  // fibre(w, seeds, grid) -> [{z, v}], every point z of plane s's box src that the carry takes to w, with its image v in
+  // the height plane (carry.hmap). They are the exact preimages where the steps (s, k] have them (exactPre), else Newton's
+  // method from seeds (the points of a nearby w, as a ray's march passes them on) and, unless grid is false, from the
+  // LAND_PICK_FIBRE grid points whose images are nearest w, one point for points within LAND_PICK_SAME of the box's size. fibre.H is the height map,
   // fibre.s the plane s
   const LAND_PICK_FIBRE = 16, LAND_PICK_SAME = 1e-7;
   function svLandFibreF(carry, src, k) {
@@ -536,11 +536,11 @@
     if (!F || !H) return null;
     const grid = svLandSeeds(F, src), size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
     const inBox = (z) => z && CX.isFin(z) && z.re >= src.x0 && z.re <= src.x1 && z.im >= src.y0 && z.im <= src.y1;
-    const fibre = (w, seeds) => {
+    const fibre = (w, seeds, fromGrid = true) => {
       const ex = exactPre(carry.s, k, [w.re, w.im]), zs = [];
       const add = (z) => { if (inBox(z) && !zs.some((q) => CX.abs(CX.sub(q, z)) <= LAND_PICK_SAME * size)) zs.push(z); };
       if (ex) ex.zs.forEach(add);
-      else for (const p of (seeds || []).concat(grid(w, LAND_PICK_FIBRE))) add(newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size));
+      else for (const p of (seeds || []).concat(fromGrid || !seeds ? grid(w, LAND_PICK_FIBRE) : [])) add(newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size));
       return zs.map((z) => ({ z, v: H(z) }));
     };
     return Object.assign(fibre, { H, s: carry.s });

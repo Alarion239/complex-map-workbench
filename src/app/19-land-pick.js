@@ -11,11 +11,13 @@
   //   lifts (the page's "hold and slide" grammar);
   // - a press that moves before that turns the camera, as with any tool; the right or middle button and Shift pan it.
   // The pressed point is a dot and its twins rings, at their points on their sheets, a ring dashed where a nearer sheet
-  // hides its point. Esc puts the twins out; Enter, with the plane focused, lights the twins of the point under the
+  // hides its point (found once the camera keeps still). Esc puts the twins out; Enter, with the plane focused, lights the twins of the point under the
   // pane's centre (pickKey).
   const LAND_PICK_DASH = [3, 3];       // css px: the dashes of a twin's ring that a nearer sheet hides
   const LAND_PICK_HIDE = 1e-6;         // a twin is hidden when the ray to it meets a point of s this far (of the box's size) from it
+  const LAND_PICK_STILL_MS = 200;      // the hidden flags are found once the camera has kept still this long (a ray's march each)
   let landPickHide = null;             // the lit twins' hidden flags, kept while the twins and the camera stay: {key, hidden}
+  let landPickCam = null;              // the camera's last key and when it changed, and the redraw that waits for it to settle: {key, at, wait}
 
   // whether the Pick tool picks on the Landscape's sheets: the steps view's Landscape at rest on a plane past its source
   // plane, whose last frame drew its sheets
@@ -91,7 +93,7 @@
     const info = pk.info, box = pk.box, [ax, ay] = info.aspect || [1, 1], top = Math.abs(info.top || 1) * 1.3;
     const wx = ((lit.w.re - box.x0) / (box.x1 - box.x0) - 0.5) * 2 * ax, wy = ((lit.w.im - box.y0) / (box.y1 - box.y0) - 0.5) * 2 * ay;
     const size = Math.max(box.x1 - box.x0, box.y1 - box.y0), c = pk.cam;
-    const key = `${lit.z0.re},${lit.z0.im}|${c.yaw},${c.pitch},${c.dist},${c.tx},${c.ty},${c.tz}|${pane.w}x${pane.h}`;
+    const camKey = `${c.yaw},${c.pitch},${c.dist},${c.tx},${c.ty},${c.tz}|${pane.w}x${pane.h}`, key = `${lit.z0.re},${lit.z0.im}|${camKey}`;
     const marks = [];
     for (const { z } of lit.zs) {
       const v = pk.fibre.H(z), h0 = CX.isFin(v) ? info.heightOf(landValue(v)) : top, h = Number.isFinite(h0) ? Math.min(h0, top) : top;
@@ -99,8 +101,18 @@
       if (!q) continue;
       marks.push({ z, x: q[0], y: q[1], own: CX.abs(CX.sub(z, lit.z0)) <= 1e-6 * (1 + CX.abs(lit.z0)) });
     }
-    // (a twin is hidden where the ray to its point meets another sheet's point first; kept while the twins and the camera stay)
+    // (a twin is hidden where the ray to its point meets another sheet's point first. The flags are kept while the twins and
+    // the camera stay; while the camera turns the marks are drawn plain, and the flags are found once it has kept still
+    // LAND_PICK_STILL_MS)
+    const now = performance.now();
+    // (a camera seen for the first time has kept still: the twins of a first pick are found at once)
+    if (!landPickCam || landPickCam.key !== camKey) landPickCam = { key: camKey, at: landPickCam ? now : -Infinity, wait: landPickCam && landPickCam.wait };
     if (!landPickHide || landPickHide.key !== key) {
+      if (now - landPickCam.at < LAND_PICK_STILL_MS) {
+        if (!landPickCam.wait) landPickCam.wait = setTimeout(() => { if (landPickCam) landPickCam.wait = null; requestRender('L'); }, LAND_PICK_STILL_MS);
+        marks.forEach((m) => { m.hidden = false; });
+        return marks;
+      }
       landPickHide = { key, hidden: marks.map((m) => { const hit = pickLandSheet(m.x, m.y); return !hit || CX.abs(CX.sub(hit.z, m.z)) > LAND_PICK_HIDE * size + 1e-9; }) };
     }
     marks.forEach((m, i) => { m.hidden = !!landPickHide.hidden[i]; });

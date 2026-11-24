@@ -872,6 +872,9 @@
   }
   // the samples of a ray's march over the block, and the bisection's steps at a crossing
   const LAND_RAY_N = 160, LAND_RAY_BISECT = 14;
+  // pickLandSheet's march: the sheets' points are found afresh from the fibre's grid every LAND_RAY_SEED samples, and are
+  // followed from the last sample's in between (where the steps have no exact inverse)
+  const LAND_RAY_SEED = 8;
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -898,8 +901,8 @@
   // with fibre: a sheet over w for each point of s carried to w), on whichever sheet the pointer's ray meets first:
   // {z, w, h}, z the point of plane s, w its image, the point of plane k under it, and h its height; null where the ray
   // meets no sheet. The ray is marched as pickLand's. Each sample's sheets are followed from the last sample's (the
-  // nearest point of s), a sheet is met where the ray passes from above it to below it, and that crossing is bisected on
-  // that sheet. A sheet that first shows below the ray (the ray passes under its edge) is not met there
+  // nearest point of s; the fibre's grid looked at every LAND_RAY_SEED samples), a sheet is met where the ray passes from
+  // above it to below it, and that crossing is bisected on that sheet. A sheet that first shows below the ray (the ray passes under its edge) is not met there
   function pickLandSheet(x, y) {
     const pk = render3D.pick;
     if (!pk || !pk.fibre || !(pk.w > 0 && pk.h > 0) || !pk.info || !pk.info.heightOf) return null;
@@ -909,11 +912,11 @@
     const { at, t0, t1 } = ray, N = LAND_RAY_N;
     const hOf = (v) => { if (!CX.isFin(v)) return top; const h = info.heightOf(landValue(v)); return Number.isFinite(h) ? h : top; };
     // (the sheets at the ray's point at t: {z, h, d}, d the ray's height above the sheet)
-    const sheets = (t, seeds) => { const p = at(t); return off(p) ? [] : pk.fibre(toZ(p), seeds).map((s) => { const h = hOf(s.v); return { z: s.z, h, d: p[2] - h }; }); };
+    const sheets = (t, seeds, fromGrid) => { const p = at(t); return off(p) ? [] : pk.fibre(toZ(p), seeds, fromGrid).map((s) => { const h = hOf(s.v); return { z: s.z, h, d: p[2] - h }; }); };
     const nearest = (list, z) => { let best = null, bd = Infinity; for (const s of list) { const dd = CX.abs(CX.sub(s.z, z)); if (dd < bd) { bd = dd; best = s; } } return best; };
-    let prev = sheets(t0, null), tp = t0;
+    let prev = sheets(t0, null, true), tp = t0;
     for (let i = 1; i <= N; i++) {
-      const t = t0 + (t1 - t0) * i / N, cur = sheets(t, prev.map((s) => s.z));
+      const t = t0 + (t1 - t0) * i / N, cur = sheets(t, prev.map((s) => s.z), i % LAND_RAY_SEED === 0);
       let hit = null;
       for (const s of cur) {
         const q = s.d <= 0 ? nearest(prev, s.z) : null;
@@ -921,7 +924,7 @@
         // (bisected on this sheet, followed from q)
         let a = tp, b = t, za = q.z, zb = s.z, hb = s.h;
         for (let j = 0; j < LAND_RAY_BISECT; j++) {
-          const m = (a + b) / 2, sh = nearest(sheets(m, [za]), za);
+          const m = (a + b) / 2, sh = nearest(sheets(m, [za], false), za);
           if (!sh) break;
           if (sh.d > 0) { a = m; za = sh.z; } else { b = m; zb = sh.z; hb = sh.h; }
         }
