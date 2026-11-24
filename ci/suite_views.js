@@ -67,6 +67,7 @@ const VIEWS = {
   'steps_seams_cmd.js': steps(),
   'gl_uniform_units_cmd.js': steps(),
   'glchain_slot_cap_cmd.js': steps(),
+  'steps_refused_seam_cmd.js': steps(),   // (a refused chain's status card, the seam's handle and θ chip clear of it, #2330)
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_glide_negpow_cmd.js': steps(),
