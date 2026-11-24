@@ -210,7 +210,7 @@ if (main) {
 }
 // the renderer's own unresolved pixels: the grey no-value hatch over the plane canvas (#1444's measure)
 // what the left pane says of its picture: the note's box, the LED's class and tip, and the description a screen reader reads
-const HATCHED_NOTE = 'Part of this plane is hatched: the exact image is not resolved there.';
+const HATCHED_NOTE = 'Where the plane is hatched, the exact image could not be found.';
 const HATCH_SAID = "(document.getElementById('overlayLSay') || { textContent: '' }).textContent === " + JSON.stringify(HATCHED_NOTE);   // a page condition: the pane has said it (the hatch's answer comes a frame after its draw)
 const paneSaid = () => ev(`(() => { const led = document.getElementById('leftLed'), say = document.getElementById('overlayLSay'); return { note: __cmwNoteBox('L'), led: led && led.className, tip: led && led.getAttribute('data-tip'), said: say ? say.textContent : '' }; })()`);
 const hatchCount = () => ev(`(() => {

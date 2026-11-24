@@ -83,7 +83,7 @@
   // mask's pass leaves them uncovered and marks them (drawScene's opt.fills, GLR.drawInverse), so the picture painted
   // through the mask shows them here
   function reptHatch(pane, map) {
-    if (reptExact(map) && GLR.reptHatchFill && GLR.reptHatchFill(pane.dpr) === true) hatchNotes.set(pane, $t('Part of this plane is hatched: the exact image is not resolved there.'));
+    if (reptExact(map) && GLR.reptHatchFill && GLR.reptHatchFill(pane.dpr) === true) hatchNotes.set(pane, $t('Where the plane is hatched, the exact image could not be found.'));
   }
   // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
   // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
