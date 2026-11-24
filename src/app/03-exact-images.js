@@ -85,6 +85,21 @@
   function reptHatch(pane, map) {
     if (reptExact(map) && GLR.reptHatchFill) GLR.reptHatchFill(pane.dpr);
   }
+  // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
+  // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
+  function repeatRefused(map) {
+    const m = normalizeMap(map);
+    if ((m.mode || 0) !== 0) return false;
+    const plan = invPlan(m.a || 0, m.b || 0);
+    return !plan.ok && !!plan.tooLong && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
+  }
+  // the panes whose open frame holds a refused repeat's hatch: glStatusNote says why at the frame's end
+  const refusedPanes = new Set();
+  // the no-value hatch over the whole plane drawn in pane for map when its repeat is refused (no image of the regions is known
+  // anywhere), after the picture painted through the regions' mask
+  function refusedHatch(pane, map) {
+    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) refusedPanes.add(pane);
+  }
   // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
   // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;
   // the exact fill's own edge is the outline (svOutlines, the colour plot's outlines)
@@ -781,10 +796,12 @@
   // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
   function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
+    const refused = refusedPanes.has(pane) ? $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.') : '';
+    if (!quiet) refusedPanes.delete(pane);
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
-    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane)) : '';
+    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || refused) : '';
     if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;

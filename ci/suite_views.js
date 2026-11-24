@@ -202,6 +202,7 @@ const VIEWS = {
   'steps_bottcher_axis_cmd.js': steps(),
   'steps_parked_repeat_cmd.js': steps(),
   'steps_parked_repeat_catalog_cmd.js': steps(),
+  'steps_parked_repeat_refusal_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
   'newt_poly_order_cmd.js': steps({ pin: true }),
   'series_limit_cmd.js': steps({ pin: true }),
