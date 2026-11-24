@@ -1206,19 +1206,21 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // The relief's layers (landLayers): at most LAND_PEEL_FRONT nearest surfaces (the front one, then the ones peeled
   // behind it), then the farthest
   const LAND_PEEL_FRONT = 3, LAND_PEEL_SLOPE = 4;
-  // The relief's layers (drawLandscape at opacity below 1, landLayers): uPeelOn > 0 keeps only the fragments behind the
+  // The relief's layers (drawLandscape at opacity below 1, landLayers): uPeelOn 1 keeps only the fragments behind the
   // previous layer's depth, which uPeelD holds (a 32-bit float depth). uPlain 1 (a pass of the layers): the depth the
   // layers compare and store is the plain one, gl_FragCoord.z, without the key a carried frame's folded places are
   // ordered by (fdep), so a surface that lies in another's place is one layer with it, whatever its key. The margin is
-  // 1e-7 plus uPeelS times (the fragment's depth slope and 5e-7, 32 units of the depth buffer near 1): a carried
-  // frame's patches and the other sheets' copies lie a polygon offset behind the box's cells they repeat (uPeelS
-  // LAND_PEEL_SLOPE, covering the offset's slope and units terms), and are not a layer of their own. uFront 1: the front surface,
-  // drawn over the layers behind it, takes alpha uFrontA where a layer lies behind it (uBehind's layer 1 covers the
-  // pixel) and 1 where it covers the point alone
+  // 1e-7 plus uPeelS times (the fragment's depth slope and 5e-7): a carried frame's patches and the other sheets' copies
+  // lie a polygon offset behind the box's cells they repeat, which is a slope term and a units term (32 units of a
+  // float depth buffer near 1, about 1.9e-6), and uPeelS (LAND_PEEL_SLOPE, 4) times 5e-7 covers the units.
+  // uPeelOn 2 (the front surface, over the layers behind it): only the fragments in front of layer 1, whose depth
+  // uPeelD holds, so the front pass and the layers compare the plain depth and the key only orders the surfaces in
+  // front of it in the depth test. uFront 1: the front surface takes alpha uFrontA where a layer lies behind it
+  // (uBehind's layer 1 covers the pixel) and 1 where it covers the point alone
   const LAND_PEEL_DECL = `uniform float uPeelS; uniform int uPlain; uniform int uFront; uniform float uFrontA; uniform highp sampler2DArray uBehind;
 float frontA() { return uFront > 0 && texelFetch(uBehind, ivec3(ivec2(gl_FragCoord.xy), 1), 0).a > 0.5 ? uFrontA : 1.0; }
 `;
-  const LAND_PEEL = '  float ldep = uPlain > 0 ? gl_FragCoord.z : fdep;\n  if (uPeelOn > 0 && ldep <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7 + uPeelS * (fwidth(ldep) + 5e-7)) discard;\n';
+  const LAND_PEEL = '  float ldep = uPlain > 0 ? gl_FragCoord.z : fdep;\n  if (uPeelOn == 1 && ldep <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7 + uPeelS * (fwidth(ldep) + 5e-7)) discard;\n  if (uPeelOn == 2 && gl_FragCoord.z >= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r - 1e-7) discard;\n';
   // sheet: the covering surface (All sheets): F on the triangle's own sheet, with the cuts of its cell (chainSheet).
   // The mesh follows the true surface to a quarter of a pixel where it is refined (REFINE), so F at the fragment's own
   // z is the surface's value at its height there; where it is not (a wall coarser than its pixels while something
@@ -1571,10 +1573,10 @@ void main() {
 `;
   // the Landscape relief's layers behind its front surface (landLayers): uL's layers 1 .. uN-1 front to back, alpha 1
   // where a layer covers the pixel, the last one the farthest surface. Each layer is laid at uA over the ones behind it
-  // and the farthest that covers the pixel is opaque; the nearest one's depth (uD) is written, so the front surface is
-  // drawn over them
+  // and the farthest that covers the pixel is opaque. No depth is written: the front surface is drawn over them
+  // by its own test against layer 1's depth (LAND_PEEL, uPeelOn 2)
   const LAND_LAYERS_FS = glsl`
-uniform highp sampler2DArray uL; uniform highp sampler2D uD; uniform int uN; uniform float uA;
+uniform highp sampler2DArray uL; uniform int uN; uniform float uA;
 out vec4 o;
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
@@ -1591,7 +1593,6 @@ void main() {
     cur = nxt;
   }
   o = vec4(C, 1.0 - T);
-  gl_FragDepth = texelFetch(uD, p, 0).r;
 }
 `;
   const DISC_FS = glsl`

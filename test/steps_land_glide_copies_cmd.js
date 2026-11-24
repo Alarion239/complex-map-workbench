@@ -54,6 +54,7 @@ const OPACITY = 0.6;                  // the Landscape's Opacity the layer rows 
 const COVERED_ONCE = 150;             // at that opacity, with the copy in the principal's place: the pixels the frame and the control may differ in
 const SHOWS_MIN = 300;                // and the pixels they differ in at least once the copy has slid out of it (a layer of its own)
 const THROUGH_MIN = 10000;            // and where it lies behind and in front of the principal surface (Im heights, mid-glide)
+const COVER_TOL = 0.005;              // and the share by which its surface (saturated pixels) may differ from the same frame at opacity 1
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const step = (type, params) => ({ type, params: params || {}, on: true });
@@ -172,7 +173,7 @@ const setOpacity = async (a) => {
   await setOpacity(OPACITY);
   for (const u of [NEAR, 0.02, 0.05, 0.15]) {
     const all = await at(u, 0, `ma${u}`);
-    const one = await at(u, 1, `mka${u}`);
+    await at(u, 1, `mka${u}`);
     const sp = r[`opacity ${OPACITY}, u ${u}`] = Object.assign({ copies: all.copies, layers: await ev('__cmwLandSheets().layers') }, await speckle(`ma${u}`, `mka${u}`));
     ok(`log |F| heights, opacity ${OPACITY}, u = ${u}: the relief is drawn in layers`, sp.layers > 1, sp);
     if (u < 0.1) {
@@ -183,13 +184,18 @@ const setOpacity = async (a) => {
     }
   }
   // Im heights: the other sheet's copy lies behind the principal surface and in front of it, and shows through it
-  await ev(`(document.querySelector('#heightSeg button[data-v="im"]') || {}).click?.(), 1`);
+  const imBtn = await ev(`(() => { const b = document.querySelector('#heightSeg button[data-v="im"]'); if (!b) return null; b.click(); return 1; })()`);
   await settled({ max: 60000 });
+  ok('Im heights: the height control has an Im button, and it is pressed', imBtn === 1 && await ev(`(document.querySelector('#heightSeg button[aria-pressed=true], #heightSeg button.on') || {}).dataset?.v === 'im'`), { imBtn });
+  await setOpacity(1);
+  const opaque = await at(0.5, 0, 'mi1');
+  await setOpacity(OPACITY);
   {
     const all = await at(0.5, 0, 'mi');
-    const one = await at(0.5, 1, 'mki');
-    const sp = r['opacity Im, u 0.5'] = Object.assign({ copies: all.copies, layers: await ev('__cmwLandSheets().layers') }, await speckle('mi', 'mki'));
+    await at(0.5, 1, 'mki');
+    const sp = r['opacity Im, u 0.5'] = Object.assign({ copies: all.copies, layers: await ev('__cmwLandSheets().layers'), surface: all.surface, opaque: opaque.surface }, await speckle('mi', 'mki'));
     ok(`Im heights, opacity ${OPACITY}, u = 0.5: the copy shows through the principal surface: the frame and the control differ in at least ${THROUGH_MIN} pixels`, all.copies >= 1 && sp.layers > 1 && sp.apart >= THROUGH_MIN, sp);
+    ok(`Im heights, opacity ${OPACITY}, u = 0.5: the surface covers as many pixels as at opacity 1 (within ${COVER_TOL}: the front surface is not lost where two surfaces nearly meet)`, Math.abs(sp.surface - sp.opaque) <= COVER_TOL * sp.opaque, sp);
   }
   await setOpacity(1);
   await ev('__cmwSteps({ glideSheets: 0 }); 1');

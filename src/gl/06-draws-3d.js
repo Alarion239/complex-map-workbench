@@ -1364,18 +1364,20 @@
     // the layers behind the front surface
     use(Q);
     gl.disable(gl.STENCIL_TEST); gl.disable(gl.POLYGON_OFFSET_FILL);
-    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(false);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.activeTexture(gl.TEXTURE0 + LAND_PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[1]);
     gl.activeTexture(gl.TEXTURE0 + LAND_PEEL_UNIT + 1); gl.bindTexture(gl.TEXTURE_2D_ARRAY, C.col);
-    u1i(Q, 'uD', LAND_PEEL_UNIT); u1i(Q, 'uL', LAND_PEEL_UNIT + 1); u1i(Q, 'uN', n); u1f(Q, 'uA', alpha);
+    u1i(Q, 'uL', LAND_PEEL_UNIT + 1); u1i(Q, 'uN', n); u1f(Q, 'uA', alpha);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.activeTexture(gl.TEXTURE0 + LAND_PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, null);
-    // the front surface over them (the colour layers stay on unit LAND_PEEL_UNIT + 1 for frontA)
+    gl.depthMask(true);
+    // the front surface over them (the colour layers stay on unit LAND_PEEL_UNIT + 1 for frontA, layer 1's depth on
+    // LAND_PEEL_UNIT for the front pass's own test)
+    gl.activeTexture(gl.TEXTURE0 + LAND_PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[1]);
     gl.depthFunc(gl.LESS);
     gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    try { draw({ on: 0, s: slope, far: false, front: 1, a: alpha, mark: true, cm: [maskRGB, maskRGB, maskRGB, maskA], df: gl.LESS }); } finally {
+    try { draw({ on: 2, s: slope, far: false, front: 1, a: alpha, mark: true, cm: [maskRGB, maskRGB, maskRGB, maskA], df: gl.LESS }); } finally {
+      gl.activeTexture(gl.TEXTURE0 + LAND_PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, null);
       gl.activeTexture(gl.TEXTURE0 + LAND_PEEL_UNIT + 1); gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
       gl.depthFunc(gl.LEQUAL); gl.disable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     }
@@ -1614,11 +1616,11 @@
         // on that sheet's combo, then putting the chain back): each its own heights over the box's grid, placed and
         // coloured on its sheet, with no patches; with band (an angle, degrees), over seamBand's box about that ray from
         // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, and they a little behind
-        // their depth (further than the pole patches' offset), so it is the one shown where a copy meets it or nearly
-        // coincides with it: under |F| a root's other sheet has the principal's height, and early in a glide its copy
+        // their depth (further than the pole patches' offset, and nearer in the farthest surface's pass, `po`), so it is
+        // the one shown where a copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's height, and early in a glide its copy
         // lies in the principal surface's place on triangles of its own, which a tie in depth would show pixel by pixel)
         info.copies = 0;
-        if (st.carry.copies && st.carry.copies.length) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(4, 32); }
+        if (st.carry.copies && st.carry.copies.length) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(4 * po, 32 * po); }
         for (const [i, cp] of (st.carry.copies || []).entries()) {
           cp.draw(() => {
             if (!carryReady(st.carry.map)) return;
