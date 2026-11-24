@@ -117,6 +117,7 @@ const foldedHides = (legendId, readoutSel) => ev(`(() => {
 })()`);
 // [width, height, language, surface]: the plane's own picture and the globe, in the languages with the longest words, down to
 // the smallest landscape phones
+let gaveBack = 0;   // (the cases where the unfolded key took the readout's place: the give-back row's subjects)
 const CASES = [[740, 360, 'en', 'plane'], [667, 375, 'en', 'plane'], [844, 390, 'en', 'plane'], [568, 320, 'ru', 'plane'], [568, 320, 'it', 'plane'], [600, 320, 'ru', 'plane'],
   [740, 360, 'en', 'sphere'], [667, 375, 'en', 'sphere'], [667, 375, 'ru', 'sphere'], [740, 360, 'it', 'sphere'], [568, 320, 'ru', 'sphere'], [600, 320, 'ru', 'sphere'], [640, 360, 'ru', 'sphere'], [640, 360, 'ru', 'plane']];
 // (focus events, and so :focus-visible, reach a page only while it has focus: a headless page is made to, until the rows end)
@@ -233,6 +234,7 @@ for (const [w, h, lang, surf] of CASES) {
       // (only a key that took the readout's place, .over-readout, hides it: a readout hidden for another reason, as on the
       // globe, stays hidden)
       ok(`${name}: a colour key that hides the readout gives it back as soon as it is folded`, !sync.had || !sync.hides, sync);
+      if (sync.had) gaveBack++;
     }
     // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
     // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one
@@ -262,6 +264,7 @@ for (const [w, h, lang, surf] of CASES) {
 // (standards-ok: the classic view's Y's Regions key under the tall bar, over Y's keys, goes with Y's pane, which the classic
 // view does not draw, #994; the steps view's rows above read the one plane's colour key over its keys the same way)
 await send('Emulation.setFocusEmulationEnabled', { enabled: false });
+ok('the give-back row reads a key that took the readout\'s place in at least one case (control: the 320 px tall phones)', gaveBack > 0, gaveBack);
 info.chipMet = chipMet;
 ok('the unfolded colour key meets a control of the construction chip in at least one case (the focus rows test a covered control)', chipMet.length > 0, chipMet);
 return { pass: fails.length === 0, fails, info };

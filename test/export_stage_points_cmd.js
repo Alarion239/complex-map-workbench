@@ -132,17 +132,13 @@ for (const [tag, focus, stage] of [['focus 2', 2, 1], ['control, on z', 0, 0]]) 
   const want = stage ? 'trailing edge $w_{1}=1+0.5i$' : 'trailing edge $z=1+0.5i$';
   ok(`a point named by a word, ${tag}: its value in its plane's variable, ${want}`, (f.cap || '').includes(want), f.cap);
 }
-// ---- in Russian, a point named by a word takes its case from a head noun, «точка «…»», and its name stays as typed: at focus 0 the
-// "Panel (b) also shows" list is genitive (образы окружности …, круга … и~точки «задний край» …), at step 2 focused (a)'s list is
-// nominative (точка «задний край» …). (controls: the point unlabelled reads «точки $w_{1,\,1}=…$» as before; the English and the
-// Italian captions keep their words)
+// ---- in Russian, a point named by a word takes its case from a head noun, «точка «…»», and its name stays as typed: at step 2
+// focused the panel's list is nominative (точка «задний край» …)
+// (standards-ok: the focus-0 rows, the "Panel (b) also shows" list in ru (genitive, and its unlabelled control), en and it,
+// read panel (b), Y's, which the classic figure does not draw, #994; the nominative list at focus 2 is read)
 const wordScene = (focus, label) => Object.assign(curveScene(focus, 1), {}, { shapes: curveScene(focus, 1).shapes.concat([Object.assign({ id: 'pw', kind: 'point', p: W11, visible: true, stage: 1 }, label ? { label } : {})]) });
 for (const [focus, lang, label, want, not] of [
-  [0, 'ru', 'задний край', 'и~точки «задний край» $w_{1}=1+0{,}5i$', /и~задний край/],
   [2, 'ru', 'задний край', 'точка «задний край» $w_{1}=1+0{,}5i$', /точки «задний край»/],
-  [0, 'ru', null, /и~точки \$w_\{1,\\,\d\}=1\+0\{,\}5i\$/, /«/],
-  [0, 'en', 'trailing edge', ', and the trailing edge $w_{1}=1+0.5i$', /the point \$w|«/],
-  [0, 'it', 'bordo di uscita', 'un punto (bordo di uscita) $w_{1}=1+0{,}5i$', /«/],
 ]) {
   const f = await build('xspwr' + focus + lang + (label ? 1 : 0) + Date.now(), wordScene(focus, label), lang);
   const tag = `${lang}, focus ${focus}, ${label ? `the point named «${label}»` : 'the point unlabelled (control)'}`;

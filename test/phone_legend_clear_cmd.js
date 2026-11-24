@@ -73,7 +73,8 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   ok('568×320: the legend\'s hit area is clear of the two-line readout', !inter(m.reach, m.readout), { reach: m.reach, readout: m.readout, drop: m.drop });
 }
 // (standards-ok: the classic view's first load, Y's two-line readout beside Y's folded key, goes with Y's pane, which the
-// classic view does not draw, #994; the steps view's two-line readout rows above place its one key the same way)
+// classic view does not draw, #994. The steps view's two-line readout rows above place its one key below the readout the
+// same way, on a page loaded with a state; the first load with no state (the key placed again with no reload) is not read)
 // the folded key is a button for keyboard and screen reader: a role, a place in the focus order, a name, and
 // aria-expanded that follows the key as a tap, Enter and Space fold and unfold it. The steps view at 360 × 640, the
 // plane's key, in English and Russian (the classic view draws X alone, with no key in X → Y).

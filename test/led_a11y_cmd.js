@@ -72,8 +72,9 @@ const announced = async (leg, tipOf) => {
   ok(`${leg}: a flicker is not announced`, (await ev(`window.__ledMut`)) === 0, await ev(`window.__ledMut`));
 };
 // ---- the classic view: X's LED, the one its view draws
-// (standards-ok: Y's LED, its pane's title or letter beside X's, and the Russian leg on the hidden right title go with Y's
-// pane, which the classic view does not draw, #994; the failed state is read on X's LED in the steps view below)
+// (standards-ok: Y's LED, its pane's title or letter beside X's, and the Russian leg's hidden right title go with Y's
+// pane, which the classic view does not draw, #994; the failed state and the Russian tips and announcements are read on
+// X's LED in the steps view below)
 await open('classic', 1280, 800, false);
 const cl = await states('classic', [['L', 'leftLed']]);
 info.classic = cl;
@@ -94,6 +95,19 @@ const sizes = (a, b, c) => new Set([shape(a), shape(b), shape(c)]).size;
 ok('ok, busy and err are three different shapes (a viewer without hue tells them apart)', sizes(sv.leftLed.ok, sv.leftLed.busy, err) === 3, { ok: shape(sv.leftLed.ok), busy: shape(sv.leftLed.busy), err: shape(err) });
 const errLive = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(err.tip)})` });
 ok('steps: a failed step is announced', errLive.ok, await live());
+await open('steps', 1280, 800, false);
+// ---- the steps view in Russian: the LED's tips and what the live region says are the Russian ones
+await open('steps', 1280, 800, false, undefined, 'ru');
+{
+  await busy(true);
+  await settled({ max: 4000, only: true, until: `document.querySelector('#leftLed').classList.contains('busy')` });
+  const busyTip = (await led('leftLed')).tip;
+  await busy(false);
+  await settled({ max: 4000, only: true, until: `document.querySelector('#leftLed').classList.contains('ok')` });
+  const okTip = (await led('leftLed')).tip;
+  ok('steps ru: the LED tips are the Russian ones', /[а-яё]/i.test(busyTip) && /[а-яё]/i.test(okTip), { busyTip, okTip });
+  await announced('steps ru', { busy: busyTip, ok: okTip });
+}
 await open('steps', 1280, 800, false);
 // ---- the pulse: the busy LED keeps 3:1 against the bar at its lowest opacity, in light and dark
 const pulse = await ev(`(() => {

@@ -12,7 +12,7 @@ const VIEWPORTS = [[568, 320], [667, 375], [740, 360], [360, 640]], STILL_MS = 1
 const measure = () => ev(`(() => {
   const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
   const lg = document.getElementById('leftLegend'), bar = document.querySelector('.ph-ctx.in');
-  return { legend: rect(lg), open: !!lg && !lg.classList.contains('collapsed'), bar: rect(bar), plot: rect(document.getElementById('plotL')), readout: rect(document.querySelector('#plotL > .chip.readout')), roHidden: !!document.querySelector('#plotL > .chip.readout') && getComputedStyle(document.querySelector('#plotL > .chip.readout')).visibility === 'hidden', drop: lg ? lg.style.getPropertyValue('--lg-drop') : null };
+  return { legend: rect(lg), open: !!lg && !lg.classList.contains('collapsed'), bar: rect(bar), plot: rect(document.getElementById('plotL')), readout: rect(document.querySelector('#plotL > .chip.readout')), roHidden: !!document.querySelector('#plotL > .chip.readout') && getComputedStyle(document.querySelector('#plotL > .chip.readout')).visibility === 'hidden', drop: lg ? lg.style.getPropertyValue('--lg-drop') : null, scrollH: lg ? lg.scrollHeight : 0, clientH: lg ? lg.clientHeight : 0, overflowY: lg ? getComputedStyle(lg).overflowY : '' };
 })()`);
 const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 const still = () => kit.still(measure, STILL_MS, SETTLE_MAX);
@@ -41,13 +41,16 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   ok(`${tag}: the key ends above the bar`, m.legend.b <= m.bar.t + EPS, { legend: m.legend, bar: m.bar, drop: m.drop });
   ok(`${tag}: the key is inside the plane`, !!m.plot && m.legend.t >= m.plot.t - EPS && m.legend.r <= m.plot.r + EPS, { legend: m.legend, plot: m.plot });
   ok(`${tag}: the key is clear of the readout, ${READOUT_GAP} px below it where it lies under it`, clearOf(m.legend, m.readout, m.roHidden), { legend: m.legend, readout: m.readout, hidden: m.roHidden });
+  ok(`${tag}: what does not fit scrolls, so the whole key is in reach`, m.scrollH <= m.clientH + EPS || m.overflowY === 'auto', { scrollH: m.scrollH, clientH: m.clientH, overflowY: m.overflowY });
   await ev(mode === 'tall' ? `document.querySelector('[data-tool="select"]').click(), 1` : `__cmwSelect(null), 1`);
   await settled({ max: SETTLE_MAX, panes: false, until: `!document.querySelector('.ph-ctx.in')` });
   const back = await still();
   ok(`${tag}: with the bar gone the key is back where it was`, !!back.legend && Math.abs(back.legend.t - home.legend.t) <= 1 && Math.abs(back.legend.l - home.legend.l) <= 1, { back: back.legend, home: home.legend });
 }
 // (standards-ok: the classic view's Y's open Regions key under the tall bar, below Y's two-line readout, goes with Y's pane,
-// which the classic view does not draw, #994; the steps view's tall-bar rows above read the one key under the same bar)
+// which the classic view does not draw, #994. The steps view's tall-bar rows above read the one key under the same bar:
+// where it ends, and that what does not fit scrolls. The control that the room above the bar is less than the key's
+// height, and the key whole again at its height with the bar gone, are not read)
 // The open key is operated by the keyboard: Escape folds it (the focus stays on the key, which is the folded one, aria-expanded false), and Enter
 // unfolds it again; a plane key the open key lies over folds it when the key takes focus (the focus is never hidden under the card). With real key
 // events, in the steps view at 568 × 320 and 360 × 640 (the key), and at 568 × 320 and 600 × 320 under the tall bar (the plane's keys).
