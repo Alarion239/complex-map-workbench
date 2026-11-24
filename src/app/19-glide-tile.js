@@ -108,8 +108,9 @@
     if (!el) return;
     const bt = svBetween(), still = bt.b === bt.a || bt.u <= SV_REST_U || bt.u >= 1 - SV_REST_U;
     if (still) { if (!el.hidden) el.hidden = true; return; }
-    // (the key holds the chain's formulas too: an edit, an undo, a load or the tour's end changes what a pair of planes says)
-    const key = bt.a + '|' + bt.b + '|' + svStepsSig(), plot = $('plotL');
+    // (the key holds the app's chain key too (chainSig: the steps, their parameters and repeats): an edit, a Repeat, an undo, a
+    // load or the tour's end changes what a pair of planes says)
+    const key = bt.a + '|' + bt.b + '|' + chainSig[nSteps()], plot = $('plotL');
     if (key !== svTile.key) {
       svTile.key = key; full = true;
       svTile.texA = svTileTex(bt.a); svTile.texB = svTileTex(bt.b);

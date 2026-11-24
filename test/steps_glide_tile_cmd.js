@@ -217,5 +217,27 @@ for (const c of CASES) {
   const back = info.tourBack = await tex2();
   ok('after the tour\'s Esc: the tile names the chain\'s formula again (sin), not the tour scene\'s', back === own, { own, during, back });
 }
+// (a Repeat on the first step, from the step's ⋯ menu, the thread held between w₁ and w₂: the first formula is the repeated step's now,
+// not the one typeset before the Repeat, which the chain's own key, repeats and parameters, tells apart)
+{
+  const { press, pickItem } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'repeat_kit.js'), 'utf8'))({ ev, settled });
+  const tex1 = () => ev(`(document.querySelectorAll('#svTile .sv-tile-f')[0] || { dataset: {} }).dataset.tex || null`);
+  await view(1200, 800, false, false);
+  await loadView('steps', 'svtilerepeat' + Date.now(), { shapes: [], steps: TILE_CHAIN }, { lang: 'en' });
+  await settled({ max: 30000, until: READY });
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  await hold(1.25);
+  const before = info.repeatBefore = await tex1();
+  ok('Repeat: held at a quarter, the tile shows the first formula, w₁ = the first step', /^w_\{1\} = /.test(before || ''), before);
+  ok('Repeat: the ⋯ of step 1 is there', await press('#svStrip .sv-step[data-k="1"] .sv-more'), null);
+  await settled({ max: 10000, until: `!!document.querySelector('#popHost .menu .mi')` });
+  ok('Repeat: its Repeat… item is there', await pickItem('Repeat…'), null);
+  await settled({ max: 30000, until: '__cmwSteps().ready.ready' });
+  await hold(1.5);
+  await hold(1.25);
+  const after = info.repeatAfter = await tex1();
+  ok('Repeat: held at a quarter again, the tile shows the repeated step\'s formula, not the one before the Repeat', !!after && after !== before, { before, after });
+}
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 return { pass: fails.length === 0, fails, info };
