@@ -481,7 +481,9 @@
 
   // text over a plot (a canvas under it at its centre) sits on a ground: the text, or a box above the canvas that
   // holds it, has a background at least half opaque, or the text has a halo (a text-shadow, an SVG stroke painted
-  // first). Text straight on the picture can be unreadable whatever the picture is (#469's empty-state hint)
+  // first). Text straight on the picture can be unreadable whatever the picture is (#469's empty-state hint). The boxes
+  // above the canvas are the ones at the text's centre and the text's own ancestors short of the one that holds the
+  // canvas: a card with pointer-events: none (the construction chip's pill) is not among the elements at a point
   const alpha = (c) => { const m = /rgba?\(([^)]+)\)/.exec(c || ''); if (!m) return 0; const p = m[1].split(/[\s,/]+/).filter(Boolean); return p.length > 3 ? parseFloat(p[3]) : 1; };
   function onGround(scope = document.body) {
     const out = [];
@@ -492,7 +494,9 @@
       const ci = stack.findIndex((e) => e.tagName === 'CANVAS');
       if (ci < 0 || !stack.slice(0, ci).some((e) => e === t.el || e.contains(t.el) || t.el.contains(e))) continue;
       const above = stack.slice(0, ci);
-      const ground = above.some((e) => { const c = getComputedStyle(e); return alpha(c.backgroundColor) >= 0.5 || (c.backgroundImage && c.backgroundImage !== 'none') || (c.backdropFilter && c.backdropFilter !== 'none'); });
+      const opaque = (e) => { const c = getComputedStyle(e); return alpha(c.backgroundColor) >= 0.5 || (c.backgroundImage && c.backgroundImage !== 'none') || (c.backdropFilter && c.backdropFilter !== 'none'); };
+      let ground = above.some(opaque);
+      for (let e = t.el; !ground && e && e !== document.body && !e.contains(stack[ci]); e = e.parentElement) ground = opaque(e);
       const tc = getComputedStyle(t.el);
       const halo = (tc.textShadow && tc.textShadow !== 'none') || (t.el instanceof SVGElement && tc.stroke !== 'none' && /stroke/.test(tc.paintOrder));
       if (!ground && !halo) out.push(V('no-ground', t.el, stack[ci], { text: (t.el.textContent || '').trim().slice(0, 40) }, t.box));
