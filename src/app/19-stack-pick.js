@@ -64,7 +64,8 @@
     // the ellipse's half minor axis to the ring's radius)
     const det = G[0] * G[3] - G[1] * G[2], X = x - G[4], Y = y - G[5];
     const inside = det !== 0 && Math.hypot((G[3] * X - G[2] * Y) / det - m.c[0], (G[0] * Y - G[1] * X) / det - m.c[1]) < m.r;
-    const sq = G[0] ** 2 + G[1] ** 2 + G[2] ** 2 + G[3] ** 2, least = Math.sqrt(Math.max(0, (sq - Math.sqrt(Math.max(0, sq * sq - 4 * det * det))) / 2));
+    const sq = G[0] ** 2 + G[1] ** 2 + G[2] ** 2 + G[3] ** 2;
+    const least = Math.sqrt(Math.max(0, (sq - Math.sqrt(Math.max(0, sq * sq - 4 * det * det))) / 2));
     return ldRingNear(gap, inside, m.r * least, finger) ? s : null;
   }
   // whether a floor's mark lies under (x, y) at the floor's point z: a lit patch, a lit twin's ring or a critical point's
@@ -182,7 +183,8 @@
       drag = { mode: 'pickMove', level: 'floor', shape: patch, F, w: F(f.z), x0: x, y0: y, moved: false };
       return true;
     }
-    const d = { mode: 'stackPress', hit, x0: x, y0: y, x, y, touch, slop: touch ? STACK_PICK_SLOP_TOUCH : STACK_PICK_SLOP, held: false, moved: false, z: null, pane };
+    const d = { mode: 'stackPress', hit, x0: x, y0: y, x, y, touch,
+      slop: touch ? STACK_PICK_SLOP_TOUCH : STACK_PICK_SLOP, held: false, moved: false, z: null, pane };
     d.timer = setTimeout(() => { if (drag === d && !d.moved) stackHold(d, pane, d.x0, d.y0); }, STACK_HOLD_MS);
     drag = d;
     return true;
