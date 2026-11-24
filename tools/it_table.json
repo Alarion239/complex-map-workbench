@@ -3513,5 +3513,9 @@
  "critical point to its value": "dal punto critico al suo valore",
  "A video records a glide along the chain, which only the steps view has": "Un video registra un passaggio lungo la catena, che ha solo la vista a passi",
  "Play the chain, or pause it": "Riproduci la catena o mettila in pausa",
- "Paths t ↦ Hₜ(z) on or off": "Mostra o nascondi le traiettorie t ↦ Hₜ(z)"
+ "Paths t ↦ Hₜ(z) on or off": "Mostra o nascondi le traiettorie t ↦ Hₜ(z)",
+ "Connectors": "Collegamenti",
+ "Glide paths": "Percorsi della transizione",
+ "Straight": "Dritti",
+ "torn here by the glide’s cut, not a split": "strappato qui dal taglio della transizione, non è una divisione"
 }

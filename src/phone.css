@@ -144,7 +144,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land .plot:has(> .ld-key.over-readout:not(.folded):not([hidden])) > .chip.readout { visibility: hidden; }
 :root.ph .ld-key { left: calc(var(--ruler) + 6px); bottom: calc(var(--ruler) + 6px + var(--ph-lift)); max-width: min(calc(100% - var(--ruler) - 6px - 60px - 6px), 320px); padding: 0 10px 6px; z-index: 14; transition: bottom 220ms var(--ease-out); }
 :root.ph .ld-key.folded { padding-bottom: 0; }
-:root.ph .ld-key.folded > .ld-list { display: none; }
+:root.ph .ld-key.folded > .ld-list, :root.ph .ld-key.folded > .ld-links-row { display: none; }
+:root.ph .ld-links { height: auto; min-height: 44px; }
+:root.ph .ld-links > button { min-height: 44px; }
 /* (a mark's words wrap under its swatch's line where the plane is narrow: a landscape phone's plane beside a sheet is about 200 px) */
 :root.ph .ld-it { white-space: normal; min-width: 0; }
 :root.ph .ld-key > .ld-ttl { flex: 1 0 100%; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; font: var(--t-label); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
