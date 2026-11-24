@@ -1971,7 +1971,8 @@ unit('sv.glide.tie', 'the steps view (on a GPU), z³ then cos about 0: a warm gl
 // them; and, with them dropped (__cmwSmReset) and building again, pan legs (there, and back) and scrubs of the strip from w₂ to w₁, each
 // begun while their jobs run (.pan_building, .scrub_building; .building_after: the share of those legs that
 // ended with a job still running); and the time from a glide's press to its first frame, pressed while they build
-// and once they are built (.glide_building.first_ms, .glide_built.first_ms)
+// and once they are built (.glide_building.first_ms, .glide_built.first_ms); and the built pass again at dpr 2 (.dpr2),
+// where the whole-plane mesh's budgets have grown with the pane's device pixels
 const SV_TIE_LONG_MS = 50;
 async function svTieMeshUnit() {
   const pre = 'sv.tie_mesh';
@@ -1982,26 +1983,31 @@ async function svTieMeshUnit() {
     put(`${id}.long_max_ms`, 'info', 'ms', [Math.max(0, ...ds)]);
     put(`${id}.long_over_${SV_TIE_LONG_MS}`, 'info', '', [ds.filter((d) => d > SV_TIE_LONG_MS).length]);
   };
-  // (alpha 1, the colour plane first: plane w₂ at rest is drawn by its carried meshes, then by their pre-mapped ones)
-  await openSteps(Object.assign({}, SV_TIE_STATE, { alpha: 1 }));
-  await B.ev("document.querySelector('.sv-cp').click(), 1");
-  await settle(await pageNow());
-  const t0 = await pageNow(), ms0 = await B.ev('__cmwSphere().stats.ms');
-  await B.ev("__cmwSteps({ scope: 'all', go: 2, now: true }), 1");
-  await B.until(BUILT, 120000);
-  const t1 = await pageNow(), q = await B.ev('(() => { const q = __cmwSphere(); return { ms: q.stats.ms, entries: q.entries.map((e) => ({ slot: e.slot, nodes: e.nodes, work: e.work, ms: e.ms, partial: e.partial })) }; })()');
-  put(`${pre}.built_ms`, 'info', 'ms', [t1 - t0]);
-  put(`${pre}.cpu_ms`, 'info', 'ms', [q.ms - ms0]);
-  // (each mesh's own CPU: the pane's, __svAll, and its outer ring's, __svRing, whose budgets differ)
-  for (const [tag, re] of [['all', /^__svAll\|/], ['ring', /^__svRing\|/]]) { const e = q.entries.find((x) => re.test(x.slot)); if (e) put(`${pre}.${tag}_cpu_ms`, 'info', 'ms', [e.ms]); }
-  put(`${pre}.nodes`, 'info', '', [q.entries.reduce((a, e) => a + e.nodes, 0)]);
-  detail(`${pre}.meshes`, JSON.stringify(q));
-  await putLong(pre, t0, t1);
-  const mem = await B.ev('__perf.mem()');
-  put(`${pre}.gpu_live_bytes`, 'info', 'B', [mem.live]);
-  put(`${pre}.gpu_peak_bytes`, 'info', 'B', [mem.peak]);
-  await settle(await pageNow());
-  await panPlane(pre);
+  // (the page opened, the meshes built undisturbed and the rows above read, then the pan within their guard box, under
+  // the id `id`; alpha 1, the colour plane first: plane w₂ at rest is drawn by its carried meshes, then by their
+  // pre-mapped ones)
+  const builtPass = async (id) => {
+    await openSteps(Object.assign({}, SV_TIE_STATE, { alpha: 1 }));
+    await B.ev("document.querySelector('.sv-cp').click(), 1");
+    await settle(await pageNow());
+    const t0 = await pageNow(), ms0 = await B.ev('__cmwSphere().stats.ms');
+    await B.ev("__cmwSteps({ scope: 'all', go: 2, now: true }), 1");
+    await B.until(BUILT, 120000);
+    const t1 = await pageNow(), q = await B.ev('(() => { const q = __cmwSphere(); return { ms: q.stats.ms, entries: q.entries.map((e) => ({ slot: e.slot, nodes: e.nodes, work: e.work, ms: e.ms, partial: e.partial })) }; })()');
+    put(`${id}.built_ms`, 'info', 'ms', [t1 - t0]);
+    put(`${id}.cpu_ms`, 'info', 'ms', [q.ms - ms0]);
+    // (each mesh's own CPU: the pane's, __svAll, and its outer ring's, __svRing, whose budgets differ)
+    for (const [tag, re] of [['all', /^__svAll\|/], ['ring', /^__svRing\|/]]) { const e = q.entries.find((x) => re.test(x.slot)); if (e) put(`${id}.${tag}_cpu_ms`, 'info', 'ms', [e.ms]); }
+    put(`${id}.nodes`, 'info', '', [q.entries.reduce((a, e) => a + e.nodes, 0)]);
+    detail(`${id}.meshes`, JSON.stringify(q));
+    await putLong(id, t0, t1);
+    const mem = await B.ev('__perf.mem()');
+    put(`${id}.gpu_live_bytes`, 'info', 'B', [mem.live]);
+    put(`${id}.gpu_peak_bytes`, 'info', 'B', [mem.peak]);
+    await settle(await pageNow());
+    await panPlane(id);
+  };
+  await builtPass(pre);
   // (a leg begun while the meshes build: dropped, the pane asked again at w₂, and the leg started once a job runs)
   const strip = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[1].getBoundingClientRect(), b = ps[2].getBoundingClientRect(); return { x1: a.left + a.width / 2, x2: b.left + b.width / 2, y: a.top + a.height / 2 }; })()`);
   let legs = 0, after = 0;
@@ -2045,11 +2051,14 @@ async function svTieMeshUnit() {
     }
   }
   for (const k of ['building', 'built']) put(`${pre}.glide_${k}.first_ms`, 'info', 'ms', first[k]);
+  // (the same at dpr 2, the whole-plane mesh's budgets grown with the pane's device pixels: smAllScale's largest)
+  await setDpr(2);
+  try { await builtPass(`${pre}.dpr2`); } finally { await setDpr(1); }
   putInteraction(`${pre}.pan_building`, pans);
   putInteraction(`${pre}.scrub_building`, scrubs);
   put(`${pre}.building_after`, 'info', '', [after / Math.max(1, legs)]);
 }
-unit('sv.tie_mesh', 'the steps view, z³ then cos about 0 at rest on w₂: its pre-mapped meshes (the pane\'s and its outer ring\'s), the time from the arrival until both are built and drawn, the CPU they took (each and in all), the long tasks meanwhile, their nodes and the GL bytes held (info); a pan of the plane within their guard box, which draws them every frame; a pan and a scrub begun while they build, and a glide\'s press to its first frame while they build and once built (#2286)', svTieMeshUnit, { timeoutS: 900 });
+unit('sv.tie_mesh', 'the steps view, z³ then cos about 0 at rest on w₂: its pre-mapped meshes (the pane\'s and its outer ring\'s), the time from the arrival until both are built and drawn, the CPU they took (each and in all), the long tasks meanwhile, their nodes and the GL bytes held (info); a pan of the plane within their guard box, which draws them every frame; a pan and a scrub begun while they build, a glide\'s press to its first frame while they build and once built; and the built meshes and their pan again at dpr 2 (#2286)', svTieMeshUnit, { timeoutS: 900 });
 const SV_EXT_STATE = (type, params) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type, params, on: true }], srcView: { cx: 0, cy: 0, s: 60 } });
 unit('sv.glide.dh', 'the steps view (on a GPU), the Douady–Hubbard map: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton from the identity seed landed down the external ray; info rows only (its cost is measured against the mesh the reference build draws, the look decides)', () => svGlideUnit('dh', { id: 'sv.glide.dh', state: SV_EXT_STATE('dh', { N: 64 }), info: true }));
 unit('sv.glide.bottcher', 'the steps view (on a GPU), the Böttcher coordinate at c = -1: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, the same seed and ray as the Douady–Hubbard map; info rows only', () => svGlideUnit('bottcher', { id: 'sv.glide.bottcher', state: SV_EXT_STATE('bottcher', { c: '-1', N: 64 }), info: true }));
