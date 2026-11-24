@@ -18,6 +18,10 @@
 //  4c. the radius bound (a monomial step on a disc region): z^3 x 20 on a disc tangent to |z| = 1 from inside is empty
 //     with no root solved past |w| = 1, never empty inside it, E_r bounded by |z| <= ~1; a disc strictly inside and one
 //     across |z| = 1 as before; at Repeat x 2 every pixel's verdict equals the brute force;
+//  4d. the closed form (a monomial step on a disc region): z^3 x 20 on discs tangent to, across, holding 0 and holding
+//     the whole of |z| = 1, and 2 z^3 x 20 tangent to its circle |z| = 2^-1/2: every pixel off the circle (past the
+//     pixel's reach) has its verdict with no root solved; at Repeat x 2 and x 3 every pixel's verdict equals the brute
+//     force over its chains;
 //  5. the search against brute force: at Repeat x 2 every pixel's verdict equals the one from all 9 chains, unpruned;
 //     at Repeat x 20 a box in the basin of 1 is empty outside E_20 with no root solved;
 //  6. the budget: REPEAT_NODES_MAX is at least NODES_MARGIN times the most solves a gallery pixel needs, and a starved
@@ -297,6 +301,66 @@ const brute2 = (o, L, w) => {
     if (e.verdict === b) same++;
   }
   check('z^3 x 2 on the tangent disc: every pixel\'s verdict equals the brute force over its 9 chains', same === scored && scored > 500 && pr2.rept.E[2].rad > 0, `${same}/${scored}, pruned ${pruned}`);
+}
+
+// ---- 4d. the closed form (a monomial step on a disc region, #2375)
+// a pixel's verdict from every chain of n backward roots (3^n), no prune, each leaf scored at its own point; null when a
+// leaf lies within a pixel's ramp of the edge
+const bruteN = (o, L, w, n) => {
+  let brute = 0;
+  const rec = (z, rho, d, r) => {
+    if (r === n) { const lv = L(z) / (d * PIX); if (Math.abs(lv) <= 1) return false; if (lv > 0) brute = 1; return true; }
+    const nd = InvOps.reptNode(o.p.P, o.p.Q, z, rho);
+    if (!nd) return false;
+    for (let i = 0; i < 3; i++) if (!rec(nd.z[i], nd.rho[i], d * CX.abs(nd.d[i]), r + 1)) return false;
+    return true;
+  };
+  return rec(w, 0, 1, 0) ? brute : null;
+};
+{
+  const RW = { x0: -1.6, x1: 1.6, y0: -1.2, y1: 1.2 }, RG = 25;            // the view and its grid, as in 4c
+  const NEAR = 0.02;                                                         // |w| within this of the invariant circle is left out
+  const pts = gridOf(RW, RG);
+  // (z^3: the invariant circle |z| = 1; 2 z^3: |z| = 2^-1/2)
+  const S = Math.SQRT1_2;
+  const CASES = [
+    { name: 'z^3 x 20 on the disc tangent to |z| = 1 from inside', expr: 'z^3', R: 1, shape: { id: 'c1', kind: 'disc', c: [0, 0.95], r: 0.05 } },
+    { name: 'z^3 x 20 on a disc across |z| = 1', expr: 'z^3', R: 1, shape: { id: 'c2', kind: 'disc', c: [1, 0], r: 0.12 } },
+    { name: 'z^3 x 20 on a disc across |z| = 1 that holds 0', expr: 'z^3', R: 1, shape: { id: 'c3', kind: 'disc', c: [0.2, 0], r: 1 } },
+    { name: 'z^3 x 20 on a disc that holds |z| = 1 whole', expr: 'z^3', R: 1, shape: { id: 'c4', kind: 'disc', c: [0.1, -0.1], r: 1.5 } },
+    { name: '2 z^3 x 20 on the disc tangent to |z| = 2^-1/2 from inside', expr: '2*z^3', R: S, shape: { id: 'c5', kind: 'disc', c: [0, S - 0.05], r: 0.05 } },
+  ];
+  for (const cs of CASES) {
+    const p = planOf(repOf(cs.expr, 20)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape });
+    // (a circle |z| = rho near R meets the disc from inside R when |c| - r < R, from outside when |c| + r > R)
+    const cl = Math.hypot(cs.shape.c[0], cs.shape.c[1]), vIn = cl - cs.shape.r < cs.R ? 1 : 0, vOut = cl + cs.shape.r > cs.R ? 1 : 0;
+    const t = { inn: 0, inRight0: 0, out: 0, outRight0: 0, ring: 0, unres: 0, solves: 0 };
+    for (const w of pts) {
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, a = CX.abs(w);
+      t.solves += e.nodes;
+      if (a < PIX) continue;   // (the pixel at the critical value 0, whose one preimage is 0: its verdict is its ramp's)
+      if (a < cs.R * (1 - NEAR)) { t.inn++; if (e.verdict === vIn && e.nodes === 0) t.inRight0++; }
+      else if (a > cs.R * (1 + NEAR)) { t.out++; if (e.verdict === vOut && e.nodes === 0) t.outRight0++; }
+      else { t.ring++; if (e.verdict === -1) t.unres++; }
+    }
+    check(`${cs.name}: every pixel inside the circle (past the pixel's reach) is ${vIn ? 'covered' : 'empty'}, with no root solved`, t.inn > 100 && t.inRight0 === t.inn, JSON.stringify(t));
+    check(`... every pixel outside it is ${vOut ? 'covered' : 'empty'}, with no root solved`, t.out > 100 && t.outRight0 === t.out, JSON.stringify(t));
+  }
+  // (at x 2 and x 3, where the preimages' spacing is wide, every pixel's verdict equals the brute force over its chains)
+  for (const cs of CASES) for (const n of [2, 3]) {
+    const p = planOf(repOf(cs.expr, n)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape }), L = Region.levelOf(cs.shape);
+    let same = 0, scored = 0, unres = 0;
+    const bad = [];
+    for (const w of pts) {
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, b = bruteN(p.ops[0], L, w, n);
+      if (b === null) continue;
+      scored++;
+      if (e.verdict === b) same++;
+      else if (e.verdict === -1) unres++;
+      else if (bad.length < 3) bad.push({ w: [w.re, w.im], got: e.verdict, brute: b });
+    }
+    check(`${cs.name.replace(' x 20', ` x ${n}`)}: every pixel's verdict equals the brute force over its ${3 ** n} chains`, same === scored && scored > 400, `${same}/${scored}, unresolved ${unres}, ${JSON.stringify(bad)}`);
+  }
 }
 
 // ---- 5. the search against brute force
