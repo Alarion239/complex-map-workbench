@@ -12,8 +12,12 @@
 // w₄'s as u -> 1. The Cayley homotopy's pole, pulled back through Joukowski, sits beside Joukowski's own pole at 0 for
 // every t > 0, so a key made of the span's points alone keeps two penalties there to the end, and its seam lies on
 // another ellipse than w₁'s (36 % of the pane apart).
-//  - the glide frozen just short of w₁ (x below DOWN_NEAR_X) is a frame between the planes, all at once;
+//  - the glide frozen just short of w₁ (x below DOWN_FINE_X) is a frame between the planes, all at once;
 //  - it and the frame at rest on w₁ differ in at most ARRIVE_MAX of the pane.
+// The downward frames come to w₁'s as x - 1 does (lavapipe, 360 × 640: 1.4 % of the pane at x 1.012, 0.8 % at 1.0056),
+// so the glide runs on to DOWN_NEAR_X at GLIDE_CLOCK_MS a frame (where a frame moves x by about 0.01) and from there to
+// DOWN_FINE_X at FINE_CLOCK_MS (about 0.0006 a frame): the frame it freezes on lies in a band of x a few of those wide,
+// whatever the frame rate.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -25,7 +29,9 @@ const ARRIVE_MAX = 0.02;           // the share of the pane the last frame may d
 const EARLY_X = 0.5, EARLY_MIN = 0.2;   // the control's frame, and the share of the pane it differs from the rest frame in, at least
 const NEAR_END_X = 1.97;           // the glide is frozen once the thread is past this, short of plane 2
 const DOWN = [JOUK, { type: 'mul', params: { c: '1.2' }, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }];
-const DOWN_NEAR_X = 1.03;          // the downward glide is frozen once the thread is below this, short of plane 1
+const DOWN_NEAR_X = 1.06;          // the downward glide slows to FINE_CLOCK_MS once the thread is below this
+const DOWN_FINE_X = 1.006;         // and is frozen once it is below this, short of plane 1
+const FINE_CLOCK_MS = 2;
 const DOWN_VIEW = [360, 640];      // the phone's view, where the downward glide's arrival was measured (#1788)
 const GLIDE_CLOCK_MS = 20, FREEZE_CLOCK_MS = 1e-9;
 const START_WAIT = 30000, GLIDE_WAIT = 180000, DRAWN_WAIT = 120000;
@@ -35,7 +41,10 @@ const drawn = `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending
 // chips over the plane: the scale and the status) and CROP_FOOT above its foot (the view buttons), px
 const CROP_SIDE = 8, CROP_HEAD = 70, CROP_FOOT = 40;
 const paneRect = () => ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + ${CROP_HEAD} : r.top; return { x: Math.round(r.left) + ${CROP_SIDE}, y: Math.round(t), width: Math.round(r.width) - 2 * ${CROP_SIDE}, height: Math.round(r.bottom - t - ${CROP_FOOT}) }; })()`);
-const grab = async () => { await ev('__cmwSteps({ bare: true })'); await settled({}); const i = await img(await paneRect()); await ev('__cmwSteps({ bare: false })'); return i; };
+// (the glide's formula tile, #1533, a chip over the plane while the thread is between planes, hidden: the frames compared
+// are the colour layer's)
+const tileHidden = (on) => ev(`(() => { let s = document.getElementById('qaNoTile'); if (!s) { s = document.createElement('style'); s.id = 'qaNoTile'; document.head.append(s); } s.textContent = ${on} ? '#svTile{visibility:hidden!important}' : ''; return 1; })()`);
+const grab = async () => { await ev('__cmwSteps({ bare: true })'); await tileHidden(true); await settled({}); const i = await img(await paneRect()); await tileHidden(false); await ev('__cmwSteps({ bare: false })'); return i; };
 // (the share of the pixels whose largest channel difference is over CH_TOL: a screenshot decodes to RGB or RGBA (png.js's
 // ch), which test/lib/pixel_diff.js's RGBA compare does not read)
 const share = (a, b) => { let n = 0; for (let j = 0; j < a.data.length; j += a.ch) if (Math.max(Math.abs(a.data[j] - b.data[j]), Math.abs(a.data[j + 1] - b.data[j + 1]), Math.abs(a.data[j + 2] - b.data[j + 2])) > CH_TOL) n++; return n / (a.w * a.h); };
@@ -52,9 +61,12 @@ const open = async (steps = STEPS) => {
   await ev('__cmwSteps({ T: 0 })'); await settled({});
 };
 // the glide to plane `to` (w₂ by default), frozen once the thread is past x (below x when it glides down)
-const frozenPast = async (x, to = 2, down = false) => {
+// (fine: a second x, past x, the glide goes on to at FINE_CLOCK_MS a frame before it is frozen)
+const frozenPast = async (x, to = 2, down = false, fine = null) => {
+  const past = (v) => `__cmwSteps().x ${down ? '<' : '>'} ${v}`;
   await ev(`__cmwSteps({ clock: ${GLIDE_CLOCK_MS} })`); await ev(`__cmwSteps({ go: ${to} })`);
-  await settled({ max: GLIDE_WAIT, until: `__cmwSteps().x ${down ? '<' : '>'} ${x}`, only: true });
+  await settled({ max: GLIDE_WAIT, until: past(x), only: true });
+  if (fine != null) { await ev(`__cmwSteps({ clock: ${FINE_CLOCK_MS} })`); await settled({ max: GLIDE_WAIT, until: past(fine), only: true }); }
   await ev(`__cmwSteps({ clock: ${FREEZE_CLOCK_MS} })`);
   await settled({ max: DRAWN_WAIT, until: drawn });
   return ev('(() => { const q = __cmwSteps(); return { x: q.x, all: q.all, mode: q.between && q.between.mode }; })()');
@@ -87,9 +99,9 @@ ok(`control: a frame early in the glide differs from w₂'s in over ${EARLY_MIN 
   await view(DOWN_VIEW[0], DOWN_VIEW[1], false, true);
   await open(DOWN);
   await restOn(4);
-  const d = await frozenPast(DOWN_NEAR_X, 1, true);
+  const d = await frozenPast(DOWN_NEAR_X, 1, true, DOWN_FINE_X);
   info.down = d;
-  ok('down: the glide from w₄ is frozen short of w₁, all at once (map mode 3)', d.all && d.mode === 3 && d.x < DOWN_NEAR_X && d.x > 1, d);
+  ok('down: the glide from w₄ is frozen short of w₁, all at once (map mode 3)', d.all && d.mode === 3 && d.x < DOWN_FINE_X && d.x > 1, d);
   const dl = await grab();
   const r1 = await restOn(1);
   ok('down: at rest on w₁ the inverse pass draws the plane', !!r1 && r1.a === 1 && r1.path === 'inverse', r1);
