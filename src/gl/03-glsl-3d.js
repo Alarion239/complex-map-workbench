@@ -490,31 +490,50 @@ void main() {
   tfOut = edgeJump(p, q);
 }
 `;
-  // ambient occlusion at grid vertex p of height h: how far the 9x9 box of finite heights around it (the heights in
-  // uT1's z, finite where w > 0.5) rises above it, darkening by up to 0.4 (LAND_NRM_VS, LAND_CARRY_NRM_VS)
+  // ambient occlusion at grid vertex p of height h: how far the heights in uT1's z of the 9x9 box around it rise above
+  // it, darkening by up to 0.4 (LAND_NRM_VS, LAND_CARRY_NRM_VS). A point of the box counts when it is reached from p
+  // along its row, then its column, by grid edges the program's aoLink(a, b) passes (b one step from a, finite, the edge
+  // not torn: the same test as its normals'). Across a cut the box's points are another piece's, the other side of a
+  // branch's jump, whose heights would shade the vertex as if they rose beside it
   const LAND_AO = `
+void aoCol(ivec2 c, inout float sum, inout float cnt) {
+  sum += texelFetch(uT1, c, 0).z; cnt += 1.0;
+  for (int s = -1; s <= 1; s += 2) {
+    ivec2 q = c;
+    for (int i = 0; i < 4; i++) {
+      ivec2 n = q + ivec2(0, s);
+      if (n.y < 0 || n.y >= uN || !aoLink(q, n)) break;
+      sum += texelFetch(uT1, n, 0).z; cnt += 1.0; q = n;
+    }
+  }
+}
 float landAO(ivec2 p, float h) {
   float sum = 0.0, cnt = 0.0;
-  for (int dy = -4; dy <= 4; dy++) for (int dx = -4; dx <= 4; dx++) {
-    ivec2 q = p + ivec2(dx, dy);
-    if (q.x < 0 || q.y < 0 || q.x >= uN || q.y >= uN) continue;
-    vec4 t = texelFetch(uT1, q, 0);
-    if (t.w > 0.5) { sum += t.z; cnt += 1.0; }
+  aoCol(p, sum, cnt);
+  for (int s = -1; s <= 1; s += 2) {
+    ivec2 q = p;
+    for (int i = 0; i < 4; i++) {
+      ivec2 n = q + ivec2(s, 0);
+      if (n.x < 0 || n.x >= uN || !aoLink(q, n)) break;
+      aoCol(n, sum, cnt); q = n;
+    }
   }
-  return cnt > 0.0 ? 1.0 - clamp(6.0 * (sum / cnt - h), 0.0, 0.4) : 1.0;
+  return 1.0 - clamp(6.0 * (sum / cnt - h), 0.0, 0.4);
 }
 `;
   // normals by central differences (one-sided across a real jump, LAND_EDGE_VS) and ambient occlusion from a 9x9 box
-  // filter (LAND_AO)
+  // filter (LAND_AO, its points reached by edges with no jump)
   const LAND_NRM_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uN; uniform vec2 uAspect; uniform float uH;
 uniform int uCuts;
 out vec4 tfOut;
-` + LAND_AO + glsl`
+` + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, p, 0); }
 // (uCuts -1: the edge pass still compiles, the former rule stands in: a height step over 0.3 H)
 bool jx(ivec2 p) { return uCuts > 0 ? texelFetch(uE0, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(1, 0)).z - T(p).z) > 0.3 * uH; }
 bool jy(ivec2 p) { return uCuts > 0 ? texelFetch(uE1, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(0, 1)).z - T(p).z) > 0.3 * uH; }
+bool aoLink(ivec2 a, ivec2 b) { return T(b).w > 0.5 && (b.x != a.x ? !jx(min(a, b)) : !jy(min(a, b))); }
+` + LAND_AO + glsl`
 void main() {
   ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
   vec4 c = T(p);
@@ -595,15 +614,17 @@ void main() {
 `;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
   // across a tear (a step over uLim on the plane) or a height step over uStep), and the occlusion of the heights over
-  // the grid (LAND_AO, as at rest)
+  // the grid (LAND_AO, as at rest, its points reached by edges the normals keep: near)
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
 uniform float uPatch;
 out vec4 tfOut;
-` + LAND_AO + glsl`
+` + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
 bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
+bool aoLink(ivec2 a, ivec2 b) { return near(T(a), T(b)); }
+` + LAND_AO + glsl`
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;

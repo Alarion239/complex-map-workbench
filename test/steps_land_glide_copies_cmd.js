@@ -27,7 +27,11 @@
 //   that the control covers, and the control leaves at least SLIT_MIN bare where the frame with them has surface
 //   (the slit);
 //   at 1 − NEAR, against plane b parked, the frame is bare at most GAP_SHARE as often as the control (the rest: the
-//   surface's outer edge, a pixel apart);
+//   surface's outer edge, a pixel apart), and the control shades at most SHADE_MAX pixels of the surface darker than it
+//   (the occlusion reads only the heights on a vertex's own piece: across the cut's image the other sheet's would shade
+//   the surface beside it);
+// - at rest, plane z with the square root's colours, Im heights: beside the cut each piece is shaded as a little off it
+//   (REST_SHADE), the lower piece measured and the upper one the control;
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
 //   region, and so does the glide onto it: no copy at u = 1/2 and 1 − NEAR.
 // - the page's own heights (log |F|) and window, square root alone: leaving plane z the other sheet has the principal's
@@ -51,6 +55,9 @@ const COPY_SHOWS = 48;                // u = 1/4: the copy shows where the frame
 const SEAM_GAP = 20;                  // the pixels the seams' surfaces may leave bare that the frame without them covers (edges)
 const GAP_SHARE = 0.25;               // arrival: the share of the control's bare pixels (against the parked plane) the seams may leave
 const SLIT_MIN = 200;                 // the slit the control leaves along the seam, at least
+const SHADE_TOL = 8;                  // arrival: a pixel is shaded when it is darker than plane b parked by more, in every channel
+const SHADE_MAX = 1000;               // arrival, without the seams: the shaded pixels, at most (the carried mesh's own shading)
+const REST_SHADE = 8;                 // at rest: the median darkening beside the cut, at most (0..255, the channels' mean)
 const SCALE = 900;                    // px per unit: a window of about ±0.5, inside the disc its square root covers
 const SPECKLE = 40, SPECKLE_TOL = 24; // log |F| heights: the isolated pixels the frame and the control may differ in, and by how much
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
@@ -66,6 +73,9 @@ const surface = () => ev(`(() => { const cv = document.getElementById('canvasL')
 // the pixels bare (saturation SAT or less: floor or paper) in the kept frame tag where the kept frame ref shows
 // surface: n; reverse: the other way round
 const gap = (tag, ref) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(tag)}], B = window.__heldPx[${JSON.stringify(ref)}]; const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${SAT}; const W = document.getElementById('canvasL').width; let n = 0, reverse = 0, x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (let i = 0; i < A.length; i += 4) { const a = sat(A, i), b = sat(B, i); if (b && !a) { n++; const p = i / 4, x = p % W, y = (p - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } if (a && !b) reverse++; } return { n, reverse, box: n ? [x0, x1, y0, y1] : null }; })()`);
+// the pixels of the kept frame tag darker than the kept frame ref by more than SHADE_TOL in every channel, where both
+// show surface (saturation over SAT), and their box
+const shaded = (tag, ref) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(tag)}], B = window.__heldPx[${JSON.stringify(ref)}]; const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${SAT}; const W = document.getElementById('canvasL').width; let n = 0, x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (let i = 0; i < A.length; i += 4) { if (!sat(A, i) || !sat(B, i) || !(A[i] < B[i] - ${SHADE_TOL} && A[i + 1] < B[i + 1] - ${SHADE_TOL} && A[i + 2] < B[i + 2] - ${SHADE_TOL})) continue; n++; const p = i / 4, x = p % W, y = (p - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } return { n, box: n ? [x0, x1, y0, y1] : null }; })()`);
 const carried = async () => JSON.parse(await ev('JSON.stringify((({ u, s, copies, copyAlpha }) => ({ u, s, copies, copyAlpha }))(__cmwLandCarry() || {}))'));
 // where the kept frames A and P differ (a copy shows, over COPY_SHOWS in a channel): the share of those pixels of the
 // kept frame F more than BLEND_TOL from (A + P) / 2
@@ -130,10 +140,33 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     const g = r[`seam ${u}`] = { seams: await gap(`s${u}`, 'pb'), none: await gap(`ns${u}`, 'pb'), slit: await gap(`ns${u}`, `s${u}`) };
     ok(`${name}, u = ${u}: the seams' surfaces only add surface (at most ${SEAM_GAP} px bare that the frame without them covers)`, g.slit.reverse <= SEAM_GAP, g);
     ok(`${name}, u = ${u}: the control, without them: the slit along the seam, at least ${SLIT_MIN} px bare where the frame with them has surface`, g.slit.n >= SLIT_MIN, g);
-    if (u !== 0.5) ok(`${name}, u = ${u}: against plane ${b} parked, the frame with the seams is bare at most ${GAP_SHARE} as often as without them`, g.seams.n <= GAP_SHARE * g.none.n, g);
+    if (u !== 0.5) {
+      ok(`${name}, u = ${u}: against plane ${b} parked, the frame with the seams is bare at most ${GAP_SHARE} as often as without them`, g.seams.n <= GAP_SHARE * g.none.n, g);
+      g.shaded = await shaded(`ns${u}`, 'pb');
+      ok(`${name}, u = ${u}: without the seams, at most ${SHADE_MAX} px of the surface are shaded darker than plane ${b} parked (more than ${SHADE_TOL} in every channel)`, g.shaded.n <= SHADE_MAX, g.shaded);
+    }
   }
   await ev('__cmwSteps({ glideSeams: 1 }); 1');
   await ev('__cmwSteps({ glideSheets: 0 }); 1');
+}
+// ---- At rest, plane z with the square root's colours (Im √z, torn along the cut): the shading beside the cut ----
+// Across the negative real axis ∂(Im √z)/∂y is 0 (√z is imaginary there), so each piece's slope, and its shading, is the
+// same just beside the cut (y = ±REST_NEAR) as a little further off (±REST_FAR). The median over Re z of how much darker
+// the surface is beside it (the channels' mean) is at most REST_SHADE on the lower piece; the upper piece is the
+// control. (The shading's occlusion reads the heights about a vertex only on its own piece: across the cut, the upper
+// piece's would shade the lower piece's edge)
+{
+  const REST_NEAR = 0.005, REST_FAR = 0.05, r = info.rest = {};
+  await open([ROOT], false, 0);
+  const side = async (s) => JSON.parse(await ev(`(() => { const cv = document.getElementById('canvasL'), k = cv.width / cv.getBoundingClientRect().width, g = cv.getContext('2d');
+    const lum = (x, y) => { const p = __cmwLandSurfacePx(x, y); if (!p) return null; const d = g.getImageData(Math.round(p[0] * k), Math.round(p[1] * k), 1, 1).data; return (d[0] + d[1] + d[2]) / 3; };
+    const ds = [];
+    for (let i = 0; i <= 17; i++) { const x = -(0.1 + 0.02 * i), a = lum(x, ${s} * ${REST_NEAR}), b = lum(x, ${s} * ${REST_FAR}); if (a != null && b != null) ds.push(b - a); }
+    ds.sort((p, q) => p - q);
+    return JSON.stringify({ n: ds.length, median: ds.length ? +ds[ds.length >> 1].toFixed(1) : null, ds: ds.map((d) => +d.toFixed(1)) }); })()`));
+  r.lower = await side(-1); r.upper = await side(1);
+  ok(`at rest, plane z with Im √z: beside the cut the lower piece is no darker than a little off it (median at most ${REST_SHADE})`, r.lower.n >= 14 && r.lower.median <= REST_SHADE, r);
+  ok(`at rest, plane z with Im √z (control): the upper piece beside the cut likewise (median at most ${REST_SHADE})`, r.upper.n >= 14 && r.upper.median <= REST_SHADE, r);
 }
 // ---- Inside regions: an annulus under the square root ----
 {
