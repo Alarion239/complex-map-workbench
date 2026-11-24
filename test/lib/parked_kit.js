@@ -7,8 +7,8 @@
 //   as pending;
 // - GALLERY: the gallery example's name (Newton's map for z³ − 1 repeated 20 times);
 // - loadGallery(max): on a page that is up, the gallery example loaded, waited for at most max ms;
-// - parkInside(max): Inside regions, then plane 1 at once, waited for until the step has landed (at most max ms each):
-//   the caller then waits on PARKED_DRAWN.
+// - parkInside(max, plane = 1): Inside regions, then that plane at once, waited for until the step has landed (at most
+//   max ms each): the caller then waits on PARKED_DRAWN.
 ({ ev, settled, exampleNames }) => {
   const PARKED_DRAWN = "__cmwSteps().ready && __cmwSteps().ready.ready && !(__cmwPaneStatus('L') || { pending: true }).pending";
   const GALLERY = 'Newton’s method for z³ − 1';
@@ -17,9 +17,9 @@
     if (i < 0) throw new Error(`parked_kit: no example named ${GALLERY}`);
     await ev(`__cmwExample(${i}); 1`); await settled({ max, panes: false });
   };
-  const parkInside = async (max) => {
+  const parkInside = async (max, plane = 1) => {
     await ev("__cmwSteps({ scope: 'in' }); 1"); await settled({ max, panes: false });
-    await ev('__cmwSteps({ go: 1, now: true }); 1'); await settled({ max, until: '!__cmwSteps().anim && !__cmwSteps().play' });
+    await ev(`__cmwSteps({ go: ${plane}, now: true }); 1`); await settled({ max, until: '!__cmwSteps().anim && !__cmwSteps().play' });
   };
   return { PARKED_DRAWN, GALLERY, loadGallery, parkInside };
 }
