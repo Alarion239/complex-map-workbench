@@ -21,8 +21,8 @@
   const PICK_SEARCH_MAX = 40;          // the most twins the search lists
   let floorPick = null;                // the lit twins: {sig, k, T, z0, w, zs: [{z, mult}], more}
   // whether the Pick tool picks here: the steps view's flat plane or the Stack (19-stack-pick.js), with the target's plane
-  // past it
-  const pickAvail = () => !!(SV.on && (lFlat() || stackOn()) && svT() > leftStage());
+  // past it, or the Landscape's sheets on a plane past their source plane (19-land-pick.js)
+  const pickAvail = () => !!(SV.on && (((lFlat() || stackOn()) && svT() > leftStage()) || landPickOn()));
   const pickSig = () => `${leftStage()}|${svT()}|${chainSig[nSteps()]}`;
   // the preimages of w on plane k over plane T: {w, zs: [{z, mult}], more} (more: the search may have missed some); exact
   // where the steps have finitely many inverse branches, else a search of the view of at most ms; null where w is not
@@ -128,6 +128,7 @@
   // then the disc about their image; true when it acted
   function pickKey() {
     if (tool !== 'pick' || !pickAvail()) return false;
+    if (landPickOn()) return landPickKey();
     const k = leftStage(), T = svT(), sel = findShape(selected);
     paneL.setView(leftView());
     const b = paneL.box(), z0 = sel && sel.kind === 'point' && shapeStage(sel) === k ? C(sel.p[0], sel.p[1]) : C((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);

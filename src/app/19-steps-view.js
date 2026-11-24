@@ -480,16 +480,11 @@
     if (k <= T) return svPlain(k) ? svLandCarry(to, k, null, 0, k) : undefined;
     return svLandCarry(to, T, k, 1, k);
   }
-  // The value of the height map at the point w of a carried Landscape at rest (render3D's carry with rest set, a plain
-  // plane or one past T), what the probe picks on and reads: a point p of plane s carried to w (carry.map, Newton's
-  // method from the LAND_PICK_SEEDS points of the LAND_PICK_GRID x LAND_PICK_GRID grid over plane s's box src whose images
-  // are nearest w), and p's image in the height plane (carry.hmap). Where sheets cross over w, the one whose height is
-  // highest, the one a ray from above meets first; null where no point of the box is carried to w. The grid is made on
-  // the first call
   const LAND_PICK_GRID = 64, LAND_PICK_SEEDS = 4;
-  function svLandPickF(carry, src) {
-    const F = cpuMap(carry.map), H = cpuMap(carry.hmap), N = LAND_PICK_GRID;
-    if (!F || !H) return () => null;
+  // the seeds for Newton's method toward a point w of a carried Landscape: (w, n) -> the n points p of the LAND_PICK_GRID x
+  // LAND_PICK_GRID grid over plane s's box src whose images F(p) are nearest w (the grid is made on the first call)
+  function svLandSeeds(F, src) {
+    const N = LAND_PICK_GRID;
     let pts = null;
     const grid = () => {
       const out = [];
@@ -499,16 +494,28 @@
       }
       return out;
     };
-    const size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
-    return (w) => {
+    return (w, n) => {
       if (!pts) pts = grid();
       const near = [];
       for (const g of pts) {
         const d = Math.hypot(g.q.re - w.re, g.q.im - w.im);
-        if (near.length < LAND_PICK_SEEDS || d < near[near.length - 1].d) { near.push({ d, p: g.p }); near.sort((x, y) => x.d - y.d); if (near.length > LAND_PICK_SEEDS) near.pop(); }
+        if (near.length < n || d < near[near.length - 1].d) { near.push({ d, p: g.p }); near.sort((x, y) => x.d - y.d); if (near.length > n) near.pop(); }
       }
+      return near.map((g) => g.p);
+    };
+  }
+  // The value of the height map at the point w of a carried Landscape at rest (render3D's carry with rest set, a plain
+  // plane or one past T), what the probe picks on and reads: a point p of plane s carried to w (carry.map, Newton's
+  // method from svLandSeeds' LAND_PICK_SEEDS points), and p's image in the height plane (carry.hmap). Where sheets cross
+  // over w, the one whose height is highest, the one a ray from above meets first; null where no point of the box is
+  // carried to w
+  function svLandPickF(carry, src) {
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap);
+    if (!F || !H) return () => null;
+    const seeds = svLandSeeds(F, src), size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
+    return (w) => {
       let best = null, top = -Infinity;
-      for (const { p } of near) {
+      for (const p of seeds(w, LAND_PICK_SEEDS)) {
         const z = newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size);
         if (!z || z.re < src.x0 || z.re > src.x1 || z.im < src.y0 || z.im > src.y1) continue;
         const v = H(z), h = CX.isFin(v) ? landValue(v) : Infinity;
@@ -516,6 +523,27 @@
       }
       return best;
     };
+  }
+  // The sheets of a carried Landscape at rest on plane k past its source plane s (the pick on its sheets, pickLandSheet):
+  // fibre(w, seeds) -> [{z, v}], every point z of plane s's box src that the carry takes to w, with its image v in the
+  // height plane (carry.hmap). They are the exact preimages where the steps (s, k] have them (exactPre), else Newton's
+  // method from seeds (the points of a nearby w, as a ray's march passes them on) and from the LAND_PICK_FIBRE grid points
+  // whose images are nearest w, one point for points within LAND_PICK_SAME of the box's size. fibre.H is the height map,
+  // fibre.s the plane s
+  const LAND_PICK_FIBRE = 16, LAND_PICK_SAME = 1e-7;
+  function svLandFibreF(carry, src, k) {
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap);
+    if (!F || !H) return null;
+    const grid = svLandSeeds(F, src), size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
+    const inBox = (z) => z && CX.isFin(z) && z.re >= src.x0 && z.re <= src.x1 && z.im >= src.y0 && z.im <= src.y1;
+    const fibre = (w, seeds) => {
+      const ex = exactPre(carry.s, k, [w.re, w.im]), zs = [];
+      const add = (z) => { if (inBox(z) && !zs.some((q) => CX.abs(CX.sub(q, z)) <= LAND_PICK_SAME * size)) zs.push(z); };
+      if (ex) ex.zs.forEach(add);
+      else for (const p of (seeds || []).concat(grid(w, LAND_PICK_FIBRE))) add(newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size));
+      return zs.map((z) => ({ z, v: H(z) }));
+    };
+    return Object.assign(fibre, { H, s: carry.s });
   }
   // a Landscape glide's copies fade in from u = 0 and are whole from u = SV_FADE_END on
   const SV_FADE_END = 0.5;
