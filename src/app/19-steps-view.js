@@ -2747,6 +2747,9 @@
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
+  // the sheet combos the last globe glide frame drew, the principal one counted (svSphereMoving's; null when it carried no
+  // colour), read by the test hooks
+  let svGlobeSheetsRec = null;
   function svSphereMoving(pane, hold = null) {
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
@@ -2766,13 +2769,23 @@
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
     if (rest) { leftSphereInfo = rest; return; }
     // (all at once, the span's steps each at its own time: svSpanPaths)
-    const inv = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
+    const own = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
+    // (the other sheets' copies under it, svGlideSheets, as the plane draws them: each copy's regions made and drawn with
+    // the chain on that copy's sheets (svOnSheets), the farthest from the principal sheet first, so that a nearer sheet is
+    // drawn over a farther one and the principal one over them all)
+    const sheets = own && map.mode === 1 && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+    const copies = sheets.slice().reverse().flatMap((v) => (svOnSheets(v, () => svGlobeCarryInv(pane, b, u, T)) || []).map((r) => Object.assign(r, { around: (draw) => svOnSheets(v, draw) })));
+    const inv = own && copies.length ? copies.concat(own) : own;
     // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
+    // (and its other sheets' copies under it, as the inverse pass's: each copy's mesh made and drawn on its sheets)
+    const meshSheets = carried && !all && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+    const carriedCopies = meshSheets.slice().reverse().map((v) => ({ carried: svOnSheets(v, () => svGlobeMesh(a, T, svGlideMap(bt, src), a + u)), around: (draw) => svOnSheets(v, draw) })).filter((c) => !!c.carried);
+    svGlobeSheetsRec = inv ? sheets.length + 1 : carried ? meshSheets.length + 1 : null;
     let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
-      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
+      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried, carriedCopies } : { carried }));
     if (!inv && !(info && info.carried) && near === b && b !== a) info = sphereView(pane, camL, CAML, look(b));
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
