@@ -222,6 +222,7 @@
     // (the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
     landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
     landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
+    landCarryPlaceS: { chain: true, sheet: true, vs: () => UTIL_V + LAND_CARRY_PLACE_S_TF_VS(), fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
     landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
@@ -1482,9 +1483,13 @@ float wabs(vec2 w) {
   // first ones wait on the JIT: an estimate on the high side). The entry's L is its template size, which drawLines
   // draws it at. null when not even size 1 fits (res.cpuNo then keeps the map and chain, so later frames do not try
   // again), res has no source segments (the chain has evaluated it), or the CPU twin throws. cpuLines keeps the last
-  // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms} (tests: GLR.lineStandIns)
+  // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms, ev (evaluations made)} (tests:
+  // GLR.lineStandIns). The
+  // budget is a time, so the size depends on how fast the machine runs the probe: ?glline=ms (tests) sets it, a large
+  // one fixes the size at M
   const CPU_LINE_MS = 25, CPU_LINE_PROBE = 8, CPU_LINE_LOG = 8, cpuLines = [];
-  const cpuLineNote = (n, m, t0) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1) }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
+  const cpuLineMs = (() => { try { const v = +new URLSearchParams(location.search).get('glline'); return v > 0 ? v : CPU_LINE_MS; } catch (err) { return CPU_LINE_MS; } })();
+  const cpuLineNote = (n, m, t0, ev) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1), ev }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
   function cpuEntry(res, M, map, cpuOf) {
     if (!res.src) return null;
     const want = `${M}|${mapKeyOf(map)}|${cur.key}|${cur.hash}`;
@@ -1492,7 +1497,7 @@ float wabs(vec2 w) {
     if (!res.tf) res.tf = new Map();
     for (const o of res.tf.values()) if (o.cpu && o.want === want) return touch(o);
     const t0 = performance.now(), d = res.src, ox = res.org[0], oy = res.org[1];
-    let F;
+    let F, evals = 0;
     try { F = cpuOf(); } catch (err) { console.error('line stand-in', err); return null; }
     // the values at template size m, or the time per evaluation measured when they would not fit what is left
     const run = (m) => {
@@ -1506,12 +1511,13 @@ float wabs(vec2 w) {
       for (let j = 0, o = 0; j < res.n; j++) {
         const ax = ox + d[j * LSTRIDE], ay = oy + d[j * LSTRIDE + 1], bx = ox + d[j * LSTRIDE + 2], by = oy + d[j * LSTRIDE + 3];
         for (const t of ts) {
+          evals++;
           const w = F({ re: ax + t * (bx - ax), im: ay + t * (by - ay) });
           vals[o++] = w ? w.re : NaN; vals[o++] = w ? w.im : NaN;
         }
-        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > CPU_LINE_MS) {
+        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > cpuLineMs) {
           const now = performance.now(), per = (now - r0) / ((j + 1) * ts.length);
-          if (now - t0 + per * (res.n - j - 1) * ts.length > CPU_LINE_MS) return { per };
+          if (now - t0 + per * (res.n - j - 1) * ts.length > cpuLineMs) return { per };
         }
       }
       return { vals, W, H, P: ts.length };
@@ -1521,12 +1527,12 @@ float wabs(vec2 w) {
       for (;;) {
         got = run(m);
         if (got.vals) break;
-        const left = CPU_LINE_MS - (performance.now() - t0), per = got.per;
+        const left = cpuLineMs - (performance.now() - t0), per = got.per;
         m = [4, 2, 1].find((k) => k < m && res.n * (2 * k + 1) * per <= left);
-        if (!m) { res.cpuNo = want; cpuLineNote(res.n, 0, t0); return null; }
+        if (!m) { res.cpuNo = want; cpuLineNote(res.n, 0, t0, evals); return null; }
       }
     } catch (err) { console.error('line stand-in', err); return null; }
-    cpuLineNote(res.n, m, t0);
+    cpuLineNote(res.n, m, t0, evals);
     const { vals, W, H, P } = got, tex = floatTex();
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, vals);
