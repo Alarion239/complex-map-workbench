@@ -1269,7 +1269,7 @@ vec2 facetW(vec2 w) {
   if (!(wt > 0.0) || ht.y < 0.5) return w;
   float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
   if (uHMode >= 2) {
-    // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
+    // (the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
     float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * linInv(h) : mu * tan(0.5 * PI * hc);
     if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
