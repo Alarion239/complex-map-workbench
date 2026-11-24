@@ -1173,7 +1173,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   let reptMarked = null;
   // The hatch over the marked pixels, then the marks cleared. -> whether the picture's hatch covers any pixel: an occlusion
   // query over the hatch's draw, asked once for a picture (its accumulation entry) and answered, as WebGL answers, by a later
-  // frame, which is asked for (reptKick) and finds the entry's answer; true or false once it is known, else undefined, as for
+  // frame, which is asked for (reptKick) until it finds the entry's answer; true or false once it is known, else undefined, as for
   // an uncacheable picture. null when the frame has no mark pass to hatch or the program is not ready
   function reptHatchFill(dpr) {
     const Q = ok && program('reptHatch');
@@ -1186,7 +1186,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); E.hq = q; reptKick(); }
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     repMarkFrame = -1;
-    if (E && E.hq && gl.getQueryParameter(E.hq, gl.QUERY_RESULT_AVAILABLE)) { E.hatched = !!gl.getQueryParameter(E.hq, gl.QUERY_RESULT); gl.deleteQuery(E.hq); E.hq = null; }
+    if (E && E.hq) {
+      // (a result not there yet asks for another frame, until it is)
+      if (gl.getQueryParameter(E.hq, gl.QUERY_RESULT_AVAILABLE)) { E.hatched = !!gl.getQueryParameter(E.hq, gl.QUERY_RESULT); gl.deleteQuery(E.hq); E.hq = null; } else reptKick();
+    }
     return E ? E.hatched : undefined;
   }
   // the pixels the frame's stencil marks unresolved (a REPT plan's region-mask pass, drawInverse), counted by a read-back
