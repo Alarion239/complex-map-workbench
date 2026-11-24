@@ -10,7 +10,8 @@
 // - a stop on the cap is a stop on the cap: a mesh that ends on budgetMs has spent about the cap's milliseconds;
 // - the deterministic budgets are: a mesh that ends on 'work', 'nodes' or completes is the same mesh at every slowing
 //   that ends so (its nodes, evaluations and triangles), whatever the machine's speed;
-// - the slowing is felt: each mesh's CPU at 6 is at least SLOW_MIN times its CPU at 1.
+// - the slowing is felt: each mesh at 6 has spent at least SLOW_MIN times its CPU at 1, or has ended on the cap (a mesh
+//   that the cap bounds cannot grow by that factor when it is slow already at 1).
 // Nothing asserts which mesh ends on the cap: that depends on the machine, and is what the issue measures.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -49,7 +50,7 @@ for (const tag of Object.keys(MESHES)) {
   const capped = at.filter((e) => e.end === 'budgetMs'), fixed = at.filter((e) => e.end !== 'budgetMs');
   ok(`the ${tag} mesh: one that ends on the ${base.cap} ms cap has spent about its milliseconds (at least ${CAP_SHARE * 100} %)`, capped.every((e) => e.ms >= CAP_SHARE * base.cap), capped);
   ok(`the ${tag} mesh: those that end on a deterministic budget are one mesh (nodes, evaluations, triangles), at every slowing`, fixed.every((e) => e.nodes === fixed[0].nodes && e.work === fixed[0].work && e.n === fixed[0].n), fixed);
-  ok(`the ${tag} mesh's CPU at 6 times is at least ${SLOW_MIN} times its CPU at 1 (the slowing is felt)`, !!base[tag] && !!slow[tag] && slow[tag].ms >= SLOW_MIN * base[tag].ms, { one: base[tag] && base[tag].ms, six: slow[tag] && slow[tag].ms });
+  ok(`the ${tag} mesh at 6 times has spent at least ${SLOW_MIN} times its CPU at 1, or ended on the cap (the slowing is felt)`, !!base[tag] && !!slow[tag] && (slow[tag].ms >= SLOW_MIN * base[tag].ms || slow[tag].end === 'budgetMs'), { one: base[tag] && base[tag].ms, six: slow[tag] && slow[tag].ms, end: slow[tag] && slow[tag].end });
 }
 // (the measure: which mesh ends on the cap at which slowing)
 info.capped = Object.fromEntries(RATES.map((r) => [r, Object.keys(MESHES).filter((t) => info.rates[r][t] && info.rates[r][t].end === 'budgetMs')]));
