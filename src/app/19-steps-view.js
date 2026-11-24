@@ -2609,9 +2609,10 @@
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions: which points of plane k's box are in the carried region set, the set the
-  // plane's 2D picture colours (svMask): {cv, key, box}, a canvas over box (512 pixels on its longer side, row 0 at its
-  // top), opaque inside the set and clear outside; the surface is plain (the Plain material's colour) there. One per
-  // chain, plane, box and shapes; null with the colour everywhere (Everywhere)
+  // plane's 2D picture colours (svMask): {cv, key, box, unres}, a canvas over box (512 pixels on its longer side, row 0
+  // at its top), opaque white inside the set, clear outside, where the surface is plain (the Plain material's colour),
+  // and opaque black at the pixels a REPT plan left unresolved (unres of them), where it draws the no-value hatch. One
+  // per chain, plane, box and shapes; null with the colour everywhere (Everywhere)
   let svLandMaskC = null;
   // (the number of masks drawn while a program of the pass still linked: each one's key is its own, so the surface's
   // texture is uploaded again for it and the next frame draws the mask afresh)
@@ -2639,8 +2640,9 @@
     const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
     const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
     svMask(over, stageMap(k), k, { cc });
-    // (the pixels a REPT plan left unresolved, which the mask cannot show: counted, never read as uncovered unseen)
-    const unres = reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount() : 0;
+    // (the pixels a REPT plan left unresolved: counted, and marked opaque black in the mask, where the surface draws
+    // the no-value hatch (LAND_FS); never read as uncovered)
+    const unres = reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount(cc) : 0;
     // (a pass that left a program linking drew its regions short: the mask is not kept under this key, so the frame
     // that follows the link draws it afresh)
     const linking = !!GLR.frameStatus().pending;
