@@ -4448,17 +4448,12 @@
     const b = $('pathsBtn');
     if (b) syncPathsBtn(b, !!on, b.disabled);
     requestRender('R'); drawLegend(); save();
-    tourEmit('paths-toggled', { on: !!on });
   }
-  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
+  // one after another <-> all at once; morph.T goes to the end of the new range of t
   function setHomAll(all) {
-    const before = morphLen();
     setOpt('homAll', !!all);
-    const after = morphLen();
-    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
-    else if (!morph.open) morph.T = after;
+    morph.T = morphLen();
     scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
-    tourEmit('order-changed', { all: !!S.homAll });
   }
   function svStepMenu(anchor, k, lp) {
     if (!S.steps[k - 1]) return null;

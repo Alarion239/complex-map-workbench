@@ -13,6 +13,9 @@
 //    the light and the dark theme;
 //  - the key is titled Stack and names the tubes and the critical strands; straight down it does not;
 //  - on a phone (360 × 640) the Stack's Tilt draws the tubes, and M1's label lies inside the plane;
+//  - on a phone with the key open the box fits the room the key leaves: at 360 × 640 (the key under the floor) and at
+//    740 × 360 (the key at the plane's top left) it covers none of M1's floor marks, its lit patches and its critical
+//    point, nor the narrowing's label; straight down, with the key open, the floor is still Look down's plane;
 //  - straight down the tubes are not drawn;
 //  - timing (reported, not gated): a phone's Tilt turn on M3, the CPU slowed 4×, draws the tubes in at most 4 ms a
 //    frame (median) and 8 ms (90th percentile).
@@ -132,6 +135,36 @@ const paneW = await ev(`document.getElementById('overlayL').getBoundingClientRec
 info.phone = { tubes: pT && pT.pieces.length, labels: pT && pT.labels, pane: [paneW, paneH] };
 ok('phone: the Stack\'s Tilt draws the tubes', !!pT && pT.pieces.length === 2, info.phone);
 ok('phone: the narrowing\'s label lies inside the plane', !!pT && pT.labels.length === 1 && !!pT.labels[0].box && pT.labels[0].box[0] >= 0 && pT.labels[0].box[2] <= paneW && pT.labels[0].box[1] >= 0 && pT.labels[0].box[3] <= paneH, info.phone);
+
+// a phone's key, unfolded: the floor's marks (the lit patches, the critical point's cross) and the label against it
+const unfold = async () => {
+  if (await ev(`(() => { const k = document.querySelector('#plotL .ld-key'); return !!k && k.classList.contains('folded'); })()`)) await ev(`document.querySelector('#plotL .ld-key .ld-ttl').click(), 1`);
+  await frames(); await until('true'); await frames();
+};
+// the key's box and the marks' boxes [x0, y0, x1, y1] in the pane's css px, and which of the marks it covers
+const covered = async () => {
+  const key = await ev(`(() => { const o = document.getElementById('overlayL').getBoundingClientRect(), k = document.querySelector('#plotL .ld-key'), r = k.getBoundingClientRect(); return k.classList.contains('folded') ? null : [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; })()`);
+  const T = (await drawn()).tubes, box = (ps) => [Math.min(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[1]))];
+  const marks = T ? [...T.pieces.map((P, i) => ({ mark: `patch ${i}`, box: box(P.loops.flatMap((L) => L.floor.map((q) => q.px))) })), ...T.strands.map((s, i) => ({ mark: `critical point ${i}`, box: [s.from[0] - 5, s.from[1] - 5, s.from[0] + 5, s.from[1] + 5] })), ...T.labels.map((l, i) => ({ mark: `label ${i}`, box: l.box }))] : [];
+  const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+  return { key, marks: marks.length, under: key ? marks.filter((m) => meets(m.box, key)) : null };
+};
+for (const [w, h] of [[360, 640], [740, 360]]) {
+  await open('M1', { w, h, phone: true });
+  await unfold();
+  const c = await covered();
+  info[`key ${w}`] = c;
+  ok(`phone ${w} × ${h}: the open key covers none of M1's floor marks (its lit patches, its critical point) nor the narrowing's label`, !!c.key && c.marks === 4 && c.under.length === 0, c);
+}
+// straight down the box fits the whole pane whatever the key: the Stack's floor is Look down's plane (on the Plane, the
+// key open)
+await open('M1', { w: 360, h: 640, phone: true });
+await ev(`__cmwSteps({ surf: 'plane' }); 1`);
+await until(`__cmwSteps().surf === 'plane' && !!__cmwLookDown()`, 20000);
+await unfold();
+const phTop = (await hooked()) ? await ev(`__cmwStack({ same: { yaw: 0, pitch: ${90 * DEG} } })`) : null;
+info.phoneTop = phTop;
+ok('phone: straight down, with the key open, the Stack\'s floor is pixel-equal to Look down\'s plane', !!phTop && phTop.px > 0 && phTop.main === 0, phTop);
 
 // the tubes' cost a frame while a phone's Tilt turns (M3, the CPU slowed 4×, as the perf suite's phone): reported, not
 // gated (ci/browser_suites.js TIMING)
