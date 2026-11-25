@@ -218,6 +218,7 @@ for (const P of platePlaces) {
   await open('M1', { w: P.w, h: P.h, phone: P.phone });
   if (P.unfold) await unfold();
   if (P.pitch && (await hooked())) {
+    await ev('__cmwStack({ forget: true })');   // (the kept place cleared: the frame at the new camera places the label from its spots alone)
     await ev(`__cmwCam('L', { yaw: ${-30 * DEG}, pitch: ${P.pitch * DEG} }); 1`);
     await until(`(() => { const d = __cmwStack().drawn; return !!d && !!d.tubes && Math.abs(d.camera.pitch - ${P.pitch * DEG}) < 1e-6; })()`, 10000);
     await frames();

@@ -22,7 +22,7 @@
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
   const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
-  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time), picks}
+  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time, and labelMs: their labels' placement time), picks}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
   // On a phone the box fits the plane's room that is left in sight: above the context bar, and beside Look down's key
   // while it is open (above it, right of it or below it, whichever lets the box be largest), STACK_ROOM_GAP css px clear
@@ -325,6 +325,7 @@
   // ({main, over, px}); the pane is drawn again after
   window.__cmwStack = (o) => {
     const cx = (q) => q && [q.re, q.im];
+    if (o && o.forget) { tubeKept.clear(); return true; }   // (tests) no label keeps a place: the next frame places each from its spots alone
     if (o && o.pick) {
       const [x, y] = o.pick, hit = stackPick(paneL, x, y);
       return { floor: hit.floor && { p: hit.floor.p, z: cx(hit.floor.z), on: hit.floor.on }, glass: hit.glass && { p: hit.glass.p, w: cx(hit.glass.w), on: hit.glass.on }, hover: stackPickLevel(paneL, hit, x, y, 'hover'), click: stackPickLevel(paneL, hit, x, y, 'click'), hold: stackPickLevel(paneL, hit, x, y, 'hold') };

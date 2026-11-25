@@ -80,16 +80,18 @@
   // the tubes' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the place and
   // the words on a halo plate. Each label's plate lies inside the room R the box is fitted in ([x0, y0, x1, y1], css px:
   // stackRoom), clear of the labels placed before it and of the marks drawn ([x, y] css px: the tubes', the strands' and
-  // Look down's), counted on a grid of TUBE_CELL px. It takes the first of TUBE_SPOTS beside its dot (the dot at the
-  // plate's end or corner) that is clear, on one line and then on two (broken at the space nearest the middle); where
+  // Look down's), counted on a grid of TUBE_CELL px. It first tries the place it had at the last frame (tubeKept), sliding
+  // within TUBE_NUDGE steps of it where that is blocked; failing that it takes the first of TUBE_SPOTS beside its dot (the dot
+  // at the plate's end or corner) that is clear, on one line and then on two (broken at the space nearest the middle); where
   // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate;
   // where there is none, the spot beside the dot over the fewest marks. Each label's box [x0, y0, x1, y1] (css px, the
   // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it
   const TUBE_SPOTS = ['right', 'left', 'above right', 'above left', 'below right', 'below left'];
   const TUBE_CELL = 4, TUBE_STEP = 6;
-  // A label keeps the place it had at the last frame (an offset of its plate from its dot): where that is blocked it slides to
-  // the nearest clear place within TUBE_NUDGE steps of it in TUBE_NUDGE_DIRS directions, if that stays within TUBE_NEAR plate
-  // heights of its dot, so that it does not hop across the plane as the camera turns. tubeKept: by the label's kind and words
+  // A label that was clear at the last frame (covering no mark) keeps that place (an offset of its plate from its dot): where
+  // it is blocked now it slides to the nearest clear place within TUBE_NUDGE steps of it in TUBE_NUDGE_DIRS directions, if that
+  // stays within TUBE_NEAR plate heights of its dot, so that it does not hop across the plane as the camera turns; a label
+  // that was not clear keeps none. tubeKept: the places kept, by the label's kind and words, the TUBE_KEPT_MAX most recent
   const TUBE_NUDGE = 10, TUBE_NUDGE_DIRS = 8, TUBE_NEAR = 3, TUBE_KEPT_MAX = 8;
   const tubeKept = new Map();
   function drawStackLabels(ctx, labels, fade, R, marks = []) {
