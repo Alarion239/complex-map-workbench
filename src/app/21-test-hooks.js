@@ -320,7 +320,8 @@
   // o.fast its first pass's budget (GLR.setReptFastNodes; 0: its own), o.holdB its second pass held (GLR.holdReptB);
   // o.tileStats: the tile account since the last read (GLR.reptTiles); o.lose: the GL context lost, then restored at
   // the next task (WEBGL_lose_context); o.ci: the first shape's colour index (a look change, the cache's control);
-  // o.land: the Landscape mask's unresolved pixels (null: no mask); o.ws [[re, im]]: the CPU twin of the left plane's
+  // o.land: the Landscape mask's unresolved pixels (null: no mask) and the mask's pixels marked no-value (opaque and
+  // dark, svLandMask); o.ws [[re, im]]: the CPU twin of the left plane's
   // REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the most and the total root
   // solves, the pruned children, and the pixels covered, empty and unresolved
   window.__cmwRept = (o) => {
@@ -340,7 +341,13 @@
       if ('tiles' in o) GLR.setReptTileSolves(o.tiles);
       svLandMaskC = null; requestRender('L', 'R');
     }
-    if (o && o.land) return { unresolved: svLandMaskC ? svLandMaskC.unres : null };
+    if (o && o.land) {
+      if (!svLandMaskC) return { unresolved: null, marked: null };
+      const cv = svLandMaskC.cv, d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+      let marked = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] >= 128 && d[i] < 128) marked++;
+      return { unresolved: svLandMaskC.unres, marked };
+    }
     if (!o || !o.ws) return null;
     const map0 = stageMap(leftStage()), pix = 1 / (paneL.view.s * paneL.dpr), out = [];
     for (const s of S.shapes) {
