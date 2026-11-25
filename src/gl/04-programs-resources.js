@@ -92,7 +92,7 @@
     const p = gl.createProgram();
     e.vs = shader(gl.VERTEX_SHADER, vsSrc); e.fs = shader(gl.FRAGMENT_SHADER, fsSrc);
     gl.attachShader(p, e.vs); gl.attachShader(p, e.fs);
-    if (tf) gl.transformFeedbackVaryings(p, ['tfOut'], gl.INTERLEAVED_ATTRIBS);
+    if (tf) gl.transformFeedbackVaryings(p, Array.isArray(tf) ? tf : ['tfOut'], gl.INTERLEAVED_ATTRIBS);
     gl.linkProgram(p);
     e.p = p;
   }
@@ -141,6 +141,9 @@
   // fragment stage's qualifiers match)
   // (cz: the Cauchy style's variant, CARRY_CAUCHY below)
   const REGION_K_FS = (clip, key, centre, cz) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, !centre, !!cz);
+  // the vertex stage's outputs a carried mesh's capture records, interleaved, 8 floats a vertex (carryCapture): gl_Position;
+  // vP; vKErr; vKDz
+  const CARRY_TF = ['gl_Position', 'vP', 'vKErr', 'vKDz'];
   const PEEL_PROGS = ['regionK', 'regionKC', 'regionKN', 'regionKCN', 'regionKS', 'regionKSclip', 'regionKSCpt', 'regionKSCclippt'];
   const REGION_KM_FS = (key) => () => UTIL + CARRY_MASK_FS(key);
   // chain: the program includes the chain (one per chain structure); the others compile once
@@ -280,7 +283,9 @@ void main() {
   // The carried colour's layers (GLR.carryLayers) order the sheets by the key of each fragment's source point, as the exact
   // pass does (the vertex stage's depth is interpolated across a triangle, so two triangles of one sheet, or two sheets
   // whose keys are a tie order apart, would not compare): each tessellated-mesh program has a variant 'P' that writes it
-  PEEL_PROGS.forEach((n) => { DEFS[n + 'P'] = Object.assign({}, DEFS[n], { fs: REGION_K_FS(/clip/i.test(n), true, /^regionKC?N$/.test(n)) }); });
+  // (the variants of a chain with no cut also record their vertex stage's outputs, CARRY_TF, so carryLayers draws every
+  // pass of a frame from one capture of each mesh: REGION_VS's uReplay)
+  PEEL_PROGS.forEach((n) => { DEFS[n + 'P'] = Object.assign({}, DEFS[n], { fs: REGION_K_FS(/clip/i.test(n), true, /^regionKC?N$/.test(n)) }, DEFS[n].sheet ? {} : { tf: CARRY_TF }); });
   ['regionKSm', 'regionKSCptm'].forEach((n) => { DEFS[n.slice(0, -1) + 'Pm'] = Object.assign({}, DEFS[n], { fs: REGION_KM_FS(true) }); });
   // CARRY_CAUCHY: the carried colour's programs with the Cauchy integral compiled in (name + 'Z'; regionPKZ), drawn only while
   // the style is Cauchy with its residue data (carryCauchyOn): the others have none of CAUCHY_CORE, which FXC would inline
@@ -1234,6 +1239,8 @@ float wabs(vec2 w) {
   function drawPreMapped(res, st) {
     if (!ok || !res || !res.n) return false;
     const sph = !!st.sphere, carry = !!st.carry && !sph;
+    // (carryLayers recording its meshes' vertex stages: a pre-mapped mesh records none, and draws in each pass as before)
+    if (carry && capOn === 1) return true;
     const P = carry ? program(carryCauchyOn(st.carry) ? 'regionPKZ' : 'regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
     // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)

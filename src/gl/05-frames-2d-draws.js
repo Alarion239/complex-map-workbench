@@ -36,7 +36,7 @@
         // every GPU object is gone: forget them and let the app rebuild its meshes
         progs.clear(); tplCache.clear();
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = standInTex = standInKey = ptsTex = rtFbo = null;
-        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
+        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; caps.clear(); capOn = 0; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         reptAccs.clear(); ctxGen++;
         lands.clear(); lastLand = landS = null;
@@ -377,7 +377,8 @@
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
   // (a layer of carryLayers keeps its depth: the next layer reads it)
   // (pass 1 of carryResolve keeps its depth too: pass 2 reads it)
-  function carryDepthEnd() { if (!ok) return; if (!peelOn && resOn !== 1) gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  // (nothing while carryLayers records its meshes: no pass draws then)
+  function carryDepthEnd() { if (!ok || capOn === 1) return; if (!peelOn && resOn !== 1) gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
   // ---- the carried colour's layers (opacity below 1) ----
   // The carried colour shows the front sheet alone (one depth for all meshes). With opacity a < 1 it shows the layers as the
   // exact pass does: carryLayers calls draw once per layer, front to back, into a target of the canvas's size (the layers
@@ -400,7 +401,62 @@
   let halfOK = null;
   const halfOn = () => halfOK ?? (halfOK = !!gl.getExtension('EXT_color_buffer_half_float'));
   let resFrames = 0;   // the frames carryResolve drew (the tests read it: carryResolveFrames)
+  // ---- the carried meshes' captures ----
+  // A frame of carryLayers draws every mesh once a pass (the resolve's pass 1, then each layer), each time the same vertex
+  // stage. So it first draws its meshes with the rasterizer off, each mesh's vertex stage recorded into a buffer of its own
+  // (carryCapture: transform feedback of CARRY_TF), and every pass then draws each mesh from its capture (REGION_VS's
+  // uReplay): the same vertices, so the same fragments. A mesh drawn in more than one pass of its own (a cut: the sheet
+  // program's passes and masks), or by a program that records nothing, draws as without it; carryProbe.noReplay leaves
+  // every mesh so.
+  // capOn: 1 while the frame records, 2 while its passes draw from the captures, 0 outside carryLayers; capGen: the
+  // frame's number (a capture of another frame is never drawn)
+  let capOn = 0, capGen = 0, capT = 0;
+  // the captures, by mesh: { buf, vao (its vertices as attributes 5 and 7), bytes (the buffer's), count (vertices), P, L,
+  // skip (what drew it), gen (its frame) }
+  const caps = new Map();
+  let capN = 0, repN = 0;   // the captures made, and the draws of a pass from one (the tests read them: carryReplays)
+  // (the buffers are kept while frames are layered, and let go CAP_KEEP_MS after the last)
+  const CAP_KEEP_MS = 1500;
+  function capDrop(res) {
+    const c = caps.get(res);
+    if (!c) return;
+    gl.deleteBuffer(c.buf); gl.deleteVertexArray(c.vao); caps.delete(res);
+  }
+  function capFree() {
+    clearTimeout(capT); capT = 0;
+    for (const res of [...caps.keys()]) capDrop(res);
+  }
+  // record mesh res's vertex stage as program P draws it (prepare(): its vertex array bound and P's uniforms set): n
+  // vertices of the template a triangle, inst triangles, into the mesh's buffer (8 floats a vertex, CARRY_TF's order)
+  function carryCapture(res, L, skip, P, n, inst, prepare) {
+    const count = n * inst, bytes = count * 32;
+    let c = caps.get(res);
+    if (c && c.bytes < bytes) { capDrop(res); c = null; }
+    if (!c) {
+      const buf = gl.createBuffer(), vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, bytes, gl.DYNAMIC_COPY);
+      gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 4, gl.FLOAT, false, 32, 0);
+      gl.enableVertexAttribArray(7); gl.vertexAttribPointer(7, 4, gl.FLOAT, false, 32, 16);
+      gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      c = { buf, vao, bytes };
+      caps.set(res, c);
+    }
+    prepare();
+    if (!tfObj) tfObj = gl.createTransformFeedback();
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tfObj);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, c.buf);
+    gl.beginTransformFeedback(gl.TRIANGLES);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, n, inst);
+    gl.endTransformFeedback();
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+    gl.bindVertexArray(null);
+    Object.assign(c, { count, P, L, skip, gen: capGen });
+    capN++;
+  }
   function peelFree() {
+    capFree();
     if (!peel) return;
     gl.deleteFramebuffer(peel.fbo); gl.deleteTexture(peel.col); peel.dep.forEach((t) => gl.deleteTexture(t));
     if (peel.kmin) gl.deleteTexture(peel.kmin);
@@ -536,6 +592,25 @@
     if (peelSeen) n = Math.max(2, Math.min(n, peelSeen + 1));
     const Q = program('carryLayers'), T = Q ? peelTarget(n) : null;
     if (!T) return null;
+    // (each mesh's vertex stage recorded once, with the rasterizer off; the passes below draw from the records)
+    const capture = !carryProbe.noReplay;
+    if (capture) {
+      capGen++; capOn = 1;
+      gl.enable(gl.RASTERIZER_DISCARD);
+      try { draw(); } finally { gl.disable(gl.RASTERIZER_DISCARD); capOn = 2; }
+    }
+    try { return carryPasses(alpha, draw, band, ord, n, Q, T); } finally {
+      capOn = 0;
+      if (capture) {
+        for (const [res, c] of [...caps]) if (c.gen !== capGen) capDrop(res);
+        clearTimeout(capT); capT = setTimeout(capFree, CAP_KEEP_MS);
+        if (capT && capT.unref) capT.unref();   // (node tests: never keeps the process alive)
+      }
+    }
+  }
+  // carryLayers' passes: n layers into target T, each draw() (with band, the resolve's pass 1 first), and their composite
+  // by program Q; -> as carryLayers
+  function carryPasses(alpha, draw, band, ord, n, Q, T) {
     let done = true, nq = null;
     if (band != null) {
       done = resMin(T, band, draw, ord);
@@ -695,8 +770,15 @@
     if (typeof prep === 'boolean') return prep;
     const { L, e, P, fill, fp, full, clip, mask } = prep;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
-    const k = st.key && st.key.win && (peelOn || resOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
+    const k = st.key && st.key.win && (peelOn || resOn || capOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     const sheet = fill || full;
+    // (carryLayers' captures: P's draw of the mesh, with a program that records its vertex stage, not the sheet program's
+    // passes after it. While the frame records, that is all it does; in the passes after, P draws from its capture of this
+    // frame)
+    const n = regionTemplate(L).count;
+    const capable = !!capOn && P !== full && !carryProbe.noKCDraw && Array.isArray(DEFS[P.name] && DEFS[P.name].tf);
+    const cap = capable && capOn === 2 ? caps.get(res) : null;
+    const replay = !!cap && cap.gen === capGen && cap.P === P && cap.L === L && cap.skip === st.skip && cap.count === n * res.n;
     const set = (Q) => {
       use(Q, st.map);
       if (e) bindCache(Q, e);
@@ -708,6 +790,7 @@
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
       if (Q !== mask) carryCauchy(Q, st.carry);
       if (Q === sheet || Q === mask) u1i(Q, 'uKPass', 0);
+      u1i(Q, 'uReplay', replay && Q === P ? 1 : 0);
       if (fp && Q !== P) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex); u1i(Q, 'uFTW', fp.W); u1i(Q, 'uFTP', fp.P); }
     };
     // (pass p of the sheet program Q: its uKPass, and with the point pass, the run that holds that pass's places)
@@ -715,11 +798,17 @@
       set(Q); u1i(Q, 'uKPass', p);
       if (fp && p === 1 && !clip) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex1); }
     };
-    gl.bindVertexArray(meshVAO(res, L, st.skip));
-    const n = regionTemplate(L).count;
+    if (capOn === 1) {
+      if (capable) carryCapture(res, L, st.skip, P, n, res.n, () => { gl.bindVertexArray(meshVAO(res, L, st.skip)); set(P); });
+      return true;
+    }
+    const vao = meshVAO(res, L, st.skip);
+    gl.bindVertexArray(vao);
     set(P);
+    if (replay) repN++;
     // (st.scissors: only inside these rects, as drawRegion's; the depth's clears stay whole)
     const drawAll = () => gl.drawArraysInstanced(gl.TRIANGLES, 0, n, res.n);
+    const drawP = replay ? () => { gl.bindVertexArray(cap.vao); gl.drawArrays(gl.TRIANGLES, 0, cap.count); gl.bindVertexArray(vao); } : drawAll;
     // (the sheet program's passes: 0, every triangle on its centre's sheet; 1, a triangle again on the branch of its
     // first vertex past the cut, for its part there. A clipped cut's program cuts each pass at the cut itself. Another
     // cut's, under the key, draws each pass twice: its mask into the depth alone, the fragments of a torn triangle
@@ -742,10 +831,12 @@
     carryDraw(k, st.depth, () => {
       if (st.behind) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(0, st.behind); }
       // (the map cache's pass; without the cache, P is the sheet program itself, drawn by its passes)
-      if (!carryProbe.noKCDraw && P !== full) scissored(st.scissors, drawAll);
+      if (!carryProbe.noKCDraw && P !== full) scissored(st.scissors, drawP);
       if (sheet) { sheetPass(0); sheetPass(1); }
       if (st.behind) gl.disable(gl.POLYGON_OFFSET_FILL);
     });
+    // (P draws its mesh's own vertices again in any other draw)
+    if (replay) { use(P, st.map); u1i(P, 'uReplay', 0); }
     gl.bindVertexArray(null);
     return true;
   }
@@ -754,7 +845,8 @@
     u1i(Q, 'uKeyOn', k ? 1 : 0);
     u1i(Q, 'uPeelOn', k && peelOn > 1 ? 1 : 0); u1i(Q, 'uPeelD', PEEL_UNIT);
     // (uKRes: the pass, and the frame's rotation's order in pass 2; one vector, as the chain's uniform slots are counted)
-    u2i(Q, 'uKRes', k ? resOn : 0, k && resOn === 2 ? resOrd : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
+    // (a capture records the vertex stage of the resolve's pass 2, whose key's error the stage computes: REGION_VS's uReplay)
+    u2i(Q, 'uKRes', k ? (capOn === 1 ? 2 : resOn) : 0, k && resOn === 2 ? resOrd : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
     u1i(Q, 'uKPos', KPOS_UNIT);
     if (!k) return;
     const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);

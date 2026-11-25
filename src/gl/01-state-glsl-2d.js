@@ -427,6 +427,12 @@ float longest(vec2 a, vec2 b, vec2 c) { return max(max(len2(b - a), len2(c - b))
 float FTon() { int i = gl_InstanceID * uFTP + (gl_VertexID / 3) * 4; return texelFetch(uFT, ivec2(i % uFTW, i / uFTW), 0).w; }
 vec2 FT(int k, out float side) { int i = gl_InstanceID * uFTP + (gl_VertexID / 3) * 4 + k; vec4 v = texelFetch(uFT, ivec2(i % uFTW, i / uFTW), 0); side = v.z; return v.xy; }
 `;
+  // REGION_VS's carry option without a sheet (the carried colour's programs with no cut): uReplay 1 draws the vertices a
+  // capture of this program made (GLR.carryLayers: transform feedback of gl_Position, vP and the key's error, CARRY_TF,
+  // one capture a frame for every pass of the layers), each vertex as captured; the key's error with the resolve's
+  // pass 2 (uKRes.x 2) alone, as the stage computes it
+  const REPLAY_DECL = 'layout(location = 5) in vec4 aRPos;\nlayout(location = 7) in vec4 aRKey;\nuniform int uReplay;\n';
+  const REPLAY = '  if (uReplay == 1) {\n    gl_Position = aRPos; vP = aRKey.xy; vSrc = vec2(0.0); vJac = 0.0;\n    vKErr = uKRes.x == 2 ? aRKey.z : 0.0; vKDz = uKRes.x == 2 ? aRKey.w : 0.0;\n    return;\n  }\n';
   const REGION_VS = (sphere, fetch, o = {}) => glsl`
 layout(location = 0) in vec4 aTpl0;
 layout(location = 1) in vec4 aTpl1;
@@ -444,8 +450,8 @@ ${FETCH(fetch)}
 ${LIFT}
 ${BARY}
 ${VALID}
-${o.sheet ? ON_CENTRE : ''}${o.points ? FILL_PTS_FETCH : ''}void main() {
-  vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
+${o.sheet ? ON_CENTRE : ''}${o.points ? FILL_PTS_FETCH : ''}${o.carry && !o.sheet ? REPLAY_DECL : ''}void main() {
+${o.carry && !o.sheet ? REPLAY : ''}  vec2 s0 = bary(aTpl0.xy), s1 = bary(aTpl0.zw), s2 = bary(aTpl1.xy);
 ${o.sheet && fetch === 'tex' ? glsl`  // (the fill pass after the cached one, its places from the point pass (o.points): a triangle the cached places draw,
   // or a fix-up skips, is culled here (the point pass culled it, FTon), so only a triangle torn across a cut is drawn
   // on its centre's sheet)
