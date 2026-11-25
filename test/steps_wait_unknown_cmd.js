@@ -6,7 +6,7 @@
 // renderer. Every time ▶'s ring is set, the page records it with ▶'s description, data-wait, the animations on its ring's
 // ::before, the angle its glint starts at, and svReady's parts then. In two passes, each on a fresh page: with motion,
 // and with prefers-reduced-motion: reduce. In each:
-// - seen: the ring is set while every counted part (the programs, the jobs, ...) is done and the warm draw is not (the
+// - seen: the ring is set while every counted part (the programs, the jobs) is done and the warm draw is not (the
 //   scene reaches the state; a control);
 // - says: then ▶ is described "Preparing the glide…" alone: no share (17/18 said as a share would be "90 %");
 // - unknown: then the ring's state is unknown (data-wait "unknown"), not busy with a share it does not measure;
@@ -38,9 +38,9 @@ const WATCH = `(() => {
   }).observe(play, { attributes: true, attributeFilter: ['style', 'aria-description', 'data-wait'] });
   return 1;
 })()`;
-// (every counted part done: the parts with something counted inside them, not marked whole, the frames ahead aside, as
-// svGateFill reads them)
-const counted = (p) => !!p.programs && Object.entries(p).every(([k, v]) => v.whole || k === 'ahead' || v.done === v.total);
+// (every counted part done: the parts with something counted inside them, not marked whole, as svGateFill reads them; the
+// parts that start only once all else is ready, the inverse programs and the frames ahead, aside)
+const counted = (p) => !!p.programs && Object.entries(p).every(([k, v]) => v.whole || k === 'ahead' || k === 'inverse' || v.done === v.total);
 
 await view(1440, 900, false, false);
 for (const reduced of [false, true]) {

@@ -65,16 +65,19 @@
   // measured: while svReady has no total, and while the counted parts (the programs, the jobs) are done and only parts
   // with nothing counted inside them are left (svReady's whole parts: the warm draw, a REPT draw's tiles, a pane's
   // redraw; on a REPT chain the warm draw's machine code takes seconds, and one unit of eighteen would stand the ring
-  // at 94 %). Unknown, the ring keeps its arc and shows the rest as unknown (svWaitLook). With frames drawn ahead (the
-  // part ahead), which are made only once all else is ready, all else fills the ring up to SV_GATE_PREP_SHARE and the
-  // frames fill what is left of it, from where it stood when they started (g.aheadFrom): from 0 when all else was
-  // ready at once, so that the ring reads the share of the frames made
+  // at 94 %), besides the parts that start only once all else is ready (the inverse programs, svInvWarmNext; the frames
+  // ahead), which wait on those. Unknown, the ring keeps its arc and shows the rest as unknown (svWaitLook). With frames
+  // drawn ahead (the part ahead), which are made only once all else is ready, all else fills the ring up to
+  // SV_GATE_PREP_SHARE and the frames fill what is left of it, from where it stood when they started (g.aheadFrom): from
+  // 0 when all else was ready at once, so that the ring reads the share of the frames made
   function svGateFill(g) {
     const r = svReady(g.M), a = r.parts.ahead;
     if (!r.total) return null;
-    let whole = 0, wholeDone = 0;
-    for (const k in r.parts) if (r.parts[k].whole) { whole += r.parts[k].total; wholeDone += r.parts[k].done; }
-    const counted = r.total - whole - (a ? a.total : 0), countedDone = r.done - wholeDone - (a ? a.done : 0);
+    let whole = 0, wholeDone = 0, counted = 0, countedDone = 0;
+    for (const k in r.parts) {
+      const p = r.parts[k];
+      if (p.whole) { whole += p.total; wholeDone += p.done; } else if (k !== 'ahead' && k !== 'inverse') { counted += p.total; countedDone += p.done; }
+    }
     if (wholeDone < whole && countedDone === counted) return null;
     if (!a) return r.done / r.total;
     const restT = r.total - a.total, restD = r.done - a.done;
