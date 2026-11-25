@@ -6,7 +6,7 @@
 //         formulas of SPEC 12.1 (a)) x random shapes x random view points: a recording program (the production
 //         lib, INV_HEAD and walker, with the IX_RECORD hook) writes the first 8 visited leaves of each test point
 //         (z, range level in px, sqrt|det dz/dw|), the visited / covering counts and the front keys; compared with
-//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl| (+ lvlTol's float32 term for a
+//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + LVL_REL |lvl| (+ lvlTol's float32 term for a
 //         chain with a Complex power step of |alpha| < 1), coverage to 0.03,
 //         the same visited count; |J| to 5e-3 and the keys D to 2e-3 where float32 resolves them (D <= 16 and
 //         1e-15 < |J| < 1e15; the deeper leaves are counted in skipped.deepLeaves). A point is skipped when the CPU's leaf paths change within
@@ -288,15 +288,20 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   const isF = (z) => z && Number.isFinite(z.re) && Number.isFinite(z.im);
   const cabs = (z) => Math.hypot(z.re, z.im);
-  // The level's tolerance in px: 0.05 + 1e-4 |lvl|, and for a chain whose inverse raises to a power 1/|alpha| > 1 (a Complex power
+  // The level's tolerance in px: 0.05 + LVL_REL |lvl|, and for a chain whose inverse raises to a power 1/|alpha| > 1 (a Complex power
   // step with |alpha| < 1) the float32 resolution of the points that power amplifies: (cond - 1) ulps of |w| in the output
   // plane, in px (pix is the px in that plane's units). cond is the product of those 1/|alpha| over the chain; 1 for every other
   // chain, whose tolerance is the plain one. A step that is off (on: false) is no part of the chain. WARP (Direct3D 11's software renderer)
   // gave gaps of 0.43 and 0.44 px at levels of 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): about 85 ulps of
   // w, where SwiftShader's gap is one ulp of the level (6e-5 px)
+  // LVL_REL is 3e-4: WARP's level carries a relative error of up to 2.1e-4 (a gap of 0.123, 0.122 and 0.119 px at levels of 594, 613 and
+  // 599 on a chain with a Complex power step of alpha -0.2+0.8i and a sine: cond 1.2, so no float32 term of the point's position;
+  // about 2^-12, an approximate reciprocal's), and 6e-5 at most on every other chain at levels from 50 px (R.lvlRelTop); SwiftShader's
+  // is one ulp of the level. That leaves a margin of 40 % over what WARP shows
+  const LVL_REL = 3e-4;
   const F32_ULP = 2 ** -23;
   const condTol = (w, pix, cond) => (cond - 1) * F32_ULP * cabs(w) / pix;
-  const lvlTol = (cl, w, pix, cond) => 0.05 + 1e-4 * Math.abs(cl) + condTol(w, pix, cond);
+  const lvlTol = (cl, w, pix, cond, rel = LVL_REL) => 0.05 + rel * Math.abs(cl) + condTol(w, pix, cond);
   // The coverage's tolerance: 0.03, and the same float32 term of the chain's conditioning: a coverage is 0.5 + s, s the signed distance
   // in px (clamped to a ramp of one px), so a point that power moves by that many px moves its coverage by as much. WARP gave a
   // coverage of 0.144 where the CPU's is 0 (s -0.356 and -0.626 px) on the chain with alpha 0.008 (cond 125, pix 3.8e-5, |w| 1.0):
@@ -866,9 +871,27 @@ void main() {
       T.rows.push({ gap, tol, plain });
       if (!(gap <= tol)) T.bad.push(`gap ${gap.toFixed(3)} px is over the allowed ${tol.toFixed(3)} (level ${x.cl.toFixed(1)})`);
       if (!(gap > plain)) T.bad.push(`gap ${gap.toFixed(3)} px is inside the plain ${plain.toFixed(3)}: the control is not one`);
-      if (plain !== 0.05 + 1e-4 * x.cl) T.bad.push('the plain rule is not 0.05 px + 1e-4 |lvl|');
+      if (plain !== 0.05 + LVL_REL * x.cl) T.bad.push('the plain rule is not 0.05 px + LVL_REL |lvl|');
     }
     if (T.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the level tolerance', bad: T.bad }); }
+    // the relative term: WARP's gaps on rand#293 (powa alpha -0.2+0.8i, cut -180, k 2, then sin; cond 1.2) are inside the rule, a relative
+    // term of 1e-4 would reject each (control), and the chain's cond is that of its one Complex power step
+    {
+      const RST = [St('powa', { alpha: '-0.2+0.8i', cut: -180, k: 2 }), St('sin')];
+      const RW = [{ cl: 594.060087995721, gpu: 593.9370727539062, w: C(0.002301099942997098, 0.0002299902553204447) },
+        { cl: 612.7878044702512, gpu: 612.6654663085938, w: C(0.002347341738641262, 0.00024375616339966655) },
+        { cl: 599.6108177936732, gpu: 599.491455078125, w: C(0.0023365896195173264, -0.0004958044155500829) }];
+      const RPIX = 0.000007426896998895231, rcond = condOf(RST, RST.map(Funcs.build));
+      const Q = R.relCheck = { cond: rcond, rows: [], bad: [] };
+      if (!(Math.abs(rcond - 1 / Math.hypot(-0.2, 0.8)) < 1e-9)) Q.bad.push(`cond of the powa and sin chain ${rcond}, not 1 / |alpha|`);
+      for (const x of RW) {
+        const gap = Math.abs(x.gpu - x.cl), tol = lvlTol(x.cl, x.w, RPIX, rcond), early = lvlTol(x.cl, x.w, RPIX, rcond, 1e-4);
+        Q.rows.push({ gap, tol, early });
+        if (!(gap <= tol)) Q.bad.push(`gap ${gap.toFixed(3)} px is over the allowed ${tol.toFixed(3)} (level ${x.cl.toFixed(1)})`);
+        if (!(gap > early)) Q.bad.push(`gap ${gap.toFixed(3)} px is inside ${early.toFixed(3)}, the rule with 1e-4: the control is not one`);
+      }
+      if (Q.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the level tolerance, relative term', bad: Q.bad }); }
+    }
     // the coverage: WARP's gap of 0.144 (rand#172: powa alpha 0.008, cut 90, k 2, w 1.00916 + 0.104549i, pix 3.8105e-5) is inside its chain's
     // rule, the plain 0.03 would have rejected it (control), and a chain with no Complex power step keeps 0.03
     const CV = { w: C(1.0091607570648193, 0.10454882681369781), pix: 0.0000381050351823579, gpu: 0.144, cpu: 0 };
