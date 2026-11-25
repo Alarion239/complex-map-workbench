@@ -31,9 +31,9 @@ const MIN_HITS = 20;          // the grid's pixels where the pick meets a sheet,
 const NEAR_PX = 12;           // css px: twins' rings nearer than this are drawn as one (LAND_PICK_NEAR, twice PICK_RING)
 const HOLD_WAIT = 4000;
 const HINTS = {
-  en: { chip: 'Click to pick · hold and slide to read', phone: 'Tap to pick · hold and slide to read · drag to orbit', off: ['Drawing is off', 'Draw in X → Y (1)'] },
-  ru: { chip: 'Щелчок выбирает точку · удерживайте и ведите, чтобы прочитать', phone: 'Касание выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает', off: ['Рисуйте в виде X → Y (1)'] },
-  it: { chip: 'Fai clic per scegliere · tieni premuto e scorri per leggere', phone: 'Tocca per scegliere · tieni premuto e scorri per leggere · trascina per ruotare', off: ['Disegna in X → Y (1)'] },
+  en: { chip: 'Click to pick · hold and slide to read', phone: 'Tap to pick · hold and slide to read · drag to orbit · pinch to zoom', off: ['Drawing is off', 'Draw in X → Y (1)'] },
+  ru: { chip: 'Щелчок выбирает точку · удерживайте и ведите, чтобы прочитать', phone: 'Касание выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает · двумя пальцами\u00a0— масштаб', off: ['Рисуйте в виде X → Y (1)'] },
+  it: { chip: 'Fai clic per scegliere · tieni premuto e scorri per leggere', phone: 'Tocca per scegliere · tieni premuto e scorri per leggere · trascina per ruotare · pizzica per lo zoom', off: ['Disegna in X → Y (1)'] },
 };
 const PHONES = [[360, 800], [390, 844]];   // portrait phones, touch: no chip; the readout's hint says the gestures
 const KEY_HIT = 44;            // css px: the folded key's hit area, about its centre       // ms: a held press's twins light within this (the hold is STACK_HOLD_MS, 450)
@@ -107,10 +107,14 @@ ok('the Landscape on w₁ coloured from z picks on its sheets, of plane z', lp0.
 ok('the Pick tool picks here, and its button shows', pk0.avail && pk0.shown, pk0);
 // the plane's hints with the Pick tool on the sheets: the chip says its gestures, and the idle readout says how the camera
 // turns, as with Select, not where to draw (HINTS: en, ru, it)
-const hints = () => ev(`({ chip: (document.getElementById('sphereChipL') || {}).textContent || '', readout: (document.getElementById('leftReadout') || {}).textContent || '' })`);
+// (raw: the text as written, each phrase's spaces no-break; chip and readout with plain spaces, to compare)
+const hints = async () => { const h = await ev(`(() => { const c = document.getElementById('sphereChipL'), r = document.getElementById('leftReadout'); return { chip: (c && c.textContent) || '', readout: (r && r.textContent) || '', over: r ? r.scrollWidth - r.clientWidth : 0 }; })()`); return Object.assign(h, { rawChip: h.chip, rawReadout: h.readout, chip: h.chip.replace(/\u00a0/g, ' '), readout: h.readout.replace(/\u00a0/g, ' ') }); };
+// (each phrase of a hint (between " · ") on one line: no breaking space inside one, but after a comma)
+const whole = (raw, text) => !!text && raw.includes(text.split(' · ').map((q) => q.replace(/([^,]) /g, '$1\u00a0')).join(' · '));
 const hintsOk = (h, l) => !HINTS[l].off.some((t) => h.chip.includes(t) || h.readout.includes(t)) && h.chip.includes(HINTS[l].chip);
 const h0 = await hints();
 ok('choosing the Pick tool on the sheets: the plane says its gestures, and nothing about drawing being off or elsewhere', hintsOk(h0, 'en'), h0);
+ok('the chip keeps each of its phrases on one line (no-break spaces inside them, but after a comma)', whole(h0.rawChip, HINTS.en.chip), h0);
 
 const hits = await grid();
 info.hits = hits.length;
@@ -238,8 +242,9 @@ for (const ph of PHONES) for (const l of ['en', 'ru', 'it']) {
   await open('z^3-1.2z+0.3', l, ph);
   const hl = await hints(), rc = await rects(), at = `${l}, ${ph.join(' × ')}`;
   (info.phone = info.phone || {})[at] = rc;
-  ok(`${at}: no hint chip; the readout's hint says the gestures for a finger, and nothing about drawing elsewhere`, !rc.chip && hl.readout.includes(HINTS[l].phone) && !HINTS[l].off.some((t) => hl.readout.includes(t)), { hl, rc });
+  ok(`${at}: no hint chip; the readout's hint says the gestures for a finger, and nothing about drawing elsewhere`, !rc.chip && hl.readout.includes(HINTS[l].phone.replace(/\u00a0/g, ' ')) && !HINTS[l].off.some((t) => hl.readout.includes(t)), { hl, rc });
   ok(`${at}: the readout keeps clear of the folded key's ${KEY_HIT} px hit area`, !!rc.readout && !meet(rc.readout, hitArea(rc.key)), rc);
+  ok(`${at}: the readout's hint keeps each phrase on one line (but after a comma), inside the readout's box`, whole(hl.rawReadout, HINTS[l].phone) && hl.over <= 1, hl);
 }
 
 const bad = logs(true).filter((e) => e.t === 'EXC' || e.t === 'error');

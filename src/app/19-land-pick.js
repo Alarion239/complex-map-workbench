@@ -26,6 +26,9 @@
   // (the camera's last key, when it changed, and the redraw that waits for it to settle: {key, at, wait})
   let landPickCam = null;
 
+  // a hint of phrases joined by " · ", each kept on one line (its spaces no-break, but after a comma, where a phrase
+  // too long for a phone's readout, as ru «удерживайте и ведите, чтобы прочитать», may break), so a hint wraps between them
+  function landPickPhrases(s) { return s.split(' · ').map((p) => p.replace(/([^,]) /g, '$1\u00a0')).join(' · '); }
   // whether the Pick tool picks on the Landscape's sheets: the steps view's Landscape at rest on a plane past its source
   // plane, whose last frame drew its sheets
   function landPickOn() {
