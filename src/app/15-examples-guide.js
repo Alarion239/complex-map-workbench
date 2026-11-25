@@ -55,7 +55,7 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the point at 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Roots as preimages'), trySv: $t('Try: on w₁, drag the point at 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
       // (the point and the circle on w₁ are shapes of that plane, drawn and dragged there; their preimages show on z)
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }, { kind: 'point', p: [0, 0], stage: 1 }, { kind: 'circle', c: [0, 0], r: 0.6, stage: 1 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
@@ -116,7 +116,7 @@
       steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), trySv: $t('Try: hover near a pole: |Γ| grows without bound.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.mod > 20 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      name: $t('Poles of the Gamma function'), trySv: $t('Try: hover near a pole: |Γ| grows without bound.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.mod > 20 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
@@ -391,12 +391,6 @@
     if (l || r) { setPanels(S.hideLeft || l, S.hideRight || r); return true; }
     return false;
   }
-  function setSolo(which) {
-    if (Views.merged(S.view)) return; // a merged view is one panel: nothing to expand
-    setOpt('solo', S.solo === which ? null : which);
-    applyLayout();
-    save();
-  }
   function applyLayout() {
     const lay = document.querySelector('.layout');
     placeKeys();
@@ -409,24 +403,15 @@
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
     $('toggleRight').setAttribute('aria-pressed', String(!S.hideRight));
     const panes = document.querySelector('.panes');
-    // merged views (merged-views.md): one wide panel, the other pane hidden (on a phone too) and no expand button,
-    // so it reads as a view of its own, not an expanded pane
-    const one = solo(), mg = Views.merged(S.view);
-    panes.classList.toggle('solo-L', one === 'L');
-    panes.classList.toggle('solo-R', one === 'R');
+    // X's pane alone, one wide panel (on a phone too)
+    const mg = Views.merged(S.view);
+    panes.classList.add('solo-L');
     panes.classList.toggle('merged-L', mg === 'L');
     panes.classList.toggle('merged-R', mg === 'R');
-    for (const [id, w] of [['leftSolo', 'L'], ['rightSolo', 'R']]) {
-      const b = $(id);
-      b.hidden = !!mg;
-      b.setAttribute('aria-pressed', String(S.solo === w));
-      b.setAttribute('data-tip', S.solo === w ? $t('Show both planes') : $t('Expand plane')); b.removeAttribute('title');
-      b.innerHTML = S.solo === w ? ICONS.restore : ICONS.expand;
-    }
     syncModeChips();
-    if (mg !== layoutMg || one !== layoutOne) { layoutMg = mg; layoutOne = one; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
+    if (mg !== layoutMg) { layoutMg = mg; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
   }
-  let layoutMg = null, layoutOne = null;
+  let layoutMg;   // (undefined until the first layout, which always resizes the panes)
   // the panes' canvases follow their boxes (the ResizeObserver, and a layout change at once: a merge or a split
   // must not leave a frame, a fit or a mesh to be made at the old width)
   function onPaneResize() {
@@ -435,12 +420,11 @@
     $('paneL').classList.toggle('narrow', $('paneL').getBoundingClientRect().width < 520);
     syncViewControls();
     fitRightTitle();
-    if (a && leftStage() > 0 && leftAuto && solo() !== 'R') { paneL.setView(V.left); fitPane(paneL, leftStage()); }
+    if (a && leftStage() > 0 && leftAuto) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
     if (a || b) {
-      // (a merged view widens one pane: its options strip re-flows at the new width; a hidden pane is not fitted)
+      // (the options strip re-flows at the pane's new width)
       layoutFoot();
       sourceViewChanged();
-      if (rightAuto && rImage() && solo() !== 'L') fitRight();
       requestRender('L', 'R');
       sndRelayout();   // (sound: the plane under a still pointer moved)
     }
@@ -526,7 +510,7 @@
     const refit = !m && exFitKey && exFitKey === JSON.stringify(S.srcView) && EX[currentExample] && EX[currentExample].fit;
     // a shape draft and the probe end with the view they were made in; targets are edited in Y (X → Y only)
     draft = null; probe = null; hoverCut = 0; setReadouts(null);
-    rHover = null; setHoverW(null);
+    setHoverW(null);
     applyLayout();
     if (refit) { exFitTo(EX[currentExample]); paneL.setView(S.srcView); }
     sndRelayout();
@@ -545,7 +529,7 @@
       // targets are drawn and edited in Y Plane; a target draft and a target selection end with it
       // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
       if (draft && draft.target) draft = null;
-      rHover = null; setHoverW(null);
+      setHoverW(null);
       if (autoFit()) { rightAuto = true; fitRight(); }
       buildShapeList();
     } else {
@@ -563,16 +547,14 @@
     btn.title = off ? why : tip;
     note.textContent = off ? why : '';
   }
+  // X's stack: Sphere (not on the Landscape, with the reason) and Fit view, which X's picture always has something to fit
   function syncStackKeys() {
-    for (const side of ['left', 'right']) {
-      const L = side === 'left', sph = $(side + 'Sph');
-      if (!sph) continue;
-      const on = SV.on ? SV.surf === 'sphere' : (L ? xView().surf : S.view.R.surf) === 'sphere';
-      sph.setAttribute('aria-pressed', String(on));
-      sph.innerHTML = MODE_ICONS.sphere;
-      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
-      setStackKey($(side + 'Fit'), $(side + 'FitWhy'), !L && !rImage(), $t('Nothing to fit yet'), $t('Fit view') + '  Z');
-    }
+    const sph = $('leftSph');
+    if (!sph) return;
+    sph.setAttribute('aria-pressed', String(SV.on ? SV.surf === 'sphere' : xView().surf === 'sphere'));
+    sph.innerHTML = MODE_ICONS.sphere;
+    setStackKey(sph, $('leftSphWhy'), SV.on ? SV.surf === 'land' : lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
+    setStackKey($('leftFit'), $('leftFitWhy'), false, '', $t('Fit view') + '  Z');
   }
   // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
   function stackSphere(side) {

@@ -172,7 +172,7 @@
     // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane')
     const sc = $('sphereChipL');
     if (sc) {
-      const drawing = tool !== 'select' && solo() !== 'R';
+      const drawing = tool !== 'select';
       const where = lLand() ? $t('the landscape') : $t('the Riemann sphere');
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
       let msg = '';
@@ -197,14 +197,6 @@
       } else if (!act && ab) ab.remove();
       sc.classList.toggle('has-act', !!act);
       if (sc.hidden === on) sc.hidden = !on;
-    }
-    const sr = $('sphereChipR');
-    if (sr) {
-      const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
-      const on = tool !== 'select' && solo() !== 'L' && rGlobe() && GLOBE_OFF.has(tool);
-      const msg = on ? $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName }) : '';
-      if (sr.firstChild.textContent !== msg) sr.firstChild.textContent = msg;
-      if (sr.hidden === on) sr.hidden = !on;
     }
     syncGlobeTools();
   }
@@ -232,19 +224,14 @@
     if (!pick && tool === 'pick') setTool('select');
   }
   function renderOverlays() {
-    const showL = solo() !== 'R', showR = solo() !== 'L';
     updateDraftChips();
     updateUndo();
     ctxChanged();
-    if (showL) { paneL.setView(leftView()); paneL.beginOverlay(); }
-    if (showR) {
-      paneR.setView(V.right);
-      paneR.beginOverlay();
-    }
+    paneL.setView(leftView()); paneL.beginOverlay();
     const sphL = !lFlat(); // the sphere, landscape and Stack views of X have no flat overlays
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
     zpHandlesL = [];
-    if (showL && !sphL) {
+    if (!sphL) {
       // (Look down's marks under the handles and the probe)
       drawLookDown(paneL);
       drawCutHandles(paneL, cutHandlesL);
@@ -257,36 +244,14 @@
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
       if (SV.on) drawFloorPick(paneL);
-    } else if (!(showL && stackDrawOverlay(paneL))) syncLookKey(false);
+    } else if (!stackDrawOverlay(paneL)) syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
-    if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
-    if (intPop && showR && rImage() && !trans.k) { paneR.setView(V.right); drawIntHighlight(paneR, null, rangeF(leftStage(), rightStage())); }
-    // the preimages of the hovered point of the right plane
-    if (showL && hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
-    // Image: the w-plane targets are drawn and edited in the right plane like shapes in the domain
-    // the globes' handles, polygon vertices and snap ring (P3b)
-    if (showL && lGlobe() && globeEdit('L')) drawGlobeEdit('L');
-    if (showR && rGlobe() && globeEdit('R')) drawGlobeEdit('R');
-    if (showR && rImage() && targetsEditable()) {
-      paneR.setView(V.right);
-      drawHandles(paneR, S.targets);
-      if (draft && draft.target) drawDraft(paneR);
-      Construct.drawOverlay(paneR, 'R');
-      if (tool !== 'select' && rHover) drawCrosshair(paneR, rHover);
-    }
-    if (showR && rHover && !drag && rImage()) { paneR.setView(V.right); drawProbe(paneR, rHover, TH.probe); }
-    if (showR && rHover && !drag && rGlobe()) drawSphereMark(paneR, rHover);
-    if (showR) sndOverlay();
-    if (probe && showR) {
-      if (rImage() && !trans.k) {
-        paneR.setView(V.right);
-        const F = focusF();
-        if (showL && !sphL && tool === 'select') drawGauge(paneL, paneR, probe, F);
-        drawProbe(paneR, F(probe), TH.probe);
-      }
-    }
-    if (showL && !sphL) drawRulers(paneL, 'L', true);
-    if (showR && rImage()) drawRulers(paneR, 'R', true);
+    if (intPop && !lLand()) drawIntHighlight(paneL, projL);
+    // the preimages of the hovered point w
+    if (hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
+    // the globe's handles, polygon vertices and snap ring (P3b)
+    if (lGlobe() && globeEdit('L')) drawGlobeEdit('L');
+    if (!sphL) drawRulers(paneL, 'L', true);
   }
   // ---- rulers: ticks and labels along the bottom and left edges, plus cursor markers ----
   // Ruler sizes come from a ResizeObserver, never from a layout read per frame, and the static layer (ticks and
@@ -515,7 +480,8 @@
     // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
     const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
-    if (note('L')) setLed('L', 'err', note('L'));
+    // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
+    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
     else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
     setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
@@ -1040,21 +1006,7 @@
     for (const [a, d, gap] of tries) { const r = label(tl, a, d, gap, math12, null, TH.ink2, below); if (r) { names.push(r); break; } }
     ctx.restore();
   }
-  // Y Sphere: the images on the w-globe (the phase globe is X Sphere + Phase, renderSphereLeft)
-  function renderSphere(pane) {
-    // the w-plane targets on the globe (P3b): fills and outlines exactly per pixel (the preimage pass through the identity
-    // map, as in Y Plane), points as marks; a target draft over them
-    const edit = globeEdit('R');
-    const post = [];
-    if (edit && hasTargets()) post.push({ map: IDENT, targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) });
-    const dp = edit ? globeDraftPass('R') : null;
-    if (dp) post.push(dp);
-    sphereView(pane, camS, CAMS, {
-      imageMode: true, stage: rightStage(), plane: !!S.view.R.eq, role: 'R',
-      probeW: probe ? focusF()(probe) : null,
-      post, net: edit ? globeNet() : 'plain', targetPts: edit,
-    });
-  }
+
   // the conjugate lift of z = x + iy onto the Riemann sphere (panels.md 9.0; the GLSL lift in gl.js): 0 at the south
   // pole, infinity at the north pole, and seen from outside the globe keeps the plane's orientation
   function liftC(x, y) {
@@ -1442,7 +1394,7 @@
   let leftSphereInfo = null;   // the left globe's last frame {MVP, eye}: overlays lift their marks onto it
   // (v: a view of the left plane, default its own)
   function leftPaneBox(v = leftView()) {
-    const P = solo() === 'R' ? paneR : paneL;
+    const P = paneL;
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
@@ -1551,7 +1503,6 @@
       $(side + 'ZoomIn').innerHTML = ICONS.plus;
       $(side + 'ZoomOut').innerHTML = ICONS.minus;
       $(side + 'Fit').innerHTML = ICONS.fit;
-      $(side + 'Solo').innerHTML = ICONS.expand;
       $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
       const zb = (f) => () => {
         const sd = side === 'left' ? 'L' : 'R';

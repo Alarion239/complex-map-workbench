@@ -93,8 +93,8 @@ await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: h.x, y: h.y });
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: h.x, y: h.y, button: 'left', clickCount: 1 });
 for (let i = 1; i <= 12; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: h.x - 3 * i, y: h.y + 4 * i, button: 'left', buttons: 1 }); await sleep(16); }
 await settle(250);
-// (the frame held mid-drag is read on the image plane, which the steps view cannot show while a handle of the domain is
-// held: that case is in zp_classic_cmd.js)
+// (the frame held mid-drag would be read on the image plane, which the steps view cannot show while a handle of the domain
+// is held: it is not checked)
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: h.x - 36, y: h.y + 48, button: 'left', clickCount: 1 });
 await settle(400);
 const zz = (await zp()).params.zeros;

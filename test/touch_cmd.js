@@ -80,9 +80,25 @@ const dragH = async (x0, y0, x1, y1, n, dt) => {
   return drag(x0, y0, x1, y1, n, dt);
 };
 const toastText = () => ev(`(document.querySelector('#toastHost .toast > span') || {}).textContent || ''`);
+// the X → Y figure's caption, read on the classic view's figure: X there is the plain picture, which names its shapes,
+// where the steps view's plane is coloured and its caption a phase portrait's. The same scene is reloaded with
+// view=classic (the page reads its view at its load), and the page it was is loaded again after
+const capClassic = async (o) => {
+  const back = await ev('location.href'), u = new URL(back);
+  u.searchParams.set('view', 'classic');
+  await nav(u.toString());
+  // (the page opens in the view the scene saved, which the steps view may have left as Phase or the Sphere: the caption
+  // is read in X → Y on the plane, and that view put back before the page it was is loaded again)
+  const was = await ev('(() => { const v = __cmwState().view; return { main: v.main, surf: v.L ? v.L.surf : null }; })()');
+  await ev(`__cmwSetMain('xy'); __cmwSetView('L', 'plane'); 1`); await settled({ floor: 400 });
+  const c = await ev(`await (async () => { const f = await __cmwFig.build(${JSON.stringify(Object.assign({ view: 'xyL' }, o || { for: 'article', cols: 1 }))}); return f ? f.captionTex : null; })()`, 60000);
+  await ev(`__cmwSetMain(${JSON.stringify(was.main)}); ${was.surf ? `__cmwSetView('L', ${JSON.stringify(was.surf)});` : ''} 1`);
+  await nav(back);
+  return c;
+};
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim())`);
-// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
-// full names become the tile labels, so each suite states the label once)
+// (the chip names its tool in full on the wide plane, X's, in both views; the full names become the tile labels, so each
+// suite states the label once)
 const CHIP_NAMES = [
   ['Circle through 3 points', '3-pt circle'],
   ['Perpendicular circle', 'Perpendicular'],
@@ -92,7 +108,7 @@ const CHIP_NAMES = [
   ['Касающаяся окружность', 'Касание']
 ];
 const chipLabel = async (c) => {
-  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  if (!c) return c;
   const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
   return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
 };
@@ -574,9 +590,7 @@ await section('C', async () => {
   info.ruReason = await rowD(L.id);
   ok('C RU reason (inside)', info.ruReason === 'Точка внутри окружности, поэтому ни одна прямая через неё не касается окружности', info.ruReason);
   await key('z', 4); await settle(300);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
-    return f ? f.captionTex : null;
-    })()`);
+  const capRu = await capClassic();
   info.capRu = capRu;
   ok('C RU caption: «окружность, проходящая через … и касающаяся окружности … в точке …»', /окружность, проходящая через .+ и[ ~]касающаяся окружности .+ в[ ~]точке/.test(capRu || ''), capRu);
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
@@ -688,9 +702,7 @@ await section('D', async () => {
 await section('E', async () => {
   // the six captions, EN and RU (SB: K, the line case, the disc, the outside, the tangent at T, the tangent from P)
   await view(1440, 900, false, false);
-  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
-    return f ? f.captionTex : null;
-    })()`);
+  const cap = () => capClassic();
   await load(NS + 'e1', SB); await settle(900);
   info.capEn = await cap();
   const en = info.capEn || '';
@@ -815,17 +827,14 @@ await section('G', async () => {
   );
   await settle(600);
   const SV = await ev(`document.documentElement.classList.contains('sv')`);
+  // (the steps view's last plane holds the circle; standards-ok: the classic view's case drew a target circle in Y's pane,
+  // not drawn since #994)
+  if (!SV) return;
   const SG = {
-    shapes: [{ id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true }],
-    // (the classic Y pane holds the target circle; the steps view's last plane holds a circle of its own)
-    ...(SV ?
-      {
-        shapes: [
-          { id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true },
-          { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }
-        ]
-      } :
-      { targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }] }),
+    shapes: [
+      { id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true },
+      { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }
+    ],
     steps: [{ type: 'zp', params: { a: '1', zeros: '1.5-1i', poles: '' }, on: true }],
     srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50,
   };
@@ -838,7 +847,7 @@ await section('G', async () => {
   let d = (await CI()).draft;
   ok(
     'G Y: the target circle is picked as the curve',
-    d && d.side === (SV ? 'L' : 'R') && d.curve1 && d.curve1.s === 'tc',
+    d && d.side === 'L' && d.curve1 && d.curve1.s === 'tc',
     d
   );
   const w0 = [-1 - 1.5, -1.5 + 1];   // f₁(z) = z − 1.5 + i
