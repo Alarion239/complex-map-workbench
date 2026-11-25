@@ -74,10 +74,17 @@ const GlyphMatch = (() => {
   }
   // the affine [a, b, c, d, e, f] part way, t, from m to n (each entry in a straight line: a glyph slides and scales)
   const lerpM = (m, n, t) => m.map((v, i) => v + (n[i] - v) * t);
-  // the morph's position for the thread's: an ease in and out, so the glyphs leave and arrive at rest
+  // an ease in and out over 0…1, so what moves or fades leaves and arrives at rest
   const ease = (u) => { const t = Math.min(1, Math.max(0, u)); return t * t * (3 - 2 * t); };
-  // the opacity of a glyph that goes (a's alone: out over the first half) and one that comes (b's alone: in over the second)
-  const fadeOut = (e) => Math.min(1, Math.max(0, 1 - 2 * e)), fadeIn = (e) => Math.min(1, Math.max(0, 2 * e - 1));
-  return { glyphClass, ruleClass, hungarian, match, lerpM, ease, fadeOut, fadeIn };
+  // the morph in three parts of the thread's way u from the first plane to the second, one after another, so what fades
+  // never lies over what moves: the first's glyphs alone fade out (0…OUT), then the pairs move (OUT…IN), then the
+  // second's alone fade in (IN…1). The plane's name's index (w_k's k, another for each plane) changes over in place about
+  // the half (NAME_A…NAME_B), so the name always has one: the old index is at least half there before the half, the new
+  // one after it
+  const OUT = 0.25, IN = 0.75, NAME_A = 0.45, NAME_B = 0.55;
+  const span = (u, a, b) => ease((u - a) / (b - a));
+  const move = (u) => span(u, OUT, IN), fadeOut = (u) => 1 - span(u, 0, OUT), fadeIn = (u) => span(u, IN, 1);
+  const nameOut = (u) => 1 - span(u, NAME_A, NAME_B), nameIn = (u) => span(u, NAME_A, NAME_B);
+  return { glyphClass, ruleClass, hungarian, match, lerpM, ease, move, fadeOut, fadeIn, nameOut, nameIn, OUT, IN, NAME_A, NAME_B };
 })();
 export { GlyphMatch };

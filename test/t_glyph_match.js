@@ -7,7 +7,9 @@
 //   (ij)²=−1 → ijij=−1        i, j, =, − and 1 go to theirs; (, ) and ² go, the other i and j come
 // and: the assignment (hungarian) is the least cost one, against every permutation of random matrices up to 6 x 6; a
 // pair of different classes is never made; two empty lists match to nothing; the classes of MathJax's glyph ids (the
-// per-formula prefix dropped, a delimiter one class whatever its size) and of rules; the ease and the fades.
+// per-formula prefix dropped, a delimiter one class whatever its size) and of rules; the ease; the morph's three parts
+// one after another (what goes fades out, then the pairs move across the middle, then what comes fades in) and the
+// name's index changed over in place about the half.
 // Run: node test/t_glyph_match.js
 const vm = require('vm');
 const src = require('./src_text').source('glyphmatch.js', { esm: 'strip' });
@@ -73,7 +75,11 @@ ok('a delimiter\'s class: its code point, whatever its size', G.glyphClass('#MJX
 ok('a rule\'s class: horizontal or vertical', G.ruleClass(400, 40) === 'ruleH' && G.ruleClass(40, 400) === 'ruleV');
 // (the ease and the fades)
 ok('the ease: 0 and 1 at its ends, ½ at ½, never past them', G.ease(0) === 0 && G.ease(1) === 1 && G.ease(0.5) === 0.5 && G.ease(-1) === 0 && G.ease(2) === 1);
-ok('a glyph that goes is gone by the half, one that comes shows only after it', G.fadeOut(0) === 1 && G.fadeOut(0.5) === 0 && G.fadeIn(0.5) === 0 && G.fadeIn(1) === 1 && G.fadeOut(0.25) === 0.5);
+// (the three parts one after another: what goes is gone before a pair moves, what comes shows only once every pair is home)
+ok('a glyph that goes fades out before the pairs move', G.fadeOut(0) === 1 && G.fadeOut(G.OUT / 2) === 0.5 && G.fadeOut(G.OUT) === 0 && G.move(G.OUT) === 0, [G.fadeOut(G.OUT / 2), G.fadeOut(G.OUT), G.move(G.OUT)]);
+ok('the pairs move across the middle of the way, halfway at the half', G.move(0.5) === 0.5 && G.move(G.IN) === 1 && G.OUT < 0.5 && G.IN > 0.5, [G.move(0.5), G.move(G.IN)]);
+ok('a glyph that comes shows only once the pairs are home', G.fadeIn(G.IN) === 0 && G.fadeIn((G.IN + 1) / 2) === 0.5 && G.fadeIn(1) === 1, [G.fadeIn(G.IN), G.fadeIn(1)]);
+ok('the name\'s index changes over in place: one at least half there at every point', [0, 0.1, 0.3, 0.45, 0.48, 0.5, 0.52, 0.55, 0.7, 1].every((u) => Math.max(G.nameOut(u), G.nameIn(u)) >= 0.5) && G.nameOut(0.4) === 1 && G.nameIn(0.6) === 1);
 ok('the affine part way', JSON.stringify(G.lerpM([1, 0, 0, 1, 0, 0], [2, 0, 0, 2, 10, -4], 0.5)) === JSON.stringify([1.5, 0, 0, 1.5, 5, -2]));
 console.log(`t_glyph_match: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

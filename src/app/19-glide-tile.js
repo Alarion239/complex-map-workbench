@@ -7,9 +7,10 @@
   // of the glide does not fit it (SV_TILE_W of the plane's width, the math at its own size), and whenever the thread is
   // on a plane. It pictures what the head already names, and an arrival is spoken by the steps view's live region, so it
   // is hidden from assistive technology and takes no pointer and no focus. Between the two planes the first formula
-  // turns into the second glyph by glyph (#2409): a glyph of one that is a glyph of the other (GlyphMatch.match) slides
-  // and resizes from its place in the first to its place in the second, one only the first has fades out before the
-  // half, one only the second has fades in after it. The frame is the thread's position's alone (svTileMorphAt), so a
+  // turns into the second glyph by glyph (#2409): a glyph only the first has fades out, then a glyph of one that is a
+  // glyph of the other (GlyphMatch.match) slides and resizes from its place in the first to its place in the second,
+  // across the middle of the way, then a glyph only the second has fades in; the plane's name's index changes over in
+  // place about the half. The frame is the thread's position's alone (svTileMorphAt), so a
   // held, dragged or played thread at the same place shows the same frame. Under reduced motion, and where the morph
   // cannot be drawn (a formula not typeset as SVG, or one too wide for the tile), the two change over at the half instead,
   // only the formula shown taking room in the tile: while the glide moves, the first fades out before the half and the
@@ -92,10 +93,12 @@
       if (g.kind === 'use') { e.setAttribute('href', g.href); if (g.c) e.setAttribute('data-c', g.c); } else { e.setAttribute('width', '1'); e.setAttribute('height', '1'); }
       return e;
     };
-    const parts = [];
-    for (const [i, j] of mt.pairs) parts.push({ el: node(A[i]), a: A[i].m, b: B[j].m, fade: 0 });
-    for (const i of mt.gone) parts.push({ el: node(A[i]), a: A[i].m, b: A[i].m, fade: -1 });
-    for (const j of mt.come) parts.push({ el: node(B[j]), a: B[j].m, b: B[j].m, fade: 1 });
+    // (each part's role: a pair, a glyph of the first alone ('out'), of the second alone ('in'), or the name's index of
+    // either ('nameOut', 'nameIn'))
+    const named = (g) => g.k.startsWith('name:'), parts = [];
+    for (const [i, j] of mt.pairs) parts.push({ el: node(A[i]), k: A[i].k, a: A[i].m, b: B[j].m, role: 'pair' });
+    for (const i of mt.gone) parts.push({ el: node(A[i]), k: A[i].k, a: A[i].m, b: A[i].m, role: named(A[i]) ? 'nameOut' : 'out' });
+    for (const j of mt.come) parts.push({ el: node(B[j]), k: B[j].k, a: B[j].m, b: B[j].m, role: named(B[j]) ? 'nameIn' : 'in' });
     for (const p of parts) root.append(p.el);
     const box = document.createElement('mjx-container');
     box.className = 'MathJax'; box.setAttribute('jax', 'SVG');
@@ -109,16 +112,15 @@
     svTileMorphs.set(key, mo);
     return mo;
   }
-  // the morph's frame for the thread u of the way from the first plane to the second (eased, GlyphMatch.ease): each
-  // pair's affine part way, the first's glyphs alone fading out, the second's in
+  // the morph's frame for the thread u of the way from the first plane to the second, in GlyphMatch's three parts: the
+  // first's glyphs alone fade out, then each pair moves from its place in the first to its place in the second, then the
+  // second's glyphs alone fade in; the name's index changes over in place about the half
   function svTileMorphAt(mo, u) {
-    const e = GlyphMatch.ease(u);
+    const t = GlyphMatch.move(u), op = { pair: 1, out: GlyphMatch.fadeOut(u), in: GlyphMatch.fadeIn(u), nameOut: GlyphMatch.nameOut(u), nameIn: GlyphMatch.nameIn(u) };
     for (const p of mo.parts) {
-      p.el.setAttribute('transform', `matrix(${GlyphMatch.lerpM(p.a, p.b, e).map((v) => +v.toFixed(3)).join(' ')})`);
-      const op = p.fade < 0 ? GlyphMatch.fadeOut(e) : p.fade > 0 ? GlyphMatch.fadeIn(e) : 1;
-      p.el.setAttribute('opacity', String(+op.toFixed(3)));
+      p.el.setAttribute('transform', `matrix(${GlyphMatch.lerpM(p.a, p.b, t).map((v) => +v.toFixed(3)).join(' ')})`);
+      p.el.setAttribute('opacity', String(+op[p.role].toFixed(3)));
     }
-    return e;
   }
   // the formula shown for plane k: z, or w_k = the steps through k composed; null when it is longer than the caption's
   // limit (SV_CAP_TEX_MAX) or a step cannot write it
