@@ -5,8 +5,10 @@
   // pane's CSS pixels, every STANDIN_CELLS px, a level at a time: each level is drawn once it is complete, and the next,
   // twice as fine, takes the nodes it shares with it. The phase globe's program (sphereP) has the same stand-in over
   // a longitude-latitude grid (globeStandIn, GLOBE_STANDIN_NODES: drawSphere's st.standIn), and the Landscape's
-  // (landTF and land) over a grid of the block's box (landStandIn, LAND_STANDIN_NODES: drawLandscape's st.standIn), in the
-  // same job. A stand-in starts once the plot's program has had nothing to draw
+  // (landTF and land; with All sheets, landSheetTF and landSheet: the principal branch stands in for the sheets) over a
+  // grid of the block's box (landStandIn, LAND_STANDIN_NODES: drawLandscape's st.standIn), in the same job. The Landscape of a carried
+  // plane at rest (landCarryStandIn) has the same over plane s's box: each node's place and its value, for the carried draw's programs
+  // (landCarryTF, landCarry). A stand-in starts once the plot's program has had nothing to draw
   // for SM_LINKING_MS, so a quick link never computes one, and it runs in idle slices, none while anything moves: each
   // ends before an evaluation as long as the last would pass STANDIN_SLICE ms (the clock read after each), short of the
   // idle drivers' 6 ms by the collector's pause that the evaluations' garbage can bring into a slice. It spends at most
@@ -31,10 +33,9 @@
   // whether the left pane's plot is still waiting on its program (setColourWaiting)
   function colourStandIn(pane, map, name = 'color') {
     const waited = pane === paneL && !offRender && !artMode && !sideDraw ? GLR.bareMs(map, [name]) : 0;
-    if (pane === paneL) setColourWaiting(waited > 0);
-    if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
+    if (!(waited > SM_LINKING_MS)) { standInStop(); return leftAsked(pane, waited, null); }
     const v = pane.view, vkey = `${v.cx},${v.cy},${v.s},${pane.w},${pane.h}`;
-    return standInOf({ vkey, name, map, x0: v.cx - pane.w / (2 * v.s), y0: v.cy - pane.h / (2 * v.s), s: v.s, w: pane.w, h: pane.h });
+    return leftAsked(pane, waited, standInOf({ vkey, name, map, x0: v.cx - pane.w / (2 * v.s), y0: v.cy - pane.h / (2 * v.s), s: v.s, w: pane.w, h: pane.h }));
   }
   // the stand-in GLR.drawSphere gets with the left pane's colour globe of map (sphereView), drawn by sphereP: as
   // colourStandIn's, over longitude and latitude, whatever the camera
@@ -44,29 +45,52 @@
     return standInOf({ vkey: 'globe', name: 'sphereP', map, globe: true });
   }
   // the stand-in GLR.drawLandscape gets with the left pane's Landscape of map over box (landscapeView), drawn by landTF and
-  // land: F's values over the box, from which the relief and its colour are drawn while they link
-  function landStandIn(pane, map, box) {
-    const names = ['landTF', 'land'], waited = pane === paneL && !offRender && !artMode && !sideDraw && (map.mode || 0) === 0 ? GLR.bareMs(map, names) : 0;
+  // land: F's values over the box, from which the relief and its colour are drawn while they link. With All sheets (sheeted)
+  // it waits on the sheets' programs (landSheetTF, landSheet) and the principal branch stands in for the covering surface
+  function landStandIn(pane, map, box, sheeted) {
+    const names = sheeted ? ['landSheetTF', 'landSheet'] : ['landTF', 'land'], waited = pane === paneL && !offRender && !artMode && !sideDraw && (map.mode || 0) === 0 ? GLR.bareMs(map, names) : 0;
     if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
     return standInOf({ vkey: `land|${box.x0},${box.x1},${box.y0},${box.y1}`, name: 'land', names, map, land: box });
   }
-  // the job's grid for what a stand-in is of (key: the map, vkey: its view; the fields colourStandIn and globeStandIn
-  // give), started when there is none for it: -> the finest level done, else the same map's from an earlier view
+  // the stand-in GLR.drawLandscape's carried frame of plane k at rest (carry, svLandRest) would draw while landCarryTF and
+  // landCarry link: plane s's grid over its box src, each node's place (carry.map, the glide's map from plane s: q) and its value in
+  // the height plane (carry.hmap: w, from which the heights and the colours are drawn), as the carried frame's passes make them
+  // from the same maps; only a plane at rest (a glide's frames are held on their plane and the carry changes with every frame), and
+  // not with All sheets or copies (their programs differ). The grid {nx, ny, w, q}: node (a, b) at 2 (b nx + a), the box's point
+  // a / (nx - 1) across and b / (ny - 1) up; a node whose map is not finite is NaN
+  function landCarryStandIn(pane, carry, src) {
+    const names = ['landCarryTF', 'landCarry'], waited = pane === paneL && !offRender && !artMode && !sideDraw && carry.rest != null && !S.sheets && !(carry.copies && carry.copies.length) ? GLR.bareMs(carry.map, names) : 0;
+    if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
+    return standInOf({ vkey: `carry|${carry.s}|${carry.T}|${carry.hT}|${src.x0},${src.x1},${src.y0},${src.y1}`, name: 'landCarry', names, map: carry.map, hmap: carry.hmap, land: src });
+  }
+  // the job's grid for what a stand-in is of (key: standInKey, the map and a carried frame's height map; vkey: its view; the fields
+  // colourStandIn, globeStandIn, landStandIn and landCarryStandIn give), started when there is none for it: -> the finest level done,
+  // else the same map's from an earlier view
+  // the key of the maps a job evaluates: the map, and with a carried frame's hmap the height map after it
+  const standInKey = (o) => (o.hmap ? `${mapKeyOf(o.map)}|${mapKeyOf(o.hmap)}` : mapKeyOf(o.map));
   function standInOf(o) {
-    const key = mapKeyOf(o.map);
+    const key = standInKey(o);
     let j = standInJob;
     if (!j || j.key !== key || j.vkey !== o.vkey || j.name !== o.name) {
       const prev = j && j.key === key && j.name === o.name ? j.grid || j.prev : null;
       standInStop();
-      j = standInJob = Object.assign({ key, F: cpuMap(o.map), next: null, grid: null, prev, ms: 0, n: 0, slices: 0, firstSlice: 0, maxSlice: 0, end: null, dead: false }, o);
+      j = standInJob = Object.assign({ key, F: cpuMap(o.map), H: o.hmap ? cpuMap(o.hmap) : null, next: null, grid: null, prev, ms: 0, n: 0, slices: 0, firstSlice: 0, maxSlice: 0, end: null, dead: false }, o);
       standInLevel(j, 0);
       standInRun(j);
     }
     return j.grid || j.prev;
   }
+  // the left pane's ask for its plot recorded (colourAsks, colourBlank, the LEDs' colourWaiting) -> its stand-in r
+  function leftAsked(pane, waited, r) {
+    if (pane === paneL) { colourAsks++; colourBlank = waited > 0 && !r; setColourWaiting(waited > 0); }
+    return r;
+  }
   // whether the left pane's colour plot is still waiting on its program (the stand-in draws it meanwhile, or soon will): the
   // left LED stays amber until it is done; a change updates the LEDs
   let colourWaiting = false;
+  // how many times the left pane's colour plot has asked for its program (colourStandIn), and whether at the last ask it
+  // drew nothing (its program still waiting and no stand-in to draw yet): a frame that asked reads colourBlank as its own
+  let colourAsks = 0, colourBlank = false;
   function setColourWaiting(on) {
     if (on === colourWaiting) return;
     colourWaiting = on;
@@ -81,13 +105,17 @@
   // before, every other node across and up, taken from it
   function standInLevel(j, li) {
     const cell = j.globe || j.land ? 0 : STANDIN_CELLS[li], [nx, ny] = standInNodes(j)[li] || [Math.ceil(j.w / cell) + 1, Math.ceil(j.h / cell) + 1];
-    const w = new Float32Array(2 * nx * ny), g = j.grid;
+    const w = new Float32Array(2 * nx * ny), q = j.H ? new Float32Array(2 * nx * ny) : null, g = j.grid;
     if (g) {
       for (let b = 0; b < g.ny && 2 * b < ny; b++) {
-        for (let a = 0; a < g.nx && 2 * a < nx; a++) { const p = 4 * (b * nx + a), q = 2 * (b * g.nx + a); w[p] = g.w[q]; w[p + 1] = g.w[q + 1]; }
+        for (let a = 0; a < g.nx && 2 * a < nx; a++) {
+          const p = 4 * (b * nx + a), r = 2 * (b * g.nx + a);
+          w[p] = g.w[r]; w[p + 1] = g.w[r + 1];
+          if (q) { q[p] = g.q[r]; q[p + 1] = g.q[r + 1]; }
+        }
       }
     }
-    j.next = j.globe || j.land ? { nx, ny, w, li, cell, k: 0 } : { x0: j.x0, y0: j.y0, h: cell / j.s, nx, ny, w, li, cell, k: 0 };
+    j.next = j.globe || j.land ? { nx, ny, w, q, li, cell, k: 0 } : { x0: j.x0, y0: j.y0, h: cell / j.s, nx, ny, w, li, cell, k: 0 };
   }
   // job j's levels' nodes ([across, up] each; none for the plane's, whose levels are cells of STANDIN_CELLS)
   const standInNodes = (j) => (j.globe ? GLOBE_STANDIN_NODES : j.land ? LAND_STANDIN_NODES : STANDIN_CELLS.map(() => null));
@@ -110,7 +138,7 @@
       await yieldTask();
       while (!j.dead && (interacting() || fixBusy())) await yieldNow(60);
       if (j.dead) return;
-      if (mapKeyOf(j.map) !== j.key) { j.dead = true; return; }
+      if (standInKey(j) !== j.key) { j.dead = true; return; }
       if (!(GLR.bareMs(j.map, j.names || [j.name]) > 0)) { j.end = 'linked'; return; }
       const t0 = performance.now();
       let end;
@@ -130,8 +158,11 @@
       while (L.k < n) {
         const k = L.k++, a = k % L.nx, b = (k - a) / L.nx;
         if (L.li && a % 2 === 0 && b % 2 === 0) continue;
-        const z = j.F(standInPoint(j, L, a, b));
+        const p = standInPoint(j, L, a, b);
+        // (a carried frame's: the node's value in the height plane in w, its place in q)
+        const z = j.H ? j.H(p) : j.F(p);
         L.w[2 * k] = z.re; L.w[2 * k + 1] = z.im;
+        if (j.H) { const m = j.F(p); L.q[2 * k] = m.re; L.q[2 * k + 1] = m.im; }
         j.n++;
         const t = performance.now(), last = t - te;
         te = t;

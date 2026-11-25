@@ -168,7 +168,28 @@
   const niceStep = (span, n) => { const raw = span / n, e = Math.floor(Math.log10(raw)), b = raw / 10 ** e; return (b < 1.5 ? 1 : b < 3.5 ? 2 : b < 7.5 ? 5 : 10) * 10 ** e; };
   XD.niceStep = niceStep;
   // one precision per axis, the fewest decimals that represent every tick on it (0.90, 0.95, 1.00); a true minus
-  XD.decimals = (step) => { for (let d = 0; d < 7; d++) if (Math.abs(step * 10 ** d - Math.round(step * 10 ** d)) < 1e-9) return d; return 6; };
+  // (the tolerance is relative to the scaled step, which must reach at least 1: an absolute one read a step below 1e-9 as a whole number.
+  // It is 1e-14 of it, a few ulps of a double's error and below 10^-DEC_MAX, so that a step no count of decimals represents (1/3, pi)
+  // is not taken for one; DEC_MAX decimals are the digits a double keeps for a tick of magnitude one or more; such a step keeps 6)
+  const DEC_MAX = 12, DEC_TOL = 1e-14;
+  XD.decimals = (step) => {
+    if (step === 0) return 0;
+    for (let d = 0; d <= DEC_MAX; d++) { const v = Math.abs(step) * 10 ** d, r = Math.round(v); if (r >= 1 && Math.abs(v - r) <= DEC_TOL * r) return d; }
+    return 6;
+  };
+  // the decimals an axis's ticks ts (a step apart) print with: the step's, and more while two of them would print alike, up to
+  // TICK_DEC_MAX (toFixed's digits that still tell doubles apart)
+  const TICK_DEC_MAX = 15;
+  XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < TICK_DEC_MAX && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
+  // the decimals of an axis that a figure labels itself (the video's axes, the Landscape figure's floor, a filmstrip's reliefs):
+  // XD.tickDec's, for its ticks ts at step; fmt(v, d) is the label the figure prints. While XD.axes is a list (the tests set
+  // it), each axis is recorded there, { name, ticks, step, d, labels }; the video's y axis adds left, the leftmost edge of
+  // the labels it draws (px from the frame's left edge)
+  XD.axisDec = (name, ts, step, fmt = XD.tickTex) => {
+    const d = XD.tickDec(ts, step);
+    if (XD.axes) XD.axes.push({ name, ticks: ts.slice(), step, d, labels: ts.map((v) => fmt(v, d)) });
+    return d;
+  };
   XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
   XD.ticks = (a, b, step) => { const out = []; for (let i = Math.ceil(a / step - 1e-9); i <= Math.floor(b / step + 1e-9); i++) out.push(i * step); return out; };
   // each axis keeps at least two labelled (non-zero) ticks: a narrow panel's short axis gets a finer step of its own
@@ -350,6 +371,8 @@
   XD.mapArrow = (x0, x1, y, labelTex, pt = 9, lw = 0.5, color = '#000') => {
     const L = 4.2;
     let m = `<path d="M${f2(x0)} ${f2(y)}H${f2(x1 - L * 0.6)}" stroke="${color}" stroke-width="${lw}" fill="none"/>` + XD.arrowHead(x1, y, 0, L, color);
+    // (the shaft and the head in the layout's boxes, beside the label's: a check finds what they meet)
+    XD.boxes.push({ kind: 'arrow-line', tex: '', x0, y0: y - lw / 2, x1: x1 - L, y1: y + lw / 2 }, { kind: 'arrow-head', tex: '', x0: x1 - L, y0: y - L * 0.36, x1, y1: y + L * 0.36 });
     if (labelTex) m += XD.at(XD.tex(labelTex, pt, color), (x0 + x1) / 2, y - 2.6, 'middle', 'bottom', 'arrow');
     return m;
   };
@@ -420,8 +443,8 @@
     // axes
     const step = o.step || niceStep(Math.max(box.x1 - box.x0, box.y1 - box.y0), 4);
     const [stX, stY] = XD.axisSteps(box, step);
-    const decX = XD.decimals(stX), decY = XD.decimals(stY);
     const xt = XD.ticks(box.x0, box.x1, stX), yt = XD.ticks(box.y0, box.y1, stY);
+    const decX = XD.tickDec(xt, stX), decY = XD.tickDec(yt, stY);
     const lines = [];
     let out = '';
     if (o.axes === 'box') {
@@ -484,10 +507,15 @@
         if (Math.abs(t) < 1e-12 || minor(t)) continue; const px = X(t); if (px > tipX - ah - 1 || px < x + 1) continue;
         const it = XD.tex(XD.tickTex(t, decX), tp, ink);
         const cands = /** @type {[number, number, string, string][]} */ ([[px, oy + L + 1.2, 'middle', 'top'], [px + 1.2, oy + L + 0.8, 'start', 'top'], [px - 1.2, oy + L + 0.8, 'end', 'top'], [px + 1.2, oy - L - 0.8, 'start', 'bottom']]);
-        // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines)
+        // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines; a place
+        // that starts left of the figure is none: a label centred there slides right just as far as the edge, still over
+        // its tick)
+        const inX = (q) => XD.boxOf(it, ...q).x0 >= 0;
+        const past = -XD.boxOf(it, ...cands[0]).x0;
+        if (past > 0 && past <= it.w / 2) cands[0] = [px + past, oy + L + 1.2, 'middle', 'top'];
         const sl = /** @type {[number, number, string, string][]} */ ([]);
         for (let d = -it.w / 2; d <= it.w / 2; d += 0.25) sl.push([px + d, oy + L + 1.2, 'middle', 'top']);
-        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => clean(it, q, 0.4)) || slide(it, sl) || cands[0]);
+        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => inX(q) && clean(it, q, 0.4)) || slide(it, sl.filter(inX)) || cands.find(inX) || cands[0]);
         out += XD.at(it, ...c, 'tick', under(XD.boxOf(it, ...c))[2] < 240 ? 0.4 : 0);
       }
       for (const t of yt) {
@@ -532,7 +560,7 @@
       out += XD.at(it, .../** @type {[number, number, string, string]} */ (best.q), 'point-label', halo);
     }
     if (o.over) out += o.over(X, Y, { hits, under, overlaps });
-    return { markup: body + out, defs, X, Y, step, xt, yt, lines, hits, under };
+    return { markup: body + out, defs, X, Y, step, xt, yt, labels: { x: xt.map((t) => XD.tickTex(t, decX)), y: yt.map((t) => XD.tickTex(t, decY)) }, lines, hits, under };
   };
 
   XD.bp = (texpt) => texpt * 72 / 72.27;

@@ -13,6 +13,10 @@ const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) 
 const errs = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 const DISC = { id: 's1', kind: 'disc', c: [0, 0], r: 1 };
 const CHAIN = [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }];
+// the surface menu has its four items: the condition alone, with its own cap (the kit's quiet is not asked: a pane still refining
+// would count against the cap, and the read that follows needs only the DOM)
+const MENU_MS = 8000, MENU = `document.querySelectorAll('.pop.menu [role=menuitemradio]').length === 4`;
+const menuThere = (ms = MENU_MS) => settled({ only: true, until: MENU, max: ms });
 // waits until the disc is drawn (a mesh and its lines on the GPU), or ms pass -> its __cmwInfo row
 const drawn = async (ms = 20000) => {
   const t0 = Date.now();
@@ -28,7 +32,7 @@ for (const [lang, w] of [['en', 1440], ['ru', 1440], ['en', 390], ['ru', 390]]) 
   await view(w, phone ? 844 : 900, false, phone);
   // a saved state for this namespace, written from a page of the same origin, then the app with the language forced
   const ns = `smoke-${lang}-${w}-${Date.now()}`;
-  await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
+  await go(`${U}/gl-helpers.html`); await sleep(350);
   const st = { v3: true, v4: true, shapes: [DISC], steps: CHAIN, nextId: 50, focus: 0, rightMode: 'image' };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await logs();
@@ -48,14 +52,22 @@ for (const [lang, w] of [['en', 1440], ['ru', 1440], ['en', 390], ['ru', 390]]) 
   const lay = await ev('__cmwLayout()');
   info[tag] = { layout: lay, drawn: d0 };
   ok(`${tag}: the planes are shown`, lay.shown.length >= 1 && lay.wL + lay.wR > 0, lay);
-  // the surface: the head's one button opens a menu of the three (Plane, Sphere, Landscape); a pick changes the surface
+  // the menu wait does not ask the page's quiet: with the panes held in "refining" for good, the menu opened by the button is there
+  if (tag === 'en 1440') {
+    await ev(`window.__cmwPaneStatusOwn = window.__cmwPaneStatus; window.__cmwPaneStatus = () => ({ pending: false, compiling: false, refining: true }); document.querySelector('#svHead .sv-surf1').click(); 1`);
+    const held = await menuThere(), quiet = await settled({ until: 'true', max: 800 });
+    await ev(`window.__cmwPaneStatus = window.__cmwPaneStatusOwn; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+    ok(`${tag}: the menu wait answers while a pane is held refining (the kit's quiet does not: ${quiet.ok})`, held.ok && !quiet.ok, { held, quiet });
+  }
+  // the surface: the head's one button opens a menu of the four (Plane, Sphere, Landscape, Stack); a pick changes the surface
   for (const [i, surf] of [[1, 'sphere'], [2, 'land'], [0, 'plane']]) {
     const c = await ev(`(() => { const b = document.querySelector('#svHead .sv-surf1'); if (!b) return 'none'; const r = b.getBoundingClientRect(); if (!r.width || !b.offsetParent) { b.click(); return 'js'; } return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
     ok(`${tag}: the head has the surface button`, c !== 'none', c);
     if (Array.isArray(c)) await click(c[0], c[1]);
-    await settled({ until: `document.querySelectorAll('.pop.menu [role=menuitemradio]').length === 3`, max: 4000 });
-    const n = await ev(`(() => { const items = [...document.querySelectorAll('.pop.menu [role=menuitemradio]')]; if (items.length !== 3) return items.length; items[${i}].click(); return 3; })()`);
-    ok(`${tag}: the surface menu has its three`, n === 3, n);
+    const menu = await menuThere();
+    ok(`${tag}: the surface menu came`, menu.ok, menu);
+    const n = await ev(`(() => { const items = [...document.querySelectorAll('.pop.menu [role=menuitemradio]')]; if (items.length !== 4) return items.length; items[${i}].click(); return 4; })()`);
+    ok(`${tag}: the surface menu has its four`, n === 4, n);
     await settle(1200);
     const m = await ev('__cmwSteps().surf');
     ok(`${tag}: the surface menu goes to ${surf}`, m === surf, m);

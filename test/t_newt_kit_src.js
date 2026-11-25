@@ -4,8 +4,9 @@
 // Inverse.homBuilt of Inverse.homOps, as the steps view builds it) is hashed: its library, its walker and its NEWT roots
 // pass's main. The hashes are in test/fixtures/newt_kit_src.json, written by this file with --write; a change to the kit
 // of every op writes them again, and ci/newt_ab.js shows that its programs draw what the base's drew, bit for bit. The
-// chains cover every kind of NEWT op the kit builds: a polynomial one (Aberth), a seeded one (back ops: the inverse
-// Joukowski map), one with a pole member (zeta) and a generic one; the run fails if a kind is missing.
+// chains cover every kind of NEWT op the kit builds: a polynomial one (Aberth; of degree 5 and 6, since degrees 3 and 4
+// are the closed forms' RAT3 and RAT4 ops), a seeded one (back ops: the inverse Joukowski map), one with a pole member
+// (zeta) and a generic one; the run fails if a kind is missing.
 // The Douady-Hubbard map and the Böttcher coordinate are left out: their NEWT ops are the ones that carry the ray.
 // Run: node test/t_newt_kit_src.js [--write]
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
@@ -25,8 +26,8 @@ const St = (type, params = {}) => ({ type, params: Object.assign(Funcs.defaults(
 const custom = (expr) => St('custom', { expr, cut: 180 });
 // [name, steps]
 const CHAINS = [
-  ['cubic', [custom('z^3-2z+1')]],
-  ['quartic', [custom('z^4+z')]],
+  ['quintic', [custom('z^5-2z+1')]],
+  ['sextic', [custom('z^6+z')]],
   ['gamma+1', [custom('gamma(z)+1')]],
   ['sinz/z', [custom('sin(z)/z')]],
   ['cos^2', [custom('cos(z)^2')]],

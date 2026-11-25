@@ -653,7 +653,7 @@ const Expr = (() => {
     const ast = parseOr();
     if (BOUND.size) checkIdx(ast, bound);
     if (peek().t !== 'eof') throw new ParseError(commaHint(src, peek().pos) || $t("Unexpected '{x}'", { x: peek().v ?? peek().src ?? peek().t }), peek().pos);
-    // Russian only (verify-5): a comma between two digits that still reads as two conditions (Re z>0,5<|z| is Re z>0
+    // Russian only: a comma between two digits that still reads as two conditions (Re z>0,5<|z| is Re z>0
     // and 5<|z|) is kept, but a caller that passes opts.notes gets a warning to show under its field
     if (digitComma && opts && Array.isArray(opts.notes)) opts.notes.push($t('A comma between digits separates conditions; write the decimal part with a point'));
     // names not defined yet: one is offered as a new number (e.unknown), two at once are refused (DESIGN.md 1.4)
@@ -694,6 +694,14 @@ const Expr = (() => {
     }
   }
   const kids = (n) => ['a', 'b', 'n', 'lo', 'hi'].map((k) => n[k]).filter((x) => x && typeof x === 'object' && x.t);
+  // the tree ast with each z replaced by the tree by (the composition ast ∘ by), the nodes kept as they are otherwise
+  function substZ(ast, by) {
+    if (!ast || typeof ast !== 'object') return ast;
+    if (ast.t === 'var' && ast.n === 'z') return by;
+    const o = Object.assign({}, ast);
+    for (const k of ['a', 'b', 'n', 'lo', 'hi']) if (o[k] && typeof o[k] === 'object' && o[k].t) o[k] = substZ(o[k], by);
+    return o;
+  }
   const hasT = (n, t) => n.t === t || kids(n).some((x) => hasT(x, t));
   function usesVars(n, set = new Set()) {
     if (n.t === 'var') set.add(n.n);
@@ -876,15 +884,29 @@ const Expr = (() => {
     if (!(p > 1.5) || !(p <= 1.25 * p1)) return null;
     return CX.scale(t, (ak + 0.5) * Math.pow(ak / (ak + 0.5), p) / (p - 1));
   }
+  // (what the sums evaluated so far did: inf, the infinite ones run; out, those that ended NaN without converging: at their
+  // SER_CAP terms with no tail to add, or at a term that overflowed; over, evaluations that took more terms in all than
+  // SER_BUDGET; terms, the terms evaluated, so that a caller can bound its work by what it did, not by the clock; runs, the sums
+  // run (a loop with none inside it is the one that takes the terms); left, the terms the evaluation may still take, Infinity
+  // unless a caller arms it with SER_BUDGET for one value (the page's sample), so no other use of the evaluator is limited. A caller
+  // reads the counts before and after an evaluation. The GPU stops at the same cap, SER_GPU_LOOP, and the same budget,
+  // SER_GPU_TERMS (test/t_sum_caps.js pins that each pair is one number), and is NaN for the same sums, so the points where this
+  // counts are pixels it leaves blank)
+  const SER_BUDGET = 2048;
+  const SUM_STAT = { inf: 0, out: 0, over: 0, terms: 0, runs: 0, left: Infinity };
   function runOne(term, k0, dk, k1, prod, capInf = SER_CAP) {
     let S = prod ? C(1, 0) : C(0, 0), mH = 0, kH = 0, mQ = 0, kQ = 0, A = 0;
     const win = [];
     const infinite = !Number.isFinite(k1);
+    SUM_STAT.runs++;
+    if (infinite) SUM_STAT.inf++;
     const cap = infinite ? capInf : Math.abs(k1 - k0) + 1;
     if (cap > SER_FINITE) return C(NaN, NaN);
     for (let j = 0, k = k0; j < cap; j++, k += dk) {
-      const t = term(k);
-      if (!CX.isFin(t)) return C(NaN, NaN);
+      const runs0 = SUM_STAT.runs, over0 = SUM_STAT.over, t = term(k);
+      SUM_STAT.terms++;
+      if (SUM_STAT.runs === runs0 && --SUM_STAT.left < 0) { SUM_STAT.over++; return C(NaN, NaN); }
+      if (!CX.isFin(t)) { if (infinite && SUM_STAT.over === over0) SUM_STAT.out++; return C(NaN, NaN); }
       S = prod ? CX.mul(S, t) : CX.add(S, t);
       if (!prod) A += CX.abs(t);
       if (!infinite) continue;
@@ -898,7 +920,7 @@ const Expr = (() => {
       if (j === cap - 1) {
         // the rest, added as its integral when the terms fall as a power (a product: its log); kept when it is under a tenth of the sum (its own error is about 1/N of it)
         const r = tailOf(prod ? CX.sub(t, CX.ONE) : t, k, big, mH, kH, mQ, kQ);
-        if (!r || CX.abs(r) > 0.1 * Math.max(ref, 1e-300)) return C(NaN, NaN);
+        if (!r || CX.abs(r) > 0.1 * Math.max(ref, 1e-300)) { SUM_STAT.out++; return C(NaN, NaN); }
         S = prod ? CX.mul(S, CX.exp(r)) : CX.add(S, r);
         return !prod && cancelled(A, S) ? C(NaN, NaN) : S;
       }
@@ -1693,7 +1715,7 @@ const Expr = (() => {
   const hasIter = (n) => hasT(n, 'iter');
   // the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
   const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
-  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
+  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, SER_BUDGET, SUM_STAT, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK, substZ };
 })();
 import { CX } from './cx.js';
 import { Symbolic } from './symbolic.js';

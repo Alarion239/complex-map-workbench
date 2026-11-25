@@ -74,7 +74,7 @@ float ixStopBand(float D) { return IX_STOP_D + ixTieBand(D); }
 #define IX_HASLAM(L) false
 #endif
 uniform vec4 uVp; uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uInvScale;
-uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing[4]; uniform int uSingN; uniform vec2 uSingT;
+uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec3 uSing[4]; uniform int uSingN; uniform vec2 uSingT;
 // uKsat: the front count K of the drawn alpha (uncapped); uKall = 1: every covering candidate counts (the shape's own
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
@@ -104,6 +104,10 @@ uniform vec4 uTint;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
 float ixEdge, ixEdgeC, ixFill;
+// (ixShapePx: the band pass's candidate is where the chain to the shape's plane is not linear over the footprints, its
+// forward and backward differences more than IX_BEND of the larger apart)
+bool ixNonLin;
+const float IX_BEND = 0.25;
 #endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
@@ -139,7 +143,7 @@ vec2 ixClipPiece(vec4 P0, vec4 P1, vec2 z0, vec2 q, float m) {
     float tt = -L0 / cq;
     return cq > 0.0 ? vec2(tt, IX_INF) : vec2(-IX_INF, tt);
   }
-  if (t == 4) {               // v16 'g': {f(z0 + t q) < 2m} relative to the anchor P0.yz; A = P0.w >= 0, B = P1.xy, C = P1.z
+  if (t == 4) {               // 'g': {f(z0 + t q) < 2m} relative to the anchor P0.yz; A = P0.w >= 0, B = P1.xy, C = P1.z
     vec2 u0 = z0 - P0.yz;
     float a = P0.w * qq, b = 2.0 * (P0.w * dot(u0, q) + dot(P1.xy, q));
     float c = P0.w * dot(u0, u0) + 2.0 * dot(P1.xy, u0) + P1.z - 2.0 * m;
@@ -267,7 +271,7 @@ vec3 ixKindLevel(vec2 z) {
     return dm > 0.0 ? vec3(sg * dm, sg * (z - qn) / dm) : vec3(0.0);
   }
   if (kind == 4) return vec3(uShA.z * (z.y - uShA.y) - uShA.w * (z.x - uShA.x), -uShA.w, uShA.z);
-  if (kind == 8) {            // v16 gdisc: -f/2 and its gradient, relative to the anchor uShA.xy (A uShA.z, C uShA.w, B uShB.xy)
+  if (kind == 8) {            // gdisc: -f/2 and its gradient, relative to the anchor uShA.xy (A uShA.z, C uShA.w, B uShB.xy)
     vec2 u = z - uShA.xy;
     return vec3(-0.5 * (uShA.z * dot(u, u) + 2.0 * dot(uShB.xy, u) + uShA.w), -(uShA.z * u + uShB.xy));
   }
@@ -293,6 +297,10 @@ vec3 ixKindLevel(vec2 z) {
 }
 // a formula shape's level with its complement (formulas only: their gradient is taken by central differences)
 float ixFormLevel(vec2 z) { float L = formulaLevel(uFormSlot, z); return uShape.y == 1 ? -L : L; }
+#ifdef IX_STAGED
+// (the shape's level at w on its plane, whose sign is the side of the boundary; a curve's is minus its distance)
+float ixLevelAt(vec2 w) { return uShape.x == 7 ? ixFormLevel(w) : ixKindLevel(w).x; }
+#endif
 void ixFromGrad(float L, float gx, float gy, out float s, out vec2 n) {
   vec2 g = vec2(gx, gy);
   float m = max(abs(gx), abs(gy));
@@ -325,20 +333,24 @@ void ixDirHalf(vec2 d, float th, vec2 dLX, vec2 dLY, float sg, out float s, out 
 }
 #ifdef IX_CARRY
 // the chain's stages (a, b], G = chainRange(., a, b), at z, z + dX and, unless an, z + dY: g0 = G(z), gx = G(z + dX) - g0,
-// gy = G(z + dY) - g0 (0 with an). One chainRange call site, in a loop whose trip count is a uniform: a shader compiler
-// inlines every call, so three calls would hold three copies of the chain (the carried colour's and a later plane's
-// shape's points, ixCarryCol and ixShapePx). IX_CHAIN3_CALLS (SwiftShader, invSources): three calls, as SwiftShader's
-// compiler (Subzero) links the loop some 20 times slower than the three copies
-void ixChain3(vec2 z, vec2 dX, vec2 dY, int a, int b, bool an, out vec2 g0, out vec2 gx, out vec2 gy) {
+// gy = G(z + dY) - g0 (0 with an); with bk also at z - dX and z - dY, the backward differences gbx = g0 - G(z - dX)
+// and gby = g0 - G(z - dY) (gx and gy without: no bend). One chainRange call site, in a loop whose trip count is a
+// uniform: a shader compiler inlines every call, so five calls would hold five copies of the chain (the carried
+// colour's and a later plane's shape's points, ixCarryCol and ixShapePx). IX_CHAIN3_CALLS (SwiftShader, invSources):
+// three calls, as SwiftShader's compiler (Subzero) links the loop some 20 times slower than the three copies; there
+// bk is not taken (no backward differences: two more copies of the chain would add their link time)
+void ixChain3(vec2 z, vec2 dX, vec2 dY, int a, int b, bool an, bool bk, out vec2 g0, out vec2 gx, out vec2 gy, out vec2 gbx, out vec2 gby) {
 #ifdef IX_CHAIN3_CALLS
   g0 = chainRange(z, a, b); gx = chainRange(z + dX, a, b) - g0; gy = an ? vec2(0.0) : chainRange(z + dY, a, b) - g0;
+  gbx = gx; gby = gy;
 #else
-  g0 = vec2(0.0); gx = g0; gy = g0;
-  for (int k = 0; k < 3 * uIxOne; k++) {
-    if (k == 2 && an) break;
-    vec2 g = chainRange(k == 0 ? z : k == 1 ? z + dX : z + dY, a, b);
-    if (k == 0) g0 = g; else if (k == 1) gx = g - g0; else gy = g - g0;
+  g0 = vec2(0.0); gx = g0; gy = g0; gbx = g0; gby = g0;
+  for (int k = 0; k < 5 * uIxOne; k++) {
+    if ((k == 2 && an) || (k >= 3 && !bk)) continue;
+    vec2 g = chainRange(k == 0 ? z : k == 1 ? z + dX : k == 2 ? z + dY : k == 3 ? z - dX : z - dY, a, b);
+    if (k == 0) g0 = g; else if (k == 1) gx = g - g0; else if (k == 2) gy = g - g0; else if (k == 3) gbx = g0 - g; else gby = g0 - g;
   }
+  if (!bk) { gbx = gx; gby = gy; }
 #endif
 }
 #endif
@@ -349,12 +361,36 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   float cs = uShape.y == 1 ? -1.0 : 1.0;
   s = -1e38; n = vec2(0.0);
 #ifdef IX_STAGED
+  ixNonLin = false;
   if (uShStage > 0) {
     // (the shape's level at the point's image on its plane, along the image of the footprints)
     if (!zf) return;
-    vec2 g0, gx, gy;
-    ixChain3(z, dX, dY, 0, uShStage, false, g0, gx, gy);
+    vec2 g0, gx, gy, gbx, gby;
+    bool bk = uEdgeOnly == 1;
+    ixChain3(z, dX, dY, 0, uShStage, false, bk, g0, gx, gy, gbx, gby);
     if (!ixFin(g0) || !ixFin(gx) || !ixFin(gy)) return;
+    // (the band's distance is linear in the footprints' images: where a footprint's forward and backward images differ
+    // by more than IX_BEND of the larger, as about a critical value of the frame's map, whose inverse's footprint
+    // grows without bound, that distance is not the pixel's: the region's sign alone, and no band, invLeaf)
+    ixNonLin = bk && (!ixFin(gbx) || !ixFin(gby) || length(gx - gbx) > IX_BEND * max(length(gx), length(gbx)) || length(gy - gby) > IX_BEND * max(length(gy), length(gby)));
+    if (ixNonLin) {
+      // (unless a boundary crosses the footprint, as where a region's preimages meet at the critical value: its band
+      // stays. The level at the footprint's five images changes sign among them, or for a curve one of them is within
+      // the footprint's reach of it; a level that is not finite keeps the band too). One ixLevelAt call site, in a loop
+      // whose trip count is a uniform, as ixChain3's: each call would hold its own copy of the shape's level code
+      float aq = ixArcQ;   // (a curve's level sets the dash's arc: kept as it was)
+      float lo = 1e38, hi = -1e38;
+      bool fin = true;
+      for (int k = 0; k < 5 * uIxOne; k++) {
+        float l = ixLevelAt(k == 0 ? g0 : k == 1 ? g0 + gx : k == 2 ? g0 - gbx : k == 3 ? g0 + gy : g0 - gby);
+        if (!(abs(l) < 1e37)) fin = false;
+        lo = min(lo, l); hi = max(hi, l);
+      }
+      ixArcQ = aq;
+      float reach = max(max(length(gx), length(gbx)), max(length(gy), length(gby)));
+      bool curve = (uShape.x >= 11 && uShape.x <= 18) || uShape.x == 20;
+      if (!fin || (curve ? hi >= -reach : lo <= 0.0 && hi >= 0.0)) ixNonLin = false;
+    }
     z = g0; dX = gx; dY = gy;
   }
   bool ixOwn = uShStage == 0;
@@ -393,7 +429,8 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|_T)), c W's centre ----
+// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of w_p max(0, log2(rs / |z - p|_T)), c W's centre;
+// uSing[i]: the point p (xy) and its weight w_p (z), Inverse.keyW ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
 // z - p reduced modulo the key's period uSingT (0: none), Inverse's perReduce
 vec2 ixSingD(vec2 z, vec2 p) {
@@ -408,9 +445,9 @@ float ixSheetKey(vec2 z, bool zf, Lf L) {
   float D = log2(1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR);
   for (int i = 0; i < 4; i++) {
     if (i >= uSingN) break;
-    vec2 p = uSing[i];
-    if (IX_HASLAM(L) && L.lam.x < -60.0 && p.x == 0.0 && p.y == 0.0) D += max(0.0, log2(uWinRs) - L.lam.x / IX_LN2);
-    else D += max(0.0, log2(uWinRs / cx_abs(ixSingD(z, p))));
+    vec2 p = uSing[i].xy;
+    if (IX_HASLAM(L) && L.lam.x < -60.0 && p.x == 0.0 && p.y == 0.0) D += uSing[i].z * max(0.0, log2(uWinRs) - L.lam.x / IX_LN2);
+    else D += uSing[i].z * max(0.0, log2(uWinRs / cx_abs(ixSingD(z, p))));
   }
   return D;
 }
@@ -428,10 +465,14 @@ vec2 ixMobT(vec2 u) {
   vec2 num = cmul(uIxStopT[0].xy, u) + uIxStopT[0].zw, den = cmul(uIxStopT[1].xy, u) + uIxStopT[1].zw;
   return vec2(num.x * den.x + num.y * den.y, num.y * den.x - num.x * den.y) / dot(den, den);
 }
-// 2^D of a finite point without the logs (the same order as ixSheetKey)
+// 2^D of a finite point without the logs (the same order as ixSheetKey; a point of weight w raises its factor to w)
 float ixKeyExp(vec2 z) {
   float K = 1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR;
-  for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(ixSingD(z, uSing[i]))); }
+  for (int i = 0; i < 4; i++) {
+    if (i >= uSingN) break;
+    float f = max(1.0, uWinRs / cx_abs(ixSingD(z, uSing[i].xy)));
+    K *= uSing[i].z >= 1.0 ? f : pow(f, uSing[i].z);
+  }
   return K;
 }
 // the Mobius-prefix centre: the smallest key among the u-projection, the member nearest the reference in z and the
@@ -608,7 +649,7 @@ bool ixStopAdd(int j, vec2 p, bool goUp, vec2 umem, float dk) {
     if (dot(umem - uIxStopMob.xy, p) * (goUp ? 1.0 : -1.0) < 0.0) return false;
     vec2 pa = uIxStopMob.zw;
     float r = cx_abs(ixLastZ - pa);
-    float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + (uIxPAccInP > 0.5 ? max(0.0, log2(uWinRs / r)) : 0.0);
+    float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + uIxPAccInP * max(0.0, log2(uWinRs / r));
     return LB > dk + ixStopBand(dk);
   }
 #endif
@@ -630,8 +671,8 @@ bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
       lb = log2(1.0 + ixRayBoxDist(z, za - z, 1.0) / uWinR);
       for (int i = 0; i < 4; i++) {
         if (i >= uSingN) break;
-        float far = max(cx_abs(z - uSing[i]), cx_abs(za - uSing[i]));
-        if (far < uWinRs) lb += log2(uWinRs / far);
+        float far = max(cx_abs(z - uSing[i].xy), cx_abs(za - uSing[i].xy));
+        if (far < uWinRs) lb += uSing[i].z * log2(uWinRs / far);
       }
     }
   }
@@ -654,9 +695,11 @@ float ixChecker(vec2 p, vec2 w) { return 0.5 - 0.5 * ixSq(p.x, w.x) * ixSq(p.y, 
 // vSrc: the source point relative to vQ (0, or near a saturation anchor its pattern-aligned origin: SPEC 13.12)
 // gpA: near a saturation anchor (p != 0), the log-polar cell coordinates relative to the corner nearest to log p (xy)
 // and that corner's integer shift mod 2 (zw); gpA.z = -1 otherwise
+#ifndef IX_CARRY
 vec3 ixPattern(vec2 vSrc, vec2 vQ, vec2 gK, vec4 gpA, vec2 dX, vec2 dY, bool hasLam, vec2 lam, vec2 dLX, vec2 dLY, float vJac) {
 ${PATTERN_SRC('analytic')}  return col;
 }
+#endif
 #if IX_ANC
 // ---- saturation anchors (SPEC 13.12; Inverse.anchorModel / anchorPx): z = p + delta near p = (+-1 - B) / A (tan: +-i).
 // Per anchor a, uAnc[4a..4a+3] = model (type 0 none / 1 sure / 2 cone / 3 circle, its radius m, flag, sgn), geometry
@@ -697,9 +740,10 @@ float ixLog2Det(vec4 J) {
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
 #ifdef IX_CARRY
-  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
-  if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
-#endif
+  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant). Every draw of
+  // the variant sets uPattern 9 (drawInverse), so the variant holds no pattern code
+  return ixPack(ixCarryCol(z, zf, dX, dY));
+#else
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)
   float vJac = uPattern == 7 ? -0.5 * (IX_HASLAM(L) ? 2.0 * L.lam.x / IX_LN2 + ixLog2Det(L.JL) : ixLog2Det(L.J)) : 0.0;
   // an overflowed z (only with Lambda) shades as a far point in its direction: cells too small, the moire average
@@ -708,6 +752,7 @@ highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq,
   vec2 dXs = fin ? dX : vec2(1e30), dYs = fin ? dY : vec2(1e30);
   if (!zf) pv = 1e30 * vec2(cos(L.lam.y), sin(L.lam.y));
   return ixPack(ixPattern(pv, pq, pk, pg, dXs, dYs, phl, plam, dLX, dLY, vJac));
+#endif
 }
 void ixAdmit(float D, vec2 tz, float cv, float ga, float fp, vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
   float q = ixStep(D);
@@ -814,6 +859,9 @@ float invLeaf(Lf L, out bool cov) {
 #ifdef IX_STAGED
   // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
+  // (a footprint over which the chain bends, ixShapePx: in or out by its sign, no band; an anchor's answer, done, is
+  // its own)
+  if (!done && ixNonLin && s > -1e37 && s < 1e37) s = s > 0.0 ? 1e38 : -1e38;
   if (uEdgeOnly == 1 && s == s) {
     float on = 1.0;
     if (uEdgeDash.x > 0.0) {
@@ -827,6 +875,16 @@ float invLeaf(Lf L, out bool cov) {
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
   bool facing = bound && dot(n, lgi) < -0.5;
   float cv = clamp(facing ? min(s, 0.5) + min(L.lvl, 0.5) : min(s, L.lvl) + 0.5, 0.0, 1.0);
+#ifdef IX_REPT
+  // a REPT leaf (ixRepDel >= 0: its chain error, z within it of a true member; Inverse.enumerate's leaf): within
+  // ixRepDel and half a pixel of the region's edge its coverage is known only when ixRepDel is at most REPT_AA_TOL px;
+  // otherwise the leaf is unresolved and covers nothing. A full cover ends the search (the walker's REPT loop)
+  if (ixRepDel >= 0.0) {
+    float dpx = ixRepDel / (ixScale(L.J) * ixPix);
+    if (!(abs(s) > dpx + 0.5) && !(dpx <= IX_REP_AA_TOL)) { ixRepUnres = true; cv = 0.0; }
+    if (cv >= 1.0) ixRepFull++;
+  }
+#endif
   float D = ixSheetKey(z, zf, L);
   cov = cv > 0.0;
   ixLastOk = true; ixLastFin = zf; ixLastD = D; ixLastZ = z;
@@ -848,9 +906,12 @@ float invLeaf(Lf L, out bool cov) {
   // a globe program's pixel is anisotropic: the walk's range levels are converted to pixels along the footprint vectors
   // (GLChain's ixFoot under IX_ANISO; set by INV_MAIN(globe))
   const INV_GLOBE_PRE = '#define IX_ANISO 1\nvec2 ixAwX, ixAwY;\n';
-  // B: compile-time buffer size; globe: Sphere view geometry (P3)
+  // B: compile-time buffer size; globe: Sphere view geometry (P3). A globe program's uOpaqueOnly = 1 discards a pixel the
+  // composite does not cover opaquely, so the pass draws (and marks the stencil) only where it hides everything behind it
+  // (sphereRegions' sheet copies under the principal sheet). Opaque: an alpha that rounds to 255 in the 8-bit target
+  // (a >= 1 - 0.5/255), so what a pass under it would add, at most 1 - a of full scale, is under half a level
   const INV_MAIN = (globe) => glsl`
-${globe ? 'in vec3 vP; uniform vec3 uEye;' : ''}
+${globe ? 'in vec3 vP; uniform vec3 uEye; uniform int uOpaqueOnly;' : ''}
 void main() {
 ${globe ? glsl`  vec3 P = normalize(vP);
   // S = 0, N = infinity, the conjugate lift's inverse w = (P.x - i P.y) / (1 - P.z); near the north pole w = 1 / u
@@ -869,8 +930,27 @@ ${globe ? glsl`  vec3 P = normalize(vP);
 #ifdef IX_STAGED
   ixEdge = 0.0; ixEdgeC = 0.0; ixFill = 0.0;
 #endif
+#ifdef IX_REPT
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
+  if (ixRepKeep()) discard;
+#endif
   invWalk(w);
-${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA, f = ixFill * uTint.a; o = vec4(uEdgeC * l, l) + (vec4(uEdgeCC * cc, cc) + vec4(uTint.rgb * f, f) * (1.0 - cc)) * (1.0 - l); return; }\n#endif\n'}  ixTieOrder();
+${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA, f = ixFill * uTint.a; o = vec4(uEdgeC * l, l) + (vec4(uEdgeCC * cc, cc) + vec4(uTint.rgb * f, f) * (1.0 - cc)) * (1.0 - l); return; }\n#endif\n'}#ifdef IX_REPT
+  // a pixel of a REPT search with no cover and no certified answer (a failed certificate, the node budget, a leaf
+  // unresolved by its chain error): the grey no-value hatch of the plane's colouring (dcolorAt's NaN), opaque, in the
+  // pane's own pixel phase (uIxRepFc: this target's origin in the pane's framebuffer); in a region mask's pass
+  // (uIxRepHatch 1) the mark (1, 0, 0, 0), which no premultiplied colour is: drawInverse's composite turns it into the
+  // stencil mark for the hatch drawn over the masked picture (GLR.reptHatchFill)
+  // a pixel of a first pass whose search did not end: the continue mark (0, 1, 0, 0), no premultiplied colour either,
+  // for the second pass
+  if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
+  if (nCov == 0 && (ixRepFail || ixRepCap || ixRepUnres)) {
+    if (uIxRepHatch == 1) { o = vec4(1.0, 0.0, 0.0, 0.0); return; }
+    o = vec4(nanHatch(gl_FragCoord.xy + uIxRepFc, uDpr), 1.0);
+    return;
+  }
+#endif
+  ixTieOrder();
   float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
@@ -890,6 +970,7 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * u
     if (ixTailInf || uLastOpaque == 1) { C += T * mc; T = 0.0; }
   }
 ${globe ? `  float a = U * (1.0 - T);
+  if (uOpaqueOnly == 1 && a < 1.0 - 0.5 / 255.0) discard;
   if (!(a > 0.0)) { o = vec4(0.0); return; }
   vec3 v = normalize(uEye - vP);
   o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}

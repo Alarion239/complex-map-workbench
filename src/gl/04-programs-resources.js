@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uCEdges: 13, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15,
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uCEdges: 13, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uAcc: 15, uIxRepPrev: 15,
     // (the NEWT roots pass, 07-inverse-api.js: the main inverse program reads uNrTex*, the roots program uNrPrev*; never both)
     uNrTex0: 6, uNrTex1: 7, uNrTex2: 8, uNrTex3: 9, uNrTex4: 10, uNrTex5: 11, uNrPrev0: 6, uNrPrev1: 7, uNrPrev2: 8, uNrPrev3: 9, uNrPrev4: 10, uNrPrev5: 11 };
   // ZETA_LIB's table uLogK of ln k (k = 0 .. 131, four to a uniform row; entry 0 is 1, the mark that it is filled). The GPU draws it once,
@@ -222,13 +222,16 @@
     // (the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
     landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
     landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
+    landCarryPlaceS: { chain: true, sheet: true, vs: () => UTIL_V + LAND_CARRY_PLACE_S_TF_VS(), fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
     landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     landB: { chain: false, vs: () => LAND_B_VS(false), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     // (its all-triangles draw: the stand-in surface while landTF and land link)
     landS: { chain: false, vs: () => LAND_B_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
-    floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS },
+    floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS('map') },
+    // the plate with F's print from the stand-in's grid (no chain: the Landscape's stand-in draws it while the map's programs link)
+    floorS: { chain: false, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS('grid') },
     ulevel: { chain: false, vs: () => ULEVEL_VS, fs: () => ULEVEL_FS },
     probe: { chain: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(false), fs: () => MARK_FS },
     // All sheets (only for chains whose source has chainSheetRange: see sheetPlan)
@@ -249,6 +252,30 @@
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
     carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
     keepA: { chain: false, vs: () => QUAD_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
+    // a REPT draw's accumulation target (drawInverse's reptDraw) into the pane: its pixels (uAccMode 0); the same less
+    // the unresolved marks (1, 0, 0, 0) of a region mask's pass (1); the marks alone, for the stencil (2); the continue
+    // marks (0, 1, 0, 0) alone, for the occlusion query of the second pass's tiles (3). uAccOff: the target's origin in
+    // the framebuffer, device px
+    reptAcc: { chain: false, vs: () => QUAD_VS, fs: () => `uniform highp sampler2D uAcc;
+uniform vec2 uAccOff;
+uniform int uAccMode;
+out vec4 o;
+void main() {
+  vec4 c = texelFetch(uAcc, ivec2(gl_FragCoord.xy - uAccOff), 0);
+  bool m = c.a == 0.0 && c.r > 0.5;
+  if (uAccMode == 3) { if (!(c.r == 0.0 && c.g > 0.5 && c.b == 0.0 && c.a == 0.0)) discard; o = vec4(0.0); return; }
+  if (uAccMode == 2) { if (!m) discard; o = vec4(0.0); return; }
+  if (uAccMode == 1 && m) discard;
+  o = c;
+}
+` },
+    // the grey no-value hatch of dcolorAt's NaN, opaque (GLR.reptHatchFill: over a REPT plan's unresolved pixels)
+    reptHatch: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + `uniform float uDpr;
+out vec4 o;
+void main() {
+  o = vec4(nanHatch(gl_FragCoord.xy, uDpr), 1.0);
+}
+` },
   };
   // The carried colour's layers (GLR.carryLayers) order the sheets by the key of each fragment's source point, as the exact
   // pass does (the vertex stage's depth is interpolated across a triangle, so two triangles of one sheet, or two sheets
@@ -352,7 +379,7 @@ float wabs(vec2 w) {
     } else e.offView = false;
     e.used = ++useClock;
     if (d.chain) e.ch = ch;
-    if (!sideMode) e.side = false;   // a side chain's program that the current chain now uses (an example loaded)
+    if (!sideMode) e.side = false;   // a side chain's program that the current chain uses as well (an example loaded)
     if (e.state === 'pending') {
       // programs without the chain compile once (the 2D view's at init, PRESTART_2D); their first use does not wait
       // either: a synchronous link held the main thread 0.3-1.8 s per program on Direct3D 11 (Iris Xe), ~4 s before
@@ -556,7 +583,7 @@ float wabs(vec2 w) {
   // the lists of the app's background warm-up (the globes' static programs, the Landscape's static ones and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
   const GLOBE_PROGS = ['sphere', 'sphereStandIn', 'regionSC', 'lineSC', 'disc', 'mark'];
-  const LAND_STATIC = ['landNrm', 'landS'];
+  const LAND_STATIC = ['landNrm', 'landS', 'floorS'];
   const LAND_CHAIN = ['landTF', 'land'];
   // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
   // they have started: the lists above and the current chain's, so the total is known before the work is
@@ -710,22 +737,25 @@ float wabs(vec2 w) {
   }
   // (tests) holdLinks(true): the current chain's forward programs stay linking (COMPLETION_STATUS held false, and no
   // synchronous link) until holdLinks(false), on any back end: SwiftShader and lavapipe link synchronously. ?glhold
-  // starts with it on (a cold load: no earlier version of the chain)
+  // starts with it on (a cold load: no earlier version of the chain). holdLinks(true, names): those programs alone
   let held = (() => { try { return new URLSearchParams(location.search).has('glhold'); } catch (err) { return false; } })();
-  function heldOf(e) { return held && e.chain && !e.side && !e.inv; }
+  let heldNames = null;
+  function heldOf(e) { return held && e.chain && !e.side && !e.inv && (!heldNames || heldNames.has(e.name)); }
   // (tests) the names of the programs started for the current chain (of any map mode), each once
   function chainProgs() {
     const out = new Set();
     for (const e of progs.values()) if (e.chain && e.key === cur.key) out.add(e.name);
     return [...out];
   }
-  function holdLinks(on) {
+  function holdLinks(on, names) {
     held = !!on;
-    if (held) return;
-    // (released: the programs held finish as they would have, linked at once where links are synchronous (no parallel
-    // compile), polled where they run in the background; a program no frame asks for again would stay pending)
+    heldNames = held && names ? new Set(names) : null;
+    if (held && !heldNames) return;
+    // (released, or held to names alone: the programs no longer held finish as they would have, linked at once where
+    // links are synchronous (no parallel compile), polled where they run in the background; a program no frame asks for
+    // again would stay pending)
     if (pcExt) schedulePoll();
-    else for (const e of [...progs.values()]) if (e.state === 'pending' && e.chain && !e.side && !e.inv) finishLink(e);
+    else for (const e of [...progs.values()]) if (e.state === 'pending' && e.chain && !e.side && !e.inv && !heldOf(e)) finishLink(e);
     if (api.onReady) api.onReady({ main: true, side: false });
   }
   // The program `name` for the current chain. While it compiles in the background, the newest earlier chain version
@@ -735,6 +765,7 @@ float wabs(vec2 w) {
   // exact: the current chain's own program or null, never an earlier chain version's (a program of another chain reads
   // the map's indices as its own steps and paints another picture)
   function program(name, map, exact) {
+    if (chainRefused && !sideMode) { frameErr = friendly(chainRefused); return null; }
     const P = getProg(name, cur, true, map);
     if (P) return P;
     const e = progs.get(progId(name, cur, map));
@@ -749,12 +780,17 @@ float wabs(vec2 w) {
   }
   // program's stand-ins without its own compile: the program `name` for the current chain when it is linked, else the
   // newest earlier chain version's that is, as program() draws while its own compiles; null when none is (nothing is
-  // started)
-  function programLinked(name, map) {
+  // started); exact: the current chain's own program or null, as program()'s
+  function programLinked(name, map, exact) {
     const P = getProg(name, cur, false, map);
-    if (P || !DEFS[name].chain || !cur.info || sideMode) return P;
+    if (P || exact || !DEFS[name].chain || !cur.info || sideMode) return P;
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
+  }
+  // the program `name` for the current chain is compiling (not failed, not linked)
+  function programPending(name, map) {
+    const e = progs.get(progId(name, cur, map));
+    return !!e && e.state === 'pending';
   }
   // a deformation's start through the plain chain (mode 0), as mapFor shows a homotopy or morph through a changed step:
   // what draws while the program of the deformation's own mode compiles (its first frames: MAP compiles a mode only
@@ -786,11 +822,25 @@ float wabs(vec2 w) {
     return map;
   }
   const LIVE = (sig) => sig !== 'off' && sig !== 'err' && sig !== 'unsupported';
+  // the steps map m applies, [lo, hi] (1-based; none when lo > hi)
+  function stepsOf(map) {
+    const m = map || {}, mode = m.mode || 0;
+    return [mode === 0 ? (m.a || 0) + 1 : (m.base || 0) + 1, Math.max(mode === 1 ? (m.hi || 0) : (m.b || 0), mode === 1 || mode === 3 ? (m.post || 0) : 0)];
+  }
+  // the most terms past the GPU's budget that a finite sum takes in the steps map m applies, in chain version ch (its
+  // GLChain stepTerms; 0: none): what the draw adds to frameOver
+  function overIn(ch, m) {
+    const t = ch && ch.info && ch.info.stepTerms;
+    if (!t) return 0;
+    const [lo, hi] = stepsOf(m);
+    let n = 0;
+    for (let k = Math.max(1, lo); k <= Math.min(hi, t.length); k++) n = Math.max(n, t[k - 1]);
+    return n;
+  }
   // true when no step that the map applies acts on the GPU (the chain skips the others): drawn without the chain
   function isIdent(map) {
     if (!cur.info) return true;
-    const m = map || {}, mode = m.mode || 0;
-    const lo = mode === 0 ? (m.a || 0) + 1 : (m.base || 0) + 1, hi = Math.max(mode === 1 ? (m.hi || 0) : (m.b || 0), mode === 1 || mode === 3 ? (m.post || 0) : 0);
+    const [lo, hi] = stepsOf(map);
     for (let k = Math.max(1, lo); k <= Math.min(hi, cur.sigs.length); k++) if (LIVE(cur.sigs[k - 1])) return false;
     return true;
   }
@@ -815,6 +865,7 @@ float wabs(vec2 w) {
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
       const m = mapIn(P, map) || {};
+      frameOver = Math.max(frameOver, overIn(P.ch, m));
       u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0);
       if (P.loc.uStepT) gl.uniform2fv(P.loc.uStepT, stepTData(m.stepT, Math.max(1, P.ch.sigs.length)));
     }
@@ -1093,7 +1144,8 @@ float wabs(vec2 w) {
         data[o++] = (hn ? p[in_] : p[i + 2]) - ox; data[o++] = (hn ? p[in_ + 1] : p[i + 3]) - oy;
       }
     }
-    const res = { kind: 'lines', buf: makeBuf(data), n, org: [ox, oy], vaos: new Map(), tf: null, arcs: new Map() };
+    // (src: the segments as uploaded, which the CPU stand-in reads, cpuEntry, until the chain evaluates them itself)
+    const res = { kind: 'lines', buf: makeBuf(data), src: data, n, org: [ox, oy], vaos: new Map(), tf: null, arcs: new Map() };
     live.add(res);
     return res;
   }
@@ -1213,7 +1265,7 @@ float wabs(vec2 w) {
       gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
     }
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
-    const k = !sph && st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
+    const k = !sph && st.key && st.key.win && (peelOn || resOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     keyUniforms(P, k);
     gl.bindVertexArray(res.vao);
     if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));
@@ -1333,8 +1385,10 @@ float wabs(vec2 w) {
     for (const c of caps) gl.enable(c);
     if (masked) gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
   }
+  // (a hit: its values stand for the chain's evaluation this frame, so its sums past the GPU's budget count, frameOver)
   function touch(e) {
     e.t = performance.now();
+    frameOver = Math.max(frameOver, e.over || 0);
     cacheAll.delete(e); cacheAll.set(e, true);
     e.res.tf.delete(e.key); e.res.tf.set(e.key, e);
     return e;
@@ -1366,14 +1420,14 @@ float wabs(vec2 w) {
       if (cacheBytes + bytes <= CACHE_BYTES) break;
       if (now - e0.t > 250) freeEntry(e0);
     }
-    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L, chk: P.ch.key };
+    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L, chk: P.ch.key, over: overIn(P.ch, mapIn(P, map)) };
     use(P, map);
     originUniforms(P, res.org);
     const vao = isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L);
     if (P.rt) runRT(P, vao, tpl.P, res.n, e.tex, W, H);
     else runTF(P, vao, gl.POINTS, tpl.P, res.n, bytes, e.tex, W, H, gl.RG32F, gl.RG);
     c.set(key, e); cacheAll.set(e, true); cacheBytes += bytes;
-    if (P.ch === cur && !sideMode) dropSuperseded(c, e);
+    if (P.ch === cur && !sideMode) { dropSuperseded(c, e); if (!isMesh) chainEvaluated(res); }
     return e;
   }
   // The current chain's evaluation of (cacheKey, L) supersedes what earlier chain versions computed for it while the
@@ -1405,7 +1459,7 @@ float wabs(vec2 w) {
     const now = performance.now();
     sweepTmpLater();
     if (e) e.t = now;
-    if (e && e.W === W && e.H === H && e.key === key) return e;
+    if (e && e.W === W && e.H === H && e.key === key) { frameOver = Math.max(frameOver, e.over || 0); return e; }
     const alloc = !e || e.W !== W || e.H !== H;
     if (alloc) {
       if (e) freeTmp(e);
@@ -1413,10 +1467,84 @@ float wabs(vec2 w) {
       if (cacheBytes + e.bytes > CACHE_BYTES) freeStaleTmp(now, e.bytes);
       res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes;
     }
-    e.key = key;
+    e.key = key; e.over = overIn(P.ch, mapIn(P, map));
     use(P, map);
     originUniforms(P, res.org);
     runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
+    if (!isMesh && !sideMode) chainEvaluated(res);
+    return e;
+  }
+  // lines res evaluated by the current chain itself: its CPU stand-ins go, and with them the segments they read
+  // (res.src); a later chain version stands in with this one's evaluation (stand())
+  function chainEvaluated(res) {
+    if (res.tf) for (const o of [...res.tf.values()]) if (o.cpu) freeEntry(o);
+    res.src = null;
+  }
+  // The lines' stand-in while the chain's first version links (no earlier version's tfLine to stand in, stand()):
+  // the template points of res under the map's CPU twin (cpuOf(): the app's cpuMap of it), in an entry as tfEntry's,
+  // which lineC draws. Kept under the current chain's key and freed once the chain evaluates res itself
+  // (chainEvaluated). It is made within the frame, so it keeps to CPU_LINE_MS: template size M, or the largest of 4, 2
+  // and 1 below it whose evaluations fit, costed at the time per evaluation of the first CPU_LINE_PROBE segments (the
+  // first ones wait on the JIT: an estimate on the high side). The entry's L is its template size, which drawLines
+  // draws it at. null when not even size 1 fits (res.cpuNo then keeps the map and chain, so later frames do not try
+  // again), res has no source segments (the chain has evaluated it), or the CPU twin throws. cpuLines keeps the last
+  // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms, ev (evaluations made)} (tests:
+  // GLR.lineStandIns). The
+  // budget is a time, so the size depends on how fast the machine runs the probe: ?glline=ms (tests) sets it, a large
+  // one fixes the size at M
+  const CPU_LINE_MS = 25, CPU_LINE_PROBE = 8, CPU_LINE_LOG = 8, cpuLines = [];
+  const cpuLineMs = (() => { try { const v = +new URLSearchParams(location.search).get('glline'); return v > 0 ? v : CPU_LINE_MS; } catch (err) { return CPU_LINE_MS; } })();
+  const cpuLineNote = (n, m, t0, ev) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1), ev }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
+  function cpuEntry(res, M, map, cpuOf) {
+    if (!res.src) return null;
+    const want = `${M}|${mapKeyOf(map)}|${cur.key}|${cur.hash}`;
+    if (res.cpuNo === want) return null;
+    if (!res.tf) res.tf = new Map();
+    for (const o of res.tf.values()) if (o.cpu && o.want === want) return touch(o);
+    const t0 = performance.now(), d = res.src, ox = res.org[0], oy = res.org[1];
+    let F, evals = 0;
+    try { F = cpuOf(); } catch (err) { console.error('line stand-in', err); return null; }
+    // the values at template size m, or the time per evaluation measured when they would not fit what is left
+    const run = (m) => {
+      // (lineTemplate's points along a segment: its m + 1 ends, then its m midpoints)
+      const ts = [];
+      for (let k = 0; k <= m; k++) ts.push(k / m);
+      for (let k = 0; k < m; k++) ts.push((k + 0.5) / m);
+      const W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(ts.length * res.n / W));
+      if (H > maxTex) return { per: Infinity };
+      const vals = new Float32Array(W * H * 2), r0 = performance.now();
+      for (let j = 0, o = 0; j < res.n; j++) {
+        const ax = ox + d[j * LSTRIDE], ay = oy + d[j * LSTRIDE + 1], bx = ox + d[j * LSTRIDE + 2], by = oy + d[j * LSTRIDE + 3];
+        for (const t of ts) {
+          evals++;
+          const w = F({ re: ax + t * (bx - ax), im: ay + t * (by - ay) });
+          vals[o++] = w ? w.re : NaN; vals[o++] = w ? w.im : NaN;
+        }
+        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > cpuLineMs) {
+          const now = performance.now(), per = (now - r0) / ((j + 1) * ts.length);
+          if (now - t0 + per * (res.n - j - 1) * ts.length > cpuLineMs) return { per };
+        }
+      }
+      return { vals, W, H, P: ts.length };
+    };
+    let m = M, got = null;
+    try {
+      for (;;) {
+        got = run(m);
+        if (got.vals) break;
+        const left = cpuLineMs - (performance.now() - t0), per = got.per;
+        m = [4, 2, 1].find((k) => k < m && res.n * (2 * k + 1) * per <= left);
+        if (!m) { res.cpuNo = want; cpuLineNote(res.n, 0, t0, evals); return null; }
+      }
+    } catch (err) { console.error('line stand-in', err); return null; }
+    cpuLineNote(res.n, m, t0, evals);
+    const { vals, W, H, P } = got, tex = floatTex();
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, vals);
+    const key = `cpu|${want}`, bytes = W * H * 8;
+    const e = { tex, W, H, P, bytes, res, key, want, t: performance.now(), ck: 'stand-in', L: m, cpu: true };
+    while (res.tf.size >= CACHE_MAX) freeEntry(res.tf.values().next().value);
+    res.tf.set(key, e); cacheAll.set(e, true); cacheBytes += bytes;
     return e;
   }
   // The fill's point pass (fillPts, FILL_PTS_VS) of mesh res at template size L (at most 2: uSub's size) under map,

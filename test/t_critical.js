@@ -217,9 +217,11 @@ for (const [name, steps, values, points] of [
   // a double pole of an earlier step is one point, not its two computed roots
   const r = ofChain([St('rational', { p: '1', q: '1, -2, 1' }), St('pown', { n: 2 })]);
   check('1/(z − 1)² → z²: the double pole 1 listed once, value infinity', !!r && r.points.list.length === 1 && near(r.points.list[0].z, C(1), 1e-7) && r.points.list[0].w === null, r && r.points);
-  // a step before it whose units are not all inverted (a rational formula of degree 3): the points are not complete
+  // a step before it of degree 3 (RAT3, exact): the points pulled back through it are complete, its own critical points
+  // (the cube roots of 1/2, where 2z = 1/z^2) among them
   const r2 = ofChain([St('custom', { expr: 'z^2+\\frac{1}{z}' }), St('pown', { n: 2 })]);
-  check('z² + 1/z → z²: the points pulled back through it are not complete', !!r2 && r2.values.known && !r2.points.complete, r2 && r2.points);
+  const cr = [0, 1, 2].map((k) => CX.scale(CX.C(Math.cos(2 * Math.PI * k / 3), Math.sin(2 * Math.PI * k / 3)), Math.cbrt(0.5)));
+  check('z² + 1/z → z²: the points pulled back through it are complete, the cube roots of 1/2 among them', !!r2 && r2.values.known && r2.points.complete && cr.every((z) => r2.points.list.some((p) => near(p.z, z, 1e-7))), r2 && r2.points);
 }
 {
   // each of the two defences against a pole's huge value, alone: ratCritical's pole test, and critForward's clamp of the first value

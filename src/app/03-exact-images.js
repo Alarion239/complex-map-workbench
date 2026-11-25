@@ -5,7 +5,7 @@
   // stage (role L, flat). Thumbnails (role null) draw like the right plane.
   const PHASE = { R: { flat: true, globe: true }, L: { flat: true, globe: true } };
   const forceFwd = new Set();          // shape ids drawn forward whatever their eligibility (tests: mixed paths)
-  let hideStrokes = false;             // tests (window.__cmwHideStrokes): the shapes' strokes left out, flat, on the globes and in the steps view, and the steps view's layer of later planes' regions over the colour (the crack test and sv_globe_mask read the fill under them, p3_review and steps_glide_outline the stroke's own pixels)
+  let hideStrokes = false;             // tests (window.__cmwHideStrokes): the shapes' strokes left out, flat, on the globes, on the Landscape's floor and in the steps view, and the steps view's layer of later planes' regions over the colour (the crack test and sv_globe_mask read the fill under them, p3_review and steps_glide_outline the stroke's own pixels)
   // the figure export's art layer (figure.js, artRender): fills only (no grid, axes, strokes, points, cuts, rulers,
   // chevrons, roots, field of view, deformation tint or outline, landscape labels); printInk: the print tones of
   // the fills; artLand: the landscape's camera, read back for the figure's vector floor labels
@@ -78,6 +78,112 @@
       invPlans.set(ck, p);
     }
     return p;
+  }
+  // the unresolved pixels of the area shapes that map draws by a REPT plan, hatched over the frame open in pane: a region
+  // mask's pass leaves them uncovered and marks them (drawScene's opt.fills, GLR.drawInverse), so the picture painted
+  // through the mask shows them here
+  function reptHatch(pane, map) {
+    if (reptExact(map) && GLR.reptHatchFill && GLR.reptHatchFill(pane.dpr) === true) hatchNotes.set(pane, hatchedNote());
+  }
+  // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
+  // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
+  function repeatRefused(map) {
+    const m = normalizeMap(map);
+    if ((m.mode || 0) !== 0) return false;
+    const plan = invPlan(m.a || 0, m.b || 0);
+    return !plan.ok && !!plan.tooLong && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
+  }
+  // what a pane's open frame says of the no-value hatch it drew (reptHatch, refusedHatch), by pane: glStatusNote says it at the
+  // frame's end
+  const hatchNotes = new Map();
+  // the two things a hatch says: a refused repeat's, and a REPT plan's own unresolved pixels (the Plane and the Landscape say them the same)
+  const refusedNote = () => $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.');
+  const hatchedNote = () => $t('Where the plane is hatched, the exact image could not be found.');
+  // the no-value hatch over the whole plane drawn in pane for map when its repeat is refused (no image of the regions is known
+  // anywhere), after the picture painted through the regions' mask
+  function refusedHatch(pane, map) {
+    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) hatchNotes.set(pane, refusedNote());
+  }
+  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search)
+  function reptExact(map) {
+    const m = normalizeMap(map);
+    if ((m.mode || 0) !== 0) return false;
+    const plan = invPlan(m.a || 0, m.b || 0);
+    return plan.ok && plan.ops.some((o) => o.kind === 'REPT');
+  }
+  // The pieces GLR.drawLines draws each segment of an outline in (its st.M); the most CSS px a piece may span on a
+  // pane under a REPT plan; the halvings a segment may take to get there; the vertices a refined outline may have
+  const OUTLINE_M = 8, REPT_PIECE_PX = 4, REPT_DEPTH = 10, REPT_VERTS = 65536;
+  // (for the test hook: the refinements outlineRes has run, a pan within a cell runs none, and the last one's
+  // vertices)
+  let reptOutlineRuns = 0, reptOutlineVerts = 0;
+  // The lines a shape's outline is drawn by on pane under map (r: its shapeGPU record; pane: {view, w, h}, a screen
+  // pane or the Landscape floor's stand-in, kept in its own slot of r.rept), with the record openDash reads
+  // for them: {res, rec}, or null for none. r's own lines, but under a REPT plan, whose copies' expansion can
+  // scatter the boundary carried forward: there the drawn polylines (r.lpolys) are refined for the view, each segment
+  // halved (at most REPT_DEPTH times) until every one of its pieces maps, on the CPU twin, to finite ends at most
+  // REPT_PIECE_PX px apart, or lies with both ends past the same side of a box around the pane, where it draws nothing
+  // on it. A segment that does not get there (the gallery's Repeat ×20), or more than REPT_VERTS vertices, and the
+  // shape has no outline: the exact fill's own edge is its only one. The rule is the resolution at the view, not the
+  // number of copies: the bite at ×2 keeps its outline, zoomed in as at rest. A Repeat no exact plan takes
+  // (repeatRefused) has no outline either: its boundary carried through every copy is as scattered, over the hatch.
+  // Cached on r per pane by its lines and map, the scale's half octave (refined for its largest scale, so the pieces
+  // stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a pane: the box is the view at the
+  // half octave's smallest scale about that place, widened by a pane on each side, so a pan refines again only once it
+  // crosses a pane
+  function outlineRes(map, r, pane, slot = pane === paneR ? 'R' : 'L') {
+    // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves REPT)
+    const had = r.rept && r.rept[slot];
+    if (!reptExact(map)) {
+      if (had) { GLR.destroy(had.res); r.rept[slot] = null; }
+      return r.lineRes && !repeatRefused(map) ? { res: r.lineRes, rec: r } : null;
+    }
+    const ps = r.lpolys, v = pane.view;
+    if (!ps || !ps.length) return null;
+    const oct = Math.floor(2 * Math.log2(v.s)), sHi = 2 ** ((oct + 1) / 2), sLo = 2 ** (oct / 2);
+    const hw = pane.w / 2 / sLo, hh = pane.h / 2 / sLo, gx = Math.round(v.cx / (2 * hw)), gy = Math.round(v.cy / (2 * hh));
+    const key = `${r.lineKey}|${r.refKey}|${mapKeyOf(map)}|${oct}|${pane.w}x${pane.h}|${gx},${gy}`;
+    if (had && had.key === key) return had.out;
+    reptOutlineRuns++;
+    if (had) GLR.destroy(had.res);
+    const F = cpuMap(map), lim = REPT_PIECE_PX / sHi, cx = 2 * gx * hw, cy = 2 * gy * hh;
+    const x0 = cx - 3 * hw, x1 = cx + 3 * hw, y0 = cy - 3 * hh, y1 = cy + 3 * hh;
+    // (the sides of the box a point lies past, one bit each)
+    const past = (w) => (w.re < x0 ? 1 : 0) | (w.re > x1 ? 2 : 0) | (w.im < y0 ? 4 : 0) | (w.im > y1 ? 8 : 0);
+    let verts = 0;
+    // the segment a-b (source points, ws their images) into out, halved until its pieces pass; false when it cannot
+    const refineSeg = (ax, ay, wa, bx, by, wb, depth, out) => {
+      const dx = bx - ax, dy = by - ay;
+      let ok = true, p = wa;
+      for (let k = 1; k <= OUTLINE_M && ok; k++) {
+        const q = k === OUTLINE_M ? wb : F(CX.C(ax + dx * k / OUTLINE_M, ay + dy * k / OUTLINE_M));
+        if (!Number.isFinite(p.re + p.im + q.re + q.im)) return false;
+        if (!(past(p) & past(q)) && Math.hypot(q.re - p.re, q.im - p.im) > lim) ok = false;
+        p = q;
+      }
+      if (ok) { out.push(bx, by); return ++verts <= REPT_VERTS; }
+      if (depth >= REPT_DEPTH) return false;
+      const mx = ax + dx / 2, my = ay + dy / 2, wm = F(CX.C(mx, my));
+      return refineSeg(ax, ay, wa, mx, my, wm, depth + 1, out) && refineSeg(mx, my, wm, bx, by, wb, depth + 1, out);
+    };
+    const polys = [];
+    let ok = true;
+    for (const p of ps) {
+      const out = [p[0], p[1]];
+      let wa = F(CX.C(p[0], p[1]));
+      for (let i = 2; i + 1 < p.length && ok; i += 2) {
+        const wb = F(CX.C(p[i], p[i + 1]));
+        ok = refineSeg(p[i - 2], p[i - 1], wa, p[i], p[i + 1], wb, 0, out);
+        wa = wb;
+      }
+      if (!ok) break;
+      polys.push(Float64Array.from(out));
+    }
+    reptOutlineVerts = verts;
+    const res = ok && polys.length && GLR.ok ? GLR.createLines(polys, r.lorigin) : null;
+    const rec = { open: r.open, lpolys: polys, lorigin: r.lorigin, lineKey: key, arcs: null };
+    (r.rept || (r.rept = {}))[slot] = { key, res, out: res ? { res, rec } : null };
+    return r.rept[slot].out;
   }
   // the shape-level preparation (SPEC 3.6) and the image box of the scissor (4.8), cached by plan, clipWin and shape;
   // prepMs: the preparation work of the current frame (SPEC 10.2: past 4 ms, an uncached bounded shape waits a frame)
@@ -335,8 +441,9 @@
   // live panes that drew a forward stand-in while the inverse program compiled: any draw that finds the program
   // ready (a thumbnail can finish its link first, without GLR.onReady) redraws them
   const invWaiting = new Set();
-  // a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
-  // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
+  // a screen pane's last GPU frame, as glStatusNote saw it: {pending, rept (a REPT draw of it still drawing its tiles, one
+  // cause of pending), compiling, error, note (why its plot has no value: a finite sum past the GPU's budget), exact (shapes it
+  // drew with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
   // may be the other pane's; the quality harness reads this pane's own (a test hook)
   const paneGl = { L: null, R: null };
   let invPendN = 0;   // shapes of the frame being drawn on a live pane that waited for their inverse program
@@ -393,23 +500,42 @@
   // back and forth; at the cap the whole map is cleared, which is safe because the next glide builds its part once
   const INV_HOM_SKELS_MAX = 8;
   // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
-  // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
-  // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
-  // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
-  // planChain sets the same step, node and j on them (they have the same a and k)
+  // standing for itself with its ops decomposed once with the chain's options (Inverse.chainOpts; Inverse.stepOps reads
+  // __homOps), and so the steps of a formula recognized as a chain of them (b.rec, which step k's homotopy walks at t),
+  // so the plan, the inverse op list and step k's homotopy at a new t decompose no step again. Its ops are shared by the
+  // homotopy's ops at every t, where one op can sit at another node (a recognised formula's sub-step comes after its
+  // predecessors' ops once the glide has passed them); each plan made from it copies them (planChain), so it keeps its
+  // own step, node and j
   const invHomSkels = new Map();
-  function invHomOnce(b) {
+  function invHomOnce(b, opts) {
     if (!b || b.error || !b.def) return b;
-    const r = Inverse.stepOps(b);
+    const r = Inverse.stepOps(b, opts);
     const o = Object.assign({}, b, { __homOps: () => r });
-    if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
+    if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map((sb) => invHomOnce(sb, opts)) });
     return o;
   }
+  // whether a live d/dz step lies between planes a and k, so that invHomBase(a, k) is the substitute chain
+  function invHomPastDdz(a, k) {
+    for (let j = a + 1; j < k; j++) if (stepActive(j) && isDeriv(j)) return true;
+    return false;
+  }
+  // the chain a glide from plane a into plane k is planned over: the chain itself; or, with a d/dz step between them,
+  // the chain that stands in for it (invDerivChain: every live step before the d/dz off, and in the d/dz's place the
+  // derivative of their composition, by the chain rule).
+  // {steps, built}, or {reason} where no such chain can be made
+  function invHomBase(a, k) {
+    return invHomPastDdz(a, k) ? invDerivChain(k) : { steps: S.steps, built };
+  }
+  // the built steps of invHomBase(a, k), each live one decomposed once (invHomOnce); null where that chain cannot be
+  // made
   function invHomSkeleton(a, k) {
     const sk = `${a}|${k}|${chainSig[nSteps()]}`;
     let bs = invHomSkels.get(sk);
     if (!bs) {
-      bs = built.map((b, i) => (!S.steps[i] || S.steps[i].on === false ? b : invHomOnce(b)));
+      const c = invHomBase(a, k);
+      if (!c.steps) return null;
+      const opts = Inverse.chainOpts(c.steps, c.built);
+      bs = c.built.map((b, i) => (!c.steps[i] || c.steps[i].on === false ? b : invHomOnce(b, opts)));
       if (invHomSkels.size >= INV_HOM_SKELS_MAX) invHomSkels.clear();
       invHomSkels.set(sk, bs);
     }
@@ -418,18 +544,24 @@
   // The period in z of the glide's map H_t o F_{k-1} from plane a, or null: Inverse.keyPeriod of its plan at t (step k
   // standing for its homotopy, as invHomPath's plan), so the steps before k's where they have one, which H_t keeps,
   // and where they are affine, that of step k's path at t (tan's, tan(t z) / t about its centre, has pi / t): the key
-  // at t -> 1 meets plane k's. A step with no inverse plan at t: the steps before k's. Kept per (a, k, t, chain), as a
-  // glide's frames ask for each t a few times
+  // at t -> 1 meets plane k's. A step with no inverse plan at t: the steps before k's. Planned on invHomBase's chain, as
+  // invHomPath's plan is (the substitute one past a d/dz step). Kept per (a, k, t, chain, and which of the two chains),
+  // as a glide's frames ask for each t a few times
   const invHomPers = new Map();
   function invHomPer(a, k, t) {
-    const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
+    const sub = invHomPastDdz(a, k), ck = `${a}|${k}|${t}|${chainSig[nSteps()]}|${sub ? 'ddz' : 'own'}`;
     if (invHomPers.has(ck)) return invHomPers.get(ck);
-    let plan = null;
+    let per = null;
     try {
-      const bs = invHomSkeleton(a, k), hk = Inverse.homOps(bs[k - 1], t), bh = bs.slice();
-      if (hk && hk.ok) { bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk); plan = Inverse.planChain(S.steps, bh, a, k); }
-    } catch (e) { plan = null; }
-    const per = plan && plan.ok ? Inverse.keyPeriod(plan) : k - 1 > a ? Inverse.keyPeriod(invPlan(a, k - 1)) : null;
+      const base = invHomBase(a, k), bs = base.steps && invHomSkeleton(a, k);
+      if (bs) {
+        const hk = Inverse.homOps(bs[k - 1], t), bh = bs.slice();
+        let plan = null;
+        if (hk && hk.ok) { bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk); plan = Inverse.planChain(base.steps, bh, a, k); }
+        per = plan && plan.ok ? Inverse.keyPeriod(plan)
+          : k - 1 > a ? Inverse.keyPeriod(sub ? Inverse.planChain(base.steps, bs, a, k - 1) : invPlan(a, k - 1)) : null;
+      }
+    } catch (e) { per = null; }
     if (invHomPers.size >= 4096) invHomPers.clear();
     invHomPers.set(ck, per);
     return per;
@@ -439,10 +571,12 @@
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
     // (a NEWT op's seeds sit about the shape's anchor: its plan is the shape's, the other plans are shared; whether the
     // step has a NEWT op at t is remembered, as finding out decomposes the step)
+    const base = invHomBase(a, k), skel = invHomSkeleton(a, k);
+    if (!base.steps || !skel) return F(base.reason || 'no chain to plan');
     const bk = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
     let hk = null, byShape = invHomNewt.get(bk);
     if (byShape === undefined) {
-      try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      try { hk = Inverse.homOps(skel[k - 1], t); } catch (e) { hk = null; }
       byShape = !!(hk && hk.ok && hk.ops.some((o) => o.kind === 'NEWT'));
       if (invHomNewt.size >= 4096) invHomNewt.clear();
       invHomNewt.set(bk, byShape);
@@ -450,14 +584,14 @@
     const ck = bk + (byShape ? `|${shapeKey(s)}|${winKey()}` : '');
     let h = invHoms.get(ck);
     if (!h) {
-      const bs = invHomSkeleton(a, k), bh = bs.slice();
+      const bs = skel, bh = bs.slice();
       // (ops of its own for each plan: the anchor is set on them)
-      if (!hk) try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      if (!hk) try { hk = Inverse.homOps(bs[k - 1], t); } catch (e) { hk = null; }
       let anchor = null;
-      if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
+      if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(base.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
       bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
-      h = invOwnPlan(S.steps, bh, a, k);
+      h = invOwnPlan(base.steps, bh, a, k);
       // (the key's period: the glide map's at t, invHomPer, as svSheetKeyAt's)
       h.per = invHomPer(a, k, t);
       if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
@@ -478,8 +612,8 @@
     return { plan, inv, preps: new Map(), sing: null, per: undefined };
   }
   // the inverse path of area shape s from plane a to plane b through h (invOwnPlan's), prepared once for each window and
-  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing),
-  // and its period h.per
+  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing,
+  // weighted by h.wOf when the plan has one), and its period h.per
   function invOwnPath(h, s, a, b, own) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!h.plan.ok) return F(h.plan.reason);
@@ -487,7 +621,7 @@
     let prep = h.preps.get(wk);
     if (!prep) {
       try {
-        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin, h.per) };
+        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin, h.per, h.wOf || null) };
         prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: own || h.sing.v, per: h.per });
       } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
       h.preps.set(wk, prep);
@@ -497,9 +631,9 @@
   }
   // A plane b past a d/dz step k: its points are D(z) carried on by the steps after k, D = (f_{k-1} ∘ … ∘ f_1)′, a map of
   // z. The chain with D in step k's place, the steps before it off, plans that map from z and builds its own inverse
-  // program, as a glide's homotopy stands in for its step (invHomPath). D is the derivative formula of the one live step
-  // before the d/dz (Funcs.derivativeStep); {steps, built, k, h} (h: its plan, invOwnPlan's, made at the first path
-  // asked of it) or {reason}
+  // program, as a glide's homotopy stands in for its step (invHomPath). D is the derivative formula of the live steps
+  // before the d/dz, the chain rule composed into one formula (Funcs.chainDerivativeStep); {steps, built, k, h} (h: its
+  // plan, invOwnPlan's, made at the first path asked of it) or {reason}
   const invDerivs = new Map();
   // (its entries, one for each plane past the d/dz of a chain: the planes of a few chains; at the cap the map is cleared,
   // and a plane's chain is made again when it is next drawn)
@@ -513,9 +647,9 @@
     const k = ks[0], before = [];
     for (let j = 1; k && j < k; j++) if (stepActive(j)) before.push(j);
     if (ks.length !== 1) r = { reason: ks.length ? 'more than one d/dz step' : 'no d/dz step' };
-    else if (before.length !== 1) r = { reason: before.length ? 'a d/dz step after more than one step' : 'a d/dz step of the identity' };
+    else if (!before.length) r = { reason: 'a d/dz step of the identity' };
     else {
-      const d = Funcs.derivativeStep(S.steps[before[0] - 1]);
+      const d = Funcs.chainDerivativeStep(before.map((j) => S.steps[j - 1]));
       const db = d && d.step ? Funcs.build(d.step) : null;
       if (!db || db.error) r = { reason: (d && d.error) || (db && db.error) || 'no derivative formula' };
       else {
@@ -542,8 +676,11 @@
   // (Inverse.homBuilt: no ops at t_k = 0, the step itself at 1) and every step up to lo for itself; its inverse op list
   // (GLChain.buildInverse, invOwnPlan) and the shape's preparation (invOwnPath). Same answer as invHomPath's, and its key's
   // period as invHomPer takes it: Inverse.keyPeriod of the span's plan at u, so the key at u -> 1 meets plane b's (eᶻ's
-  // homotopy has 2 pi i / t); with no plan, the steps' up to lo. Forward where a step's homotopy has no exact inverse at
-  // its time or a NEWT op (those spans keep the carried meshes)
+  // homotopy has 2 pi i / t); with no plan, the steps' up to lo. Its key's points: those of each step k of the span weigh
+  // t_k (h.wOf, Inverse.keySing), so that the key goes from plane lo's at u = 0 to plane b's at u = 1 with no jump, a
+  // pole that step k's homotopy brings in from infinity coming in with no weight (where it lands beside a pole of an
+  // earlier step, as Cayley's pulled back through Joukowski lands beside 0, the two would count twice up to t_k = 0).
+  // Forward where a step's homotopy has no exact inverse at its time or a NEWT op (those spans keep the carried meshes)
   function invSpanPath(s, a, lo, b, u, stepT, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
@@ -564,22 +701,15 @@
       }
       h = plan ? { plan, inv: null, preps: new Map(), sing: null, per: undefined } : invOwnPlan(S.steps, bh, a, b);
       h.per = h.plan.ok ? Inverse.keyPeriod(h.plan) : lo > a ? Inverse.keyPeriod(invPlan(a, lo)) : null;
+      const tOf = new Map(ts);
+      h.wOf = (o) => (tOf.has(o.step) ? Math.min(1, tOf.get(o.step)) : 1);
       if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
       invHoms.set(ck, h);
     }
     const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
     return invOwnPath(h, s, a, b, own);
   }
-  // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
-  function requestInverseFor(map) {
-    if (!GLR.inverseRequest || !GLR.packShapes || !PHASE.R.flat) return;
-    if (isIdentMap(map) || !invPlan(map.a || 0, map.b || 0).ok) return;
-    const list = S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area' && !s._err);
-    if (!list.length) return;
-    cmFormAnchor('X');
-    GLR.packShapes(S.shapes.filter((s) => s.visible !== false));
-    if (GLR.inverseRequest(S.alpha, 'flat') === 'pending') invWaiting.add('R');
-  }
+
   // the words of text in lines no wider than maxW as ctx sets them (its font), each word on the line until the next would
   // pass maxW (a word wider than maxW is a line of its own)
   function wrapWords(ctx, text, maxW) {
@@ -592,9 +722,38 @@
     if (line) lines.push(line);
     return lines;
   }
+  // wrapWords at the narrowest width that keeps the line count of the wrap at maxW: the lines come out of even length, no word alone
+  // on the last (the canvas's text-wrap: balance)
+  function balanceWords(ctx, text, maxW) {
+    const lines = wrapWords(ctx, text, maxW);
+    if (lines.length < 2) return lines;
+    let lo = 0, hi = maxW, best = lines;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) / 2, t = wrapWords(ctx, text, mid);
+      if (t.length === lines.length) { best = t; hi = mid; } else lo = mid;
+    }
+    return best;
+  }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
+  const NOTE_GAP = 4;   // the room a note keeps from a message above which it stands
+  const NOTE_ROOM_MIN = 160;   // the least room, in px, a note is laid out in beside the chips over its plane (narrower, it keeps its centred place)
   const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
+  // where a message standing over the plane begins, in the pane's CSS px from its top (Infinity: none over it)
+  function messageTop(pane) {
+    const msg = document.querySelector('#toastHost .toast');
+    if (!msg || !msg.getClientRects().length) return Infinity;
+    const mr = msg.getBoundingClientRect(), pr = pane.canvas.getBoundingClientRect();
+    return mr.right > pr.left && mr.left < pr.right && mr.bottom > pr.top ? mr.top - pr.top - NOTE_GAP : Infinity;
+  }
+  // the chips that stand over the plane's plot (its readout, its colour key) as boxes in the pane's CSS px, those that are laid out
+  function chipBoxes(pane) {
+    const side = pane === paneL ? 'left' : 'right', pr = pane.canvas.getBoundingClientRect();
+    return [side + 'Readout', side + 'Legend'].map((id) => document.getElementById(id)).filter((el) => el && el.getClientRects().length).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left - pr.left, right: r.right - pr.left, top: r.top - pr.top, bottom: r.bottom - pr.top };
+    });
+  }
   function paneNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
@@ -603,13 +762,29 @@
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     // (a phone's note is centred in the room left of the key column and wraps to that width)
     const free = pane.w - (document.documentElement.classList.contains('ph') && !pane.canvas.closest('.ph-inset') ? PH_RAIL : 0);
-    const maxW = Math.max(80, Math.min(360, free - 48));
-    const lines = wrapWords(ctx, text, maxW);
-    const tw = Math.min(free - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
-    const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
-    const x0 = Math.round(free / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
-    const tx = free / 2;   // (the words' centre: the room's, as the box is)
-    pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
+    // the note's box centred in the room from left to right: below the centre, clear of a point at the view's middle, and clear of a message
+    // standing over the plane (the note moves up only when it has to, and stays inside the pane); the 1 px below: the box is drawn on the
+    // half pixel and its stroke is a pixel wide
+    const lay = (left, right) => {
+      const room = right - left, lines = balanceWords(ctx, text, Math.max(80, Math.min(360, room - 48)));
+      const bw = Math.round(Math.min(room - 16, Math.max(...lines.map((t) => ctx.measureText(t).width))) + 24), bh = lines.length * 18 + 14;
+      const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
+      return { lines, bw, bh, y0, tx: (left + right) / 2, x0: Math.round((left + right) / 2 - bw / 2) + 0.5 };
+    };
+    let n = lay(0, free);
+    // (a pane too short for note and message has the box meet the chips over the plane: it stands in the room between those it meets, wrapped to it)
+    const meets = (o) => n.x0 - NOTE_GAP < o.right && n.x0 + n.bw + NOTE_GAP > o.left && n.y0 - NOTE_GAP < o.bottom && n.y0 + n.bh + NOTE_GAP > o.top;
+    const chips = chipBoxes(pane);
+    let left = 0, right = free;
+    for (let pass = 0; pass < chips.length; pass++) {
+      const hit = chips.filter(meets);
+      if (!hit.length) break;
+      for (const o of hit) { if (o.left + o.right < free) left = Math.max(left, o.right + NOTE_GAP); else right = Math.min(right, o.left - NOTE_GAP); }
+      if (right - left < NOTE_ROOM_MIN) break;
+      n = lay(left, right);
+    }
+    const { lines, bw, bh, y0, x0, tx } = n;
+    pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx, lines: lines.slice() };   // (the box as drawn, where its words are centred, in the pane's CSS px, and its lines: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
     ctx.shadowColor = TH.dark ? '#00000066' : '#121A201A'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
@@ -627,6 +802,70 @@
   // waited for its programs over 1.5 s says instead that the GPU is still preparing them (a cold link on Direct3D 11
   // takes seconds, or minutes; the browser's program cache keeps them for later visits).
   const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
+  const overNote = (n) => $t('This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.', { n, cap: GLChain.FINITE_CAP });
+  // An infinite sum that does not converge within its term cap leaves the plot blank where it does. The GPU stops at SER_GPU_LOOP
+  // terms and so does the CPU's evaluation (Expr's SER_CAP; SUM_STAT.out counts the sums that end NaN without converging), so the
+  // page evaluates the steps the colour plot applies at points of the window and says so when some did not converge. The points
+  // are a sample of SUM_GRID, taken in a lattice order (SUM_STEP is coprime to their number) so that any prefix of them spans the
+  // window, and cut by the terms they evaluate (SUM_WORK), not by the clock: the same window gives the same points on any
+  // machine. A small area can be missed, so the note says "part". The sample is taken once the window and the chain have rested
+  // for SUM_IDLE_MS (a drag or a slider does not wait on it), and kept per pane for the chain and window it was taken at.
+  const SUM_GRID = [24, 16], SUM_STEP = 235, SUM_IDLE_MS = 250;
+  let sumWork = 150000;   // the terms a sample may evaluate (it stops after the point that passes them; a test sets it, __cmwSumRun)
+  const sumRuns = new Map();   // pane -> { chain, view, hit, spent, tried, timer }: the last sample (see sumSay; tried: points where an infinite sum ran)
+  // (hit: points where an infinite sum did not converge within SER_CAP terms; spent: points where the sums took more than
+  // the GPU's SER_GPU_TERMS in all; the note names the limit or limits the sample met, and for the second says what to do)
+  const sumSay = (r) => (r.hit && r.spent
+    ? $t('Part of this plane is blank. An infinite sum does not converge there within {terms} terms, and other sums need more than the {budget} terms the GPU adds at a point. Try a lower upper limit on a finite sum.', { terms: Expr.SER_CAP, budget: GLChain.TERMS_BUDGET })
+    : r.spent
+      ? $t('Part of this plane is blank: the sums there need more than the {budget} terms the GPU adds at a point. Try a lower upper limit on a finite sum.', { budget: GLChain.TERMS_BUDGET })
+      : $t('Part of this plane is blank: an infinite sum does not converge there within {terms} terms.', { terms: Expr.SER_CAP }));
+  // the sample of the pane's colour plot for its map, at its window: null when a step of the map is a derivative (it has no function of its own)
+  function sumSample(pane, map) {
+    const [lo, hi] = GLR.stepsOf(map), fs = [];
+    for (let k = Math.max(1, lo); k <= Math.min(hi, nSteps()); k++) {
+      if (isDeriv(k)) return null;
+      const f = stepFn(k);
+      if (f) fs.push(f);
+    }
+    const stat = Expr.SUM_STAT, n = SUM_GRID[0] * SUM_GRID[1], t0 = stat.terms;
+    let hit = 0, spent = 0, tried = 0;
+    for (let p = 0; p < n && (p === 0 || stat.terms - t0 < sumWork); p++) {
+      const c = (p * SUM_STEP) % n;
+      let z = pane.s2w(((c % SUM_GRID[0]) + 0.5) * pane.w / SUM_GRID[0], (Math.floor(c / SUM_GRID[0]) + 0.5) * pane.h / SUM_GRID[1]);
+      const inf0 = stat.inf, out0 = stat.out, over0 = stat.over;
+      stat.left = Expr.SER_BUDGET;   // (the pixel's terms, as the GPU counts them: armed for this point only)
+      try { for (const f of fs) { z = f(z); if (!CX.isFin(z)) break; } } finally { stat.left = Infinity; }
+      if (stat.inf > inf0) { tried++; if (stat.out > out0) hit++; if (stat.over > over0) spent++; }
+    }
+    return { hit, spent, tried };
+  }
+  // called with the colour plot's map each time the pane draws it: the pane's last sample if it is of this chain and map (one
+  // at another window stands until the new one is taken), and a new one is due after SUM_IDLE_MS if the window changed
+  function sumWatch(pane, map) {
+    const range = GLR.stepsOf(map), chain = chainSig[Math.min(range[1], chainSig.length - 1)] + '|' + range,
+      v = pane.view, view = [v.cx, v.cy, v.s, pane.w, pane.h].join(',');
+    let r = sumRuns.get(pane);
+    if (!r || r.chain !== chain) { if (r && r.timer) clearTimeout(r.timer); sumRuns.set(pane, (r = { chain, view: null, hit: 0, spent: 0, tried: 0, timer: 0 })); }
+    if (r.view === view || r.timer) return;
+    const role = pane === paneL ? 'L' : 'R';
+    const take = () => {
+      r.timer = 0;
+      if (sumRuns.get(pane) !== r) return;
+      if (interacting()) { r.timer = setTimeout(take, SUM_IDLE_MS); return; }
+      const now = pane.view, nowKey = [now.cx, now.cy, now.s, pane.w, pane.h].join(',');
+      let out = null;
+      try { out = sumSample(pane, map); } catch (e) { out = null; }
+      const was = sumNote(pane);
+      r.view = nowKey; r.hit = out ? out.hit : 0; r.spent = out ? out.spent : 0; r.tried = out ? out.tried : 0;
+      if (was !== sumNote(pane)) requestRender(role);
+    };
+    r.timer = setTimeout(take, SUM_IDLE_MS);
+  }
+  // the pane shows paper, not the colour plot (the Cauchy style's reason): a sample of the plot is of nothing drawn, so it is dropped
+  const sumDrop = (pane) => { const r = sumRuns.get(pane); if (r && r.timer) clearTimeout(r.timer); sumRuns.delete(pane); };
+  // the pane's note for it: '' when the sample found no point that did not converge or took more than the budget
+  const sumNote = (pane) => { const r = sumRuns.get(pane); return r && (r.hit || r.spent) ? sumSay(r) : ''; };
   // whether each screen pane's "Compiling…" note is drawn: its LED says so (updateLeds), where a screen reader hears it
   const compileShown = { L: false, R: false };
   function setCompileShown(role, on) {
@@ -638,12 +877,23 @@
   // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
   function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
+    const hatched = hatchNotes.get(pane) || '';
+    if (!quiet) hatchNotes.delete(pane);
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
+    // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
+    // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
+    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || hatched) : '';
+    if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
-    paneGl[role] = { pending: !!(st && st.pending), refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
+    const rept = !!(GLR.reptPendingTake && GLR.reptPendingTake());
+    // (a note that comes or goes changes the LED's state and tip with it)
+    const noted = paneGl[role] && paneGl[role].note;
+    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
     invPendN = 0;
+    if ((noted || '') !== note) updateLeds();
     if (quiet) return;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
@@ -781,7 +1031,7 @@
           res = GLR.drawInverse({
             map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
             look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch: { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) } },
-            scissor: sc, half: true, halfPre: true, motion: live && interacting(), coldOk: offRender,
+            scissor: sc, half: true, halfPre: true, motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0,
           });
         } catch (err) { res = 'error'; }
         if (res !== 'drawn') break;                             // drawn in the main pass, from here on
@@ -848,7 +1098,7 @@
             res = GLR.drawInverse({
               map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch },
-              scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender,
+              scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0, whole: offRender,
             });
           } catch (err) { if (!invThrew) { invThrew = true; console.error('exact images: inverse pass failed; drawing forward', err); } }
           if (res === 'drawn') {
@@ -932,7 +1182,7 @@
       const r = role && r0.hold && kindType(s) === 'area' && sm === map ? linesOf(r0, pairFor(s, r0, role).p) : r0;
       if (!r.lineRes) continue;
       const area = kindType(s) === 'area';
-      const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null }, shapeStroke(s, pane.dpr, opt));
+      const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null, cpu: () => cpuMap(sm) }, shapeStroke(s, pane.dpr, opt));
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
       if (area && r.open && !opt.thin) { st.dash = OPEN_DASH; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);
@@ -1025,6 +1275,11 @@
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
     // (a figure's carried point reads as the image on the plane it is shown on: primes counts the maps from the point's own plane, so
     // that plane is stage + primes; F is the whole map from z)
-    if (figMode && primes > 0) { const k = st + primes; return `${S.focus === 0 && st === 0 && k === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(k)}`}(${base})`; }
+    if (figMode && primes > 0) {
+      // (F for a point of z on the last plane; the focused step's f_k for the image of a point of the plane before it; else the plane
+      // shown, w_k, whatever step is focused)
+      const k = st + primes, f = st === 0 && k === nSteps() ? 'F' : S.focus > 0 && primes === 1 && k === S.focus ? `f${sub(k)}` : `w${sub(k)}`;
+      return `${f}(${base})`;
+    }
     return base + (primes < 4 ? PRIMES[primes] : '⁽' + String(primes).split('').map((d) => SUP[+d]).join('') + '⁾');
   }

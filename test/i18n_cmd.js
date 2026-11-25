@@ -4,8 +4,9 @@
 //      scrolls sideways, the top bar fits, and no element is clipped in Russian that is not clipped in English.
 //   2. No English left in the first screen and the header's menus at every width (test/i18n_scan.js). The full walk of
 //      every view, dialog and tour step is test/i18n_walk_cmd.js.
-//   3. The globe: in the bar at 768 px and up (v15.1, frame f6; before, folded into More below 1024); its menu Auto (resolved), English, Русский,
-//      Italiano (bd48ab3 added Italian); the same rows in the palette ("язык", "language"). The secondary buttons are in the bar from 768 too.
+//   3. Language: no globe in the bar; a four-way switch (Auto, English, Русский, Italiano) in ⚙ Settings and in the
+//      phone's More sheet; the same rows in the palette ("язык", "language"). From 768 px the bar has no More button
+//      and holds the secondary buttons, as at 1024 (frame f6, notes/ui-redesign-2/README.md).
 //   4. Switching round-trips: work, view, undo history and open panels come back, in both directions, through the UI.
 //   5. ЙЦУКЕН shortcuts through e.code; typing in a text field is never taken.
 //   6. Detection: a ru-RU browser gets Russian; ?ns= pages stay English; uk-UA stays English.
@@ -100,8 +101,8 @@ for (const dark of [false, true]) {
     }
   }
 }
-// ---- 1b: Italian against English (issue #61: wave 1's fitting rules are Russian-only; Italian gets the overflow checks too,
-// from a phone to a wide desktop; its text is longer than English, shorter than Russian in most labels) ----
+// ---- 1b: Italian against English (#61's fitting rules are Russian-only; Italian gets the overflow checks too, from a
+// phone to a wide desktop; its text is longer than English, shorter than Russian in most labels) ----
 for (const dark of [false, true]) {
   for (const w of [...WIDTHS, 1600, 1920]) {
     await open('en', w, dark); const en = await ev(CLIP);
@@ -113,8 +114,8 @@ for (const dark of [false, true]) {
   }
 }
 // ---- 3: Language in Settings, the tablet bar, the palette rows ----
-// ([v17 D5, the owner's decision of 2026-10-28, notes/i18n/USER-DECISIONS.md] the header's globe went: Language is a
-// four-way switch in ⚙ Settings, and in the phone's More sheet)
+// (the header has no globe: Language is a four-way switch in ⚙ Settings, and in the phone's More sheet; the owner's
+// decision of 2026-10-28, notes/i18n/USER-DECISIONS.md)
 const setLang = async (v) => { await ev(`document.getElementById('settingsBtn').click(), 1`); await settle(400); return ev(`(() => { const b = document.querySelector('.set-pop #setLang [data-v="${v}"]'); if (!b) return false; b.click(); return true; })()`); };
 await open('ru', 1440, false);
 check('no globe in the bar: Language is in Settings', await ev(`!document.getElementById('langBtn') && !!document.getElementById('settingsBtn').offsetParent`));
@@ -130,8 +131,8 @@ for (const q of ['язык', 'language']) {
   check(`palette "${q}": the four Language rows`, rows.length === 4, rows);
   await key('Escape'); await until(`!document.querySelector('#popHost .palette, .pop.palette')`);
 }
-// (v15.1, verify-6: from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the secondary buttons are
-// in the bar, inside the window, and Settings, with Language, opens there)
+// (from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the secondary buttons are in the bar,
+// inside the window, and Settings, with Language, opens there)
 for (const w of [768, 900, 1023]) {
   await open('ru', w, false);
   const st = await ev(`(() => { const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
@@ -182,7 +183,7 @@ for (const w of [1024, 1440]) {
   await sleep(4500); await settle(1500);
   const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.n === before2.n && after2.sv === before2.sv);
-  // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
+  // the phone (More is a sheet, with Language as a four-way switch in it): More → Русский
   await view(390, 844, false, true); await go(`${U}?ns=${ns}`); await loaded(3500);
   const b3 = await snap();
   await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
@@ -275,7 +276,7 @@ for (const w of [1024, 1440]) {
   const e = await ev(`(() => { try { Expr.parse('0,5'); return null; } catch (e) { return e.message; } })()`);
   check('en: "0,5" keeps its English message', e === "Unexpected ','", e);
 }
-// ---- 8 (v16.1 user-5): the logarithm's example and its Landscape title say which sheets, in Russian ----
+// ---- 8: the logarithm's example and its Landscape title say which sheets, in Russian ----
 {
   await open('ru', 1440, false);
   // (the example picked from the Examples list by its Russian name)

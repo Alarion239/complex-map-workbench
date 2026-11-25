@@ -90,16 +90,25 @@ const hung = await ev('Array.from(document.querySelectorAll("#toastHost .toast b
 info.hung = hung;
 ok('after 10 s: the message offers Retry and Cancel', hung.includes('Retry') && hung.includes('Cancel'), hung);
 // (the keyboard user acts on the message: the focus goes back to the button the wait is on, never to the page)
-const FOCUS_IN_MSG = (name) => `(() => { const b = Array.from(document.querySelectorAll("#toastHost .toast button")).find((x) => x.textContent === ${JSON.stringify(name)}); if (!b) return false; b.focus(); return document.activeElement === b; })()`;
+const FOCUS_IN_MSG = (name) => `(() => { const b = Array.from(document.querySelectorAll("#toastHost .toast:not(.toast-out) button")).find((x) => x.textContent === ${JSON.stringify(name)}); if (!b) return false; b.focus(); return document.activeElement === b; })()`;
 const FOCUS_ON = (sel) => `(() => { const a = document.activeElement; return a ? a.matches(${JSON.stringify(sel)}) : false; })()`;
 ok('Retry in the message takes the focus', await ev(FOCUS_IN_MSG('Retry')), null);
+// (the live region's writes from Retry on, each with the animation frame it came in: window.__retrySaid)
+await ev('(window.__fr = 0, (function f() { window.__fr++; requestAnimationFrame(f); })(), window.__retrySaid = [], new MutationObserver(() => window.__retrySaid.push({ t: document.querySelector("#stage > .sr-only[aria-live]").textContent, f: window.__fr })).observe(document.querySelector("#stage > .sr-only[aria-live]"), { childList: true, characterData: true, subtree: true }), 1)');
 await key('Enter');
 const retry = await ev(state('.sv-play'));
 ok('after Retry by the keyboard the focus is on Play, which is not "pressed" while it is Cancel', await ev(FOCUS_ON('.sv-play')) && (await ev('document.querySelector(".sv-play").getAttribute("aria-pressed")')) === null, await ev('document.activeElement && document.activeElement.className'));
 info.retry = retry;
 ok('Retry keeps the ring with no gap', retry.busy && retry.ring && retry.label === 'Cancel', retry);
-// the message again after 10 s more: Cancel by the keyboard ends the wait with the focus on Play, whose "pressed" state is back
-await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+// (the wait it restarts says its line again: svGateEnd empties the live region, and the line is written on the gate's next poll)
+await settled({ max: 2000, only: true, until: 'window.__retrySaid.some((w) => w.t === "Preparing the glide…")' });
+const retrySaid = await ev('window.__retrySaid');
+const retryAt = retrySaid.findIndex((w) => w.t === 'Preparing the glide…'), retryEmpty = retrySaid.slice(0, Math.max(0, retryAt)).filter((w) => w.t === '').pop();
+info.retrySaid = retrySaid;
+ok('after Retry the live region says "Preparing the glide…" again: an empty region at least a frame before it (a write a screen reader announces)', retryAt > 0 && !!retryEmpty && retrySaid[retryAt].f > retryEmpty.f, retrySaid);
+// the message again after 10 s more (a message that is not closing: Retry's own fades out for TOAST_OUT_MS): Cancel by the
+// keyboard ends the wait with the focus on Play, whose "pressed" state is back
+await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast:not(.toast-out)")' });
 ok('Cancel in the message takes the focus', await ev(FOCUS_IN_MSG('Cancel')), null);
 await key('Enter');
 const cancelled2 = await ev(state('.sv-play'));
@@ -181,10 +190,104 @@ for (const lang of ['en', 'ru']) {
   info.jobsHeld = held;
   ok('a job left: a press of Play starts no glide', held.play === null && !held.anim, held);
   ok('a job left: the wait is under way', await ev('__cmwSteps().moving'), held);
+  // the pointer rests on the waiting button: its open tip says the wait's words, and once the wait ends it says the
+  // button's own (an open tip that kept "Preparing the glide…" through the play was the fault)
+  const at = await ev('(() => { const r = document.querySelector(".sv-play").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()');
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at[0], y: at[1] });
+  const TIP = '(() => { const t = document.getElementById("tip"), b = document.querySelector(".sv-play"); return { shown: !t.hidden, text: t.firstChild ? t.firstChild.textContent : "", own: (b.getAttribute("data-tip") || "").split(/\\s{2,}/)[0] }; })()';
+  await settled({ max: 5000, only: true, until: '!document.getElementById("tip").hidden' });
+  const tipWait = await ev(TIP);
+  info.tipWait = tipWait;
+  ok('the open tip of the waiting button says its words', tipWait.shown && tipWait.text === tipWait.own, tipWait);
   await ev(`(${WATCH_PLAY}, 1)`);
   await ev('(__cmwSteps({ holdJobs: false }), 1)');
   await settled({ max: 20000, only: true, until: 'window.__played === true' });
   ok('the job done: the glide starts', await ev('window.__played'), held);
+  const tipAfter = await ev(TIP);
+  info.tipAfter = tipAfter;
+  ok('the wait over: the open tip says the button\'s own words, not the wait\'s', tipAfter.text !== tipWait.text && (!tipAfter.shown || tipAfter.text === tipAfter.own), { tipWait, tipAfter });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+}
+
+// a change of mind during a wait (#1951): a press on another control ends the wait and waits instead, in both directions; a
+// second press of the control the wait is on only cancels. An arrow waits, then ▶ (by a click), K or M: the arrow is Next
+// plane again and ▶ shows the ring; once the links are released a play starts. ▶ waits, then ›: the arrow's ring, and a
+// glide starts, not a play. ▶ waits, then K: the wait ends and nothing starts (window.__started: a frame loop's first frame
+// with a play or a glide)
+const STARTED = '(window.__started = false, (function f() { const s = __cmwSteps(); if (s.play !== null || s.anim) window.__started = true; else requestAnimationFrame(f); })(), 1)';
+const CLICK = (sel) => `(document.querySelector("${sel}").click(), 1)`;
+for (const [tag, press] of [['▶', () => ev(CLICK('.sv-play'))], ['K', () => key('k')], ['M', () => key('m')]]) {
+  await open(1440, 900);
+  await ev(CLICK('.sv-next'));
+  await settled({ max: 3000, only: true, until: '!!document.querySelector(".sv-next[aria-busy]")' });
+  await press();
+  await settled({ max: 3000, only: true, until: BUSY });
+  const moved = { next: await ev(state('.sv-next')), play: await ev(state('.sv-play')) };
+  info['an arrow waits, then ' + tag] = moved;
+  ok(`an arrow waits, then ${tag}: the arrow's wait ends (Next plane, not busy) and ▶ waits with its ring`, !moved.next.busy && moved.next.label === 'Next plane' && moved.play.busy && moved.play.label === 'Cancel' && moved.play.ring && moved.play.play === null && !moved.play.anim, moved);
+  await ev(`(${WATCH_PLAY}, 1)`);
+  await ev('(GLR.holdLinks(false), 1)');
+  await settled({ max: 40000, only: true, until: 'window.__played === true' });
+  ok(`an arrow waits, then ${tag}: released, a play starts`, await ev('window.__played'), await ev(state('.sv-play')));
+}
+{
+  await open(1440, 900);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: 3000, only: true, until: BUSY });
+  await ev(CLICK('.sv-next'));
+  await settled({ max: 3000, only: true, until: '!!document.querySelector(".sv-next[aria-busy]")' });
+  const moved = { next: await ev(state('.sv-next')), play: await ev(state('.sv-play')) };
+  info['▶ waits, then ›'] = moved;
+  ok('▶ waits, then ›: ▶ is Play again, not busy, and the arrow waits with its ring', !moved.play.busy && moved.play.label === 'Play' && moved.next.busy && moved.next.label === 'Cancel' && moved.next.ring, moved);
+  await ev('(window.__glided = false, window.__playedToo = false, (function f() { const s = __cmwSteps(); if (s.play !== null) window.__playedToo = true; if (s.anim) window.__glided = true; if (!window.__glided) requestAnimationFrame(f); })(), 1)');
+  await ev('(GLR.holdLinks(false), 1)');
+  await settled({ max: 40000, only: true, until: 'window.__glided === true' });
+  const ran = { glided: await ev('window.__glided'), played: await ev('window.__playedToo') };
+  ok('▶ waits, then ›: released, the arrow\'s glide starts, not a play', ran.glided && !ran.played, ran);
+}
+{
+  await open(1440, 900);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: 3000, only: true, until: BUSY });
+  await key('k');
+  await ev(STARTED);
+  const ended = await ev(state('.sv-play'));
+  await ev('(GLR.holdLinks(false), 1)');
+  await settled({ max: 60000, only: true, until: '__cmwSteps().ready.ready' });
+  const after = Object.assign(await ev(state('.sv-play')), { started: await ev('window.__started') });
+  info['▶ waits, then K'] = { ended, after };
+  ok('▶ waits, then K: the wait ends (Play, not busy)', !ended.busy && ended.label === 'Play' && ended.play === null, ended);
+  ok('▶ waits, then K: nothing starts once the chain is prepared', !after.started && after.play === null && !after.anim, after);
+}
+
+// the live region across a change of mind: a write of the text it already holds is not said again, so a swapped wait
+// says "Preparing the glide…" only after a write that differs from it; and a cancelled wait leaves no stale "Preparing the
+// glide…". window.__said records the region's text at each of its mutations
+const SAID = '(window.__said = [], new MutationObserver(() => window.__said.push(document.querySelector("#stage > .sr-only[aria-live]").textContent)).observe(document.querySelector("#stage > .sr-only[aria-live]"), { childList: true, characterData: true, subtree: true }), 1)';
+const LIVE = 'document.querySelector("#stage > .sr-only[aria-live]").textContent';
+const PREP = 'Preparing the glide…';
+{
+  await open(1440, 900);
+  await ev(CLICK('.sv-next'));
+  await settled({ max: 3000, only: true, until: `!!document.querySelector(".sv-next[aria-busy]") && ${LIVE} === ${JSON.stringify(PREP)}` });
+  await ev(SAID);
+  await key('k');
+  await settled({ max: 3000, only: true, until: BUSY });
+  await settled({ max: 2000, only: true, until: `window.__said.length > 0 && window.__said[window.__said.length - 1] === ${JSON.stringify(PREP)}` });
+  const said = await ev('window.__said');
+  const last = said.lastIndexOf(PREP), before = said.slice(0, last), changed = before.some((t) => t !== PREP);
+  info['live: an arrow waits, then K'] = said;
+  ok('live region, an arrow waits, then K: the play\'s "Preparing the glide…" follows a write that differs from it (a screen reader says it again)', last >= 0 && changed, said);
+  ok('live region, an arrow waits, then K: "Preparing the glide…" is said once for the play\'s wait', said.filter((t) => t === PREP).length === 1, said);
+}
+{
+  await open(1440, 900);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: 3000, only: true, until: `${BUSY} && ${LIVE} === ${JSON.stringify(PREP)}` });
+  await esc();
+  const live = await ev(LIVE);
+  info['live: ▶ waits, then Esc'] = live;
+  ok('live region, ▶ waits, then Esc: it no longer reads "Preparing the glide…"', live !== PREP, live);
 }
 
 // a wait ends when another chain is loaded under it (an example, a link, an undo): ▶ or an arrow pressed behind the held
