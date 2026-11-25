@@ -8,9 +8,11 @@
 // Writes every file to test/regress/export/out/ (<name>.pdf|.svg|.png|.tex and <name>-boxes.json for the preflight)
 // and the dialog screenshots to <daemon>/shots/export-dlg-*.png. Prints {pass, fails, ...}.
 // CMW_ONLY=1-3 runs sections 1 to 3 alone and CMW_ONLY=user5 section 6 (the CI runs these parts: ci/browser_suites.js).
-// CMW_ONLY=user5-classic and user5-deform are the parts of section 6 that only the classic views have: the Landscape's pane
-// title naming the sheets, and the Deformation's film on them; the CI runs each on the classic views (CMW_VIEW empty).
-// CMW_ONLY=user5-deform-steps is that film's steps-view leg: the thread's play (K, M or the ▶) over the Landscape's sheets.
+// CMW_ONLY=user5-classic is the part of section 6 that only the classic views have: the Landscape's pane title naming the
+// sheets; the CI runs it on the classic views (CMW_VIEW empty).
+// CMW_ONLY=user5-deform-steps is the film over the Landscape's sheets: the thread's play (K, M or the ▶).
+// (standards-ok: the classic Deformation's film on the sheets went with the classic transport, #994; user5-deform-steps is
+// the steps view's)
 const BASE = process.env.CMW_BASE || 'http://localhost:8793/'; // (a daemon of your own: CMW_BASE=http://localhost:<port>/)
 const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
 fs.mkdirSync(OUT, { recursive: true });
@@ -29,8 +31,8 @@ const open = async (ns, w = 1440, h = 900, dark = false, view0 = null) => {
 };
 const b64of = (expr) => `await (async () => { const b = await (${expr}); const u8 = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); })()`;
 
-const USER5_CLASSIC = process.env.CMW_ONLY === 'user5-classic', USER5_DEFORM = process.env.CMW_ONLY === 'user5-deform', USER5_PLAY = process.env.CMW_ONLY === 'user5-deform-steps';
-if (!/^user5/.test(process.env.CMW_ONLY || '')) { // (CMW_ONLY=user5, user5-classic, user5-deform: section 6 only)
+const USER5_CLASSIC = process.env.CMW_ONLY === 'user5-classic', USER5_PLAY = process.env.CMW_ONLY === 'user5-deform-steps';
+if (!/^user5/.test(process.env.CMW_ONLY || '')) { // (CMW_ONLY=user5, user5-classic, user5-deform-steps: section 6 only)
 // 1. every view x preset x ink, in every format
 const PRESETS = {
   article1: { for: 'article', cols: 1 },
@@ -117,24 +119,35 @@ for (const [p, o] of Object.entries(PRESETS)) {
   const r = await build(`svfilm-strip-${p}`, Object.assign({ svPic: 'film' }, o));
   if (r && p === 'article2W') ok('filmstrip: a frame per plane, each titled', r.boxes.filter((b) => b.kind === 'title').length === nPlanes && /The planes along/.test(r.cap), { titles: r.boxes.filter((b) => b.kind === 'title').map((b) => b.tex), planes: nPlanes, cap: r.cap });
 }
-// the classic X -> Y figure: two panels (a) and (b), the open boundaries dashed and the images of the points named A',
+// the classic X -> Y figure: X's panel, the one the view draws (#994), the open boundaries dashed and the points named A,
 // and the Phase view's zeros and poles, which the steps view's one plane does not draw; on a page that asks for the
 // classic view
+// (standards-ok: panel (b), Y's, with its images named A' and its "(a) … (b)" caption, goes with Y's pane, which the
+// classic view does not draw; the one panel's points, boundaries and caption are read here)
 await open('xrexportc', 1440, 900, false, 'classic');
 await ev('__cmwExample(1); 1'); await settle(2200);
 for (const p of ['article1', 'homework']) {
   const r = await build(`xy-strip-${p}`, PRESETS[p]);
   if (r && p === 'homework') {
     ok('homework: open boundaries dashed and said so', /stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /Dashed: boundary not included\./.test(r.cap), r.cap);
-    ok('homework: points named A, A\'', /\$A=0\$/.test(r.cap) && /goes to \$A'\$/.test(r.cap), r.cap);
+    ok('homework: points named A', /\$A=0\$/.test(r.cap), r.cap);
     ok('homework: 1 in margins by default, shrink only', /469\.75pt \\linewidth\\else 469\.75pt\\fi/.test(r.tex), r.tex.slice(0, 300));
   }
-  if (r && p === 'article1') ok('article: solid boundaries, (a) (b)', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /^\(a\) /.test(r.cap) && / \(b\) /.test(r.cap), r.cap);
+  if (r && p === 'article1') ok('article: solid boundaries, one panel (no (a) or (b))', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && !/^\(a\) /.test(r.cap) && !/ \(b\) /.test(r.cap), r.cap);
 }
 await ev(`__cmwSetMain('phase'); 1`); await settled({ until: `__cmwView().main === 'phase'` });
 for (const p of ['article1', 'article2']) {
   const r = await build(`phase-strip-${p}`, PRESETS[p]);
-  if (r && p === 'article1') ok('phase: zeros and poles named, level lines', /Zeros \(dots\) at \$0\$/.test(r.cap) && /Poles/.test(r.cap) && /level sets/.test(r.cap), r.cap);
+  // (example 1's F = (e^z − 1)/(e^z + 1) = tanh(z/2) has its zeros at 2πik, and the caption names those in the figure's window,
+  // the plane's: in the classic view at 1440 × 900, where the empty chain box takes no room, [−9, 9] × [−8, 8], so k = −1, 0, 1,
+  // top to bottom as Calc.zerosPoles sorts the roots on one vertical line)
+  if (r && p === 'article1') {
+    const win = /on \$\[(-?[\d.]+),(-?[\d.]+)\]\\times\[(-?[\d.]+),(-?[\d.]+)\]\$/.exec(r.cap);
+    const zs = ((/Zeros \(dots\) at (.*?)\. Poles/.exec(r.cap) || [])[1] || '').match(/\$[^$]*\$/g) || [];
+    const want = [];
+    if (win) for (let k = Math.floor(+win[4] / (2 * Math.PI)); k >= Math.ceil(+win[3] / (2 * Math.PI)); k--) want.push(k === 0 ? '$0$' : `$${k < 0 ? '-' : ''}${(2 * Math.PI * Math.abs(k)).toFixed(3)}i$`);
+    ok('phase: zeros and poles named, level lines', !!win && want.includes('$0$') && JSON.stringify(zs) === JSON.stringify(want) && /Poles/.test(r.cap) && /level sets/.test(r.cap), { cap: r.cap, zs, want });
+  }
   const b = await build(`phase-strip-${p}-bw`, Object.assign({ ink: 'bw' }, PRESETS[p]));
   if (b) ok('phase B/W: a contour portrait', /drawn as level sets/.test(b.cap) && /dashed: \$\\arg F=\\pi\$/.test(b.cap), b.cap);
 }
@@ -240,7 +253,7 @@ ok('the dialog opens with storage blocked', await dlgReady(), null);
 await key('Escape'); await settle(300);
 await ev(`(() => { const p = Storage.prototype; [p.getItem, p.setItem] = window.__ls; return 1; })()`);
 
-} // (CMW_ONLY=user5, user5-classic and user5-deform skip sections 1 to 3)
+} // (CMW_ONLY=user5, user5-classic and user5-deform-steps skip sections 1 to 3)
 // 6. (the user's requests 4 and 5, notes/v16-user5/AS-BUILT-export.md; CMW_ONLY=user5 runs it alone)
 // (a) the Landscape with All sheets says exactly which sheets it draws, in the LaTeX caption (English and Russian),
 // the figure's own caption and the pane title: both / all n sheets for a finite covering, the window of infinitely
@@ -259,7 +272,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   const loadSt = async (ns, st) => {
     await go(`${BASE}gl-helpers.html`);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(Object.assign({ v3: true, v4: true, nextId: 50, focus: 0 }, st)))}); 1`);
-    await go(`${BASE}test.html?ns=${ns}${USER5_CLASSIC || USER5_DEFORM ? '&view=classic' : ''}`); await settled();
+    await go(`${BASE}test.html?ns=${ns}${USER5_CLASSIC ? '&view=classic' : ''}`); await settled();
   };
   // (sections 1 to 4 keep their helpers in their own block: this section's own, the same files for the preflight)
   const dlgReady = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
@@ -288,12 +301,12 @@ if (process.env.CMW_ONLY !== '1-3') {
     ['logsqrt', [CU('\\log(z)+\\sqrt{z}')], /; 10 of the infinitely many sheets are shown \(the window \$k=-2,\\dots,2\$\)\./, /; показаны листы: 10 из бесконечного множества \(окно \$k=-2,\\dots,2\$\)\./, /, 10 sheets, k = −2…2$/],
     ['root30', [RT(30)], /; the sheets \$k=-2,\\dots,2\$ of 30 are shown\./, /; показаны листы \$k=-2,\\dots,2\$ \(всего листов: 30\)\./, /, sheets k = −2…2$/],
     ['powi', [CU('z^{i}')], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
-    // (v16.1 review math-7: a typed near-fraction is not 1/3: a window of its infinitely many sheets)
+    // (a typed near-fraction is not 1/3: a window of its infinitely many sheets)
     ['nearthird', [{ type: 'powa', params: { alpha: '0.333333333', cut: 180, k: 0 } }], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
   ];
   const disc = [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }];
   const OLD = /all sheets of the Riemann surface|все листы римановой поверхности/;
-  for (const [nm, steps, en, ru, title] of USER5_DEFORM || USER5_PLAY ? [] : CASES) {
+  for (const [nm, steps, en, ru, title] of USER5_PLAY ? [] : CASES) {
     await loadSt(`u5s${nm}${Date.now()}`, { steps, rightMode: '3d', sheets: true, height: 'im', shapes: disc });
     const t = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
     if (USER5_CLASSIC) {
@@ -318,48 +331,7 @@ if (process.env.CMW_ONLY !== '1-3') {
       await build('u5-sheets-ru-log-homework', { for: 'homework', lang: 'ru' }, ['pdf', 'tex']);
     }
   }
-  if (USER5_DEFORM) {
-  // the deformation on: the landscape draws H_t on the sheets that become F's (work/xvsh), so the clause names them
-  // (both of √z's), with no Ln (the map is H_t) and never "all sheets of the Riemann surface"
-  await loadSt(`u5smorph${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
-  // (it opens playing, and while it moves the All sheets landscape is refined again every frame: the page is quiet only
-  // in the hold at the end of a pass, 6 to 8 s in on a software renderer. The title is set as it opens, and a figure
-  // draws its own landscape refined in full, so the wait is for the deformation to be open)
-  await ev('__cmwMorph({ open: true }); 1'); await settled({ only: true, until: '__cmwMorph().open === true' });
-  const mt = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
-  const mc = await build('u5-sheets-morph-article1', { for: 'article', deform: 'frame' }, []);
-  const mr = await build('u5-sheets-ru-morph-article1', { for: 'article', deform: 'frame', lang: 'ru' }, []);
-  R.u5.caps.morph = { title: mt, en: mc && mc.cap.slice(-260), ru: mr && mr.cap.slice(-260) };
-  // (v16.1 review user-1, user-2, math-2: one surface of H_t per sheet of F, the deformed root's path on its sheet, and
-  // the homotopy not called the principal branch)
-  const homEN = /; \$H_t\$ is drawn on 2 surfaces, one for each sheet of \$F\$\. Each deformed root or power \$z\^\{\\alpha\}\$ runs along \$z\^\{\\sigma\}e\^\{2\\pi ik\\sigma\}\$, \$\\sigma=1\+\(\\alpha-1\)t\$, where \$k\$ is its branch number on that surface\./;
-  const homRU = /; деформация \$H_t\$ показана на 2 поверхностях, по одной для каждого листа \$F\$\. Каждый деформируемый корень и[~ ]каждая степень/;
-  ok('sheets, deformation on: the English caption: one surface per sheet of F, the path on a sheet', mc && homEN.test(mc.cap) && !OLD.test(mc.cap) && !/\\operatorname\{Ln\}/.test(mc.cap) && !/principal branch/.test(mc.cap) && /\(on every sheet\)/.test(mc.cap), mc && mc.cap.slice(-700));
-  ok('sheets, deformation on: the Russian caption names them', mr && homRU.test(mr.cap) && !OLD.test(mr.cap) && !/главная ветвь/.test(mr.cap) && /\(на каждом листе\)/.test(mr.cap), mr && mr.cap.slice(-700));
-  ok('sheets, deformation on: the title says on both sheets of F', /, on both sheets of F$/.test(mt || ''), mt);
-  // (v16.1 review user-1) the default figure while deforming is the four-panel film: its caption has the same clause
-  const fe = await build('u5-sheets-film-article1', { for: 'article' }, []), fr = await build('u5-sheets-ru-film-article1', { for: 'article', lang: 'ru' }, []);
-  R.u5.caps.film = { en: fe && fe.cap.slice(-900), ru: fr && fr.cap.slice(-900), view: fe && fe.view };
-  ok('sheets, film: the English caption has the sheets clause and no principal branch', fe && /Landscapes of \$H_t\$/.test(fe.cap) && homEN.test(fe.cap) && !/principal branch/.test(fe.cap) && /\(on every sheet\)/.test(fe.cap), fe && fe.cap.slice(0, 900));
-  ok('sheets, film: the Russian caption too', fr && homRU.test(fr.cap) && !/главная ветвь/.test(fr.cap) && /\(на каждом листе\)/.test(fr.cap), fr && fr.cap.slice(0, 900));
-  await ev('__cmwMorph({ open: false }); 1'); await settled({ until: '__cmwMorph().open === false' });
-  // (v16.1 review user-1) the user's case: sin √z, √ bracketed; the film and the single frame
-  await loadSt(`u5susr${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
-  await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 }, T: 0.5 })'); await settle(2000);
-  const ue = await build('u5-sheets-user-film', { for: 'article' }, ['tex']), ur = await build('u5-sheets-ru-user-film', { for: 'article', lang: 'ru' }, []);
-  R.u5.caps.user = { en: ue && ue.cap, ru: ur && ur.cap };
-  ok('sheets, the user\'s case: the film caption names the sheets and G_t on every sheet', ue && homEN.test(ue.cap) && !/principal branch/.test(ue.cap) && /G_t/.test(ue.cap), ue && ue.cap.slice(0, 1200));
-  ok('sheets, the user\'s case: Russian', ur && homRU.test(ur.cap) && !/главная ветвь/.test(ur.cap) && /G_t/.test(ur.cap), ur && ur.cap.slice(0, 1200));
-  // (v16.1 verify-1) the whole chain, √ then sin in turn (0 <= t <= 2): the path is written in the step's own time s,
-  // with sigma the exponent, not in the global t
-  await ev('__cmwMorph({ open: true, playing: false, range: null, T: 1.5 })'); await settle(2000);
-  const we = await build('u5-sheets-whole-film', { for: 'article' }, []), wr = await build('u5-sheets-ru-whole-film', { for: 'article', lang: 'ru' }, []);
-  R.u5.caps.whole = { en: we && we.cap, ru: wr && wr.cap };
-  const turnEN = /Each deformed root or power \$z\^\{\\alpha\}\$ runs along \$z\^\{\\sigma\}e\^\{2\\pi ik\\sigma\}\$, \$\\sigma=1\+\(\\alpha-1\)s\$, where \$s\$ \(\$0\\le s\\le 1\$\) is the time of the step it belongs to/;
-  ok('sheets, whole chain in turn: the path in the step\'s own time s', we && turnEN.test(we.cap) && !/\(\\alpha-1\)t\$/.test(we.cap) && /runs the steps in turn/.test(we.cap), we && we.cap.slice(0, 1400));
-  ok('sheets, whole chain in turn: Russian', wr && /\\sigma=1\+\(\\alpha-1\)s\$, где \$s\$ \(\$0\\le s\\le 1\$\)(?:~---|\s—) время соответствующего шага/.test(wr.cap) && !/\(\\alpha-1\)t\$/.test(wr.cap), wr && wr.cap.slice(0, 1400));
-  await ev('__cmwMorph({ open: false })'); await settle(600);
-  } else if (USER5_PLAY) {
+  if (USER5_PLAY) {
   // the steps view has no Deformation transport: the thread's play is the film, and on the Landscape with All sheets it
   // glides over the sheets (the carried sheets, GLR.drawLandscape's landCarryPlace). Playing √z from z: a frame between the
   // planes draws both sheets, the title says so, and the play ends on w_1, the colour plane, with one surface
@@ -388,7 +360,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   ok('sheets, steps play across sin: a frame of the glide draws both sheets', !!(sx > 1.15 && sx < 1.9 && sm && sm.drawn && sm.drawn.K === 2), { x: sx, drawn: sm && sm.drawn });
   await ev(`__cmwSteps({ play: false, clock: null }); 1`);
   } else if (!USER5_CLASSIC) {
-  // (v16.1 review math-6) √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
+  // √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
   await loadSt(`u5ssv${Date.now()}`, { steps: [RT(2), { type: 'powa', params: { alpha: '2', cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   const sv = await ev('__cmwLandSheets()'), se = await build('u5-sheets-single-article1', { for: 'article' }, []);
   R.u5.caps.single = { ls: sv, en: se && se.cap.slice(-300) };

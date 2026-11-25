@@ -9,8 +9,10 @@
 //  - M2 Joukowski, |w − 0.6 − 0.5i| < 0.35: crosses and dots at ±1, the join ring of radius 0.64;
 //  - the key chip names the marks, clear of the plane's other controls; the card's Look down switch turns it all off;
 //  - with the Pick tool, a press 7 css px inside the ring (within its 16 px to the touch) drags the target;
+//  - M3 with the Pick tool: a drag on the ring (at its top, and over a lit patch) or on a line moves the target with the
+//    pointer, its centre and its ring to a pixel;
 //  - sin z, |w − 0.5| < 0.2, infinitely many critical points: crosses at π/2 + kπ in the window, again after a pan;
-//  - on a phone, where the card is not shown, Look down is off.
+//  - on a phone the card is in the disc's row in Shapes, and Look down draws (steps_lookdown_phone_cmd.js has the rest).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const LOAD_MS = 40000, READY_MS = 60000;
@@ -92,6 +94,30 @@ ok('M3: crosses at ±√0.4', !!L && has(L.crit, await at(S4, 0)) && has(L.crit,
 ok('M3: dots at 0.3 ∓ 0.8√0.4', !!L && has(L.vals, await at(0.3 - 0.8 * S4, 0)) && has(L.vals, await at(0.3 + 0.8 * S4, 0)), L && L.vals);
 ok('M3: the join ring of radius 0.294', !!L && Math.abs(L.join - (j3[0] - c3[0])) <= 0.75, L && [L.join, j3[0] - c3[0]]);
 
+// M3 with the Pick tool: a press on the target's marks, 30 px right, drags the target with the pointer: its centre moves in
+// the plane as the pointer does, and the ring is drawn about the pointer's new place. Pressed at the ring's top, at its right
+// end (where it crosses the lit patch of the preimage 1.34) and at the middle of the line from −0.67 + 0.38i
+const dragMark = async (name, where) => {
+  await open(M3, [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }]);
+  await select('d');
+  await ev(`(() => { const b = document.querySelector('.tool[data-tool="pick"]'); if (b) b.click(); return 1; })()`);
+  await until(`__cmwPick().tool === 'pick'`);
+  const L0 = await look(), o = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left, r.top]; })()`);
+  const p = await where(L0), a = [o[0] + p[0], o[1] + p[1]], b = [a[0] + 30, a[1]];
+  const za = await ev(`__cmwPlaneMenu().s2w('L', ${a[0]}, ${a[1]})`), zb = await ev(`__cmwPlaneMenu().s2w('L', ${b[0]}, ${b[1]})`);
+  const want = [1.1 + zb[0] - za[0], zb[1] - za[1]], px = Math.hypot(zb[0] - za[0], zb[1] - za[1]) / 30;
+  await drag(a[0], a[1], b[0], b[1], 10, 16);
+  await until(`__cmwShapes().shapes.some((s) => s.id === 'd' && s.c[0] !== 1.1)`, 10000);
+  await frames(); await frames();
+  const c = await ev(`__cmwShapes().shapes.find((s) => s.id === 'd').c`), L1 = await look();
+  info['pick ' + name] = { p, c, want, from: L0 && L0.c, to: L1 && L1.c };
+  ok(`M3, Pick: a drag on ${name} moves the target's centre with the pointer, to a pixel`, Math.hypot(c[0] - want[0], c[1] - want[1]) <= 1.5 * px, { c, want, px });
+  ok(`M3, Pick: after a drag on ${name} the ring is drawn 30 px right of where it was, to a pixel`, !!L0 && !!L1 && Math.hypot(L1.c[0] - L0.c[0] - 30, L1.c[1] - L0.c[1]) <= 1.5, { from: L0 && L0.c, to: L1 && L1.c });
+};
+await dragMark('the ring\'s top', () => at(1.1, 0.25));
+await dragMark('the ring\'s right end, over a lit patch', () => at(1.35, 0));
+await dragMark('a line', (L) => { const l = L.lines.find((q) => q[1] < q[3] - 10); return [(l[0] + l[2]) / 2, (l[1] + l[3]) / 2]; });
+
 // M2
 await open(M2, [{ id: 'd', kind: 'disc', c: [0.6, 0.5], r: 0.35, stage: 1 }]);
 await select('d');
@@ -123,10 +149,10 @@ sx = await crossesAt();
 info.sinPan = [sx.L && sx.L.crit, sx.want];
 ok('sin z, the view panned: the crosses follow, at each π/2 + kπ in the window', panned > 1 && sx.okay, [panned, sx.L && sx.L.crit, sx.want]);
 
-// on a phone the card is not shown, nor is Look down
+// on a phone the card is in the disc's row, and Look down draws
 await open(M1, [{ id: 'd', kind: 'disc', c: [1, 0], r: 0.5, stage: 1 }], [0, 0, 80], true);
 await select('d');
 const phoneL = await look(), phoneKey = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'); return !!k && !k.hidden; })()`);
 info.phone = [phoneL, phoneKey];
-ok('on a phone, with no card shown, Look down is off: no marks and no key', phoneL === null && !phoneKey, info.phone);
+ok('on a phone, the card in the disc\'s row, Look down draws, with its key', !!phoneL && phoneL.id === 'd' && phoneKey, info.phone);
 return { pass: fails.length === 0, passed: pass, fails, info };

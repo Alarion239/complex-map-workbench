@@ -16,15 +16,9 @@ const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'ut
 // (a picture's FNV-1a hash: the suite has no require)
 const fnv = (b) => { let h = 0x811c9dc5; for (let i = 0; i < b.length; i++) { h ^= b[i]; h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); };
 const ns = 'sv' + Date.now();
+const { MOB, CUBE, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 // Cayley, then cube's chain with the upper half-plane: z → w₁ (Möbius) → w₂ (cube)
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
-  steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
-const open = async (w, h, mobile, flag) => {
-  await view(w, h, false, mobile);
-  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${flag ? 'steps' : 'classic'}`); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
-};
+const open = (w, h, mobile, flag) => openChain({ ns, steps: [MOB, CUBE], w, h, mobile, view: flag ? 'steps' : 'classic', until: `typeof __cmwSteps === 'function'`, max: 30000 });
 const S = () => ev('__cmwSteps()');
 // (a glide: until it lands, at most 15 s on a software renderer)
 const rest = async () => { for (let i = 0; i < 150; i++) { const s = await S(); if (!s.moving) return s; await sleep(100); } return S(); };
@@ -235,8 +229,8 @@ ok('the folded key on the phone has a name', leg.role !== 'img' || !!leg.name, l
 
 // ---- with ?view=classic: the classic view ----
 await open(1280, 800, false, false);
-const cl = await ev(`({ sv: document.documentElement.classList.contains('sv'), strip: !!document.getElementById('svStrip'), on: __cmwSteps().on, R: document.getElementById('paneR').getBoundingClientRect().width > 0 })`);
-ok('with ?view=classic the app is the classic view', !cl.sv && !cl.strip && !cl.on && cl.R, cl);
+const cl = await ev(`({ sv: document.documentElement.classList.contains('sv'), strip: !!document.getElementById('svStrip'), on: __cmwSteps().on, X: document.getElementById('paneL').getBoundingClientRect().width > 0 })`);
+ok('with ?view=classic the app is the classic view, X\'s plane shown', !cl.sv && !cl.strip && !cl.on && cl.X, cl);
 
 info.checks = 'steps view: desktop, parking, one GL copy (Everywhere, Inside regions), colour plane, Inside regions, reduced motion, phone swipe, classic';
 return { pass: fails.length === 0, fails, info };

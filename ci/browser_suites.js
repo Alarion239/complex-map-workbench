@@ -22,20 +22,14 @@ const path = require('path');
 
 const EXCLUDED = {
   // not pass/fail suites
-  'deform_nat_fps_cmd.js': 'a benchmark: frame times of the natural paths, no verdict',
-  'deform_range_fps_cmd.js': 'a benchmark whose only verdict is speed (p95 ≤ 18.4 ms, ≥ 58 fps): the perf suite on the GPU machines gates speed',
-  'sound_deform_fps_cmd.js': 'a benchmark: frame and sound times while the deformation plays, no verdict',
-  'sound_v152_fps_cmd.js': 'a benchmark of fps and rAF work with the CPU slowed 6×; its one other check (the loop sings) is in sound_v152_cmd.js',
   'inv_bench_cmd.js': 'a benchmark of the inverse renderer: writes test/inv_bench_results/, no verdict',
   'sound_clicks_cmd.js': 'a recorder: real-time audio for test/sound_clicks.py, which gives the verdict (an underrun on a shared machine would be a click)',
-  'sound_deform_clicks_cmd.js': 'a recorder: real-time audio for test/sound_clicks.py and a detector that is not in the repository',
   'seasong_rec_cmd.js': 'a recorder: the Mountain King as audio (then test/seasong_wav.js and macOS afconvert), no verdict',
   'i18n_shots_cmd.js': 'a screenshot writer: the Russian interface, no verdict',
-  'sheets_film_cmd.js': 'a screenshot writer: the sheets while deforming, no verdict',
   'ux165_merge_shots_cmd.js': 'a screenshot writer: v16.5 wave 1 merge, before and after (its "before" page was built for the pictures and deleted), no verdict',
   'ux165_plane_shots_cmd.js': 'a screenshot writer: v16.5 wave 1 plane, before (a build of a local snapshot) and after, no verdict',
   // run elsewhere
-  'sound_deform_cmd.js': 'runs inside sound_cmd.js (its failures prefixed "deformation: ")',
+  'sound_still_probe_cmd.js': 'runs inside sound_cmd.js (its failures prefixed "still probe: ")',
   'glsl_inverse_cmd.js': 'the GLSL jobs run this page (ci/glsl.js --only inverse), paired against the reference on each platform',
   // superseded
   'ub_views_cmd.js': 'superseded by the merged-views suite; it says it fails on the current app by design (#phaseBtn is gone)',
@@ -74,17 +68,17 @@ const SUITES = {
     logLine: (o) => 'SEAM-ROWS ' + JSON.stringify({ teeth: o.info.teeth, afterSettled: o.info.afterSettled, rows: o.info.teethRows }),
   },
   // (the default example Inside regions, the Joukowski airfoil, the Mountain King and the two polynomials at the device pixel ratio 1, and the
-  // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
+  // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR; the steps inverted by a closed form and a
+  // polynomial of degree 5, Everywhere, in a run of their own)
   'steps_glide_look_cmd.js': { runs: [
     { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Joukowski airfoil, Everywhere', 'Mountain King, Everywhere', 'Roots as preimages, Everywhere', 'Partial sum of the exponential', 'Logarithm, Everywhere', 'Sheets of the logarithm, Everywhere', 'Zeros of the zeta function'];" },
     { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Strip to disk, Everywhere'];" },
+    { label: 'exact', preamble: "globalThis.LOOK_CASES = ['n-th root, Everywhere', 'complex power, Everywhere', 'cos, Everywhere', 'cosh, Everywhere', 'arccos, Everywhere', 'arcosh, Everywhere', 'polynomial of degree 5, Everywhere'];" },
   ] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
-  // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
-  // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
-  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5', 'user5-deform-steps'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
-  'export_deform_classic_cmd.js': { timeoutMin: 40, runs: ['4a-fig', '4a-vid', '4b', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  // (in parts, by its own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader)
+  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5', 'user5-deform-steps'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
   // (the one carry-vs-exact suite, its parts in the shards they balance: views-1 and formulas)
   'steps_carry_exact_cmd.js': { runs: ['glide', 'inregion', 'far', 'chains', 'planes'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   'export_deform_cmd.js': { timeoutMin: 30, runs: ['video', 'dialog', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
@@ -105,13 +99,13 @@ const SUITES = {
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
   'newt_member0_cmd.js': { pages: ['glsl-inverse-test.html'] },
+  'newt_poly_order_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'series_limit_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'steps_land_footprint_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
   'steps_paths_sphere_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
-  // (the steps view's twin of phone_swap's sheet, rotate, urlbar, lang and tablet legs)
+  // (the phone's sheet, rotate, urlbar, lang and tablet legs)
   'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'urlbar', 'lang', 'tablet'].map(part) },
-  'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
   // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
@@ -122,7 +116,7 @@ const SUITES = {
     // (the rows this run does not see: fixed, to lower the baseline with ci/layout_ratchet.js update)
     note: (o) => (o.info && o.info.fixed && o.info.fixed.length ? `${o.info.fixed.length} layout row(s) fixed, lower the baseline (node ci/layout_ratchet.js update <this job's log>): ${o.info.fixed.join('; ')}` : (o.info && o.info.gate) || ''),
     logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
-    runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
+    runs: [['en', null], ['ru', ['360', '740x360', '1024', '568x320', '600x320']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
       preamble: `const LAYOUT_CFG = { label: '${l}', langs: ['${l}'], sizes: ${JSON.stringify(sizes)}, mode: 'gate' };` })),
   },
 };
@@ -139,14 +133,12 @@ const TIMING = {
   'series_edit_cmd.js': [t(/^timing: /)],
   'link_standin_cmd.js': [t(/^timing: /)],
   'steps_line_standin_cmd.js': [t(/^timing: /)],
+  'steps_stack_tubes_cmd.js': [t(/^timing: /, (d) => d && d.frames === 24)],
+  'steps_stack_links_cmd.js': [t(/^timing: /, (d) => d && Array.isArray(d.frames) && d.frames[0] === 24 && d.frames[1] === 24)],
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],
   'export_cmd.js': [t(/^a figure builds in under 2\.5 s/)],
-  'export_deform_classic_cmd.js': [t(/no main-thread task of 50 ms or more/), t(/^preview: it advances at the video's frame rate/),
-    t(/^preview: no main-thread task/), t(/^preview: the animation frames keep time/), t(/^preview DPR 2: plays at 30 fps/), t(/^preview 60 fps Loop/),
-    t(/^dark theme: a video and a filmstrip flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
-    t(/^video in a hidden page: made at a pace close to a visible one/, (d) => d && d.hv && d.vv && d.hv.frames === d.vv.frames)],
   'export_deform_cmd.js': [t(/^Save video in the dialog: no main-thread task of 50 ms or more/),
     t(/^glide video 1920 x 1080 at 60 fps: no main-thread task of 50 ms or more/, (d) => d && d.frames > 0 && Array.isArray(d.lt)),
     t(/^dark theme: a video and a figure flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
@@ -160,18 +152,16 @@ const TIMING = {
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
   'tour_auto_cmd.js': [t(/^(?!Patterns:).*(3 s after|3000 ± \d+ ms|700 ± 100 ms|\+3 s$)/, advanced), t(/^Patterns: moves on 3 s after/, (d) => advanced(d) && d[1] === 'edit/cards'),
     t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, griegCaptionsAll)],
-  'morphfig_classic_cmd.js': [t(/the re-choice makes no long task/)],
   'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/)],
   'split_deform_cmd.js': [t(/^12 sines, the deformation playing: p95/)],
   'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
   'p3_accept_steps_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
-  // (the export completed with both globes inverse; only its long tasks missed)
+  // (the export completed with X's globe inverse; only its long tasks missed)
   'p3_review_classic_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
-    t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
+    t(/^the globe's 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Lglobe:inverse')))],
   'zp_cmd.js': [t(/^drag at 60 fps/)],
-  'zp_classic_cmd.js': [t(/^deformation plays at 60 fps/)],
   'v15_params_cmd.js': [t(/^slider drag: (rAF work|input handler) p95/)],
   'p5_accept_cmd.js': [t(/: no slice over 6 ms$/), t(/^8\.8: the slices of the rebuild stay within 6 ms/)],
 };
@@ -190,31 +180,10 @@ const SOFTWARE = {
   ],
   'tour_cmd.js': [s(/^Sphere: one lit panel \(and the strip's window\) and a ring on its surface control$/, 'the ring comes once the shade\'s morph ends, seconds later here (the CI screenshot right after shows it)',
     (d) => d && d.id === 'sphere' && d.holes === 2 && d.mark === false)],
-  // (the deformation's clock gains at most 0.1 a frame, app.js: at a few frames a second the per-frame checks see few
-  // frames, though every frame in which t moved had its voice update)
-  'sound_cmd.js': [s(/^deformation: (A Phase, still pointer, M|A Phase, Play|D merged plane): a voice update in every frame t moved$|^deformation: B the tone follows every frame$|^deformation: D merged plane: a hear update in every frame t moved$/,
-    'every frame in which t moved had its voice update (none missed); only the number of frames is short at a few frames a second',
-    (d) => d && d.missed === 0 && d.moved > 0),
-    // (Hear the function: the Landscape is heard as the planes are, with no Height voice or contour ticks.
-    // Or, right after Landscape's first open of the deformation, 3 frames or fewer in the 2.6 s, too few for t to move:
-    // the first frame's step is 0)
-    s(/^deformation: E Landscape: H_t at the still probe heard as on the planes, a hear update in every frame t moved$/, 'every frame in which t moved had its hear update (none missed); only the number of frames is short',
-      (d) => d && d.harp && d.per && d.per.missed === 0 && (d.per.moved > 0 || (typeof d.nFrames === 'number' && d.nFrames <= 3)))],
-  'sound_v152_deform_classic_cmd.js': [
-    s(/^deformation: the loop sings while t runs/, 'W is 0 at first and 1 at the end, and the loop sang in every frame; only the frame count is short (27, needs more than 40)',
-      (d) => d && Array.isArray(d.first) && d.first[1] === 0 && Array.isArray(d.last) && d.last[1] === 1 && d.singing === d.n),
-    s(/^deformation: the note steps 0 → 1 when the zero enters the loop/, 'the note steps in the frame that crosses t = 0.45; only the gap between two frames (0.14) is wider than the check\'s 0.05',
-      (d) => d && Array.isArray(d.before) && Array.isArray(d.step) && d.before[0] <= 0.45 && d.step[0] >= 0.45 && d.before[1] === 0 && d.step[1] === 1),
-    s(/^scrub: the air while dragging/, 'the air plays and ends on release with the landmarks and no other cue; only its loudness, from the scrub\'s speed between input events, is low while input events arrive between long frames',
-      (d) => d && d.mid && d.mid.tex === true && d.mid.v > 0 && d.after && d.after.tex === false && Array.isArray(d.made) && d.made.length >= 3 && d.made.length <= 4 && d.made.every((x) => x === 'landmark')),
-  ],
   'tour_auto_cmd.js': [s(/^done: the spotlight steps aside/, 'a 200-ms fade looked at 400 ms after the task, before its frames: quiet, and presses reach the app',
     (d) => d && d.quiet === true && d.hit === true)],
-  // (a 1280 x 720 Bounce of 2 s on the globe fills its preview frame by frame: more than the suite's 60 s here)
-  'export_deform_classic_cmd.js': [s(/^preview Bounce on the globe: a frame on the way back is the video's frame/, 'the preview had not filled within the suite\'s 60 s; the frame on the way back matches the video and the exact render all the same',
-    (d) => d && d.filledMs === -1 && d.frames === d.n && typeof d.entry === 'number' && d.madVideo < 4 && d.madExact < 2 && d.range > 100)],
   'p3_accept_cmd.js': [
-    s(/^X Sphere at stage 0 draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
+    s(/^(X Sphere at stage 0|\(f\) Cayley\(H\) on the globe at stage 1) draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
       (d) => Array.isArray(d) && d.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path === 'pending' && p.reason === 'compiling')),
     s(/^\(h\) the dialog: the last option wins$/, 'the last option is the one checked, but the figure is still being rebuilt when the suite\'s 10 s wait ends (a figure takes 25-40 s to build here); a finished figure with other columns still fails',
       (d) => d && d.checked === '1' && (d.cols === null || d.building === true)),

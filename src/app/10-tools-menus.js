@@ -89,7 +89,7 @@
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
-    if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
+    if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
     // the left readout's idle hint names the tool on a globe and on the landscape (panels.md 3, 9.1)
     if (!probe && !hov.w && (lGlobe() || lLand())) { const lr = $('leftReadout'); if (lr && !lr.classList.contains('copied')) lr.innerHTML = idleLeft(); }
     // an editable globe's graticule is the snap net of the tool (P3b): it is redrawn
@@ -436,8 +436,8 @@
       cb.setAttribute('aria-disabled', String(none));
       cb.title = none ? $t('Nothing to clear') : $t('Remove all shapes and targets');
     }
-    // two groups, always both shown: the shapes of the z-plane and the targets of the w-plane (wₖ with step k
-    // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
+    // the shapes of the z-plane, with their rows (no shapes: no rows), and the targets of the w-plane (wₖ with step k
+    // focused) when there are any (a saved scene's: Y's pane, where targets are drawn, is not drawn)
     // (the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
     // (the steps view has no X or Y: the shapes are grouped by the plane they are in, "In z", "In w₁", …)
     host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>In {w}</span>', { w: wHtml(0) }) : $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
@@ -450,11 +450,10 @@
       for (const [s, row] of rows) if (shapeStage(s) === k) host.append(row);
     }
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
-    // (the steps view: targets are listed under the last plane, and with none there is no group, nothing to draw "in Y")
-    if (!SV.on || S.targets.length) {
+    // (the steps view lists them under the last plane)
+    if (S.targets.length) {
       const out = SV.on ? svNameHtml(svPlanes()[svPlanes().length - 1]) : yAtF() ? '<i>w</i>' : wHtml(rightStage());
       host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>Targets in {out}</span>', { out }) : $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
-      if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
       const tl = targetRowNames();
       S.targets.forEach((s) => host.append(shapeRow(s, tl.get(s.id), true)));
     }
@@ -532,7 +531,10 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
-    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name, more: openMore });
+    // (a disc of a later plane's readout card under its editor where the Inspector does not edit shapes: 19-readout.js)
+    const ro = ed && !inspEditsShapes() ? readoutBuild(s) : null;
+    if (ro) { box.append(ro.root); readoutFill(ro, s); }
+    shapeRows.set(s.id, { d, box, sw, ed, ro, kind: rowKind(s), row, k: name, more: openMore });
     // a row dragged onto another takes its place in the list (the laptop; a phone has Move in the ⋯ menu)
     if (!touchUI() && list.length > 1) {
       box.draggable = true;
@@ -590,15 +592,15 @@
       const r = shapeRows.get(s.id);
       if (!r) continue;
       if (r.ed && r.ed._sync) r.ed._sync();
+      if (r.ro) readoutFill(r.ro, s);
       r.sw.style.cssText = swatchStyle(s);
       let tex;
-      try { tex = shapeTexOf(s); } catch (e) { tex = '\\text{?}'; }
+      try { tex = isTarget(s) ? shapeTexOf(s) : shapeTexOwn(s); } catch (e) { tex = '\\text{?}'; }
       if (s.complement) tex = $t('\\text{not }%{tex}', { tex });
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
-      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
-      // (a shape of a plane of the chain, in that plane's variable)
-      else if (shapeStage(s)) tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1w_{${shapeStage(s)}}`);
+      // (a shape of a plane of the chain is in that plane's variable already: shapeTexOwn)
+      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(Z_VAR, `$1${yv}`); }
       r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
       if (Construct.row(s, r)) continue;   // (definitions, reasons)
       const er = s.undef || s._err;
@@ -971,6 +973,12 @@
   function shapeTexOf(s) {
     if (s.srcTex && s.srcKey === shapeKey(s)) return s.srcTex;
     return Region.KINDS[s.kind].tex(s);
+  }
+  // a shape's TeX in its own plane's variable: one drawn on plane k of the chain writes z as w_k (its row, the figure's caption)
+  const Z_VAR = /(^|[^\\a-zA-Z])z(?![a-zA-Z])/g;
+  function shapeTexOwn(s) {
+    const tex = shapeTexOf(s), k = shapeStage(s);
+    return k ? tex.replace(Z_VAR, `$1${wvar(k)}`) : tex;
   }
   function setupFormula() {
     const inp = $('formulaInput'), prev = $('formulaPrev'), tag = $('formulaPlane'), note = $('formulaNote');

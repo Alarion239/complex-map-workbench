@@ -6,7 +6,7 @@
   const hasTargets = () => !!(S.targets && S.targets.some((s) => s.visible !== false));
   // targets are drawn and edited in the right plane of Image mode (not while it shows a deformation)
   // (and on the w-globe, P3b: panels.md 9)
-  const targetsEditable = () => (rImage() || rGlobe()) && !morphOn() && solo() !== 'L';
+  const targetsEditable = () => (rImage() || rGlobe()) && solo() !== 'L';
   const findShape = (id) => S.shapes.find((x) => x.id === id) || (S.targets || []).find((x) => x.id === id) || null;
   function targetLabel(s, i) { return s.label || (i < 6 ? 'pqrstu'[i] : 'p' + sub(i + 1)); }
   const paneBox = (pane, v) => ({ x0: v.cx - pane.w / 2 / v.s, x1: v.cx + pane.w / 2 / v.s, y0: v.cy - pane.h / 2 / v.s, y1: v.cy + pane.h / 2 / v.s });
@@ -324,21 +324,7 @@
   // the point of the Riemann sphere under pane pixel (x, y) of a sphere view orbited by camera c (null off the globe
   // or at ∞): the ray from the eye meets the globe, and the stereographic projection takes the hit to the plane
   function pickSphere(pane, c, x, y) { const g = pickGlobe(pane, c, x, y); return g ? g.z : null; }
-  // a ring at w on the right plane's globe (the hovered point of the regions sphere)
-  function drawSphereMark(pane, w) {
-    if (!GLR.ok || !GLR.camera) return;
-    const pc = GLR.camera(camS, pane.w, pane.h);
-    const p = liftC(w.re, w.im);
-    const tv = [pc.eye[0] - p[0], pc.eye[1] - p[1], pc.eye[2] - p[2]];
-    if (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2] <= 0) return;
-    const q = project(pane, pc.MVP, p.map((v) => v * 1.01));
-    if (!q) return;
-    const ctx = pane.octx;
-    ctx.save();
-    ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, TAU); ctx.stroke();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = TH.probe; ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, TAU); ctx.stroke();
-    ctx.restore();
-  }
+
   // without GLR.drawPreimage: bounded area targets filled from their outlines
   function fillTargets2D(pane, areas) {
     const ctx = pane.ctx, win = targetWin();
@@ -667,7 +653,7 @@
     if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
     if (labels.length) placeLabels(pane.ctx, pane, labels);
     // (the readout card follows the count as the window moves)
-    if (selected != null && offOf(selected) !== was) requestRender('P');
+    if (selected != null && offOf(selected) !== was) readoutRefresh();
   }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
   function drawPre(pane, side, j) {
@@ -780,8 +766,8 @@
     return {
       paneOf,
       sideOf: (el) => (!el || !paneL ? null : el === paneL.ocanvas ? 'L' : el === paneR.ocanvas ? 'R' : null),
-      // the pane is on screen (a merged view shows one pane alone)
-      shown: (side) => !!paneOf(side) && solo() !== (side === 'L' ? 'R' : 'L') && paneOf(side).ocanvas.getClientRects().length > 0,
+      // the pane is on screen (X's; Y's pane is not drawn)
+      shown: (side) => side === 'L' && !!paneOf(side) && paneOf(side).ocanvas.getClientRects().length > 0,
       // what pane pixel (x, y) shows: {z, surface ('flat', 'globe', 'land'), plane ('X', 'Y', or 'D' for the
       // deformation), stage, s (px per unit on a flat pane)}; null off a globe or the relief
       at(side, x, y) {
@@ -792,7 +778,7 @@
           paneL.setView(leftView());
           return { z: paneL.s2w(x, y), surface: 'flat', plane: 'X', stage: j, s: paneL.view.s };
         }
-        const plane = morphOn() ? 'D' : 'Y', st = rightStage();
+        const plane = 'Y', st = rightStage();
         if (rGlobe()) { const w = pickSphere(paneR, camS, x, y); return w && CX.isFin(w) ? { z: w, surface: 'globe', plane, stage: st } : null; }
         paneR.setView(V.right);
         return { z: paneR.s2w(x, y), surface: 'flat', plane, stage: st, s: paneR.view.s };
@@ -958,7 +944,7 @@
     }
     // the targets' readings, in every view, while there are targets; not over the merged deformation, whose plane is
     // Y's at time t, not X (the z-plane roots would be listed as "in view" over a w-plane picture)
-    const want = hasTargets() && solo() !== 'L' && !(S.view.main === 'xy' && morphOn());
+    const want = hasTargets() && solo() !== 'L';
     let html = '';
     if (want) {
       const pts = S.targets.filter((s) => s.visible !== false && s.kind === 'point');
@@ -1066,6 +1052,8 @@
       integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project,
       rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
       sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed,
+      // (the w-plane targets' fills, outlines and calculator chip: kept for the preimage view to come, #1723)
+      fillTargets2D, strokeTargets, updateCalcChip,
       get S() { return S; },
       get TH() { return TH; },
       get chainSig() { return chainSig; },

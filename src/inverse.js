@@ -38,8 +38,10 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, opNewt, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
-    newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm,
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    reptNode, reptEnclose, reptDisc
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -47,14 +49,25 @@ const Inverse = (() => {
   // 3. Plans (SPEC 3.4) and the program key (4.4)
   // =====================================================================================================
   const isLive = (st, b) => !!st && st.on !== false && !!b && !b.error && !!b.def;
+  // Inverse.chainOpts(steps, built) -> the stepOps options for every step of the chain, the same for its plans, its key
+  // and its GLSL inverse program (whose ops a plan's must match): {rept}, a repeat's one REPT op only when it is the
+  // chain's one live step. The REPT search starts from the pixel's own w (chain error 0) and ends at the shape
+  // (Inverse.enumerate's, the GLSL walker's), so it stands for no repeat with another step's op before or after it; there
+  // the repeat's copies make the plan, as any other repeat's
+  function chainOpts(steps, built) {
+    let live = 0;
+    for (let k = 0; k < steps.length; k++) if (isLive(steps[k], built[k])) live++;
+    return { rept: live === 1 };
+  }
   // Inverse.inverseKey(steps, built): structure of every step (op kinds, or 'X' when it has no enumerator); parameter
   // values are uniforms, so a parameter change keeps the key unless it flips a step's decomposition or eligibility.
   function inverseKey(steps, built) {
+    const opts = chainOpts(steps, built);
     const sigs = steps.map((st, k) => {
       const b = built[k];
       if (!st || st.on === false) return 'off';
       if (!b || b.error || !b.def) return 'err';
-      const r = stepOps(b);
+      const r = stepOps(b, opts);
       return r.ok ? r.ops.map(opSig) : 'X';
     });
     return JSON.stringify(['inv2', sigs]);
@@ -67,18 +80,24 @@ const Inverse = (() => {
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back), at = o.kind === 'NEWT' && o.sub != null ? `@${o.sub}` : '';
     return (n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>${back.some((q) => q.dual) ? 'D' : ''}` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind) + at;
   }
-  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
+  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity. The plan's
+  // ops are its own records (a copy of each op of stepOps with its step, node and j), so plans whose steps share their op
+  // objects (a glide's skeleton shares each step's decomposition at every t, where one op can sit at another node) keep
+  // their own places
   function planChain(steps, built, a = 0, b = steps.length) {
     const key = inverseKey(steps, built);
-    const ops = [];
+    const ops = [], opts = chainOpts(steps, built);
     for (let k = a + 1; k <= b; k++) {
       const st = steps[k - 1], bb = built[k - 1];
       if (!isLive(st, bb)) continue;
-      const r = stepOps(bb);
+      const r = stepOps(bb, opts);
       if (!r.ok) return { ok: false, reason: `step ${k}: ${r.reason}`, ops: [], key, a, b, fams: [], injective: false };
-      r.ops.forEach((o, i) => { o.step = k; o.node = i; ops.push(o); });
+      r.ops.forEach((o, i) => { ops.push(Object.assign(Object.create(Object.getPrototypeOf(o)), o, { step: k, node: i })); });
     }
-    if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', ops: [], key, a, b, fams: [], injective: false };
+    if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', tooLong: true, ops: [], key, a, b, fams: [], injective: false };
+    // (the walkers' REPT search is the plan's only op: a step that stands for its homotopy, Inverse.homBuilt, carries the ops
+    // it was given, so its REPT next to another step's op is refused here)
+    if (ops.length > 1 && ops.some((o) => o.kind === 'REPT')) return { ok: false, reason: 'a repeated step inverts exactly only as the plane\'s one step', ops: [], key, a, b, fams: [], injective: false };
     ops.forEach((o, j) => { o.j = j; });
     const fams = [];
     ops.forEach((o, j) => { if (o.fam) fams.push(j); });
@@ -391,10 +410,11 @@ const Inverse = (() => {
     const R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
     return { R, rs: R / 8 };
   }
-  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of max(0, log2(rs/|z - p|_per)), c the centre
-  // of W (the point nearest the window's centre in front, continuous across W's edges: a distance to W itself would
-  // tie every point inside it and flip sheets along its sides; |z - c| >= dist(z, W), so every lower bound the walk
-  // takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
+  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of w_p max(0, log2(rs/|z - p|_per)), c the
+  // centre of W (the point nearest the window's centre in front, continuous across W's edges: a distance to W itself
+  // would tie every point inside it and flip sheets along its sides; |z - c| >= dist(z, W), so every lower bound the walk
+  // takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing), each with its weight
+  // w_p in [0, 1] (keyW: 1 unless keySing gave it another)
   // (per: the key's period, or null. A chain periodic in z, F(z + per) = F(z), has its points P in classes modulo per,
   // one listed for each; a point's distance to p is then its distance to the nearest point of p's class, so every copy
   // z + k per of a point beside a pole takes the same penalty and the copies rank by their distance to c alone)
@@ -404,8 +424,8 @@ const Inverse = (() => {
     if (!isFin(z)) return Infinity;
     let D = Math.log2(1 + Math.hypot(z.re - (win.x0 + win.x1) / 2, z.im - (win.y0 + win.y1) / 2) / R);
     if (sing) for (const p of sing) {
-      if (lam && lam.re < -LAM_CUT && p.re === 0 && p.im === 0) D += Math.max(0, Math.log2(rs) - lam.re / LN2);
-      else D += Math.max(0, Math.log2(rs / abs(perReduce(sub(z, p), per))));
+      if (lam && lam.re < -LAM_CUT && p.re === 0 && p.im === 0) D += keyW(p) * Math.max(0, Math.log2(rs) - lam.re / LN2);
+      else D += keyW(p) * Math.max(0, Math.log2(rs / abs(perReduce(sub(z, p), per))));
     }
     return D;
   }
@@ -433,11 +453,18 @@ const Inverse = (() => {
     }
     return null;
   }
-  // Inverse.keyClasses(sing, per) -> sing with one point of each class modulo per (the first, in sing's order)
+  // Inverse.keyW(p) -> the weight of the key's point p: p.w, or 1 when it has none
+  const keyW = (p) => (p.w === undefined ? 1 : p.w);
+  // Inverse.keyClasses(sing, per) -> sing with one point of each class modulo per (the first, in sing's order, with the
+  // largest weight of its class)
   function keyClasses(sing, per) {
     if (!per) return sing.slice();
     const out = [];
-    for (const p of sing) if (!out.some((q) => abs(perReduce(sub(p, q), per)) < 1e-9 * (1 + abs(p)))) out.push(p);
+    for (const p of sing) {
+      const j = out.findIndex((q) => abs(perReduce(sub(p, q), per)) < 1e-9 * (1 + abs(p)));
+      if (j < 0) out.push(p);
+      else if (keyW(p) > keyW(out[j])) out[j] = Object.assign(C(out[j].re, out[j].im), { w: keyW(p) });
+    }
     return out;
   }
   // The sheet order. Keys are compared in octaves of the sheet key D. Two keys tie when they differ by at most the tie
@@ -636,7 +663,7 @@ const Inverse = (() => {
     return cur;
   }
   // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
-  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2, RAT3, RAT4,
+  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2 ... RAT12,
   // integer roots, recognized rational formulas; a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
@@ -647,7 +674,7 @@ const Inverse = (() => {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
     let total = 1;
     for (const o of plan.ops) {
-      if (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin')) return { exact: false, reason: 'a step with infinitely many branches' };
+      if (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin' && o.fam.type !== 'rept')) return { exact: false, reason: 'a step with infinitely many branches' };
       total *= o.fam ? o.fam.count : 1;
       if (total > cap) return { exact: false, reason: `more than ${cap} preimages` };
     }
@@ -677,13 +704,14 @@ const Inverse = (() => {
   // step of degree 3 to NEWT_POLY_MAX with no exact ops has its roots instead (homOps at t = 1: one NEWT op, every root
   // of f(u) = w by Aberth's iteration, a multiple root once with its multiplicity)
   function pointPlan(steps, built, a = 0, b = steps.length) {
-    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1)) : bb)), a, b);
+    const opts = chainOpts(steps, built);
+    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1, opts)) : bb)), a, b);
   }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
   // ops each have one branch or finitely many: each op's own (its critical(), e.g. IPOW 0 and infinity, JOUK ±1, QUAD
-  // its vertex and infinity, RAT2 at the zeros of its derivative and at infinity when that is one, a polynomial NEWT op
-  // at the zeros of its derivative), carried through the ops after it, infinity too (z^2, then a Möbius map: infinity goes
-  // to a finite value); null when an op's are not known (a NEWT op that is not a polynomial's)
+  // its vertex and infinity, RAT2 ... RAT12 at the zeros of their derivatives and at infinity when that is one, a
+  // polynomial NEWT op at the zeros of its derivative), carried through the ops after it, infinity too (z^2, then a
+  // Möbius map: infinity goes to a finite value); null when an op's are not known (a NEWT op that is not a polynomial's)
   function critValues(plan) {
     if (!plan || !plan.ok) return null;
     const ops = plan.ops, out = [];
@@ -715,17 +743,25 @@ const Inverse = (() => {
   // Inverse.keySing(plan, win, per) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
   // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
   // pole within 1e-9 (1 + |p|) of an accumulation point is that point, the tolerance dedupe uses for pulled-back points.
-  // per (default keyPeriod(plan)): the key's period, one point of each class modulo it (keyClasses)
-  function keySing(plan, win, per = keyPeriod(plan)) {
+  // per (default keyPeriod(plan)): the key's period, one point of each class modulo it (keyClasses).
+  // wOf(op), when given: the weight in [0, 1] of the poles pulled back from op (its point's w, keyW; a point of weight 0
+  // is left out), for a plan whose ops stand for homotopies at their own times: an All-at-once span's, whose points a
+  // homotopy brings in from infinity weigh its time, so the key goes from the span's first plane's to its last's with no
+  // jump (invSpanPath). Its poles are taken KEY_W_CAP nearest first, so that points left out leave room for the others
+  function keySing(plan, win, per = keyPeriod(plan), wOf = null) {
     let acc = [], poles = [];
     try { acc = accumulation(plan, win); } catch (e) { acc = []; }
-    try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
+    try { poles = singular(plan, win, ['pole'], wOf ? KEY_W_CAP : 4).map((e) => e.z); } catch (e) { poles = []; }
+    if (wOf) poles = poles.map((p) => { const w = wOf(plan.ops[p.op]); return w >= 1 ? p : Object.assign(C(p.re, p.im), { w: Math.max(0, w) }); }).filter((p) => keyW(p) > 0);
     return keyClasses(acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))), per).slice(0, 4);
   }
+  // the poles a weighted keySing takes before it leaves out those of weight 0 (twice the key's 4)
+  const KEY_W_CAP = 8;
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole' | 'crit'}]: the chain's singular
   // points pulled back to the z-plane, finite only, at most cap per kind, nearest win first; 'crit': the ops' critical
   // points (their critical(); an op whose are not known adds none). Lattices (tan, tanh poles; sin, cos, sinh, cosh
-  // critical points) are enumerated only inside expandBox(win, 3).
+  // critical points) are enumerated only inside expandBox(win, 3). Each point's op: the index of the op whose
+  // singular point it was pulled back from
   function singular(plan, win, kinds = ['undef', 'branch', 'pole'], cap = 16) {
     if (!plan || !plan.ok || !plan.ops.length) return [];
     const ops = plan.ops, { refs } = refsOf(plan, win), zb = expandBox(win, 3);
@@ -743,7 +779,7 @@ const Inverse = (() => {
         else src = o.poles.slice();
         if (lat) { if (!bt.has(i)) bt.set(i, boxThrough(ops, i, zb)); src.push(...latticeIn(lat, bt.get(i), refs[i], cap)); }
         if (!src.length) continue;
-        for (const z of pullBack(ops, refs, i, src, zb, cap, bt)) if (z && isFin(z)) pts.push(z);
+        for (const z of pullBack(ops, refs, i, src, zb, cap, bt)) if (z && isFin(z)) pts.push(Object.assign(C(z.re, z.im), { op: i }));
       }
       pts = dedupe(pts);
       pts.sort((a, b) => (boxDist(win, a) - boxDist(win, b)) || (abs(sub(a, cz)) - abs(sub(b, cz))));
@@ -848,7 +884,8 @@ const Inverse = (() => {
     if (!(rho > 0)) return { e: fe, r: 0, fe };
     const ac = abs(c);
     let r = Infinity, alt = null;                                        // alt: {e, r}, the other side of a cut
-    switch (o.kind) {
+    // (RAT3 ... RAT<NEWT_POLY_MAX>: one case, 'RATN')
+    switch (ratDeg(o.kind) >= 3 ? 'RATN' : o.kind) {
       case 'AFF': r = abs(o.p.a) * rho; break;
       case 'CONJ': r = rho; break;
       case 'MOB': {
@@ -911,7 +948,13 @@ const Inverse = (() => {
         if (ql > 0) r = rho * (N1 + N2 * rho) / (ql * aq);
         break;
       }
-      case 'RAT3': case 'RAT4': {
+      case 'REPT': {
+        // the disc pushed through every copy (InvOps.reptDisc), widened to stay centred on the op's own value
+        const d = reptDisc(o.p.P, o.p.Q, o.p.n, c, rho);
+        if (d) r = d.r + abs(sub(d.c, fe));
+        break;
+      }
+      case 'RATN': {
         // as RAT2's, with N(u) = sum_k (p_k q(c) - p(c) q_k)(u - c)^k, p_k and q_k the Taylor coefficients about c
         const pt = taylorAt(o.p.P, c).t, qt = taylorAt(o.p.Q, c).t, aq = abs(qt[0]);
         let nb = 0, ql = aq;
@@ -1146,6 +1189,8 @@ const Inverse = (() => {
       const F = fam[j];
       idx.push(0);
       if (!F) { rspec.push(null); need.push(1); continue; }
+      // (REPT budgets its own search: REPEAT_NODES_MAX root solves per pixel, past which the pixel reads unresolved)
+      if (F.type === 'rept') { rspec.push(null); need.push(1); continue; }
       if (F.type === 'fin') { rspec.push(null); need.push(F.count); continue; }
       if (F.type === 'log' && !F.inf) {
         rspec.push({ kind: 'branch' }); need.push(F.count);
@@ -1253,7 +1298,9 @@ const Inverse = (() => {
         if (!isZero(T[2])) {
           const pAcc = div(T[0], T[2]);
           prep.stopOp = inner;
-          prep.stopMob = { T, uPole: neg(div(T[3], T[2])), pAcc, pInP: prep.sing.some((p) => abs(sub(p, pAcc)) < 1e-9 * (1 + abs(p))) };
+          // (pInP: the weight of pAcc in the key's points P, keyW; 0 when it is not one of them)
+          const inP = prep.sing.find((p) => abs(sub(p, pAcc)) < 1e-9 * (1 + abs(p)));
+          prep.stopMob = { T, uPole: neg(div(T[3], T[2])), pAcc, pInP: inP ? keyW(inP) : 0 };
         }
       }
     }
@@ -1278,21 +1325,56 @@ const Inverse = (() => {
         }
       }
     }
+    // a REPT op (the plan's only op): the forward enclosures E_r of the shape's box (InvOps.reptEnclose, with the op's
+    // escape radius), each {x0, x1, y0, y1, empty, esc} or null (the whole plane): the box's bounds rounded outward to
+    // float32 as the GPU reads them (empty: no box), esc the escape bound rounded down (0: none); all null for an
+    // unbounded shape (no prune)
+    prep.rept = null;
+    if (!reason && N === 1 && ops[0].kind === 'REPT') {
+      const rp = ops[0].p, bb = shape.complement ? null : boundsOf(shape);
+      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb, rp.escR, shape.kind === 'disc' ? { c: shape.c, r: shape.r } : null) : Array.from({ length: rp.n + 1 }, () => null);
+      prep.rept = {
+        E: E.map((e) => {
+          if (!e) return null;
+          const empty = !(e.x0 <= e.x1 && e.y0 <= e.y1), esc = e.esc > 0 ? f32dn(e.esc) : 0, rad = e.rad > 0 ? f32up(e.rad) : 0;
+          if (!empty && ![e.x0, e.x1, e.y0, e.y1].every(Number.isFinite)) return null;
+          return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc, rad } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc, rad };
+        }),
+      };
+    }
     prep.ok = !reason; prep.reason = reason;
     return prep;
   }
+  // a REPT prune (the GLSL walker's _out): no point within m of v lies in E_r, m the point's chain error dv and
+  // REPT_AA_REACH pixels of size px (|dz/dw| pix); REPT_ROUND ulps cover the GPU's float32 steps (the subtraction from the
+  // box's bounds, |v| and the comparisons with the escape bound and the radius bound)
+  function reptPruned(e, v, dv, px) {
+    if (!e) return false;
+    const m = (dv + REPT_AA_REACH * px) * (1 + REPT_ROUND * REPT_U);
+    // (past E_r's radius bound, every point within m of v: pruned whatever the box and the escape bound say)
+    if (e.rad > 0 && abs(v) * (1 - REPT_ROUND * REPT_U) - m > e.rad * (1 + REPT_ROUND * REPT_U)) return true;
+    if (!e.empty) {
+      const mb = m + REPT_ROUND * REPT_U * Math.max(Math.abs(e.x0), Math.abs(e.x1), Math.abs(e.y0), Math.abs(e.y1));
+      if (!(v.re < e.x0 - mb || v.re > e.x1 + mb || v.im < e.y0 - mb || v.im > e.y1 + mb)) return false;
+    }
+    return !(e.esc > 0 && abs(v) * (1 + REPT_ROUND * REPT_U) + m >= e.esc * (1 - REPT_ROUND * REPT_U));
+  }
+  // the float32 at or below (above) x
+  function f32dn(x) { const y = Math.fround(x); return y <= x ? y : Math.fround(y - Math.max(Math.abs(y) * 2 ** -23, 2 ** -149)); }
+  function f32up(x) { return -f32dn(-x); }
 
   // =====================================================================================================
   // 9. enumerate: the CPU twin of the GPU walk (SPEC 3.5, 3.6, 4.1) with the compositor's admission rules (4.2)
   // =====================================================================================================
-  // Inverse.enumerate(plan, prep, w, pix, opts) -> {leaves, visited, truncated, tailInf, entries, nCov, U}
+  // Inverse.enumerate(plan, prep, w, pix, opts) -> {leaves, visited, truncated, tailInf, entries, nCov, U, rept (a REPT
+  //  plan: {verdict, nodes, pruned, unres, fail, cap})}
   //  pix: w units per image pixel; opts: K (front count for the early stop and admission; capped at B unless all), B
   //  (buffer size), all (the shape's own alpha: when K > B the early stop is off and every covering candidate counts,
   //  those the buffer does not keep through their transmittance restT, SPEC 13.12),
   //  full (truth mode: a window of +-full members around m* in every family, no ranges, budgets or stop),
   //  ramp (range ramp in px, default 1), dwdX / dwdY (dw per image pixel step, default (pix, 0) / (0, pix)),
   //  leaves: false to skip the leaf list, paths: true to record each leaf's path ('j:b:m' per window or finite op,
-  //  outermost first).
+  //  outermost first), reptNodes: a REPT search's node budget below REPEAT_NODES_MAX (GLR.setReptNodes' twin).
   //  leaves: every visited leaf in walk order: {z, J (dz/dw, real 2x2 row-major), JL (dΛ/dw) | null, lvl (px),
   //  lg: [x, y] | null, lam, dX, dY (dz per pixel step), s (region distance, px), cv (coverage), cov, D}.
   //  entries: the admitted compositing buffer, front to back ({lf, D, z, cv, ...}); restT: the product of
@@ -1306,7 +1388,10 @@ const Inverse = (() => {
     const paths = !!opts.paths;
     const ev = prep.ev || (prep.ev = shapePx(prep.shape));
     const leaves = [], ent = [], loops = [];
-    let visited = 0, nCov = 0, U = 0, truncated = false, tailInf = false, restT = 1;
+    let visited = 0, nCov = 0, U = 0, truncated = false, tailInf = false, restT = 1, nFull = 0;
+    // the REPT search's account: root solves, pruned children, leaves left unresolved by their chain error, a node whose
+    // certificate failed, the node budget reached
+    const rst = { nodes: 0, pruned: 0, unres: 0, fail: false, cap: false };
     const admitLimit = Math.min(B, K + 2);
     const DK = () => (noStop ? Infinity : ent.length >= K ? ent[K - 1].D : Infinity);
     const rest = (cv) => { restT *= 1 - alphaR * Math.min(1, cv / Math.max(U, 1e-6)); };
@@ -1356,7 +1441,14 @@ const Inverse = (() => {
       const sv = sh.s, lv = Lf.lvl;
       let cv = facing ? Math.min(sv, 0.5) + Math.min(lv, 0.5) : Math.min(sv, lv) + 0.5;
       cv = cv > 1 ? 1 : cv > 0 ? cv : 0;
+      // a REPT leaf (Lf.rdel: its chain error, z within it of a true member): within rdel and half a pixel of the
+      // region's edge its coverage is known only when rdel is at most REPT_AA_TOL px (the ramp's own error); otherwise
+      // the leaf is unresolved and covers nothing (the GLSL invLeaf's rule)
+      let unres = false;
+      if (Lf.rdel != null && reptLeafUnres(sv, Lf.rdel / (Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])) * pix))) { unres = true; cv = 0; rst.unres++; }
       const lf = { z, J, JL: Lf.JL || null, lvl: lv, lg: lgi, lam, dX, dY, dLX, dLY, s: sv, cv, cov: cv > 0, D: 0, fp: crit ? 0 : Math.hypot(dX.re, dX.im) + Math.hypot(dY.re, dY.im), crit, anc: an, path: Lf.path || '' };
+      if (unres) lf.unres = true;
+      if (cv >= 1) nFull++;
       lf.D = sheetKey(prep, z, lam);
       if (keep) leaves.push(lf);
       if (lf.cov) {
@@ -1386,10 +1478,41 @@ const Inverse = (() => {
       if (mem.dlam) { const d = mem.dlam; JL = [d.re * J[0] - d.im * J[2], d.re * J[1] - d.im * J[3], d.im * J[0] + d.re * J[2], d.im * J[1] + d.re * J[3]]; }
       return { u: mem.u, J: J2, JL, lvl: Math.min(Lf.lvl, lv), lg, lam: mem.lam || null, anc: anc && j === anc.op && mem.anc ? mem.anc : (Lf.anc || null), path: paths && tag ? (Lf.path ? Lf.path + ' ' : '') + tag : Lf.path };
     };
+    // REPT (the plan's only op): the depth-first search of the chains of backward roots (InvOps' REPT section; the GLSL
+    // walker's REPT loop is the same). At each node the certified roots in the solver's order; a child at r copies from
+    // the shape is pruned when its point lies outside E_r grown by its chain error and REPT_AA_REACH pixels (|dz/dw|
+    // pix each), the root pixel too (r = n, error 0); a leaf goes on with its chain error (rdel) to the leaf, and the
+    // search ends at the first leaf that covers in full. A node whose certificate fails is not searched further
+    // (rst.fail); REPEAT_NODES_MAX solves end the search (rst.cap)
+    const reptRec = (j, Lf) => {
+      const o = ops[j], { P, Q, n } = o.p, E = prep.rept ? prep.rept.E : null;
+      const pruned = (v, dv, r, J) => reptPruned(E && E[r], v, dv, pix * Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])));
+      if (pruned(Lf.u, 0, n, Lf.J)) { rst.pruned++; return null; }
+      const full0 = nFull;
+      const go = (v, dv, depth, J, path) => {
+        if (rst.nodes >= Math.min(REPEAT_NODES_MAX, opts.reptNodes || Infinity)) { rst.cap = true; return true; }
+        rst.nodes++;
+        const nd = reptNode(P, Q, v, dv);
+        if (!nd) { rst.fail = true; return false; }
+        for (let i = 0; i < REPT_DEG; i++) {
+          const d = nd.d[i], J2 = [d.re * J[0] - d.im * J[2], d.re * J[1] - d.im * J[3], d.im * J[0] + d.re * J[2], d.im * J[1] + d.re * J[3]];
+          const p2 = paths ? path + i : '';
+          if (depth + 1 === n) {
+            rec(j - 1, { u: nd.z[i], J: J2, JL: null, lvl: Lf.lvl, lg: Lf.lg, lam: null, anc: null, rdel: nd.rho[i], path: paths ? (Lf.path ? Lf.path + ' ' : '') + `${j}:${p2}` : Lf.path });
+            if (nFull > full0) return true;
+          } else if (pruned(nd.z[i], nd.rho[i], n - depth - 1, J2)) rst.pruned++;
+          else if (go(nd.z[i], nd.rho[i], depth + 1, J2, p2)) return true;
+        }
+        return false;
+      };
+      go(Lf.u, 0, 0, Lf.J, '');
+      return null;
+    };
     const rec = (j, Lf) => {
       if (j < 0) return leaf(Lf);
       const o = ops[j], F = o.fam, u = Lf.u;
       if (!isFin(u)) return null;
+      if (o.kind === 'REPT') return reptRec(j, Lf);
       if (!F || F.type === 'fin') {
         let last = null;
         for (const mem of o.pre(u)) { const n = apply(Lf, mem, F && paths ? `${j}:0:${mem.m}` : null, j); if (n) last = rec(j - 1, n); }
@@ -1505,10 +1628,7 @@ const Inverse = (() => {
             } else if (isFin(lf.z)) {
               const sm = prep.stopMob, du = sub(mem.u, sm.uPole), dir = goUp ? 1 : -1;
               if ((du.re * F.p.re + du.im * F.p.im) * dir >= 0) {
-                const r = abs(sub(lf.z, sm.pAcc)), p = sm.pAcc, W = prep.win;
-                const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
-                const LB = Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + (sm.pInP ? Math.max(0, Math.log2(prep.rs / r)) : 0);
-                stop = LB > DK() + stopBand(DK());
+                stop = mobStopLB(prep, sm, lf.z) > DK() + stopBand(DK());
               }
             }
             if (stop) { if (goUp) aU = false; else aD = false; }
@@ -1523,8 +1643,18 @@ const Inverse = (() => {
       return null;
     };
     rec(ops.length - 1, { u: w, J: [1, 0, 0, 1], JL: null, lvl: Infinity, lg: null, lam: null, anc: null, path: '' });
-    return { leaves, visited, truncated, tailInf, entries: order(ent), nCov, U, restT };
+    const out = { leaves, visited, truncated, tailInf, entries: order(ent), nCov, U, restT };
+    // a REPT plan's verdict for the pixel: 1 covered (a leaf covers), 0 empty (the search ran out, every leaf resolved),
+    // -1 unresolved (a failed certificate, the node budget, or an unresolved leaf, and no cover)
+    if (ops.some((o) => o.kind === 'REPT')) out.rept = Object.assign({ verdict: reptVerdict(nCov, rst) }, rst);
+    return out;
   }
+  // a REPT leaf at sv px from the region's edge (positive inside) with its chain error dpx px: unresolved when the edge
+  // is within dpx and half a pixel and dpx is past REPT_AA_TOL (the GLSL invLeaf's rule)
+  const reptLeafUnres = (sv, dpx) => !(Math.abs(sv) > dpx + 0.5) && !(dpx <= REPT_AA_TOL);
+  // a REPT pixel's verdict: 1 covered (a leaf covers), else -1 unresolved (a failed certificate, the node budget or an
+  // unresolved leaf), else 0 empty (the search ran out, every leaf resolved)
+  const reptVerdict = (nCov, rst) => (nCov > 0 ? 1 : rst.fail || rst.cap || rst.unres ? -1 : 0);
   // distance from the set {a + s v : 0 <= s <= smax} (smax may be Infinity) to the box W; 0 when they meet. Exact for
   // a segment or ray and a box: when disjoint, the minimum is attained at an end point of the segment or at a box corner.
   function rayBoxDist(a, v, smax, W) {
@@ -1561,6 +1691,14 @@ const Inverse = (() => {
   // the same bound (gl.js, P2). (13.14) The members still to come start at the NEXT member, z_m + dir q (additive) or
   // za + (z_m - za) e^(dir Re S) (ROOTPOW), so the rays and the segment start there: a side stops as soon as the member
   // after the one just visited is provably behind the front, not after visiting it.
+  // The Möbius stop's bound (3.6): the members still to come lie within r = |z - pAcc| of the accumulation point pAcc,
+  // so their key is at least log2(1 + max(0, dist(pAcc, W) - r) / R) plus, when pAcc is one of the key's points P, its
+  // weight times max(0, log2(rs / r)) (sm.pInP). The GPU's ixStop implements the same bound
+  function mobStopLB(prep, sm, z) {
+    const r = abs(sub(z, sm.pAcc)), p = sm.pAcc, W = prep.win;
+    const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
+    return Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + sm.pInP * Math.max(0, Math.log2(prep.rs / r));
+  }
   function affStopLB(prep, F, sp, lf, goUp) {
     if (!sp || sp.kind !== 'clip') return -Infinity;
     const zm = lf.z, dir = goUp ? 1 : -1, W = prep.win;
@@ -1576,7 +1714,7 @@ const Inverse = (() => {
     let lb = Math.log2(1 + rayBoxDist(z, sub(za, z), 1, W) / prep.R);
     for (const p of prep.sing || []) {
       const far = Math.max(abs(sub(z, p)), abs(sub(za, p)));
-      if (far < prep.rs) lb += Math.log2(prep.rs / far);
+      if (far < prep.rs) lb += keyW(p) * Math.log2(prep.rs / far);
     }
     return lb;
   }
@@ -1698,11 +1836,12 @@ const Inverse = (() => {
   // 12. Homotopy end points for normalizeMap (SPEC 10.5; verified by test/t_inverse.js (k))
   // =====================================================================================================
 
-  // Inverse.homOps(b, t): the ops of step b's homotopy H_t (b: a Funcs.build() result), in forward order, so the
-  // inverse walk can end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and
-  // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
-  // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
-  // (newtOps). {ok, ops} | {ok: false, reason}
+  // Inverse.homOps(b, t, opts): the ops of step b's homotopy H_t (b: a Funcs.build() result; opts: its chain's stepOps
+  // options, Inverse.chainOpts, for the ops of a step or sub-step as at rest), in forward order, so the inverse walk can
+  // end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and the zoom paths
+  // H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's zoom, the generic
+  // zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton (newtOps).
+  // {ok, ops} | {ok: false, reason}
   // a polynomial step of degree 2 to NEWT_POLY_MAX, its degree known exactly: its roots are all of Newton's members
   const isNewtPoly = (P) => !!P.polynomial && !!P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX;
   // Inverse.polyHom(b): whether built step b is a polynomial step as isNewtPoly takes it, not a recognised chain (whose
@@ -1710,12 +1849,12 @@ const Inverse = (() => {
   // z^(1 + (n - 1) t), or its zoom about a point), a zoom of f (f conjugated by affine maps), or else the straight line
   // or the step's own homotopy, a polynomial in u, which newtOps inverts by every root (NEWT with deg)
   const polyHom = (b) => !!(b && !b.error && b.props && isNewtPoly(b.props)) && !(b.nat && b.nat.kind === 'chain' && b.rec);
-  function homOps(b, t) {
+  function homOps(b, t, opts = {}) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
     if (t >= 1) {
       // (a polynomial step with no exact ops is inverted at t = 1 by its roots, as at t < 1: the plane at rest and the glide's frames are one picture)
-      const r = stepOps(b), P = b.props;
+      const r = stepOps(b, opts), P = b.props;
       return r.ok || !(P && P.analytic && isNewtPoly(P)) ? r : newtOps(b, 1, r.reason);
     }
     const id = b.def.id, nat = b.nat || null, nd = b.natData || null;
@@ -1730,12 +1869,12 @@ const Inverse = (() => {
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
       const len = b.repeat ? b.repeat.block.length : 0, own = (i) => (!len ? i : i === 0 ? len - 1 : (i - 1) % len);
       const mark = (r, i) => { for (const o of r.ops) if (o.kind === 'NEWT') o.sub = own(i); return r.ops; };
-      for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1); if (!r.ok) return r; ops.push(...mark(r, i)); }
-      const r = homOps(sub[j], x - j);
+      for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1, opts); if (!r.ok) return r; ops.push(...mark(r, i)); }
+      const r = homOps(sub[j], x - j, opts);
       if (!r.ok) return r;
       return { ok: true, ops: ops.concat(mark(r, j)) };
     }
-    const own = stepOps(b);
+    const own = stepOps(b, opts);
     if (!own.ok) return newtOps(b, t, own.reason);
     const one = own.ops.length === 1 ? own.ops[0] : null;
     // the Möbius one-parameter group (CX.mobPath), the affine and Möbius steps' path
@@ -1749,6 +1888,15 @@ const Inverse = (() => {
     if (one && one.kind === 'IPOW' && !nat && one.p.n > 0) {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
+    }
+    // a real exponent a < 0 (powaHom): z^{1 + (|a| - 1) 2t} on the step's branch for t <= 1/2, then z^|a| and the
+    // Möbius arc from the identity to 1/w
+    if (one && one.kind === 'ROOTPOW' && !nat && id === 'powa' && b.twoPhase && b.twoPhase()) {
+      const { s, theta, k } = one.p, e = C(-s.re, 0), pw = (z) => CX.pow(z, e, theta, k);
+      if (t < 0.5) { const sv = C(1 + (-s.re - 1) * 2 * t, 0); return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] }; }
+      const path = CX.mobPath([ZERO, ONE, ONE, ZERO]);
+      if (!path) return { ok: false, reason: 'no Möbius path' };
+      return { ok: true, ops: [opRootPow(e, theta, k, pw), mobOf(path(2 * t - 1))] };
     }
     // z^n, n < 0 (pown's hom): z^{1+2(|n|-1)t} for t < 1/2 (powHom about 0, principal), then the elliptic Möbius
     // path from the identity to 1/w at 2t - 1, after z^|n|: closed forms, each preimage by its own branch, exact and
@@ -1944,8 +2092,9 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
+    REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    stepOps, chainOpts, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },
@@ -1954,6 +2103,7 @@ const Inverse = (() => {
     // the checker filter of the analytic patterns (the GPU's ixSq)
     _sqAA: (p, w) => sqAA(p, w),
     _encl: { opDisc, chainDisc },
+    _rept: { leafUnres: (sv, dpx) => reptLeafUnres(sv, dpx), verdict: (nCov, rst) => reptVerdict(nCov, rst) },
     _ops: { opAff, opMob, opIpow, opRootPow, opExp, opLog, opSin, opCos, opTan, opSinh, opCosh, opTanh, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh, opJouk, opIjouk, opConj, opQuad, opRat2, opRatN },
   };
 })();

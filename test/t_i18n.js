@@ -362,6 +362,26 @@ for (const t of ['\\operatorname{tg} z', '\\operatorname{th} z+\\ln z', '\\opera
 eq(perr('\\operatorname{arcth}(z+2)'), "Unknown name 'arcth'", 'arcth: no inverse coth in the formula language');
 eq(perr('\\operatorname{arcoth}(z+2)'), "Unknown name 'arcoth'", 'arcoth: the same in English');
 eq(val(I18N.notation('\\tan z+\\sinh z-\\operatorname{artanh}(z/2)', 'ru')), val('\\tan z+\\sinh z-\\operatorname{artanh}(z/2)'), 'notation keeps the value');
+// ---- a shape's name in a Russian sentence (#2293): the name is what the user typed or the automatic «Круг 1», in the
+// nominative; a slot that needs another case gets a head noun, and a name in running text is quoted «…» (#2130, #2142).
+// (English keeps its words)
+as('ru', () => {
+  const T = (k, p) => I18N.t(k, p);
+  const del = T('Delete {label} and the {n} that use it', { label: 'Круг 1', n: 2 });
+  eq(del, 'Удалить объект «Круг 1» и зависимые от него объекты (2)', 'ru names: Delete with its dependants, the name after a head noun (any gender)');
+  eq(T('Line integral along {name}', { name: 'задний край' }), 'Интеграл по кривой «задний край»', 'ru names: the line integral popover along a curve quotes its name');
+  eq(T('Line integral around {name}', { name: 'задний край' }), 'Интеграл по контуру «задний край»', 'ru names: the line integral popover around a contour quotes its name');
+  // (the popover's visible title is one line, cut with an ellipsis when too long: its words stay as short as they were, and
+  // its aria-label above names the curve in «»)
+  eq(T('{sym} along {name}{part}', { sym: '∫', name: 'Прямая 1', part: '' }), '∫ по кривой Прямая 1', 'ru names: the popover title keeps its one-line words');
+  eq(T('{sym} around {name}{part}', { sym: '∮', name: 'Окружность 1', part: '' }), '∮ по контуру Окружность 1', 'ru names: the popover title around a contour keeps its one-line words');
+  const cau = T('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh: 'F', name: 'задний край' });
+  ok(cau.includes('по контуру «задний край»: F внутри'), `ru names: the Cauchy pane title quotes its contour's name, as its two siblings do: ${cau}`);
+  // (the plane's spoken description of a point's marked preimages: {name} is the point's label, after its head noun «точки»)
+  eq(T('Marked preimages of {name}: {k} of {n}', { name: 'A', k: 3, n: 5 }), 'Отмеченные прообразы точки «A»: 3 из 5', 'ru names: the marked preimages of a point name it after «точки»');
+  eq(T('Marked preimages of {name}: {k}, and there may be more', { name: 'A', k: 3 }), 'Отмеченные прообразы точки «A»: 3, возможно, есть и другие', 'ru names: the marked preimages of a point, and maybe more, name it after «точки»');
+});
+eq(I18N.t('Delete {label} and the {n} that use it', { label: 'Circle 1', n: 2 }), 'Delete Circle 1 and the 2 that use it', 'English keeps its words (control)');
 // the language is fixed at load: $t in a module is the identity in English, and every key's English is itself
 eq(I18N.lang, 'en', 'English after the checks');
 eq(I18N.texDecimal(0.5, 'ru'), '0{,}5', 'texDecimal is texNum');
@@ -402,10 +422,10 @@ eq(I18N.texDecimal(0.5, 'ru'), '0{,}5', 'texDecimal is texNum');
   // a formula's TeX is the reader's own formula printed back by Expr.toTex, which stays English (it feeds saved work and
   // the copied LaTeX): '|z-0.5|<1.5' typed is shown with its point
   eq(tx({ kind: 'formula', expr: '|z-0.5|<1.5' }), '\\left|z-0.5\\right| < 1.5', 'region: a typed formula is shown as typed');
-  eq(tx({ kind: 'disc', c: [0, 0], r: 1.5e-4 }), '|z|<1{,}5×10⁻⁴', 'region: the mantissa of a small radius');
+  eq(tx({ kind: 'disc', c: [0, 0], r: 1.5e-4 }), '|z|\\le 1{,}5×10⁻⁴', 'region: the mantissa of a small radius');
   vm.runInContext("I18N._setLang('en')", ctx);
   eq(tx({ kind: 'cgrid', a, b, n: 8 }), '\\text{grid } [-0.5,1]\\times[0.25,1.25]', 'region: the grid in English');
-  eq(tx({ kind: 'disc', c, r: 1.5 }), '|z-(0.5+0.25i)|<1.5', 'region: a disc in English');
+  eq(tx({ kind: 'disc', c, r: 1.5 }), '|z-(0.5+0.25i)|\\le 1.5', 'region: a disc in English');
 }
 // ---- 8. phase 2b: detection on, the decimal-comma hint, the leftovers table ----
 eq(I18N._autoDetect, true, 'phase 2b: a Russian browser gets Russian (AUTO_DETECT on)');

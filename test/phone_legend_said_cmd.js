@@ -1,12 +1,10 @@
 // On a phone, a plane's colour key says in words what its canvas draws: the key box's accessible description (aria-describedby,
 // read from the accessibility tree) names the key's caption and its rows, for each kind of key. In the steps view: the Colour key
 // on the Plane (the caption, then the hue wheel's reading), on the Sphere, and the Height key on the Landscape (its caption, then
-// its contours); in the classic view, Y's Regions key (its fill). Each read with the key unfolded, at 360 × 640 (Y's at 568 × 320:
-// the classic view's portrait phone does not draw Y's key), in en, ru and it.
+// its contours). Each read with the key unfolded, at 360 × 640, in en, ru and it.
 // The words are compared with the page's own: __cmwLegend()'s caption and the strings the key draws ($t). The box is a button
 // (the phone's key, legendKeyButton) named for its kind: the Height key on the Landscape, else the Colour key, whatever
-// surface the view came from; Y's, the Regions key. Each key's fill is said once: its description says it, its name
-// does not.
+// surface the view came from. Each key's fill is said once: its description says it, its name does not.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -62,24 +60,7 @@ for (const lang of ['en', 'ru', 'it']) {
     ok(`${tag}: the description starts with the caption the key draws`, !!lg.caption && ax.description.startsWith(lg.caption), [ax.description, lg.caption]);
     for (const w of want) ok(`${tag}: the description names the row "${w}"`, ax.description.includes(w), ax.description);
   }
-  // the classic view's Y: the Regions key, with the regions' fill in its words
-  {
-    const tag = `${lang} classic Y`;
-    await view(568, 320, false, true);
-    await go(`${U}?ns=${ns}c&lang=${lang}&view=classic`);
-    await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
-    await unfold('rightLegend');
-    // (the regions' fill: the phase of z, or the grid's cell while its lines are drawn, as the key's first row draws it)
-    const want = await ev(`({ head: $t('Regions') + ': ', fill: [$t('phase of ') + 'z', $t('cell ')], name: $t('Regions key') })`);
-    const ax = await axOf('rightLegend'), text = (ax && ax.description) || '';
-    info[tag] = { ax, want };
-    ok(`${tag}: the Regions key box is a button named "${want.name}"`, !!ax && ax.role === 'button' && ax.name === want.name, ax);
-    // (the fill is said once: the name holds none of the fill's words, "phase of" or "cell", which the description
-    // leads with)
-    const said = want.fill.map((f) => f.trim().toLowerCase()), name = ((ax && ax.name) || '').toLowerCase();
-    ok(`${tag}: the regions' fill is said once, in the description and not in the name`, !!ax && said.some((f) => text.toLowerCase().includes(f)) && !said.some((f) => name.includes(f)), { name: ax && ax.name, text, said });
-    ok(`${tag}: the Regions key box has a description`, !!ax && !ax.ignored && text.length > 0, ax);
-    ok(`${tag}: the description starts with the regions' fill`, text.startsWith(want.head) && want.fill.some((f) => text.startsWith(want.head + f)), [text, want]);
-  }
+  // (standards-ok: the classic view's Y's Regions key goes with Y's pane, which the classic view does not draw, #994; the
+  // steps view's keys above are read the same way: a button named for its kind, its fill said once, in its description)
 }
 return { pass: fails.length === 0, fails, info };
