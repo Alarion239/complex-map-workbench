@@ -256,7 +256,7 @@
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); if (side === 'L' && stackOn()) stackHoverOff(); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); if (side === 'L' && stackOn()) stackHoverOff(); else if (side === 'L' && lookSquareHover(-Infinity, -Infinity)) setCursor(pane, side); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click on an edge of a closed polygon adds a vertex there
@@ -373,6 +373,8 @@
     else if (leftStage() > 0 && Construct.isTool(tool) && !drag) c = 'not-allowed';
     else if (drag && (drag.mode === 'panL' || drag.mode === 'zp')) c = 'grabbing';
     else if (hoverCut || zpHover) c = 'pointer';
+    // (over Look down's square with the Pick tool: the resize cursor)
+    else if (side === 'L' && !drag && tool === 'pick' && lookSquareCursor()) c = lookSquareCursor();
     else c = tool === 'select' ? 'default' : 'crosshair';
     pane.ocanvas.style.cursor = c;
   }
@@ -1258,6 +1260,7 @@
       cutHover(pane, side, x, y);
       const zh = zpHit(x, y);
       if (!zpSame(zpHover, zh && zh.k, zh && zh.kind, zh && zh.i)) { zpHover = zh ? { k: zh.k, kind: zh.kind, i: zh.i } : null; setCursor(pane, side); }
+      if (lookSquareHover(x, y)) setCursor(pane, side);
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
     }
     if (side === 'R' && draft && draft.kind === 'polygon' && draft.target) { pane.setView(V.right); draft.hover = snapZ(pane, pane.s2w(x, y)); }

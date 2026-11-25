@@ -67,13 +67,21 @@
     }
     return null;
   }
-  // a press with the Pick tool at z (x, y in the pane): Look down's ring of the target, then a lit patch, then a line of
-  // Look down drags its disc, anywhere else the twins light and a drag draws a disc; true when the press is the picker's.
+  // a press with the Pick tool at z (x, y in the pane): Look down's square of the target resizes it (its radius the
+  // distance from its centre to the pointer's point); else its ring, then a lit patch, then a line of Look down drags its
+  // disc, and anywhere else the twins light and a drag draws a disc; true when the press is the picker's.
   // The ring and the lines are drawn in the target's own coordinates at the floor's places, so they drag the target with
   // the pointer (F the identity); a patch drags its area so that the area's point under the pointer stays under it.
   // finger: the press is a finger's or a pen's, which reaches the ring and the lines farther (lookHit)
   function pickDown(pane, z, x, y, finger = false) {
     if (tool !== 'pick' || !pickAvail()) return false;
+    const sq = lookSquareAt(x, y, finger);
+    if (sq) {
+      selected = sq.id; zpSel = null; buildShapeList();
+      drag = { mode: 'pickMove', shape: sq, size: true, F: (w) => w, w: z, x0: x, y0: y, moved: false };
+      setCursor(pane, 'L');
+      return true;
+    }
     const k = leftStage(), patch = !lookHit(x, y, false, finger) && pickPatch(k, z), s = patch || lookHit(x, y, true, finger);
     if (s) {
       const F = patch ? rangeF(k, shapeStage(s)) : (w) => w;
@@ -96,7 +104,7 @@
     const p = d.level ? stackPickAt(pane, d.level, x, y) : pane.s2w(x, y), w = p && d.F(p);
     if (!w || !CX.isFin(w)) return;
     if (d.mode === 'pickMove') {
-      // (d.size: the target's square on the Stack's glass, whose point w sets its radius)
+      // (d.size: the target's square, on Look down or the Stack's glass, whose point w sets its radius)
       if (d.size) Region.setHandle(d.shape, 'r', w); else Region.translate(d.shape, CX.sub(w, d.w));
       d.w = w;
     }
