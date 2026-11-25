@@ -34,7 +34,7 @@
   // homotopy has H_0 = id and H_1 = f exactly (Inverse.homExact); the linear homotopy is exact at its ends.
   function normalizeMap(map) {
     const mode = map.mode || 0;
-    if (!mode || morph.playing || trans.k) return map;
+    if (!mode || morph.playing) return map;
     const t = map.t, base = map.base || 0;
     // (with a bracket's post, H_t = Q o G_t o P is a still map only at its end, and only once the bracketed steps
     // after the running one are inactive: the stages base..post; its start skips the running step but not the post)
@@ -284,7 +284,7 @@
     if (!st.demote && g.demoted) { g.demoted = false; requestRender(side); }   // recovered: the shapes return to inverse
     return { motion: counts, half: st.half && motion && contiguous, demoted: st.demote, timed };
   }
-  // the view is in continuous motion (a drag, a tween, a transition, a playing morph, a wheel, a slider or a scrub of
+  // the view is in continuous motion (a drag, a tween, a playing morph, a wheel, a slider or a scrub of
   // changes): an inverse program never drawn yet is not drawn now (its first draw stalls the GPU process), another
   // ready B class or the forward stand-in takes its place (gl.js drawInverse) and it is warmed at the next quiet
   // moment. A single discrete change (an example, a toggle) or a hover is not motion: its program draws as soon as it
@@ -292,7 +292,7 @@
   function interacting() {
     const now = performance.now();
     // (a number's slider held: its frames come further apart than 150 ms when the chain is costly)
-    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
+    return !!(drag || tweens.length || camTweens.length || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
   }
   // a camera still turning after its drag is let go (its momentum) moves too: its frames would otherwise be drawn as rest frames,
   // each at a new distance, and All sheets at the Max mesh would rebuild their refinement in every one
@@ -381,7 +381,7 @@
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
     const m = normalizeMap(map);
-    if ((m.mode || 0) !== 0) return F(morph.playing || trans.k ? 'homotopy playing' : 'paused inside a step (homotopy)');
+    if ((m.mode || 0) !== 0) return F(morph.playing ? 'homotopy playing' : 'paused inside a step (homotopy)');
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
     // covers the north pole exactly, where the lifted mesh left a hole; panels.md 11, the stage-0 globe inverse)
     if (isIdentMap(m) && viewKind !== 'globe') return F('identity map');

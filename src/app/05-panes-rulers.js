@@ -25,7 +25,7 @@
   // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
   const GLOBE_MARK_PX = 13;
   function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
-  // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
+  // the same, a step at a time: it yields every 16 samples
   function* stageSampler(F0, xs, ys, k) {
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
@@ -1443,7 +1443,6 @@
       if (leftStage() > 0) leftAuto = true;
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
-    $('rightFit').addEventListener('click', () => { if ($('rightFit').getAttribute('aria-disabled') === 'true') return; rightAuto = true; fitRight(true); requestRender('R'); });
     // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (on a 356 px plot the key covers a third of the landscape);
     // a tap on a folded or unfolded chip toggles
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -1510,7 +1509,7 @@
         const v = sd === 'L' ? leftView() : V.right;
         pane.setView({ cx: v.cx, cy: v.cy, s: v.s });
         const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
-        if (sd === 'R') rightAuto = false; else if (leftStage() > 0) leftAuto = false;
+        if (sd === 'L' && leftStage() > 0) leftAuto = false;
         tweenView(v, target, 180, () => sourceViewChanged());
       };
       $(side + 'ZoomIn').addEventListener('click', zb(1.6));

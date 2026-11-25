@@ -60,7 +60,7 @@
       sourceViewChanged();
       requestRender('L');
     } else {
-      pane.setView(V.right); pane.zoomAt(x, y, f); rightAuto = false; requestRender('R');
+      pane.setView(V.right); pane.zoomAt(x, y, f); requestRender('R');
     }
   }
   // a two-finger drag moves a flat plane by the way its midpoint went (the pinch zooms about it): every tool, on touch
@@ -69,7 +69,7 @@
     if (is3DSide(side) || (side === 'L' && stackOn())) return;
     const v = side === 'L' ? leftView() : V.right;
     v.cx -= dx / v.s; v.cy += dy / v.s;
-    if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L'); } else { rightAuto = false; requestRender('R'); }
+    if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L'); } else requestRender('R');
   }
   // the outer 16 px of a phone's plane only pans (or turns a globe): Android's edge-swipe Back then never cancels half a shape
   const EDGE_PX = 16;
@@ -325,7 +325,6 @@
     if (!goodWin(clipWin) || nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw) || aspect > 0.15) {
       clipWin = nb;
       setOpt('clipWin', clipWin);
-      if (rightAuto && rImage()) fitRight(true);
       requestRender('L', 'R');
     }
     save();
@@ -1027,7 +1026,7 @@
     if ((d.mode === 'ghandle' || d.mode === 'gmove') && d.moved) {
       if (d.boundNum) Params.rest(d.boundNum);
       if (d.target) targetsChanged(true);
-      else { if (rightAuto && autoFit()) fitRight(true); scheduleFix(); shapesChanged(true); }
+      else { scheduleFix(); shapesChanged(true); }
       commit();
     }
     requestRender(side, 'O' + side);
@@ -1130,7 +1129,6 @@
       if (drag.mode === 'panR') {
         V.right.cx = drag.cx - (x - drag.x) / V.right.s;
         V.right.cy = drag.cy + (y - drag.y) / V.right.s;
-        rightAuto = false;
         requestRender('R');
         return;
       }
@@ -1511,7 +1509,6 @@
     if (d.mode === 'zp') {
       if (d.off) { zpRemove(d.k, d.kind, d.i); return; }
       if (d.moved) {
-        if (rightAuto && autoFit()) fitRight(true);
         scheduleFix();
         commit();
       }
@@ -1519,7 +1516,6 @@
       return;
     }
     if (d.mode === 'cut' || d.mode === 'handle' || d.mode === 'move') {
-      if (rightAuto && autoFit()) fitRight(true);
       scheduleFix();
       requestRender('L', 'R');
     }
@@ -1617,7 +1613,7 @@
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
       if (e.key === '?') { openGuide(); return; }
       if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
-      if (key === 'z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
+      if (key === 'z') { $('leftFit').click(); return; }
       const tl = TOOLS.find((x) => x[2] && x[2].toLowerCase() === key);
       if (tl) { e.preventDefault(); setTool(tl[0]); }
     });

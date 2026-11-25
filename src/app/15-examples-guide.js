@@ -457,7 +457,6 @@
     dropAllGPU();
     $('meshRange').value = meshToPos(n);
     showMeshVal(n);
-    if (rightAuto && rImage()) fitRight();
     requestRender('L', 'R');
     save();
   }
@@ -530,7 +529,6 @@
       // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
       if (draft && draft.target) draft = null;
       setHoverW(null);
-      if (autoFit()) { rightAuto = true; fitRight(); }
       buildShapeList();
     } else {
       // a shape draft ends with the view it was drawn in (the plane or the z-globe); the flat probe goes

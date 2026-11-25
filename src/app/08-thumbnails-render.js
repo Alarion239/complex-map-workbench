@@ -147,12 +147,7 @@
     }
     if (tweens.length) { stepTweens(ts); again = true; }
     if (svFrame(ts)) again = true;
-    if (trans.glide) {
-      if (stepPeek(ts)) again = true;
-    } else if (trans.k) {
-      if (performance.now() - trans.t0 >= trans.dur || !stepActive(trans.k)) { trans.k = 0; scheduleFix(); if (rightAuto && rImage()) fitRight(true); }
-      dirty.R = true; again = true;
-    }
+    if (trans.glide && stepPeek(ts)) again = true;
     // overlays and marker rulers once per frame, after whichever planes were redrawn
     const ov = dirty.L || dirty.R || dirty.OL || dirty.OR;
     const leg = dirty.G || dirty.R; // the legend repaints only when its key or the needle changed
@@ -175,12 +170,10 @@
     // (a requestRender during this frame may already have asked for the next one: never two frame chains at once)
     if (again && !rafId) { rafId = requestAnimationFrame(frame); rafReqT = performance.now(); }
   }
-  // a newly added step plays its own homotopy once, so the change is seen as a deformation
-  // (glide: ‹ › on a phone's chain glide Y's picture from one step's plane to the next with the transition's map program,
-  // in Y alone: the panes stay as they are. glide, the spring, is the
-  // position x in steps; trans.k is the step it is inside while it moves, trans.at the stage Y rests on between two steps,
-  // -1 when it rests on F as ever)
-  const trans = { k: 0, t0: 0, dur: 480, glide: false, at: -1 };
+  // (glide: ‹ › on a phone's chain move Y's stage from one step's plane to the next: the panes stay as they are. glide,
+  // the spring, is the position x in steps; trans.at the stage Y rests on between two steps, -1 while it moves and when
+  // it rests on F as ever)
+  const trans = { glide: false, at: -1 };
   // the active steps of the chain when the deformation's range is all of it, one after another: the planes ‹ › step between
   function peekSteps() {
     const all = [];
@@ -188,11 +181,10 @@
     const r = morphRange();
     return all.length && !allAtOnce() && r.steps.length === all.length && r.steps.every((k, i) => k === all[i]) ? all : null;
   }
-  // the glide ends: Y rests on F again, fitted as before the glide
+  // the glide ends: Y rests on F again
   function endPeek() {
     if (!trans.glide) return;
-    trans.glide = false; trans.k = 0; trans.at = -1; glide.set(0);
-    if (rightAuto && rImage()) fitRight(true);
+    trans.glide = false; trans.at = -1; glide.set(0);
     updateFocusUI(); scheduleFix(); requestRender('R'); phoneChain();
   }
   // one frame of the glide; true while it moves
@@ -205,20 +197,12 @@
       glide.last = ts;
       glide.step(dt);
     }
-    if (glide.moving()) { trans.k = L[Math.max(1, Math.ceil(glide.x - 1e-6)) - 1]; trans.at = -1; dirty.R = true; return true; }
+    if (glide.moving()) { trans.at = -1; dirty.R = true; return true; }
     glide.last = 0;
     if (glide.x >= L.length - 1e-6) { endPeek(); return false; }
     const j = Math.round(glide.x), at = j === 0 ? L[0] - 1 : L[j - 1];
-    if (trans.k || trans.at !== at) { trans.k = 0; trans.at = at; dirty.R = true; updateFocusUI(); scheduleFix(); phoneChain(); }
+    if (trans.at !== at) { trans.at = at; dirty.R = true; updateFocusUI(); scheduleFix(); phoneChain(); }
     return false;
-  }
-  function startTransition(k) {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches || !rImage() || rightStage() !== k || !stepActive(k)) return;
-    trans.k = k; trans.t0 = performance.now();
-    // frame both the start and the end of the deformation, then settle on the result
-    paneR.setView(V.right);
-    if (rightAuto) Object.assign(V.right, fittedView(paneR, k, [k - 1]));
-    requestRender('R');
   }
 
   // smooth view transitions
@@ -269,13 +253,13 @@
     if (drag || now - lastChangeT < 150) { TeX.hush(); scrubT = now; }
     lastChangeT = now;
   }
-  // (what the last chain change cost, ms, all of it and the fit of the views in it (a series' fit samples
-  // it on the CPU): a live change (a slider dragged) of a chain whose fit costs more than FIT_LIVE_MS keeps the views
-  // until the drag ends, whose change at rest fits them; a field and a slider of a costly chain wait for a pause or the
-  // next frame (paramField, onParamChange))
-  let chainMs = 0, fitMs = 0, fitLate = 0;
+  // (what the last chain change cost, ms, all of it and the fit of X's view in it (a series' fit samples it on the
+  // CPU): a live change (a slider dragged) of a chain whose fit costs more than FIT_LIVE_MS keeps the view until the
+  // drag ends, whose change at rest fits it; a field and a slider of a costly chain wait for a pause or the next frame
+  // (paramField, onParamChange))
+  let chainMs = 0, fitMs = 0;
   const FIT_LIVE_MS = 12;
-  const chainCost = () => chainMs + fitLate;   // (with the fit in slices after it)
+  const chainCost = () => chainMs;
   function chainChanged(structural, o) {
     const t0 = performance.now();
     noteChange();
@@ -283,12 +267,11 @@
     cmChain();   // (step uids, zero ids, constructions on f1's zeros and F(z0))
     soundFunctionChanged();
     if (structural) chainRebuilt();
-    const fit = !(o && o.live && fitMs > FIT_LIVE_MS), sliced = fitMs > FIT_LIVE_MS && !hasTargets(), tf = performance.now();
-    if (fit && rightAuto && autoFit()) { if (sliced) fitRightSliced(); else fitRight(); }
+    const fit = !(o && o.live && fitMs > FIT_LIVE_MS), tf = performance.now();
     const ls = leftStage() + ':' + chainSig[leftStage()];
     if (fit && leftStage() > 0 && leftAuto && ls !== lastLeftSig) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
     if (fit) lastLeftSig = ls;
-    if (fit && !sliced) { fitMs = performance.now() - tf; fitLate = 0; }
+    if (fit) fitMs = performance.now() - tf;
     endPeek();
     svChainChanged();
     scheduleFix();
@@ -307,15 +290,12 @@
       updateFocusUI();
       buildShapeList();
     } else updateShapeList();
-    // (not while a pointer gesture moves shapes, points or zeros: onUp fits Y once at the gesture's end)
-    if (rightAuto && autoFit() && !(!structural && drag && /^(move|handle|zp)$/.test(drag.mode))) fitRight();
     scheduleFix();
     refreshIntPop();
     // (a selected disc's readout card, 19-readout.js, follows its edits)
     if (readoutOn(findShape(selected))) requestRender('L', 'R', 'P'); else requestRender('L', 'R');
   }
-  // the right plane mode that keeps its own view, fitted to what it shows
-  const autoFit = () => rImage();
+  // the view of a pane that frames box b (a margin of 7%; the square ±2 when b cannot be framed), not applied
   function boxView(pane, b) {
     const saved = pane.view, tmp = { cx: saved.cx, cy: saved.cy, s: saved.s };
     pane.setView(tmp);
@@ -323,73 +303,18 @@
     pane.setView(saved);
     return tmp;
   }
-  // (a costly fit of Y (the last took over FIT_LIVE_MS: a series sampled on the CPU) after a chain change: its
-  // samples are taken in slices of FIT_SLICE ms between which the page draws and takes input; Y keeps its view until
-  // the fit is ready; a newer change or fit drops it)
-  const fitJob = { token: 0 };
-  const FIT_SLICE = 8;
-  const yieldFit = () => (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function' ? scheduler.yield() : yieldTask());
-  async function fitRightSliced() {
-    const token = ++fitJob.token, k = rightStage(), sig = chainSig[k];
-    const xs = [], ys = [], it = stageSampler(stageF(k), xs, ys, k);
-    let t0 = performance.now(), ms = 0;
-    for (let r = it.next(); !r.done; r = it.next()) {
-      if (performance.now() - t0 < FIT_SLICE) continue;
-      ms += performance.now() - t0;
-      await yieldFit();
-      if (token !== fitJob.token) return;
-      t0 = performance.now();
-    }
-    fitMs = fitLate = ms + performance.now() - t0;
-    if (rightStage() !== k || chainSig[k] !== sig || !(rightAuto && autoFit()) || hasTargets()) return;
-    paneR.setView(V.right);
-    Object.assign(V.right, boxView(paneR, robustBox(xs, ys) || { x0: -2, x1: 2, y0: -2, y1: 2 }));
-    requestRender('R');
-  }
-  function fitRight(animate) {
-    fitJob.token++;
-    paneR.setView(V.right);
-    let target;
-    if (hasTargets()) {
-      // the image of the domain and the w-plane targets
-      const xs = [], ys = [];
-      stageSamples(stageF(rightStage()), xs, ys, rightStage());
-      for (const s of S.targets) {
-        if (s.visible === false) continue;
-        let b = null;
-        try { b = Region.bboxOf(s); } catch (e) { b = null; }
-        if (b) { xs.push(b.x0, b.x1); ys.push(b.y0, b.y1); }
-        try { for (const [, z] of Region.handlesOf(s)) { xs.push(z.re); ys.push(z.im); } } catch (e) { /* no handles */ }
-      }
-      target = boxView(paneR, robustBox(xs, ys) || { x0: -2, x1: 2, y0: -2, y1: 2 });
-    } else target = fittedView(paneR, rightStage());
-    // a refit that would move the view by a few pixels at most (the fit after a drag, from the same shape data) is
-    // skipped: its tween frames would be motion frames for nothing (motion-vs-rest, the refit at pointer-up)
-    if (animate && fitWithinPx(V.right, target, paneR, 3)) return;
-    if (animate) tweenView(V.right, target);
-    else Object.assign(V.right, target);
-  }
-  // whether view b differs from view a by at most px CSS pixels anywhere in the pane (centre shift plus the zoom's
-  // move of the pane's corners)
-  function fitWithinPx(a, b, pane, px) {
-    if (!a || !b || !(a.s > 0) || !(b.s > 0)) return false;
-    const half = Math.hypot(pane.w || 0, pane.h || 0) / 2;
-    const shift = Math.hypot(b.cx - a.cx, b.cy - a.cy) * a.s;
-    return shift + Math.abs(b.s / a.s - 1) * half <= px;
-  }
   function setFocus(k, quiet) {
     phHold();
     endPeek();
     setFocusStep(k);
     if (k > 0) setSel(k);   // (showing a step alone selects it)
-    leftAuto = true; rightAuto = true;
+    leftAuto = true;
     if (leftStage() > 0) { paneL.setView(V.left); fitPane(paneL, leftStage()); lastLeftSig = leftStage() + ':' + chainSig[leftStage()]; }
     // T starts over for the new focus
     morph.T = 0;
     updateFocusUI();
     // the target group's heading and formulas name Y's variable (wₖ with step k focused, P13)
     if (S.targets && S.targets.length) buildShapeList();
-    fitRight();
     scheduleFix();
     refreshIntPop();
     requestRender('L', 'R', 'P');

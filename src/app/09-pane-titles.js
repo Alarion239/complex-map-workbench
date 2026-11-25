@@ -1294,17 +1294,11 @@
     if (S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
     const L = S.view.main === 'xy' && rImage() && peekSteps();
     if (L) {
-      if (!trans.glide) { trans.glide = true; trans.k = 0; trans.at = -1; glide.set(L.length); }
+      if (!trans.glide) { trans.glide = true; trans.at = -1; glide.set(L.length); }
       glide.nudge(d, L.length);
       glide.last = 0;
       // (reduced motion: the plane at once)
       if (matchMedia('(prefers-reduced-motion: reduce)').matches) glide.set(glide.target);
-      // (Y's view follows the plane the glide is heading for, each fitted on its own: in the inset a view that held every
-      // plane left the first of them a speck off the centre)
-      if (rightAuto && rImage()) {
-        const j = Math.round(glide.target), at = j === 0 ? L[0] - 1 : L[j - 1];
-        tweenView(V.right, fittedView(paneR, at, []));
-      }
       requestRender('R');
       phoneChain();
     }

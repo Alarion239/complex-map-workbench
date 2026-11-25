@@ -124,7 +124,7 @@
   function toggleBypass(k) {
     const st = S.steps[k - 1];
     if (!st) return;
-    st.on = st.on === false; chainChanged(true); commit(); if (st.on) startTransition(k); sndToggleCue(st.on);
+    st.on = st.on === false; chainChanged(true); commit(); sndToggleCue(st.on);
   }
   function openTemp() {
     const host = $('propsPanel');

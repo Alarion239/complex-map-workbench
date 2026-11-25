@@ -909,7 +909,7 @@
   function centerView(side, z) {
     if (side === 'L' ? !lFlat() : !rImage()) return;
     if (side === 'L') { const v = leftView(); v.cx = z.re; v.cy = z.im; if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L', 'OL', 'OR'); }
-    else { V.right.cx = z.re; V.right.cy = z.im; rightAuto = false; requestRender('R', 'OR'); }
+    else { V.right.cx = z.re; V.right.cy = z.im; requestRender('R', 'OR'); }
     save();
   }
   // TEST-HOOK (dropped from the published page by build.py)

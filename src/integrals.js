@@ -9,7 +9,7 @@ const Integrals = (() => {
   let C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
     integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage,
     requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
-    sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed;
+    sndStopPlay, stageF, sub, toast, touchUI, tourEmit, zerosPolesTimed;
   // ---------------- integrals: ∫γ F dz along a curve, on a right click ----------------
   // The curve: a shape's curve, or an area's boundary oriented with the area on its left, taken in the left plane
   // (the input of the focused map F). A right click (a long press on touch) near a curve in the left plane, near its
@@ -304,7 +304,7 @@ const Integrals = (() => {
   function curvesNear(pane, side, x, y) {
     let k, view;
     if (side === 'L') { if (!lFlat()) return []; view = leftView(); k = leftStage(); }
-    else if (rImage() && !morphOn() && !trans.k) { view = V.right; k = rightStage(); }
+    else if (rImage() && !morphOn()) { view = V.right; k = rightStage(); }
     else return [];
     const F = stageF(k);
     pane.setView(view);
@@ -639,7 +639,7 @@ const Integrals = (() => {
 
   function init(api) {
     A = api;
-    ({ C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
+    ({ C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, zerosPolesTimed } = api);
   }
   return { init, curvePieces, shapeGeom, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
 })();
