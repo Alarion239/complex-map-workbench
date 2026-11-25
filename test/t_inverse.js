@@ -1292,7 +1292,7 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
 // H(u), glsl.js's _step, step for step. Where a stage's one step leaves |H - w| large the walk leaps between basins and the
 // derivative decides where it lands: at the zeta pixel w = 0.0875 + 25.3125i of #1396, t = 0.5, a central difference over
 // 1e-6 (1 + |u|) walked to -0.905 + 38.244i, where the kit's walk ends on none. glsl.js's _fd has the same step. Member
-// 1's deflated steps (glsl.js's _defl) too.
+// 1's deflated steps (glsl.js's _run in its DEFL phase, _step deflated by dz) too.
 {
   const GLSL = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'glsl.js'), 'utf8');
   const fdAt = /_fd\(vec2 u, vec2 hu, float t\) \{ float h = ([0-9.e-]+) \* \(1\.0 \+ cx_abs\(u\)\)/.exec(GLSL);
@@ -1313,7 +1313,7 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
     }
   }
   // member 1, Newton deflated by member 0 u from 2w - u (no pole: the series), takes the same forward difference: its
-  // NEWT_DEF iterates are glsl.js's _defl's, step for step
+  // NEWT_DEF iterates are glsl.js's _run's in its DEFL phase, step for step
   {
     const b = Funcs.build(St('series')), t = 0.5, op = Inverse.homOps(b, t).ops[0], Ht = b.hom(t);
     for (const [x, y] of [[1, 1], [-2, 0.5], [0.5, -1.5]]) {
@@ -1328,7 +1328,7 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
         if (!fin(v) || !fin(got[it])) { if (fin(v) !== fin(got[it])) worst = Infinity; steps++; break; }
         worst = Math.max(worst, CX.abs(CX.sub(v, got[it])) / (1 + CX.abs(v)));
       }
-      check(`opNewt series at t = ${t}, w = ${x} + ${y}i: member 1's deflated steps are the kit's (_defl), forward difference, step for step`, got.length >= 3 && steps === got.length && worst <= 1e-12, { steps, traced: got.length, worst });
+      check(`opNewt series at t = ${t}, w = ${x} + ${y}i: member 1's deflated steps are the kit's (the DEFL phase), forward difference, step for step`, got.length >= 3 && steps === got.length && worst <= 1e-12, { steps, traced: got.length, worst });
     }
   }
 }
@@ -1466,6 +1466,60 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
     const G2 = o.pre(CX.add(w, C(1e-6, 0)));
     check(`${o.kind} ${name}, 1e-6 off: ${p.length - 1} simple members`, G2.length === p.length - 1 && G2.every((m) => !m.mult), G2.map((m) => [m.u, m.mult]));
   }
+}
+
+// =================================================================================================
+// the sheet key's weights (#1742): an All-at-once span's key points weigh their step's time (keySing's wOf), so the
+// key goes from the span's first plane's to its last's with no jump
+// =================================================================================================
+section('sheet key weights');
+{
+  const prepOf = (sing, per = null) => { const R = Math.hypot(WIN0.x1 - WIN0.x0, WIN0.y1 - WIN0.y0) / 2; return { win: WIN0, R, rs: R / 8, sing, per }; };
+  const ps = (pts) => pts.map((p) => [p.re, p.im, Inverse.keyW(p)]);
+  // [Joukowski, Cayley] in full: Cayley's pole pulled back through Joukowski (two points) and Joukowski's own (0)
+  const { plan: jc } = planOf([{ type: 'joukowski' }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }], 0, 2);
+  const { plan: j1 } = planOf([{ type: 'joukowski' }], 0, 1);
+  const plain = Inverse.keySing(jc, WIN0), w1 = Inverse.keySing(jc, WIN0, undefined, () => 1);
+  check('keySing with every weight 1 is the plain key (the same points, none weighted)', JSON.stringify(ps(w1)) === JSON.stringify(ps(plain)) && w1.every((p) => p.w === undefined), [ps(w1), ps(plain)]);
+  const w0 = Inverse.keySing(jc, WIN0, undefined, (o) => (o.step === 2 ? 0 : 1));
+  check("keySing with step 2's weight 0 leaves its points out: the key of step 1 alone", JSON.stringify(ps(w0)) === JSON.stringify(ps(Inverse.keySing(j1, WIN0))), [ps(w0), ps(Inverse.keySing(j1, WIN0))]);
+  const wh = Inverse.keySing(jc, WIN0, undefined, (o) => (o.step === 2 ? 0.3 : 1));
+  check("keySing with step 2's weight 0.3: its points weigh 0.3, step 1's 1", wh.length === plain.length && wh.filter((p) => Inverse.keyW(p) === 0.3).length === plain.length - 1 && wh.filter((p) => Inverse.keyW(p) === 1).length === 1, ps(wh));
+  // a point's penalty scales with its weight: at w = 0.5 the key is midway between w = 0 and w = 1
+  const p0 = C(0.4, -0.2), at = (w) => Inverse.sheetKey(prepOf([Object.assign(C(p0.re, p0.im), { w })]), C(0.45, -0.18));
+  check('sheetKey: a point of weight 0.5 adds half its penalty', Math.abs(at(0.5) - (at(0) + at(1)) / 2) < 1e-12 && at(1) - at(0) > 1, [at(0), at(0.5), at(1)]);
+  // keyClasses keeps one point of each class modulo the period, with the class's largest weight
+  const per = C(0, TAU), kc = Inverse.keyClasses([Object.assign(C(0.5, 1), { w: 0.2 }), Object.assign(C(0.5, 1 + TAU), { w: 0.7 })], per);
+  check("keyClasses: one point of the class, the first's place, the class's largest weight", kc.length === 1 && kc[0].re === 0.5 && kc[0].im === 1 && kc[0].w === 0.7, ps(kc));
+  // the span (1, 4] of [J, 1.2 z, Cayley, z³] at a small time t: weighted, its key is plane 1's at rest within a hair away
+  // from 0; unweighted, Cayley's pole pulled back beside 0 doubles the penalty there (#1742's downward glide)
+  const steps = [St('joukowski'), St('mul', { c: '1.2' }), St('mobius', { a: '1', b: '-i', c: '1', d: 'i' }), St('pown', { n: 3 })], built = steps.map(Funcs.build);
+  const t = 1e-3, bh = built.map((b, k) => (k >= 1 ? Inverse.homBuilt(b, Inverse.homOps(b, t)) : b));
+  const span = Inverse.planChain(steps, bh, 0, 4), rest = Inverse.keySing(Inverse.planChain(steps, built, 0, 1), WIN0);
+  const kw = Inverse.keySing(span, WIN0, undefined, (o) => (o.step > 1 ? t : 1)), ku = Inverse.keySing(span, WIN0);
+  const zs = [C(0.3, 0.1), C(-0.2, 0.25), C(0.15, -0.3), C(0.5, 0), C(-1, 0.6), C(2, -1)];
+  const dev = (k) => Math.max(...zs.map((z) => Math.abs(Inverse.sheetKey(prepOf(k), z) - Inverse.sheetKey(prepOf(rest), z))));
+  check(`the span's key at t = ${t}, weighted by t: plane 1's at rest (within 0.01 octave at |z| >= 0.2)`, span.ok && dev(kw) < 0.01, { dev: dev(kw), kw: ps(kw), rest: ps(rest) });
+  check(`control: unweighted, it is off plane 1's by over half an octave`, dev(ku) > 0.5, { dev: dev(ku), ku: ps(ku) });
+  // the walk's inward bound (affStopLB, the GPU's ixStop): with a point of weight 0.3 beside the segment the members still
+  // to come lie on, it is at most the key at every point of the segment; the control's bound counts the point at weight 1
+  // while the key counts it at 0.3, and then passes the key, so the row tells a weighted bound from an unweighted one
+  const sp = { kind: 'clip', A: C(1, 0), B: C(0, 0) }, F = { type: 'mul', S: C(0.3, 0) }, lf = { z: C(0.5, 0.02), D: 0 };
+  const pt = (w) => Object.assign(C(0.1, 0.05), { w }), za = C(0, 0), z1 = CX.add(za, CX.scale(CX.sub(lf.z, za), Math.exp(-0.3)));
+  const seg = Array.from({ length: 200 }, (_, j) => CX.add(za, CX.scale(CX.sub(z1, za), 1 - j / 200)));
+  const minKey = Math.min(...seg.map((z) => Inverse.sheetKey(prepOf([pt(0.3)]), z)));
+  const lbW = Inverse.affStopLB(prepOf([pt(0.3)]), F, sp, lf, false), lb1 = Inverse.affStopLB(prepOf([pt(1)]), F, sp, lf, false);
+  check('affStopLB with a point of weight 0.3: at most the key along the segment the members still to come lie on', lbW <= minKey + 1e-12 && lbW > 0, { lbW, minKey });
+  check('control: the bound with that point at weight 1 passes the weight-0.3 key', lb1 > minKey + 0.1, { lb1, minKey });
+  // the Möbius stop's bound (mobStopLB): the members still to come lie within r of the accumulation point pAcc, a key point
+  // of weight 0.3 (pInP); the bound is at most the key over that disk, and the control's (pInP 1) passes it
+  const pAcc = C(0.1, 0.05), zr = C(0.15, 0.05), rr = CX.abs(CX.sub(zr, pAcc)), accPt = Object.assign(C(pAcc.re, pAcc.im), { w: 0.3 });
+  const disk = [];
+  for (let i = 0; i <= 20; i++) for (let j = 0; j < 36; j++) disk.push(CX.add(pAcc, CX.scale(C(Math.cos(j * TAU / 36), Math.sin(j * TAU / 36)), rr * (0.02 + 0.98 * i / 20))));
+  const minDisk = Math.min(...disk.map((z) => Inverse.sheetKey(prepOf([accPt]), z)));
+  const mW = Inverse.mobStopLB(prepOf([accPt]), { pAcc, pInP: 0.3 }, zr), m1 = Inverse.mobStopLB(prepOf([accPt]), { pAcc, pInP: 1 }, zr);
+  check("mobStopLB with the accumulation point at weight 0.3: at most the key over the disk the members still to come lie in", mW <= minDisk + 1e-12 && mW > 0, { mW, minDisk });
+  check('control: the bound with pInP 1 passes the weight-0.3 key', m1 > minDisk + 0.1, { m1, minDisk });
 }
 
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
