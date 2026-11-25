@@ -59,10 +59,10 @@ ok("the phone's Display sheet: a Regions section with the regions' options, no s
 ok("the phone's Display sheet in the classic X → Y view keeps the regions' own opacity slider (the steps view hides it for its one Opacity)", !!ph && ph.alphaShown, ph);
 ok('the phone opens the saved Tiles as the phase', (await ev('__cmwRegions().pattern')) === 'phase', null);
 await ev(`Phone.close(true)`); await settle(300);
-// ---- 6. the tour: no Patterns step in the chapter that teaches the surfaces
-const ids = await ev(`Tour._t.CHAPTERS.find((c) => c.id === 'planes').steps.map((s) => s.id)`);
-info.planes = ids;
-ok('the Planes chapter has no Patterns step and has its Sphere and Landscape step', ids.length >= 3 && !ids.includes('patterns') && ids.includes('surface'), ids);
+// ---- 6. the tour: no chapter has a Patterns step, and Planes has its Sphere and Landscape step
+const ids = await ev(`Tour._t.CHAPTERS.flatMap((c) => c.steps.map((s) => c.id + '/' + s.id))`);
+info.steps = ids;
+ok('no tour step is Patterns, and Planes has its Sphere and Landscape step', ids.length >= 20 && !ids.some((x) => /\/patterns$/.test(x)) && ids.includes('planes/surface'), ids);
 
 // ---- 7. the Regions pop-up fits its box in every language: its description wraps, with no sideways scroll cutting the values
 for (const lang of ['en', 'ru', 'it']) {
