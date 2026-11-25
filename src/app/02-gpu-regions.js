@@ -636,7 +636,18 @@
   const SM_APP = /** @type {any} */ (SphereMesh.APP || { maxWork: 250000, maxNodes: 300000, guard: 2 });
   const smWork = () => (SM_APP.workOf ? SM_APP.workOf(SphereMesh.kOf(S.alpha)) : SM_APP.maxWork);
   const SM_GUARD = SM_APP.guard, SM_SLICE = 5, SM_CPU_BYTES = 32 * 1024 * 1024, SM_LIVE_NODES = 1500000, SM_NODES = SM_APP.maxNodes, SM_MS_CAP = 10000;
-  const sm = { entries: new Map(), jobs: new Map(), want: new Map(), running: false, kickT: 0, cpuBytes: 0, exportPartial: 0, exportGen: 0, stats: { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 } };
+  // The steps view's whole-plane meshes, __svAll and its outer ring __svRing, are adopted as a pair, and only when both
+  // ended on a deterministic budget (their map evaluations or nodes): until then the picture stays what it is (the
+  // pre-mapped stand-in, a whole picture of the plane), and the jobs run on in idle slices past SM_MS_CAP, which would
+  // end them on a partial mesh that depends on the machine's speed. smRunawayMs CPU ms stops a job that never ends:
+  // nothing is adopted for its key, so the stand-in stays and the key is not asked for again (sm.capped)
+  let smRunawayMs = 60000;
+  // (a slot is `<shape id>|<role>|<kind>`: the ring's shape id carries its index, `__svRing|4`)
+  const smPairKind = (slot) => (!slot.endsWith('|SV|flat') ? null : slot.startsWith('__svAll|') ? 'all' : slot.startsWith('__svRing|') ? 'ring' : null);
+  const smPaired = (slot) => !!smPairKind(slot);
+  // the slot of the other mesh of the pair that a job or a held mesh of it stands for, or undefined
+  const smPartner = (slot) => [...sm.want.keys(), ...sm.held.keys()].find((x) => smPairKind(x) && smPairKind(x) !== smPairKind(slot));
+  const sm = { entries: new Map(), jobs: new Map(), want: new Map(), held: new Map(), capped: new Set(), running: false, kickT: 0, cpuBytes: 0, exportPartial: 0, exportGen: 0, stats: { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 } };
   const smOn = () => GLR.ok && !!GLR.createPreMesh;
   function smStretched(s) {
     let bb = null;
@@ -780,6 +791,7 @@
     return old ? { old, why } : { why };
   }
   function smCancel(job) {
+    smUnhold(job.slot, job.key);
     if (job.mesh) job.mesh.dispose();
     job.mesh = null; job.cancelled = true;
     sm.jobs.delete(job.key);
@@ -789,8 +801,11 @@
   function smRequest(slot, ck, s, role, kind, m, v, why) {
     if (interacting() || fixBusy()) { smKick(); return; }
     const key = ck + '|' + smViewKey(v);
+    if (sm.capped.has(key)) return;
+    // (the ring's shape id carries its index: another plane's ring is another slot, which nothing asks for now)
+    if (smPaired(slot)) for (const other of [...sm.want.keys()]) if (other !== slot && smPairKind(other) === smPairKind(slot)) smUnwant(other);
     const prev = sm.want.get(slot);
-    if (prev === key && sm.jobs.has(key)) return;
+    if (prev === key && (sm.jobs.has(key) || (sm.held.get(slot) || {}).key === key)) return;
     if (prev && prev !== key) { const j = sm.jobs.get(prev); if (j) smCancel(j); }
     sm.want.set(slot, key);
     if (!sm.jobs.has(key)) {
@@ -803,7 +818,7 @@
         left: smLeft(),
         view: v, Kmax: kp ? 2 : SphereMesh.kOf(lk.alpha), depth: kp ? (z) => Inverse.sheetKey(kp, z, null) : undefined,
         pattern: { id: (GLR.PATTERNS || {})[lk.pattern] ?? 1, cell: patternCell(), lines: !!lk.lines },
-        maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
+        maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: smPaired(slot) ? smRunawayMs : SM_MS_CAP, maxNodes: SM_NODES,
       };
       sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false) + (why === 'linking' ? '|link' : ''), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });
     }
@@ -826,8 +841,10 @@
         let job = null;
         for (const key of sm.want.values()) { const j = sm.jobs.get(key); if (j && !j.cancelled) { job = j; break; } }
         if (!job) break;
-        while ((fixBusy() || interacting()) && !job.cancelled) await yieldNow(60);
+        while ((fixBusy() || interacting() || document.hidden) && !job.cancelled) await yieldNow(60);
         if (job.cancelled || sm.want.get(job.slot) !== job.key) { if (!job.cancelled) smCancel(job); continue; }
+        // (the thread left the carried colour: the jobs of the carried meshes stop)
+        if (smPaired(job.slot) && !svCarryWanted()) { smUnwant(job.slot); continue; }
         // live nodes across the jobs kept (one runs at a time; SPEC 8.4: 1.5M live)
         let liveN = 0;
         for (const j of sm.jobs.values()) if (j.mesh && j !== job) liveN += j.mesh.nodes;
@@ -853,10 +870,39 @@
   }
   function smFinish(job, st) {
     sm.jobs.delete(job.key);
-    if (sm.want.get(job.slot) === job.key) sm.want.delete(job.slot);
-    if (st.failed || !job.mesh) { if (job.mesh) job.mesh.dispose(); return; }
+    if (st.failed || !job.mesh) { if (sm.want.get(job.slot) === job.key) sm.want.delete(job.slot); if (job.mesh) job.mesh.dispose(); return; }
     const data = job.mesh.publish(), stats = job.mesh.stats();
     job.mesh.dispose();
+    if (smPaired(job.slot)) {
+      const pslot = smPartner(job.slot), pj = pslot && sm.jobs.get(sm.want.get(pslot));
+      if (stats.budgetWhy === 'time') {
+        // (it ended on the runaway cap: a partial mesh is never adopted, nor is a pair that waits for it)
+        if (sm.want.get(job.slot) === job.key) sm.want.delete(job.slot);
+        sm.capped.add(job.key);
+        if (pslot) smUnhold(pslot);
+        return;
+      }
+      if (pj && !pj.cancelled) { sm.held.set(job.slot, { key: job.key, job, data, stats }); return; }
+      const h = pslot && sm.held.get(pslot);
+      if (h) { smUnhold(pslot); smPublish(h.job, h.data, h.stats); }
+    }
+    if (sm.want.get(job.slot) === job.key) sm.want.delete(job.slot);
+    smPublish(job, data, stats);
+  }
+  // a slot no frame asks a mesh for: its job (or its finished mesh that waits for its partner) goes
+  function smUnwant(slot) {
+    const key = sm.want.get(slot), j = key && sm.jobs.get(key);
+    if (j) smCancel(j); else smUnhold(slot);
+    sm.want.delete(slot);
+  }
+  // a finished mesh of a pair that waits for its partner's job (key: only that one)
+  function smUnhold(slot, key = null) {
+    const h = sm.held.get(slot);
+    if (!h || (key && h.key !== key)) return;
+    sm.held.delete(slot);
+    if (sm.want.get(slot) === h.key) sm.want.delete(slot);
+  }
+  function smPublish(job, data, stats) {
     const bytes = (data.pos ? data.pos.byteLength : 0) + (data.pos3 ? data.pos3.byteLength : 0) + data.attr.byteLength + data.tri.byteLength;
     const e = { key: job.key, ck: job.ck, ck0: job.ck0, slot: job.slot, role: job.role, kind: job.kind, view: job.view, guardBox: data.guardBox, data, res: null, t: performance.now(), bytes, why: job.why, exp: !!job.exp, expGen: job.expGen || 0,
       info: { n: data.n, partial: !!data.partial, nodes: stats.nodes, work: stats.work, ms: +job.ms.toFixed(1), slices: job.slices, settleMs: +(performance.now() - job.t0).toFixed(0), budgetWhy: stats.budgetWhy } };
