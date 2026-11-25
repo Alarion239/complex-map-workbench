@@ -10,7 +10,8 @@ const settle = async (ms = 700) => { await sleep(ms); await ev('new Promise((r) 
 const ST = { shapes: [], steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] };
 const probe = () => ev(`(() => { const r = document.documentElement, q = (id) => { const e = document.getElementById(id); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), r: Math.round(b.right), b: Math.round(b.bottom) }; }; return { ph: r.classList.contains('ph'), land: r.classList.contains('ph-land'), iw: innerWidth, ih: innerHeight, L: q('paneL'), R: q('paneR') }; })()`);
 // (the phone layout is entered once the app has initialised, which a slow runner takes a while over: wait for it, then probe)
-const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(600); };
+// (a page still loading has no document element yet: the poll reads that as "not yet")
+const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`!!document.documentElement && document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(600); };
 const open = async (w, h) => { await view(w, h, false, true); await load('pl' + w + 'x' + h + '-' + Date.now(), ST, '', 'classic'); await waitPh(); };
 
 // landscape phones, below and above 768 px: the landscape layout
@@ -18,9 +19,10 @@ for (const [w, h] of [[740, 360], [667, 375], [736, 414], [568, 320], [812, 375]
   await open(w, h);
   const p = await probe(); info[`${w}x${h}`] = p;
   ok(`${w}×${h}: a landscape phone gets ph-land`, p.ph && p.land, p);
-  // the planes side by side, each most of the height under the top bar
-  ok(`${w}×${h}: the planes sit side by side`, p.L && p.R && p.R.l >= p.L.r - 2 && Math.abs(p.L.t - p.R.t) <= 2, p);
-  ok(`${w}×${h}: the planes have at least 60 % of the height`, p.L && (p.L.b - p.L.t) >= 0.6 * h, p);
+  // X's plane alone (the classic view draws X alone, #994), most of the width beside the tool column and most of the height
+  // under the top bar
+  ok(`${w}×${h}: X's plane alone has at least 80 % of the width`, p.L && !p.R && (p.L.r - p.L.l) >= 0.8 * w, p);
+  ok(`${w}×${h}: the plane has at least 60 % of the height`, p.L && (p.L.b - p.L.t) >= 0.6 * h, p);
   // a sheet opens beside them, with its content on screen
   await ev(`Phone.open('tools')`); await settle(800);
   const sh = await ev(`(() => { const e = document.querySelector('.ph-sheet .ph-sb:not([hidden])'); const b = e && e.getBoundingClientRect(); return b && { t: Math.round(b.top), b: Math.round(b.bottom), l: Math.round(b.left), r: Math.round(b.right), h: Math.round(b.height) }; })()`);
@@ -63,7 +65,7 @@ ok('… and back to 375×812', back && back.heads === 0 && back.closed, back);
 for (const [w, h] of [[740, 360], [915, 412]]) {
   for (const v of ['', '&view=steps']) {
     await view(w, h, false, true); await load('pc' + w + v.length + '-' + Date.now(), ST, '', v ? undefined : 'classic');
-    if (v) { await send('Page.navigate', { url: `${U}?ns=pcs${w}-${Date.now()}${v}` }); }
+    if (v) { await go(`${U}?ns=pcs${w}-${Date.now()}${v}`); }
     await waitPh();
     await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'basics' }); return 1; })()`); await settle(1800);
     // (a slow runner builds the strip late: wait for Next, and for the × when the strip is a row, before measuring)

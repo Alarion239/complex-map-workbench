@@ -7,7 +7,7 @@ const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = (ms = 400) => settled({ floor: ms });
-const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
+const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, go, sleep, settled });
 await view(1440, 900, false, false);
 await openSaved(`rgph-new-${Date.now() % 1000000}`, { v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50 });
 // ---- 4. the laptop's Regions button and its pop-up: no pattern swatch anywhere in the page
@@ -50,11 +50,13 @@ const ph = await ev(`(() => {
   return b && {
     ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => b.querySelector('#' + id)),
     swatches: b.querySelectorAll('.pat, [data-pat], canvas').length,
+    alphaShown: !!b.querySelector('#alphaRange') && b.querySelector('#alphaRange').getClientRects().length > 0,
     heads: hs,
   };
 })()`);
 ok("the phone's Display sheet: a Regions section with the regions' options, no swatch",
   ph && ph.ids.length === 4 && ph.swatches === 0 && ph.heads.includes('Regions'), ph);
+ok("the phone's Display sheet in the classic X → Y view keeps the regions' own opacity slider (the steps view hides it for its one Opacity)", !!ph && ph.alphaShown, ph);
 ok('the phone opens the saved Tiles as the phase', (await ev('__cmwRegions().pattern')) === 'phase', null);
 await ev(`Phone.close(true)`); await settle(300);
 // ---- 6. the tour: no Patterns step in Views
@@ -70,7 +72,7 @@ for (let k = 0; k < 10 && (await ev('Tour.isActive()')); k++) {
 }
 await ev('Tour.isActive() ? Tour.stop() : 0; 1'); await settle(300);
 info.views = ids;
-ok('the Views chapter has no Patterns step and ends with Phase key', ids.length >= 4 && !ids.includes('patterns') && ids[ids.length - 1] === 'key', ids);
+ok('the Views chapter has no Patterns step and ends with the Riemann sphere', ids.length >= 3 && !ids.includes('patterns') && ids[ids.length - 1] === 'sphere', ids);
 
 // ---- 7. the Regions pop-up fits its box in every language: its description wraps, with no sideways scroll cutting the values
 for (const lang of ['en', 'ru', 'it']) {

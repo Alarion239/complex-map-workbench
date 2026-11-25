@@ -1,6 +1,6 @@
 // F's well on the phone's edit sheet (issue #455): the Inspector is built while the sheet is closed, so the well has no
-// width when fitPick first runs; it used to keep the full (expanded) form there, wider than the sheet. Now nothing is
-// decided without a width, and the choice is made again when the well gets one (the sheet opens) or changes it (the
+// width when fitPick first runs. No form is chosen without a width (the full, expanded one is wider than the sheet),
+// and the choice is made again when the well gets one (the sheet opens) or changes it (the
 // phone turns). Two steps (a Möbius square and a long formula with a display form), F selected, the Edit sheet opened:
 // the well is whole (not wider than its box, at 70 % or more), the short form F(z) = w₂ = …, as on the desk; closed and
 // opened again in landscape, still whole. 390 × 844 and 360 × 740 in en, ru and it; then 1440 × 900 (the desk) as a
@@ -16,10 +16,10 @@ const STEPS = [{ type: 'custom', params: { expr: '((z-0.1)/(1-0.1*z))^2', cut: 1
 const well = () => ev(`(() => { const p = document.getElementById('propsPanel'); const t = p && (p.querySelector('.iform .ftex:not(.long)') || p.querySelector('.iform .ftex')); if (!t) return null; const f = t.closest('.iform'); const cs = getComputedStyle(f); const avail = f.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return { tex: (t.dataset.tex || '').slice(0, 40), use: t.dataset.use, fs: t.style.fontSize, sw: t.scrollWidth, avail: Math.round(avail), svg: t.querySelectorAll('svg').length }; })()`);
 const open = async (w, h, lang, mobile, ns) => {
   await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}-pre` }); await sleep(2500);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}-pre`); await sleep(2500);
   const o = { v3: true, v4: true, shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1 }], steps: STEPS, nextId: 50, focus: 0, rightMode: 'image' };
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}`);
   for (let i = 0; i < 40 && !(await ev(`typeof MathJax !== 'undefined' && !!MathJax.tex2svg`)); i++) await sleep(500);
   await settle(1500);
 };

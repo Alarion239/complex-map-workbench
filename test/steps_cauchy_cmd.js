@@ -5,7 +5,9 @@
 //   with T at another plane the Cauchy tile is disabled with its reason, and a plane z that keeps the style is paper with the same
 //   sentence as its note, the key naming no bands;
 //   past the colour plane (T = z, the thread at plane 1) the key's line names the integral and the plane it is carried from, in at most four lines;
-//   with no closed curve at all plane z is paper and the key says so.
+//   with no closed curve at all plane z is paper and the key says so;
+//   in ru the title and the style row's note set the curve's name in «» («интеграл Коши по контуру «Окружность 1»»), for a
+//   feminine name (the circle, «Окружность 1») and a masculine one (the disc's boundary, «Круг 1»).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PNG = process.mainModule.require(path.join(DIR, 'png.js'));
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -38,7 +40,7 @@ const read = async () => {
   const at = async (x, y) => { const p = await ev(`(() => { const p = __cmwW2S('L', ${x}, ${y}), r = document.getElementById('canvasL').getBoundingClientRect(); return [p[0] - r.left, p[1] - r.top]; })()`); return png.at(Math.round(p[0]), Math.round(p[1])); };
   return { inside: await at(0.55, 0.3), outside: await at(1.9, 0.45) };
 };
-const legend = async () => JSON.parse(await ev('JSON.stringify(__cmwLegend())'));
+const legend = async () => await evJson('JSON.stringify(__cmwLegend())');
 const tile = () => ev(`(() => { const t = document.querySelector('#dcSeg [data-v="cauchy"]'); return t ? { disabled: t.disabled, tip: t.dataset.tip, desc: t.getAttribute('aria-description'), on: t.classList.contains('on') } : null; })()`);
 
 await open(CIRCLE);
@@ -61,11 +63,11 @@ const t0 = await tile();
 ok('T = z: the Cauchy tile is on and enabled', t0 && t0.on && !t0.disabled, t0);
 const lg0 = await legend();
 ok('T = z: the key names the Cauchy integral and keeps its ring', lg0.caption === 'Cauchy integral' && lg0.ring === true, lg0);
-const nm0 = JSON.parse(await ev('JSON.stringify(__cmwSteps().names.title)'));
+const nm0 = await evJson('JSON.stringify(__cmwSteps().names.title)');
 ok('T = z: the title is "Cauchy integral over {name}"', /^Cauchy integral over /.test(nm0.role), nm0);
 // (Inside regions would cut f₋ off: the scope control reads Everywhere, disabled with its reason)
 await ev(`(__cmwSteps({ scope: 'in' }), 1)`);
-const sc0 = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('.sv-scope button')].map((b) => ({ on: b.classList.contains('on'), disabled: b.disabled, tip: b.dataset.tip, v: b.dataset.v })))`));
+const sc0 = await evJson(`JSON.stringify([...document.querySelectorAll('.sv-scope button')].map((b) => ({ on: b.classList.contains('on'), disabled: b.disabled, tip: b.dataset.tip, v: b.dataset.v })))`);
 ok('Cauchy: the scope control is disabled with its reason and reads Everywhere', sc0.length > 0 && sc0.every((b) => b.disabled && /drawn everywhere/.test(b.tip || '')) && sc0.filter((b) => b.on).every((b) => b.v === 'all'), sc0);
 const pxs = await read();
 ok('Cauchy with scope Inside: the outside is still coloured', !isGrey(pxs.outside), pxs);
@@ -93,7 +95,7 @@ const KEY_LINES = 4;
 const READOUT_GAP = 8, NARROW_KEY = 136, READOUT_MARGIN = 28;   // READOUT_MARGIN: the readout's reserve beside the key's width
 const OLD_KEY_ROOM = 50;   // the room right of the wheel in the 136 px legend
 const FILLER_WORDS = 400;  // enough words to fill the readout's room
-const LANGS = [['en', /^Cauchy integral carried from z$/], ['ru', /^интеграл Коши, перенесён из z$/], ['it', /^integrale di Cauchy trasportato da z$/]];
+const LANGS = [['en', /^Cauchy integral carried from z$/], ['ru', /^интеграл Коши, перенесён из\u00a0z$/], ['it', /^integrale di Cauchy trasportato da z$/]];
 for (const [lang, re] of LANGS) {
   await open(CIRCLE, lang);
   await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
@@ -105,7 +107,7 @@ for (const [lang, re] of LANGS) {
   // controls: the other languages' lines do not match; the caption is wrapped from its layout (fewer lines than words); the
   // widest ru and it word is wider than the room the 136 px legend left, so the room check would fail there
   ok(`T = z, thread at plane 1, ${lang}: control: the caption matches no other language's line`, LANGS.filter(([l, r]) => l !== lang && r.test(lgc.caption || '')).length === 0, lgc);
-  ok(`T = z, thread at plane 1, ${lang}: control: the caption is wrapped (fewer lines than words)`, lgc.lines < (lgc.caption || '').split(' ').length, lgc);
+  ok(`T = z, thread at plane 1, ${lang}: control: the caption is wrapped (fewer lines than words)`, lgc.lines < (lgc.caption || '').split(/\s/).length, lgc);
   if (lang !== 'en') ok(`T = z, thread at plane 1, ${lang}: control: the widest word is wider than the ${OLD_KEY_ROOM} px the 136 px legend left`, lgc.widest > OLD_KEY_ROOM, lgc);
   // the readout, made long enough to fill its room, keeps READOUT_GAP clear of the key; with the reserve of the narrower key it
   // would not (the control)
@@ -120,5 +122,19 @@ for (const [lang, re] of LANGS) {
   })()`));
   ok(`T = z, thread at plane 1, ${lang}: the readout ends at least ${READOUT_GAP} px short of the key`, gaps.own >= READOUT_GAP, gaps);
   ok(`T = z, thread at plane 1, ${lang}: control: the reserve of a ${NARROW_KEY} px key leaves the readout under ${READOUT_GAP} px from the key`, gaps.narrow < READOUT_GAP, gaps);
+}
+// ru: the curve's name in «» in the title and in the style row's note (read with the ⋯ pop-up open, then closed)
+for (const [tag, shape] of [['a circle', CIRCLE[0]], ['a disc', { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }]]) {
+  await open([shape], 'ru');
+  await park(0);
+  const role = (await evJson('JSON.stringify(__cmwSteps().names.title)')).role;
+  await ev(`document.querySelector('#leftFoot .opts-btn').click(); 1`);
+  await settled({ until: '!!document.querySelector(".opts-pop")', max: 15000 });
+  const note = await ev(`(() => { const n = document.querySelector('.opts-pop .foot-note'); return n ? n.textContent : null; })()`);
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+  const name = await ev(`(() => { const k = document.querySelector('#shapeList .shape[data-id="s1"] .k'); return k ? k.textContent.trim() : null; })()`);
+  info[`ru ${tag}`] = { role, note, name };
+  ok(`ru, ${tag}: the title is «интеграл Коши по контуру «<its name>»»`, !!name && role === `интеграл Коши по контуру «${name}»`, info[`ru ${tag}`]);
+  ok(`ru, ${tag}: the style row's note names the curve in «»`, !!name && !!note && note.includes(`по контуру «${name}»`), info[`ru ${tag}`]);
 }
 return { pass: !fails.length, fails, info };

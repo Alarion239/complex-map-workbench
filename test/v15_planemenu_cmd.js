@@ -110,17 +110,11 @@ await pick('shape-delete');
 ok('Delete removes the circle', !(await H('shapes()')).some((s) => s.id === 's2'));
 await undo();
 ok('undo brings it back', (await H('shapes()')).some((s) => s.id === 's2'));
-// Y: empty, and the deformation plane: nothing
+// Y: empty: nothing (standards-ok: the deformation plane's row went with the classic transport, #994)
 let R = await paneRect('R');
 await rclick(R.l + 30, R.t + 30);
 ok('Y: a right-click on empty plane opens nothing', !(await anyMenu()), await menu());
 await closeAll();
-await ev('__cmwMorph({ open: true, T: 0.5 })'); await settle(800);
-R = await paneRect('R');
-await rclick(R.l + 30, R.t + 30);
-ok('the deformation plane: nothing', !(await anyMenu()), await menu());
-await closeAll();
-await ev('__cmwMorph({ open: false })'); await settle(500);
 // the landscape and Phase over empty X: nothing
 await ev(`__cmwSetMain('land'), 1`); await settle(1500);
 let L = await paneRect('L');
@@ -374,7 +368,6 @@ shots.push(await shot('pm-x-dark'));
 await closeAll();
 await view(1440, 900, false);
 await nav(`http://localhost:${(/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1]}/test.html?ns=${ns}h&lang=ru`);
-await settle(1500);
 p = await w2s('L', 0.5, 0);
 await rclick(p[0], p[1]);
 m = await menu();

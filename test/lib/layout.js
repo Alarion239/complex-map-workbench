@@ -7,6 +7,7 @@
 //   centred(scope)           the boxes declared centred are, within their tolerance (INTENT.centred, data-center)
 //   noClippedText(scope)     no text is cut by its box, except an ellipsis that is declared (INTENT.ellipsis, data-ellipsis)
 //   noCutControls(scope)     no control is drawn past a panel that clips it and cannot scroll to it
+//   wholeBoxes(scope)        the boxes declared whole (INTENT.whole) show all they hold, with no scroll to reach the rest
 //   noTextSpill(scope)       no control's text shows past the control's own box (a nowrap label wider than its pill, #498)
 //   toasts()                 a desktop toast covers no control; placed (data-placed), it is centred on its place, and in
 //                            the chain head it lies inside the head, with Clear chain stepped aside (ux on #499)
@@ -58,8 +59,17 @@
       { sel: '.sv-fchip .sv-fn', named: true, why: 'a steps-view chip\'s function name: one line, the whole name in the chip\'s label (ux on #499)' },
       { sel: '.ph-cn', named: true, why: 'the phone\'s chain name: one line, the whole name as its label or tooltip (ux on #499)' },
     ],
-    // the rows meant to be evenly spaced: sel (the row), tol (px), why
-    rows: [],
+    // the boxes meant to show everything they hold at rest, with no scroll to reach the rest (the check's name: scroll-cut): sel, why
+    whole: [
+      { sel: ':root.ph .ld-key:not(.folded)', why: 'Look down\'s and the Stack\'s open key on a phone: its marks and the Stack\'s connector switch all show (#2418)' },
+    ],
+    // the rows meant to be evenly spaced: sel (the row; its visible children, at least three, are the row's members), tol
+    // (px), why. A row of one line or one column only (a wrapped grid has no single gap)
+    rows: [
+      { sel: '.seg', tol: 1, why: 'a segmented control: its tiles touch, so every gap is the same (0)' },
+      { sel: '#svStrip .sv-track', tol: 1, why: 'the steps view\'s track: its planes and steps abut, with no stray margin between them' },
+      { sel: ':root.ph #tools', tol: 1, why: 'the phone\'s drawing tools: one rail, the buttons the same gap apart' },
+    ],
   };
 
   const vis = (e) => {
@@ -476,7 +486,10 @@
 
   // text over a plot (a canvas under it at its centre) sits on a ground: the text, or a box above the canvas that
   // holds it, has a background at least half opaque, or the text has a halo (a text-shadow, an SVG stroke painted
-  // first). Text straight on the picture can be unreadable whatever the picture is (#469's empty-state hint)
+  // first). Text straight on the picture can be unreadable whatever the picture is (#469's empty-state hint). The boxes
+  // above the canvas are the ones at the text's centre and those of the text's own ancestors, short of the one that holds
+  // the canvas, whose box holds that centre: a card with pointer-events: none (the construction chip's pill) is not among
+  // the elements at a point
   const alpha = (c) => { const m = /rgba?\(([^)]+)\)/.exec(c || ''); if (!m) return 0; const p = m[1].split(/[\s,/]+/).filter(Boolean); return p.length > 3 ? parseFloat(p[3]) : 1; };
   function onGround(scope = document.body) {
     const out = [];
@@ -487,7 +500,10 @@
       const ci = stack.findIndex((e) => e.tagName === 'CANVAS');
       if (ci < 0 || !stack.slice(0, ci).some((e) => e === t.el || e.contains(t.el) || t.el.contains(e))) continue;
       const above = stack.slice(0, ci);
-      const ground = above.some((e) => { const c = getComputedStyle(e); return alpha(c.backgroundColor) >= 0.5 || (c.backgroundImage && c.backgroundImage !== 'none') || (c.backdropFilter && c.backdropFilter !== 'none'); });
+      const opaque = (e) => { const c = getComputedStyle(e); return alpha(c.backgroundColor) >= 0.5 || (c.backgroundImage && c.backgroundImage !== 'none') || (c.backdropFilter && c.backdropFilter !== 'none'); };
+      let ground = above.some(opaque);
+      const px = (s.l + s.r) / 2, py = (s.t + s.b) / 2, holds = (e) => { const r = e.getBoundingClientRect(); return px >= r.left && px <= r.right && py >= r.top && py <= r.bottom; };
+      for (let e = t.el; !ground && e && e !== document.body && !e.contains(stack[ci]); e = e.parentElement) ground = holds(e) && opaque(e);
       const tc = getComputedStyle(t.el);
       const halo = (tc.textShadow && tc.textShadow !== 'none') || (t.el instanceof SVGElement && tc.stroke !== 'none' && /stroke/.test(tc.paintOrder));
       if (!ground && !halo) out.push(V('no-ground', t.el, stack[ci], { text: (t.el.textContent || '').trim().slice(0, 40) }, t.box));
@@ -502,7 +518,12 @@
         if (!vis(row)) continue;
         const ks = [...row.children].filter(vis).map((k) => R(k.getBoundingClientRect()));
         if (ks.length < 3) continue;
-        const hz = (ks[ks.length - 1].l - ks[0].l) >= (ks[ks.length - 1].t - ks[0].t);
+        // (the direction is the members' extent, not their order in the page: a column-reverse rail has its last member on top)
+        const extent = (lo, hi) => Math.max(...ks.map((k) => k[hi])) - Math.min(...ks.map((k) => k[lo]));
+        const hz = extent('l', 'r') >= extent('t', 'b');
+        // (a row that wraps onto a second line has no one gap: only a row of one line, or one column, is declared even. A row
+        // that wraps by mistake is skipped too; the overlap and viewport checks are what see that)
+        if (Math.max(...ks.map((k) => k.t)) >= Math.min(...ks.map((k) => k.b)) && Math.max(...ks.map((k) => k.l)) >= Math.min(...ks.map((k) => k.r))) continue;
         ks.sort((p, q) => (hz ? p.l - q.l : p.t - q.t));
         const gaps = ks.slice(1).map((k, i) => +(hz ? k.l - ks[i].r : k.t - ks[i].b).toFixed(1));
         const spread = Math.max(...gaps) - Math.min(...gaps);
@@ -512,13 +533,29 @@
     return out;
   }
 
+  // a box declared whole (INTENT.whole) that holds more than it shows: its content runs past its own box, so a scroll is
+  // the only way to the rest
+  function wholeBoxes(scope = document.body) {
+    const out = [];
+    for (const d of INTENT.whole) {
+      let els = [];
+      try { els = [...scope.querySelectorAll(d.sel)]; } catch (e) { /* a selector the page does not take */ }
+      for (const el of els) {
+        if (!vis(el)) continue;
+        const hidden = Math.max(el.scrollHeight - el.clientHeight, el.scrollWidth - el.clientWidth);
+        if (hidden > 1) out.push(V('scroll-cut', el, null, { hidden, why: d.why }));
+      }
+    }
+    return out;
+  }
+
   function all(opt = {}) {
     const scope = opt.scope || document.body;
     const touch = opt.touch != null ? opt.touch : matchMedia('(pointer: coarse)').matches;
     // (the focus rings last: they move the focus)
-    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), noTextSpill(scope), toasts(), onGround(scope), insideViewport(scope),
+    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), wholeBoxes(scope), noTextSpill(scope), toasts(), onGround(scope), insideViewport(scope),
       targetSizes(touch ? 44 : 24, scope), evenSpacing(scope), opt.focus ? focusRings(scope) : []);
   }
 
-  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, noTextSpill, toasts, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
+  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, wholeBoxes, noTextSpill, toasts, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
 })(typeof window !== 'undefined' ? window : globalThis);

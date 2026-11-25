@@ -10,10 +10,10 @@ const Commands = (() => {
   let C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape,
     addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan,
     defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
-    integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample,
-    morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
-    replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme,
-    setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle,
+    integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample,
+    nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
+    replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels, setTheme,
+    setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle,
     stageF, sub, toast, toggleAlone, tourEmit, viewBox;
   const FN_INFO = {
     mul: [$t('Rotation and scaling; conformal on ℂ'), $t('scale rotate rotation multiply dilation')],
@@ -200,48 +200,42 @@ const Commands = (() => {
           if (!ql || score(plain) || score(label) || score($t('replace'))) items.push({ kind: 'cmd', group: $t('Steps'), label, key: '', run });
         }
       });
-      // the views are also found by what they are for (roots, contour integrals, …)
-      // (the panes' views, with the words of the single view control as aliases)
-      // (comma-separated phrases, each matched on its own: a query that starts a phrase scores 3, one that starts a
-      // word 2, so multi-word aliases such as 'phase portrait' and 'domain colouring' are found)
-      const VIEW_ALIAS = {
-        xy: $t('x to y, x -> y, split, both planes, domain and image, shapes and images, planes'),
-        lplane: $t('left plane, domain, z-plane, shapes, regions'), lsphere: $t('left sphere, riemann sphere, globe, infinity, domain sphere, z-sphere, phase sphere'),
-        land: $t('left landscape, landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets'),
-        phase: $t('phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, left phase'),
-        rplane: $t('right plane, image, image plane, map, targets, preimages, w-plane'), rsphere: $t('right sphere, riemann sphere, globe, infinity, image sphere, w-sphere'),
+      // the surfaces are also found by what they are for (comma-separated phrases, each matched on its own: a query that
+      // starts a phrase scores 3, one that starts a word 2, so multi-word aliases such as 'riemann sphere' are found)
+      const SURFACE_ALIAS = {
+        plane: $t('plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus'),
+        sphere: $t('riemann sphere, globe, infinity, sphere'),
+        land: $t('landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets'),
+        stack: $t('stack, box, glass, floor, tilt, preimages, target, 3d'),
       };
       const aliasScore = (alias) => Math.max(0, ...alias.split(',').map((p) => score(p.trim())));
       const view = [
-        [$t('View: X → Y'), () => setMain('xy'), '1', VIEW_ALIAS.xy],
-        [$t('View: Phase portrait'), () => setMain('phase'), '2', VIEW_ALIAS.phase],
-        [$t('View: Landscape'), () => setMain('land'), '3', VIEW_ALIAS.land],
-        [A.S.view.main === 'phase' ? $t('Phase: Plane') : $t('X: Plane'), () => { if (lLand()) setMain('xy'); setView('L', 'plane'); }, lLand() ? '' : '⇧1', VIEW_ALIAS.lplane],
-        [A.S.view.main === 'phase' ? $t('Phase: Sphere') : $t('X: Sphere'), () => { if (lLand()) setMain('xy'); setView('L', 'sphere'); }, lLand() ? '' : '⇧2', VIEW_ALIAS.lsphere],
-        [$t('Y: Plane'), () => { setMain('xy'); setView('R', 'plane'); }, A.S.view.main === 'xy' ? '⇧3' : '', VIEW_ALIAS.rplane],
-        [$t('Y: Sphere'), () => { setMain('xy'); setView('R', 'sphere'); }, A.S.view.main === 'xy' ? '⇧4' : '', VIEW_ALIAS.rsphere],
-        [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), morphOn() && A.S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
-        [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
-        // (the bracket for the selected step, else the last; SPEC 6.5)
-        ...(activeSteps().length >= 2 ? (() => {
-          const k = Number.isInteger(A.S.sel) && A.S.sel >= 1 && A.S.sel <= nSteps() ? A.S.sel : nSteps(), n = nSteps();
-          const al = $t('part range bracket pullback pull-back precompose push-forward inside under outer inner') + ', ' + 'part range bracket pullback pull-back precompose push-forward inside under outer inner';
-          return [[$t('Deformation: only {f}, inside F', { f: fUni(k) }), () => chooseRange(HR.normal(k, k)), '', al],
-            [$t('Deformation: steps {f1}–{f2}', { f1: fUni(k), f2: fUni(n) }), () => chooseRange(HR.normal(k, n)), '', al],
-            [$t('Deformation: steps {f1}–{f2}', { f1: fUni(1), f2: fUni(k) }), () => chooseRange(HR.normal(1, k)), '', al],
-            [$t('Deformation: every step'), () => chooseRange(null), '', al]];
-        })() : []),
+        ...(svSurface() ? ['plane', 'sphere', 'land', 'stack'].map((v) => [svSurfaceLabel(v), () => svSetSurface(v), '', SURFACE_ALIAS[v]]) : []),
+        // (the deformation's paths, order and range: the steps view's glide; the classic view has no deformation)
+        ...(svSurface() ? [
+          [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), '', $t('paths trajectories arrows homotopy deformation lines')],
+          [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
+          // (the bracket for the selected step, else the last; SPEC 6.5)
+          ...(activeSteps().length >= 2 ? (() => {
+            const k = Number.isInteger(A.S.sel) && A.S.sel >= 1 && A.S.sel <= nSteps() ? A.S.sel : nSteps(), n = nSteps();
+            const al = $t('part range bracket pullback pull-back precompose push-forward inside under outer inner') + ', ' + 'part range bracket pullback pull-back precompose push-forward inside under outer inner';
+            return [[$t('Deformation: only {f}, inside F', { f: fUni(k) }), () => chooseRange(HR.normal(k, k)), '', al],
+              [$t('Deformation: steps {f1}–{f2}', { f1: fUni(k), f2: fUni(n) }), () => chooseRange(HR.normal(k, n)), '', al],
+              [$t('Deformation: steps {f1}–{f2}', { f1: fUni(1), f2: fUni(k) }), () => chooseRange(HR.normal(1, k)), '', al],
+              [$t('Deformation: every step'), () => chooseRange(null), '', al]];
+          })() : []),
+        ] : []),
         ...integrateRows(),
         [$t('Show the roots: a target at 0'), () => { if (A.S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', $t('roots zeros poles solve solutions equation preimages target')],
         ...(Funcs.DEFS.deriv ? [[$t('Derivative of the chain: add d/dz'), () => addStep('deriv', null, A.S.focus > 0 ? A.S.focus : A.S.steps.length), '', $t('derivative prime differentiate d/dz')]] : []),
-        [$t('Fit both planes'), () => /** @type {any} */ ($('leftFit').click()) || $('rightFit').click(), 'Z'],
+        [$t('Fit view'), () => /** @type {any} */ ($('leftFit').click()) || $('rightFit').click(), 'Z'],
         [$t('Unit circle on or off'), () => $('unitChk').click(), ''],
         [$t('Snap to grid and figures on or off'), () => $('snapBtn').click(), ''],
         [$t('Switch theme'), () => $('themeBtn').click(), ''],
         ...(ql ? Palette.LIST.map(([id]) => [$t('Phase colours: {name}', { name: PAL_NAMES()[id][0] }), () => setPalette(id), '', 'palette, colours, colors, цвета, палитра, colori, arb, chrome']) : []),
         [$t('Draw panel'), () => setPanels(!A.S.hideLeft, A.S.hideRight), '['],
         [$t('Inspector panel'), () => setPanels(A.S.hideLeft, !A.S.hideRight), ']'],
-        // (the language names carry their own lang for a screen reader, as in the menu: verify-7)
+        // (the language names carry their own lang for a screen reader, as in the menu)
         ...(ql ? [[$t('Language: {name}', { name: $t('Auto') }), () => pickLang('auto'), '', 'language, язык, lingua, russian, русский, english, английский, italian, italiano'], [$t('Language: {name}', { name: 'English' }), () => pickLang('en'), '', 'language, язык, lingua, english, английский, inglese', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'en' }, 'English') })], [$t('Language: {name}', { name: 'Русский' }), () => pickLang('ru'), '', 'language, язык, lingua, russian, русский, russo', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'ru' }, 'Русский') })], [$t('Language: {name}', { name: 'Italiano' }), () => pickLang('it'), '', 'language, язык, lingua, italian, итальянский, italiano', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'it' }, 'Italiano') })]] : []),
       ];
       for (const [label, run, key, alias, labelParts] of view) if (!ql || score(label) || (alias && aliasScore(alias) >= 2)) items.push(labelParts ? { kind: 'cmd', group: $t('View'), label, key, run, labelParts } : { kind: 'cmd', group: $t('View'), label, key, run });
@@ -272,7 +266,7 @@ const Commands = (() => {
         [$t('Hear the function on/off'), () => soundHear(), ''],
         ...(Sound.hear ? [[$t('Hear the function: notes'), () => soundMode(false), ''], [$t('Hear the function: glide'), () => soundMode(true), '']] : []),
         [$t('Stop sound'), () => soundStop(), 'Esc'],
-        ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']),
+        ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id, opener: Tour.asker() }), '']),
         ...Construct.paletteActs(),   // (the four tools; Make free, Use complement)
         ...dhActs(),
       ];
@@ -309,7 +303,8 @@ const Commands = (() => {
     [$t('Shapes'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
     [$t('Numbers'), $t('number, numbers, parameter, parameters, slider, letter')], [$t('Branch cuts'), $t('cut, cuts, branch, sheet, sheets, seam')],
     [$t('The planes\' menu'), $t('right-click, menu, long-press, zero, zeros, pole, poles, add zero')], [$t('Views'), $t('view, views, phase, landscape, sphere, plane')],
-    [$t('Deformation'), $t('deformation, homotopy, morph, animate, play')], [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
+    // (the Deformation section is the steps view's only: the classic view's guide has none)
+    ...(svSurface() ? [[$t('Deformation'), $t('deformation, homotopy, morph, animate, play')]] : []), [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
     [$t('Inverses and derivatives'), $t('inverse, derivative, replace')], [$t('Integrals'), $t('integral, integrate, residue, contour, winding')],
     [$t('Sound'), $t('sound, audio, listen, hear, music')], [$t('Guarantees'), $t('guarantee, guarantees, property, conformal, injective, analytic')],
     [$t('Keys'), $t('keys, shortcuts, keyboard, hotkeys, help')],
@@ -722,7 +717,7 @@ const Commands = (() => {
   function closed() { if (palState) { clearTimeout(palState.pvTimer); palState = null; } }
   function init(api) {
     A = api;
-    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox } = api);
+    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels, setTheme, setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox } = api);
   }
   return { init, openPalette, opener, closed };
 })();

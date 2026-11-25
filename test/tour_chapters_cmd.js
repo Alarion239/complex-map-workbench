@@ -20,7 +20,23 @@ ok('each chapter has its minutes and the running one is marked', menu && /min/.t
 await ev(`(() => { const b = document.querySelectorAll('.tour-menu .mi')[1]; b.click(); })()`); await settled({ until: `Tour.current().chapter !== 'basics'` });
 s = await st();
 ok('a pick starts that chapter', s.cur !== 'basics', s);
-await ev(`Tour.end && Tour.end()`); await settled({ until: `!document.querySelector('.ts-chap')` });
+await ev(`Tour.stop()`); await settled({ until: `!document.querySelector('.ts-chap')` });
+// Esc gives the user's work back whole, the steps view's scope and surface included (#2332): chosen Inside regions on the
+// sphere, the tour's chapters move the scope (to Everywhere), and Esc comes back on the same scope and surface,
+// with the head's controls showing them. (A step shown alone before the tour follows undo's rules: Esc leaves it.)
+await loadView(null, 'tourchapesc' + Date.now(), Object.assign({}, STATE, { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }] }));
+await settled({ until: `typeof Tour === 'object'` });
+const HEAD = `JSON.stringify({ scope: document.querySelector('#svHead .sv-scope [role=radio][aria-checked="true"]')?.dataset.v, surf: document.querySelector('#svHead .sv-surf1 .sv-surf-t')?.textContent })`;
+await ev(`document.querySelector('#svHead .sv-scope [data-v="in"]').click(), 1`);
+await ev(`document.querySelector('#svHead .sv-surf1').click(), 1`);
+await settled({ until: `!![...document.querySelectorAll('[role=menuitem], [role=menuitemradio]')].find((b) => /^Sphere/.test(b.textContent.trim()))` });
+await ev(`[...document.querySelectorAll('[role=menuitem], [role=menuitemradio]')].find((b) => /^Sphere/.test(b.textContent.trim())).click(), 1`);
+await settled({ until: `JSON.parse(${HEAD}).scope === 'in' && JSON.parse(${HEAD}).surf === 'Sphere'` });
+const headBefore = await ev(HEAD);
+await ev(`Tour.start({ chapter: 'planes' })`); await settled({ until: STRIP });
+await key('Escape'); await settled({ until: `!document.querySelector('.ts-chap')` });
+const headAfter = await ev(HEAD);
+ok('Esc gives the scope and the surface back, as they were before the tour', headAfter === headBefore, { headBefore, headAfter });
 // a phone keeps its short count in the text, no chapter button
 await view(390, 844, true, true);
 await loadView(null, 'tourchapph' + Date.now(), STATE);

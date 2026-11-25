@@ -3,9 +3,9 @@
   // =====================================================================================================
   const aspect = (b) => (b.x1 - b.x0) / (b.y1 - b.y0);
   const maxW = (texs, pt) => Math.max(0, ...texs.map((t) => XD.tex(t, pt).w));
-  const tickW = (b, step, tp) => { const sy = XD.axisSteps(b, step)[1], d = XD.decimals(sy); return maxW(XD.ticks(b.y0, b.y1, sy).map((v) => XD.tickTex(v, d)), tp); };
+  const tickW = (b, step, tp) => { const sy = XD.axisSteps(b, step)[1], ts = XD.ticks(b.y0, b.y1, sy), d = XD.tickDec(ts, sy); return maxW(ts.map((v) => XD.tickTex(v, d)), tp); };
   // the room the last x tick label needs right of the frame (when the frame ends on that tick)
-  const overR = (b, step, tp) => { const sx = XD.axisSteps(b, step)[0], t = XD.ticks(b.x0, b.x1, sx).pop(); return t != null && Math.abs(b.x1 - t) < 1e-9 * Math.max(1, Math.abs(t)) ? XD.tex(XD.tickTex(t, XD.decimals(sx)), tp).w / 2 + 1 : 0; };
+  const overR = (b, step, tp) => { const sx = XD.axisSteps(b, step)[0], ts = XD.ticks(b.x0, b.x1, sx), t = ts[ts.length - 1]; return t != null && Math.abs(b.x1 - t) < 1e-9 * Math.max(1, Math.abs(t)) ? XD.tex(XD.tickTex(t, XD.tickDec(ts, sx)), tp).w / 2 + 1 : 0; };
   const head = (x0, x1, y, letter, tag, pt) => (letter ? XD.at(XD.tex(XD.lang === 'ru' ? `\\textit{${letter}}` : `\\text{${letter}}`, pt), x0, y, 'start', 'base', 'panel-letter') : '') + (tag ? XD.at(XD.tex(tag, pt), x1, y, 'end', 'base', 'panel-letter') : '');
   // the i-th panel letter in the figure's language: (a) (b) ... ; а б ... (set in italic by head)
   const panelLetter = (i) => (XD.lang === 'ru' ? RU_LETTERS[i] : `(${String.fromCharCode(97 + i)})`);
@@ -145,11 +145,15 @@
   };
   // Fit: the content plus 8 %, snapped outward to half a tick step; a side the content runs off (an unbounded set)
   // keeps the screen window's edge there. Equal aspect is kept by the panel (one unit, one length).
+  // a content box narrower than LONE_SPAN of the window's long side is a lone point; it is framed by LONE_FRAME of it
+  const LONE_SPAN = 1e-6, LONE_FRAME = 0.25;
   function fitBox(content, screen, wpt) {
     if (!content) return screen;
     const sw = screen.x1 - screen.x0, sh = screen.y1 - screen.y0;
     let b = { x0: content.x0, x1: content.x1, y0: content.y0, y1: content.y1 };
-    const span0 = Math.max(b.x1 - b.x0, b.y1 - b.y0, 1e-9 * Math.max(sw, sh));
+    // (a lone point, or points that coincide to the window's precision: framed by LONE_FRAME of the window, not a sliver)
+    if (Math.max(b.x1 - b.x0, b.y1 - b.y0) < LONE_SPAN * Math.max(sw, sh)) { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, r = LONE_FRAME * Math.max(sw, sh) / 2; b = { x0: cx - r, x1: cx + r, y0: cy - r, y1: cy + r }; }
+    const span0 = Math.max(b.x1 - b.x0, b.y1 - b.y0);
     // 8 % of each side's own span (at least 2 % of the long side), so a wide strip is not framed as a square
     const px = 0.08 * Math.max(b.x1 - b.x0, 0.25 * span0), py = 0.08 * Math.max(b.y1 - b.y0, 0.25 * span0);
     const t = content.touch || {};
@@ -210,33 +214,48 @@
     }
     return null;
   };
+  // a shape's map from its own plane into the panel's (A.shapeF), F the panel's map of the z-plane's shapes; null where the
+  // page does not draw it there
+  const shapeMapF = (s, side, F) => (A.shapeF ? A.shapeF(s, side, F) : F);
+  // the plane a shape is drawn on (0 the z-plane), and the window its curves are sampled in: srcWin, the figure's z-plane window,
+  // or for a shape drawn on a later plane that plane's (A.shapeWin), as much wider
+  const stageOf = (s) => (A.shapeStage ? A.shapeStage(s) || 0 : 0);
+  const shapeWinOf = (s, srcWin) => { const w = A.shapeWin ? A.shapeWin(s) : null; return w ? expandBox(w, 3) : srcWin; };
+  const winTol = (w) => 2e-4 * Math.hypot(w.x1 - w.x0, w.y1 - w.y0);
   const cxTex = (z) => (CX.tex ? CX.tex(z, 3) : `${+z.re.toFixed(3)}${z.im >= 0 ? '+' : '-'}${Math.abs(+z.im.toFixed(3))}i`);
   // the vector layers of one plane panel: boundaries and curves (mapped by F), points (and their names)
   function planeLayers(o, P, side, F, box, wpt, shapes, srcWin, primeName) {
     const curves = [], points = [], chev = [];
     let bwI = 0, dashed = 0;
-    // the drawn curves (source plane), for the open boundaries they cover
-    let solids = null;
-    const solidPolys = () => solids || (solids = shapes.filter((s) => kindType(s) === 'curve').flatMap((s) => { try { return (Region.curvesOf(s, srcWin) || []).map((c) => srcPoly(c, 720)); } catch (e) { return []; } }).filter((q) => q.length > 1));
-    const tol = 2e-4 * Math.hypot(srcWin.x1 - srcWin.x0, srcWin.y1 - srcWin.y0);
+    // the drawn curves of each plane (in that plane, the source of its shapes), for the open boundaries of the same plane they cover
+    const solids = new Map();
+    const solidPolys = (k) => {
+      if (!solids.has(k)) solids.set(k, shapes.filter((s) => kindType(s) === 'curve' && stageOf(s) === k).flatMap((s) => { try { return (Region.curvesOf(s, shapeWinOf(s, srcWin)) || []).map((c) => srcPoly(c, 720)); } catch (e) { return []; } }).filter((q) => q.length > 1));
+      return solids.get(k);
+    };
+    // (each shape is carried from its own plane and sampled in that plane's window, as the page draws it: one of a plane after the
+    // panel's is not drawn)
     shapes.forEach((s, si) => {
       const t = kindType(s);
       if (t === 'point') return;
+      const Fs = shapeMapF(s, side, F);
+      if (!Fs) return;
+      const win = shapeWinOf(s, srcWin);
       const tn = tonesOf(s, o);
       const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
       const open = t === 'area' && Region.isOpen && Region.isOpen(s);
-      const sc = shapeCurves(s, F, box, wpt, srcWin), cs = sc.cs;
+      const sc = shapeCurves(s, Fs, box, wpt, win), cs = sc.cs;
       let pts = sc.pts;
       let dash = open && P.dashOpen ? '3 2' : null;
       if (dash && cs.length) {
         // pieces of an open boundary that a drawn curve lies on are the curve's: they are left to it
-        const cov = cs.map((c) => coveredBy(c, solidPolys(), tol));
-        if (cov.some(Boolean)) pts = mapCurves(cs.filter((c, i) => !cov[i]), F, box, wpt);
+        const cov = cs.map((c) => coveredBy(c, solidPolys(stageOf(s)), winTol(win)));
+        if (cov.some(Boolean)) pts = mapCurves(cs.filter((c, i) => !cov[i]), Fs, box, wpt);
       }
       if (o.ink === 'bw' && !grid && !dash) dash = bwDash(P, bwI++);
       const color = o.ink === 'bw' ? (grid ? '#666666' : '#000000') : (o.for === 'article' || grid ? tn.edge : t === 'area' ? tn.edge : tn.edge);
       if (dash === '3 2' && pts.some((q) => q.some((p) => p[0] >= box.x0 && p[0] <= box.x1 && p[1] >= box.y0 && p[1] <= box.y1))) dashed++;
-      curves.push({ pts, w: grid ? P.lw.grid : t === 'area' ? P.lw.edge : P.lw.curve, color, dash, cap: dash && dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2' ? 'round' : 'butt', open });
+      curves.push({ pts, w: grid ? P.lw.grid : t === 'area' ? P.lw.edge : P.lw.curve, color, dash, cap: dash && dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2' ? 'round' : 'butt', open, sid: s.id });
       // orientation chevrons (Homework): one on each piece of an area's boundary, at a point that shows in both panels
       if (P.chevrons && t === 'area') for (const c of cs.slice(0, 6)) if (c && typeof c.f === 'function') chev.push({ c, color, s });
     });
@@ -245,16 +264,26 @@
     // plane labels it (helpers have no label and no index), and a fixed constructed point is a ring, as on screen
     const cmFig = shapes.some((x) => x.def || x.at);
     const markOf = (s) => (cmFig && Construct.pointMark ? Construct.pointMark(s) : null);
+    // (a point is carried from its own plane: one of a plane after the panel's is not drawn, as on the page; every point the
+    // panel draws is named as the page's figure frames name it)
     shapes.forEach((s) => {
       if (kindType(s) !== 'point' || !s.p) return;
+      const Fp = shapeMapF(s, side, F);
+      if (!Fp) return;
       const mk = markOf(s);
-      const z = C(s.p[0], s.p[1]), w = F(z);
+      const z = C(s.p[0], s.p[1]), w = Fp(z);
       const k = mk === 'helper' ? -1 : pi++;
       if (!fin(w) || s._atInf) return;
       if (mk === 'helper') { points.push({ z: [w.re, w.im], r: 1.1, kind: 'ring', label: null, at: 'auto', sw: 0.5 }); return; }
       let label = null;
       if (P.named) label = String.fromCharCode(65 + (k % 26)) + (primeName ? "'" : '');
-      else { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null); label = l ? (primeName ? `${primeName}(${l})` : l) : null; }
+      else {
+        // (every point by the plane it is shown on, a label of its own too: A, w₁(A), F(A); a label in words, which has no name in
+        // symbols, set as text after the panel's map, as before)
+        const n = A.pointName ? A.pointName(s, k, side) : null, t = n && Construct.nameTex(n);
+        if (t) label = t;
+        else { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null) || (n ? texLabel({ label: n }, k) : null); label = l ? (primeName && s.label ? `${primeName}(${l})` : l) : null; }
+      }
       if (P.named || o.ink === 'bw') points.push({ z: [w.re, w.im], r: P.named ? 2.0 : 1.6, kind: P.named ? PTS[k % 4][0] : mk === 'ring' ? 'ring' : 'dot', fill: o.ink === 'bw' ? '#000000' : P.named ? PTS[k % 4][1] : '#000000', label, at: 'auto' });
       else points.push({ z: [w.re, w.im], r: mk === 'ring' ? 1.7 : 1.5, kind: mk === 'ring' ? 'ring' : 'dot', fill: '#000000', label, at: 'auto', sw: mk === 'ring' ? 0.6 : undefined });
     });
@@ -344,24 +373,33 @@
   const sceneWin = (v) => ({ x0: v.cx - REF_PANE[0] / 2 / v.s, x1: v.cx + REF_PANE[0] / 2 / v.s, y0: v.cy - REF_PANE[1] / 2 / v.s, y1: v.cy + REF_PANE[1] / 2 / v.s });
   // Y's window: the box of the image under FR of what X's panel shows (the areas, curves and points whose FL lies in
   // boxL), 0.5 % trimmed at each end (a pole), plus pad (8 %) of each side; null when nothing shows
-  function imageWin(FL, FR, boxL, srcWin, shapes, pad = 0.08) {
+  // (FL null: no X panel, X's window is boxL in the z-plane. carry: FL and FR are the panels' maps, and each shape is carried from
+  // its own plane as the panels draw it, sampled in its own plane's window; one that X's panel does not draw (a later plane's) is
+  // kept whole. Without it every shape is a z-plane shape, mapped by FL and FR)
+  function imageWin(FL, FR, boxL, srcWin, shapes, { pad = 0.08, carry = false } = {}) {
     const xs = [], ys = [];
+    const mapOf = carry ? shapeMapF : (s, side, F) => F, stg = carry ? stageOf : () => 0, winS = carry ? shapeWinOf : (s, w) => w;
     const inL = (a) => fin(a) && a.re >= boxL.x0 && a.re <= boxL.x1 && a.im >= boxL.y0 && a.im <= boxL.y1;
-    const keep = (z) => { let a, b; try { a = FL(z); if (!inL(a)) return; b = FR(z); } catch (e) { return; } if (fin(b)) { xs.push(b.re); ys.push(b.im); } };
-    const lv = [];
-    for (const s of shapes) {
-      const t = kindType(s);
-      if (t === 'area') { try { lv.push(Region.levelOf(s)); } catch (e) { /* */ } }
-      else if (t === 'point') { if (s.p) keep(C(s.p[0], s.p[1])); }
-      else { try { for (const c of Region.curvesOf(s, srcWin) || []) for (const p of srcPoly(c, 720)) keep(C(p[0], p[1])); } catch (e) { /* */ } }
-    }
-    if (lv.length) {
-      const n = 160, dx = (srcWin.x1 - srcWin.x0) / n, dy = (srcWin.y1 - srcWin.y0) / n;
+    const keepBy = (fl, fr) => (z) => { let a, b; try { if (fl) { a = fl(z); if (!inL(a)) return; } b = fr(z); } catch (e) { return; } if (fin(b)) { xs.push(b.re); ys.push(b.im); } };
+    // (an area's points: a grid over its window where its level is >= 0)
+    const fill = (lv, win, keep) => {
+      const n = 160, dx = (win.x1 - win.x0) / n, dy = (win.y1 - win.y0) / n;
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-        const z = C(srcWin.x0 + (i + 0.5) * dx, srcWin.y0 + (j + 0.5) * dy);
+        const z = C(win.x0 + (i + 0.5) * dx, win.y0 + (j + 0.5) * dy);
         if (lv.some((L) => { try { return L(z) >= 0; } catch (e) { return false; } })) keep(z);
       }
+    };
+    const lv = [];
+    for (const s of shapes) {
+      const t = kindType(s), fr = mapOf(s, 'R', FR);
+      if (!fr) continue;
+      const fl = FL ? mapOf(s, 'L', FL) : stg(s) ? null : (z) => z, keep = keepBy(fl, fr);
+      if (t === 'area') { try { if (stg(s)) fill([Region.levelOf(s)], winS(s, srcWin), keep); else lv.push(Region.levelOf(s)); } catch (e) { /* */ } }
+      else if (t === 'point') { if (s.p) keep(C(s.p[0], s.p[1])); }
+      else { try { for (const c of Region.curvesOf(s, winS(s, srcWin)) || []) for (const p of srcPoly(c, 720)) keep(C(p[0], p[1])); } catch (e) { /* */ } }
     }
+    // (the z-plane's areas share one grid over srcWin)
+    if (lv.length) fill(lv, srcWin, keepBy(FL || ((z) => z), FR));
     if (xs.length < 8) return null;
     xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
     const k = Math.floor(0.005 * xs.length), b = { x0: xs[k], x1: xs[xs.length - 1 - k], y0: ys[k], y1: ys[ys.length - 1 - k] };
@@ -372,13 +410,28 @@
   }
 
   // where the map arrow between two side-by-side panels goes: its height, at the first of seven heights across the
-  // panels that keeps its label clear of o.oys (the panels' axis lines); its ends, in a box-axes figure 5 pt right of
-  // the left panel (xr) and o.span long, else o.off right of it up to 8 pt before the right panel (xn)
+  // panels that keeps its label clear of o.oys (the panels' axis lines) and of the text already placed (XD.boxes: the
+  // panels' tick labels, which stand in the gap when the right panel's imaginary axis is at its left edge); its ends, in a
+  // box-axes figure 5 pt right of the left panel (xr) and o.span long, else o.off right of it up to 8 pt before the right
+  // panel (xn), and in either case ARROW_CLEAR short of a text box on its line. A height where the arrow would be shorter
+  // than its label (or ARROW_MIN) is passed over; when every height is, the first of them is kept
+  const ARROW_CLEAR = 2, ARROW_MIN = 12;
   function arrowPlace(o) {
-    const lab = o.label ? o.label.a + o.label.d + 3 : 0;
-    const ay = [0.5, 0.36, 0.64, 0.24, 0.76, 0.14, 0.86].map((f) => o.y + f * o.h).find((v) => o.oys.every((oy) => v - oy > lab + 6 || oy - v > 6)) || o.y + o.h / 2;
+    const lab = o.label ? o.label.a + o.label.d + 3 : 0, lw = o.label ? o.label.w : 0;
+    const hs = [0.5, 0.36, 0.64, 0.24, 0.76, 0.14, 0.86].map((f) => o.y + f * o.h).filter((v) => o.oys.every((oy) => v - oy > lab + 6 || oy - v > 6));
     const a0 = o.box ? o.xr + 5 : o.xr + o.off;
-    return { a0, a1: o.box ? a0 + o.span : o.xn - 8, ay };
+    const obst = (XD.boxes || []).filter((b) => b.kind !== 'arrow');
+    const at = (ay) => {
+      let a1 = o.box ? a0 + o.span : o.xn - 8;
+      // (the shaft and the head, 4.2 pt long and 3 pt across, end before a box their line meets)
+      for (const b of obst) if (b.y0 < ay + 1.5 + ARROW_CLEAR && b.y1 > ay - 1.5 - ARROW_CLEAR && b.x1 > a0 && b.x0 < a1 + ARROW_CLEAR) a1 = Math.min(a1, b.x0 - ARROW_CLEAR);
+      // (the label: centred over the arrow, its foot 2.6 pt above it, as XD.mapArrow sets it)
+      const lx = (a0 + a1) / 2, ly1 = ay - 2.6, ly0 = ly1 - (o.label ? o.label.a + o.label.d : 0);
+      const clear = !o.label || !obst.some((b) => b.x0 < lx + lw / 2 + ARROW_CLEAR && b.x1 > lx - lw / 2 - ARROW_CLEAR && b.y0 < ly1 + ARROW_CLEAR && b.y1 > ly0 - ARROW_CLEAR);
+      return { a0, a1, ay, ok: clear && a1 - a0 >= Math.max(ARROW_MIN, lw) };
+    };
+    for (const ay of hs) { const r = at(ay); if (r.ok) return r; }
+    return at(hs[0] != null ? hs[0] : o.y + o.h / 2);
   }
 
   // ---------- (1) X -> Y: two plane panels and the F arrow (or one of them) ----------
@@ -405,7 +458,7 @@
       if (side === 'R') {
         // (only Y shown: the image of X's reference window, in the source plane)
         const bL = boxes.L || (st.lFlat ? null : sceneWin(A.viewOf('L0')));
-        ref = imageWin(boxes.L ? Fs.L : (z) => z, Fs.R, bL || sceneWin(A.viewOf('L0')), srcWin, shapes);
+        ref = imageWin(boxes.L ? Fs.L : null, Fs.R, bL || sceneWin(A.viewOf('L0')), srcWin, shapes, { carry: true });
       }
       if (!ref) ref = sceneWin(A.viewOf(side));
       // the quick render looks twice as far as the window, so a bounded set is framed whole and an unbounded one is
@@ -416,8 +469,10 @@
       let cb = contentBox(q, big), must = null;
       for (const s of shapes) {
         if (kindType(s) === 'area') continue;
-        if (kindType(s) === 'point') { const w = Fs[side](C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) { cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); must = unionBox(must, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); } continue; }
-        const b = ptsBox(shapeCurves(s, Fs[side], big, 300, srcWin).pts, big);
+        if (kindType(s) === 'point') { const Fp = shapeMapF(s, side, Fs[side]); if (!Fp) continue; const w = Fp(C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) { cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); must = unionBox(must, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); } continue; }
+        const Fc = shapeMapF(s, side, Fs[side]);
+        if (!Fc) continue;
+        const b = ptsBox(shapeCurves(s, Fc, big, 300, shapeWinOf(s, srcWin)).pts, big);
         if (b) {
           const ex = 0.01;
           b.touch = { l: b.x0 <= big.x0 + ex * (big.x1 - big.x0), r: b.x1 >= big.x1 - ex * (big.x1 - big.x0), b: b.y0 <= big.y0 + ex * (big.y1 - big.y0), t: b.y1 >= big.y1 - ex * (big.y1 - big.y0) };
@@ -449,7 +504,12 @@
     const arrowSpan = two ? Math.max(axes === 'box' ? 22 : 26, arrowLab ? arrowLab.w + 12 : 0) : 0;
     const titles = (side) => [`\\operatorname{Re} ${vars[side]}`, `\\operatorname{Im} ${vars[side]}`];
     const ah = 4.6;
-    const asp = (side) => (boxes[side] ? aspect(boxes[side]) : A.paneAspect(side));
+    // (a plane's window has its own shape; a globe is the pane's picture, whose paneAspect is height over width)
+    const asp = (side) => (boxes[side] ? aspect(boxes[side]) : 1 / A.paneAspect(side));
+    // the steps view's plain still of a plane past the colour plane carries the pane's key: the hue ring and the line
+    // saying where the colour is carried from, in a column right of the picture
+    const sk = view0 === 'xyL' && panels.length === 1 && A.svOn() && A.svKey ? A.svKey() : null;
+    const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
     let mL, gut, mR, top, bottom;
     if (axes === 'box') {
       mL = boxes[panels[0]] ? tickW(boxes[panels[0]], steps[panels[0]], tp) + 3 : 2;
@@ -464,6 +524,10 @@
       const t1 = XD.tex(titles(panels[0])[1], lp);
       top = t1.a + t1.d + ah + 5; bottom = 3;
     }
+    // (the key's column starts after the room kept right of the picture, the axis title's or the ticks', so a title that
+    // reaches past the picture, "Re w₂", stays clear of the key)
+    const keyAt = mR;
+    mR += keyW ? keyW + KEY_GAP : 0;
     let h = (W - mL - gut - mR) / panels.reduce((a, s) => a + asp(s), 0);
     h = Math.min(h, W * (two ? 0.62 : 0.8), P.maxH - top - bottom);
     const used = mL + gut + mR + h * panels.reduce((a, s) => a + asp(s), 0);
@@ -488,7 +552,7 @@
         if (r.globe) {
           const c = [0, r.w, 0, r.h], k = wpt / r.w, proj = globeProj(r.globe, r, c, x, y, k);
           const Fp = side === 'R' && A.defo && A.defo().on ? A.homF(A.defo().T) : Fs[side];
-          if (!(view0 === 'xyL' && st.main === 'phase')) items.push(shapes.filter((s) => kindType(s) === 'point' && s.p).map((s, q) => { const e = proj(Fp(C(s.p[0], s.p[1]))); return e ? XD.marker('dot', e[0], e[1], 1.6, o.ink === 'bw' ? '#000000' : PTS[q % 4][1], '#ffffff', 0.4) : ''; }).join(''));
+          if (!(view0 === 'xyL' && st.main === 'phase')) items.push(shapes.filter((s) => kindType(s) === 'point' && s.p && shapeMapF(s, side, Fp)).map((s, q) => { const e = proj(shapeMapF(s, side, Fp)(C(s.p[0], s.p[1]))); return e ? XD.marker('dot', e[0], e[1], 1.6, o.ink === 'bw' ? '#000000' : PTS[q % 4][1], '#ffffff', 0.4) : ''; }).join(''));
           items.push(globeLabels(r.globe, r, c, x, y, k, tp - 1));
         }
         if (two && axes === 'box') items.push(head(x, x + wpt, y - 3, panelLetter(i), vars[side], lp));
@@ -505,16 +569,21 @@
         let m = '';
         if (P.chevrons) for (const c of lay.chev) {
           const pn = (sd) => ({ box: boxes[sd] || bx, st: XD.axisSteps(boxes[sd] || bx, steps[sd] || steps[side]) });
-          const s0 = chevronAt(c.c, two ? Fs.L : Fs[side], two ? Fs.R : null, two ? pn('L') : pn(side), pn('R'), srcWin);
+          // (the piece is carried from its shape's own plane, sampled in that plane's window; a shape that X's panel does not draw, a
+          // later plane's, gets its chevron where it shows in this panel alone)
+          const mS = shapeMapF(c.s, side, Fs[side]), mL = two ? shapeMapF(c.s, 'L', Fs.L) : null, mR = two ? shapeMapF(c.s, 'R', Fs.R) : null;
+          const both = !!(mL && mR), win = shapeWinOf(c.s, srcWin);
+          const s0 = mS ? chevronAt(c.c, both ? mL : mS, both ? mR : null, both ? pn('L') : pn(side), pn('R'), win) : null;
           let L = null;
           try { L = Region.levelOf(c.s); } catch (e) { L = null; }
-          const cm = s0 != null ? chevMark(X, Y, c.c, Fs[side], s0, c.color, 0.8, senseAt(c.c, L, s0, srcWin)) : '';
+          const cm = s0 != null ? chevMark(X, Y, c.c, mS, s0, c.color, 0.8, senseAt(c.c, L, s0, win)) : '';
           if (cm) { m += cm; chevDrawn++; }
         }
         return m;
       };
       const p = XD.panel({ x, y, w: wpt, h, box: bx, step: steps[side], art: [art], curves: lay.curves, points: lay.points, axes, minimal: P.minimal, ylab: side === 'R' && mirror ? 'right' : 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: titles(side), over });
       items.push(p.markup); defs += p.defs; lines.push(...p.lines);
+      panelOut[side].ticks = { box: bx, step: steps[side], x: p.xt, y: p.yt, labels: p.labels };
       if (axes === 'box') items.push(head(x, x + wpt, y - 3, two ? panelLetter(i) : '', vars[side], lp));
       else if (axes === 'none') items.push(head(x, x + wpt, y - 3, '', vars[side], lp));
     }
@@ -524,10 +593,18 @@
       const { a0, a1, ay } = arrowPlace({ box: axes === 'box', xr: xs.L + h * asp('L'), xn: xs.R, y, h, oys, label: arrowLab, span: arrowSpan, off: ah * 0.3 + 2 + XD.tex(titles('L')[0], lp).w + 8 });
       items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     }
-    const H = y + h + bottom;
+    // (the key stands at the picture's top: the ring, then the line saying where the colour is carried from, wrapped to the
+    // column's width, the plane's name in math; the figure is as tall as its picture or its key, the taller)
+    let keyBottom = 0;
+    if (keyW) {
+      const kx = xs.L + h * asp('L') + keyAt + KEY_GAP + keyW / 2, k = await carriedKey(sk.carried, kx, y, keyW, tp, P.lw.frame);
+      items.push(...k.items);
+      keyBottom = k.bottom;
+    }
+    const H = Math.max(y + h + bottom, keyBottom);
     // the caption's "Dashed" note: only when a dashed (open) boundary is actually drawn
     const open = Object.values(panelOut).some((q) => q.lay.dashed > 0);
-    return { items, defs, lines, H, info: { boxes, open, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
+    return { items, defs, lines, H, info: { boxes, curves: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.lay.curves.filter((c) => c.sid).map((c) => ({ id: c.sid, pts: c.pts.flatMap((run) => run.filter((p, n) => n % Math.max(1, Math.ceil(run.length / 24)) === 0)) }))])), points: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.lay.points.map((p) => ({ z: p.z, label: p.label }))])), ticks: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.ticks])), open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
   }
 
   // ---------- (2) Phase: colour (hue wheel, level lines, a ring key) and black and white (a contour portrait) ----------
@@ -608,22 +685,68 @@
     const png = await XD.encodePNG({ w, h, type: 0, data: lum });
     return { url: 'data:image/png;base64,' + b64(png), box, lum, w, h, enc: 'grey', bytes: png.length, dpi };
   }
-  // the ring key: the app's hue wheel on an annulus, as an RGB raster at dpi
-  async function ringKey(Rpt, dpi) {
-    const n = Math.round(2 * Rpt * dpi / 72), rgb = new Uint8Array(n * n * 3).fill(255);
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-      const u = (i + 0.5) / n * 2 - 1, v = 1 - (j + 0.5) / n * 2;
-      const t = (Math.atan2(v, u) + Math.PI) / (2 * Math.PI), c = A.hue(t);
-      rgb.set(c, 3 * (j * n + i));
+  // the ring key: the app's hue wheel on an annulus, in vector
+  // the key column of a plain still and of a Phase figure: its width (at most KEY_COL_MAX pt, a fifth of the figure), the
+  // gap between the picture and its column (wide enough that the ring's left mark, -1, does not read as a label of the
+  // frame's right side), the room a ring's own marks and margins take off the column's half width, the ring's inner
+  // radius as a fraction of its outer, how many sectors its wheel has, and a line of words in units of the text size
+  const KEY_COL_MAX = 64, KEY_COL_FRAC = 0.2, KEY_GAP = 12, KEY_RING_ROOM = 13, RING_INNER = 0.55, RING_SECTORS = 360, KEY_LINE = 1.3;
+  // the hue ring of a key centred on (kx, ky), outer radius R pt, as a group with the id kid: the wheel as RING_SECTORS
+  // sectors between the radii, sector i in the hue at its middle angle (t = (i + 0.5) / RING_SECTORS from arg -pi, as the
+  // app's wheel), then the two circles that outline it. It is vector, so it stays sharp at any zoom of a PDF and at any dpi
+  // of a PNG. Each sector reaches one sector further, under the next, and the first one sector back, under the last, so no
+  // seam of anti-aliasing shows between them; the sectors' straight edges are within 0.003 pt of the arcs, under the
+  // outlines, which are drawn at lw pt: the figure's frame weight
+  function ringKeyMarkup(kx, ky, R, kid, lw = 0.5) {
+    const r0 = R * RING_INNER, n = RING_SECTORS, da = 2 * Math.PI / n;
+    const P = (r, a) => `${f2(kx + r * Math.cos(a))} ${f2(ky - r * Math.sin(a))}`;
+    let m = `<g id="${kid}">`;
+    for (let i = 0; i < n; i++) {
+      const a0 = -Math.PI + (i - (i === 0 ? 1 : 0)) * da, a1 = -Math.PI + (i + (i < n - 1 ? 2 : 1)) * da;
+      const hex = '#' + A.hue((i + 0.5) / n).map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+      m += `<path d="M${P(R, a0)}L${P(R, a1)}L${P(r0, a1)}L${P(r0, a0)}Z" fill="${hex}"/>`;
     }
-    const png = await XD.encodePNG({ w: n, h: n, type: 2, data: rgb });
-    return 'data:image/png;base64,' + b64(png);
+    return m + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="${lw}"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="${lw}"/></g>`;
   }
+  // a key's lines, centred on kx, lh apart from baseline to baseline: the first on the baseline b0, or, without one, the
+  // tallest glyph of them at y. Each is set by its baseline, so the pitch is the same whatever letters a line has («цвет»
+  // has nothing above the x-height, «перенесён» has «ё»). Returns the items and the last line's baseline
+  const keyLines = (its, kx, y, lh, b0 = null) => {
+    const b = b0 != null ? b0 : y + Math.max(0, ...its.map((it) => it.a));
+    return { items: its.map((it, j) => XD.at(it, kx, b + j * lh, 'middle', 'base', 'key')), last: b + (its.length - 1) * lh };
+  };
+  // the key of a plane past the colour plane, in a column keyW pt wide centred on kx whose top is y: the ring, then the line
+  // saying where the colour is carried from, wrapped to the column's width, the plane's name in math. Returns its items and
+  // the y its last line ends at
+  async function carriedKey(carried, kx, y, keyW, tp, lw = 0.5) {
+    const R = keyW / 2 - KEY_RING_ROOM, ky = y + tp * KEY_LINE + R, lh = tp * KEY_LINE;
+    const items = [ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, lw), ...ringMarks(kx, ky, R, tp)];
+    const lns = keyWrap(carried.text, keyW - 2, (t) => XD.tex(keyWithName(t, carried.from), tp));
+    const y0 = ky + R + 1.5 + lh + 2;
+    items.push(...keyLines(lns.map((ln) => XD.tex(keyWithName(ln, carried.from), tp)), kx, y0, lh).items);
+    return { items, bottom: y0 + lns.length * lh + 2 };
+  }
+  // a key's words in lines no wider than w pt, each as set by tex(line) (a word wider than w is a line of its own)
+  function keyWrap(text, w, tex) {
+    const lns = [];
+    let cur = '';
+    for (const wd of String(text).split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && tex(nx).w > w) { lns.push(cur); cur = wd; } else cur = nx; }
+    if (cur) lns.push(cur);
+    return lns;
+  }
+  // the marks 1, i, -1, -i round a ring (offsets in pt, tp the tick text's size)
+  const ringMarks = (kx, ky, R, tp) => [
+    XD.at(XD.tex('1', tp), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'), XD.at(XD.tex('i', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'ring-mark'),
+    XD.at(XD.tex('-1', tp), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'), XD.at(XD.tex('-i', tp), kx, ky + R + 1.5, 'middle', 'top', 'ring-mark')];
   // zeros and poles of F in a box (Calc.zerosPoles), bounded in time
   function zerosPoles(F, box) {
     if (!Calc.zerosPoles) return [];
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + 400 }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
+  // a key line as TeX: a plane's name "w₂" as math, the words around it as text
+  const keyNm = (t) => String(t).replace(/([A-Za-z])([₀-₉]+)/g, (m, l, d) => `${l}_{${[...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join('')}}`);
+  const keyTxt = (t) => (t ? `\\text{${t.replace(/[\\#$%&_{}]/g, '')}}` : '');
+  const keyWithName = (line, name) => { const i = name ? line.indexOf(name) : -1; return i < 0 ? keyTxt(line) : `${keyTxt(line.slice(0, i))}${keyNm(name)}${keyTxt(line.slice(i + name.length))}`; };
   async function figPhase(o, P, W, T) {
     const [tp, lp] = T;
     const F = A.plotF();
@@ -643,13 +766,14 @@
       box = { x0: Math.floor(box.x0 / stp) * stp, x1: Math.ceil(box.x1 / stp) * stp, y0: Math.floor(box.y0 / stp) * stp, y1: Math.ceil(box.y1 / stp) * stp };
       zp = zerosPoles(F, box);
     } else box = snapScreen(scr, W);
-    const dc0 = A.capParts().dc || 'enhanced', keyW = bw || dc0 === 'classic' || dc0 === 'cauchy' ? 0 : Math.min(64, W * 0.2);
+    const dc0 = A.capParts().dc || 'enhanced', keyW = bw || dc0 === 'classic' || dc0 === 'cauchy' ? 0 : Math.min(KEY_COL_MAX, W * KEY_COL_FRAC);
     const step = stepFor(box, W - keyW);
     const mL = tickW(box, step, tp) + 3, top = lp * 1.15 + 3, bottom = tp * 1.05 + 4.2;
-    let w = W - mL - Math.max(4, keyW ? 4 : overR(box, step, tp)) - keyW, h = w / aspect(box);
+    // (the key's column stands KEY_GAP pt right of the picture and ends at the figure's right edge)
+    let w = W - mL - (keyW ? KEY_GAP + keyW : Math.max(4, overR(box, step, tp))), h = w / aspect(box);
     const hmax = Math.min(W * 0.95, P.maxH - top - bottom);
     if (h > hmax) { h = hmax; w = h * aspect(box); }
-    const x = (W - keyW - w - mL - 4) / 2 + mL;
+    const x = (W - (keyW ? KEY_GAP + keyW : 4) - w - mL) / 2 + mL;
     let art;
     if (bw) art = await bandsArt(F, box, w, 300);
     else { art = await artPanel('L', box, w, Object.assign({}, o, { ink: 'colour' }), { mode: 'rgb', dpi: 300 }); if (!art) return null; }
@@ -672,63 +796,74 @@
     if (A.svOn()) { const srcWin = expandBox(A.screenBox('L0'), 3), lay = planeLayers(o, P, 'L', A.F('L'), box, w, A.shapes(), srcWin, null); curves.push(...lay.curves); points.push(...lay.points); }
     const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points, axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${A.panelVar('L')}`, `\\operatorname{Im} ${A.panelVar('L')}`] });
     const items = [p.markup, head(x, x + w, top - 3, '', A.panelVar('L'), lp)];
-    let kdefs = '';
+    let kdefs = '', keyBottom = 0;
     if (keyW) {
-      const kx = x + w + 6 + keyW / 2, ky = top + h / 2, R = keyW / 2 - 13, r0 = R * 0.55, kid = `${XD.ns}-key`;
-      const url = await ringKey(R, 300);
-      items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0)} ${f2(ky)}a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(2 * r0)} 0a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(-2 * r0)} 0Z" clip-rule="evenodd"/></clipPath>`
-        + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
-        + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+      const kx = x + w + KEY_GAP + keyW / 2, R = keyW / 2 - KEY_RING_ROOM, kid = `${XD.ns}-key`;
+      // (the key's reach above and below the ring's centre, from its parts' heights as they are set below: its top mark
+      // and title, and its last line. The ring is centred on the picture; a key taller than a wide picture moves up as far
+      // as the figure's top allows and the figure grows to hold the rest, so every line of it is inside the figure)
+      const ht = (it) => it.a + it.d, sh = 6, lh = tp * KEY_LINE;
+      // (the pane's key's words under the strip, "per band" and the caption, each wrapped to the column: a language's words
+      // may be wider than it, as Russian "на полосу яркости"; a wrapped one takes a line of lh more for each line it adds)
+      const perTex = (t) => XD.tex(keyTxt(t), tp), capTex = (t) => XD.tex(keyWithName(t, sv.name), tp);
+      const per = sv && !sv.plain ? keyWrap(sv.perBand, keyW - 2, perTex) : [], cap = sv ? keyWrap(sv.caption, keyW - 2, capTex) : [];
+      // (lines set by keyLines: from the tallest glyph of them to the last line's foot; and the caption under the per-band
+      // lines, whose first baseline is lh + 2 under their last, from the per-band lines' tallest glyph)
+      const topA = (its) => Math.max(...its.map((it) => it.a)), linesH = (lns, tex) => { const its = lns.map(tex); return topA(its) + (its.length - 1) * lh + its[its.length - 1].d; };
+      const perCapH = () => { const p = per.map(perTex), c = cap.map(capTex); return topA(p) + per.length * lh + 2 + (c.length - 1) * lh + c[c.length - 1].d; };
+      const above = sv ? R + 1.5 + ht(XD.tex('i', tp)) : R + 12 + ht(XD.tex(`\\arg ${A.fname()}`, tp));
+      const below = !sv ? R + 1.5 + ht(XD.tex('-\\pi/2', tp))
+        : sv.plain ? R + 1.5 + tp * 1.3 + 2 + linesH(cap, capTex)
+          : R + 1.5 + tp * 2.5 + sh + 1.5 + Math.max(linesH(per, perTex), perCapH());
+      let ky = top + h / 2;
+      if (ky + below > top + h + bottom) ky = Math.max(above + 1, top + h + bottom - below);
+      keyBottom = ky + below + 2;
+      items.push(ringKeyMarkup(kx, ky, R, kid, P.lw.frame));
       if (sv) {
         // the pane's key: the ring labelled 1, i, -1, -i, then (but in the plain Phase style) the three modulus bands with
         // their factor, and the caption "arg and |F|" ("arg F" when plain), the plane's variable in italic
-        items.push(XD.at(XD.tex('1', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-        items.push(XD.at(XD.tex('i', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));
-        items.push(XD.at(XD.tex('-1', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'));
-        items.push(XD.at(XD.tex('-i', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
-        // (offsets in pt, tp the tick text's size: the strip lies 1.3 tp under the ring's last label, its factor and "per band" 1.5 pt off it, the caption 2 pt under the last)
-        let yy = ky + R + 1.5 + tp * 1.3;
-        // (a plane's name "w₂" as TeX, words as text)
-        const nm = (t) => String(t).replace(/([A-Za-z])([₀-₉]+)/g, (m, l, d) => `${l}_{${[...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join('')}}`);
-        const txt = (t) => (t ? `\\text{${t.replace(/[\\#$%&_{}]/g, '')}}` : '');
-        // (a line's words with the name in math: the pieces around its first occurrence)
-        const withName = (line, name) => { const i = name ? line.indexOf(name) : -1; return i < 0 ? txt(line) : `${txt(line.slice(0, i))}${nm(name)}${txt(line.slice(i + name.length))}`; };
+        items.push(...ringMarks(kx, ky, R, tp));
+        // (offsets in pt, tp the tick text's size: the strip lies 1.3 tp under the ring's last label, its factor and "per band" 1.5 pt off it, the caption's first baseline lh + 2 under the last per-band one, or, in the plain style, its tallest glyph 2 pt under the ring's labels)
+        const yy = ky + R + 1.5 + tp * 1.3;
+        let capB = null;
         // (a Phase picture: its key never says "carried from", which the pane's does only off Phase)
         if (!sv.plain) {
-          const sw = 2 * R, sx = kx - R, sh = 6, sy = yy + tp * 1.2;
+          const sw = 2 * R, sx = kx - R, sy = yy + tp * 1.2;
           kdefs += `<linearGradient id="${kid}-g"><stop offset="0" stop-color="${sv.stops[0]}"/><stop offset="1" stop-color="${sv.stops[1]}"/></linearGradient>`;
           for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
-          items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-          items.push(XD.at(XD.tex(txt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
-          items.push(XD.at(XD.tex(txt(sv.perBand), tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
-          yy = sy + sh + 1.5 + tp * 1.3;
+          items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="${P.lw.frame}"/>`);
+          items.push(XD.at(XD.tex(keyTxt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
+          const pl = keyLines(per.map(perTex), kx, sy + sh + 1.5, lh);
+          items.push(...pl.items);
+          capB = pl.last + lh + 2;
         }
-        items.push(XD.at(XD.tex(withName(sv.caption, sv.name), tp), kx, yy + 2, 'middle', 'top', 'key'));
+        items.push(...keyLines(cap.map(capTex), kx, yy + 2, lh, capB).items);
       } else {
-        items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-        items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));
-        items.push(XD.at(XD.tex('\\pm\\pi', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'));
-        items.push(XD.at(XD.tex('-\\pi/2', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
+        items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
+        items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'ring-mark'));
+        items.push(XD.at(XD.tex('\\pm\\pi', tp), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
+        items.push(XD.at(XD.tex('-\\pi/2', tp), kx, ky + R + 1.5, 'middle', 'top', 'ring-mark'));
         items.push(XD.at(XD.tex(`\\arg ${A.fname()}`, tp), kx, ky - R - 12, 'middle', 'bottom', 'key'));
       }
     }
-    return { items, defs: p.defs + kdefs, lines: p.lines, H: top + h + bottom, info: { box, zp, bw, art } };
+    return { items, defs: p.defs + kdefs, lines: p.lines, H: Math.max(top + h + bottom, keyBottom), info: { box, zp, bw, art } };
   }
 
   // ---------- (3) Landscape: one 3D panel, cropped to the relief, a clean frame and vector floor labels ----------
+  // a relief window with its edges rounded to a step of about an eighth of each side
+  const roundLandBox = (b) => {
+    const rnd = (a0, a1) => { const st = niceStep(a1 - a0, 8), b0 = Math.round(a0 / st) * st, b1 = Math.round(a1 / st) * st; return b1 > b0 ? [b0, b1] : [a0, a1]; };
+    const [x0, x1] = rnd(b.x0, b.x1), [y0, y1] = rnd(b.y0, b.y1);
+    return { x0, x1, y0, y1 };
+  };
   async function figLand(o, P, W, T) {
     const [tp, lp] = T;
     const asp = A.paneAspect('L');
     const wpt = W - 8, hpt = wpt * Math.min(asp, 0.8);
     // the window: the screen's, with its edges rounded (to a step of about an eighth of each side), so the caption and
     // the floor labels read [-8, 8] x [-5, 5], not [-8.33, 8.33] x [-5.13, 5.13]
-    let landBox = null;
     const lb = A.landBox ? A.landBox() : null;
-    if (lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite)) {
-      const rnd = (a0, a1) => { const st = niceStep(a1 - a0, 8), b0 = Math.round(a0 / st) * st, b1 = Math.round(a1 / st) * st; return b1 > b0 ? [b0, b1] : [a0, a1]; };
-      const [x0, x1] = rnd(lb.x0, lb.x1), [y0, y1] = rnd(lb.y0, lb.y1);
-      landBox = { x0, x1, y0, y1 };
-    }
+    const landBox = lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite) ? roundLandBox(lb) : null;
     // what is drawn (the relief and its block): the pixel bounds of the non-white
     const look = (r) => {
       let i0 = r.w, i1 = -1, j0 = r.h, j1 = -1;
@@ -785,7 +920,7 @@
       const Xw = (v) => ((v - bx.x0) / (bx.x1 - bx.x0) - 0.5) * 2 * ax, Yw = (v) => ((v - bx.y0) / (bx.y1 - bx.y0) - 0.5) * 2 * ay;
       let tk = '';
       const edge = (vals, at, out, name) => {
-        const stp = vals.step, dec = XD.decimals(stp);
+        const dec = XD.axisDec(name, vals.list, vals.step);
         let mid = null, dirm = null;
         // the floor's front edge as an axis line (it lies in front of the relief)
         const e0 = proj(at(vals.lo)), e1 = proj(at(vals.hi));
@@ -829,7 +964,9 @@
         let fp = '';
         for (const s of A.shapes()) {
           if (kindType(s) !== 'area') continue;
-          for (const run of shapeCurves(s, F, bx, wpt, srcWin).pts) {
+          const Fs = shapeMapF(s, 'L', F);
+          if (!Fs) continue;
+          for (const run of shapeCurves(s, Fs, bx, wpt, shapeWinOf(s, srcWin)).pts) {
             let cur = [];
             const flush = () => { if (cur.length > 1) fp += 'M' + cur.map((q) => `${f2(q[0])} ${f2(q[1])}`).join('L'); cur = []; };
             for (const p of run) {
@@ -842,7 +979,7 @@
         if (fp) items.push(`<path d="${fp}" stroke="${OUTLINE_GRAY}" stroke-width="${OUTLINE_W}" fill="none" stroke-linecap="butt" stroke-linejoin="round" class="floor-footprint"/>`);
       }
     }
-    return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art } };
+    return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art, crop: { x0: c0 / r.w, x1: c1 / r.w, y0: d0 / r.h, y1: d1 / r.h, asp: r.w / r.h } } };
   }
 
   // ---------- (4) The deformation: a filmstrip of H_t, or the one-plane paths figure ----------
@@ -865,7 +1002,7 @@
     }
     const box = o.crop === 'screen' || !cb ? snapScreen(scr, roughW) : fitBox(cb, scr, roughW);
     const step = stepFor(box, roughW);
-    const mL = tickW(box, step, tp) + 3, gap = 8, mR = Math.max(2, XD.tex(XD.tickTex(XD.ticks(box.x0, box.x1, step).pop() || 0, XD.decimals(step)), tp).w / 2 + 1);
+    const mL = tickW(box, step, tp) + 3, gap = 8, xts = XD.ticks(box.x0, box.x1, step), mR = Math.max(2, XD.tex(XD.tickTex(xts[xts.length - 1] || 0, XD.tickDec(xts, step)), tp).w / 2 + 1);
     let pw = (W - mL - gap * (cols - 1) - mR) / cols, ph = pw / aspect(box);
     const hmax = Math.min((W * 0.5) / rows, (P.maxH - rows * (lp * 1.4 + tp * 1.05 + 9)) / rows);
     if (ph > hmax) { ph = hmax; pw = ph * aspect(box); }

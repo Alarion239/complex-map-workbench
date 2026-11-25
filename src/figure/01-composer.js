@@ -22,7 +22,7 @@
   const hash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36).slice(0, 5); };
   let uid = 0;
   // one figure at a time: its id namespace, its glyph table, the boxes of everything typeset (for collision checks)
-  XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
+  XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; XD.texts = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
   // MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
@@ -81,12 +81,76 @@
     const base = ay === 'top' ? y + it.a : ay === 'bottom' ? y - it.d : ay === 'mid' ? y + it.a / 2 - it.d / 2 : y;
     return { x0: left, x1: left + it.w, y0: base - it.a, y1: base + it.d, left, base };
   };
+  // a label's or caption's TeX as the plain Unicode people read ("w₂", "Re z", "1/z", "log|F|"): operator names and
+  // symbols by one table, a fraction as a/b and a root as √x or ⁿ√x (a part that is not one symbol, or a power or root of one, in parentheses), a bar as a combining
+  // overline, a subscript digit as its Unicode form; a command the table lacks is left out
+  const SUB = '₀₁₂₃₄₅₆₇₈₉', SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const SYM = { infty: '∞', pi: 'π', cdot: '·', times: '×', lvert: '|', rvert: '|', vert: '|', circ: '∘', to: '→', mapsto: '↦', in: '∈', pm: '±', le: '≤', leq: '≤', ge: '≥', geq: '≥', ne: '≠', neq: '≠',
+    alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+    arg: 'arg ', log: 'log', ln: 'ln', exp: 'exp', sin: 'sin ', cos: 'cos ', tan: 'tan ', sinh: 'sinh ', cosh: 'cosh ', tanh: 'tanh ', Re: 'Re ', Im: 'Im ' };
+  // (a fraction's or root's part: bare when it is one symbol, a power or a root of one, in parentheses otherwise)
+  const ATOM = '[^\\s+\\-×·/^√()](?:[₀-₉]|\\u0304)*';
+  const ROOT = `(?:ⁿ|[${SUP}])*√(?:${ATOM}|\\(.*\\))`;
+  const BARE = new RegExp(`^(?:${ATOM}(?:\\^${ATOM})?|${ROOT})$|^\\(.*\\)$`);
+  const part = (v) => (BARE.test(v) ? v : `(${v})`);
+  // an index as superscript digits, n as ⁿ, any other index in parentheses
+  const rootIndex = (n) => (/^\d+$/.test(n) ? [...n].map((c) => SUP[+c]).join('') : n === 'n' ? 'ⁿ' : `(${XD.plain(n)})`);
+  // the argument at s[i]: a braced group (balanced) without its braces, a command, or one character; [text, next index]
+  const argAt = (s, i) => {
+    while (s[i] === ' ') i++;
+    if (s[i] === '{') {
+      let depth = 0, j = i;
+      for (; j < s.length; j++) { if (s[j] === '{') depth++; else if (s[j] === '}' && --depth === 0) break; }
+      return [s.slice(i + 1, j), j + 1];
+    }
+    if (s[i] === '\\') { const m = /^\\(?:[A-Za-z]+|.)/.exec(s.slice(i)); return [m ? m[0] : '', i + (m ? m[0].length : 1)]; }
+    return [s[i] || '', i + 1];
+  };
+  const plainRaw = (tex) => {
+    const s = String(tex);
+    let out = '';
+    for (let i = 0; i < s.length;) {
+      const c = s[i];
+      if (c === '{' || c === '}') { i++; continue; }
+      if (c === '_' || c === '^') {
+        const [a, j] = argAt(s, i + 1), t = XD.plain(a);
+        out += c === '_' && /^\d+$/.test(t) ? [...t].map((d) => SUB[+d]).join('') : c + t;
+        i = j; continue;
+      }
+      if (c !== '\\') { out += c; i++; continue; }
+      const m = /^\\([A-Za-z]+)/.exec(s.slice(i));
+      if (!m) { const x = s[i + 1] || ''; out += ',;:! '.includes(x) ? ' ' : x; i += 2; continue; }
+      const name = m[1];
+      i += m[0].length;
+      if (/^(?:operatorname|text|textit|textbf|mathrm|mathit|mathbf)$/.test(name)) { const [a, j] = argAt(s, i); out += plainRaw(a); i = j; }
+      else if (name === 'frac' || name === 'dfrac') {
+        const [n, j] = argAt(s, i), [d, k] = argAt(s, j);
+        out += `${part(XD.plain(n))}/${part(XD.plain(d))}`; i = k;
+      } else if (name === 'sqrt') {
+        let idx = '', j = i;
+        while (s[j] === ' ') j++;
+        if (s[j] === '[') { const e = s.indexOf(']', j); if (e > 0) { idx = s.slice(j + 1, e); i = e + 1; } }
+        const [a, k] = argAt(s, i);
+        out += `${idx ? rootIndex(idx) : ''}√${part(XD.plain(a))}`; i = k;
+      } else if (name === 'bar' || name === 'overline') { const [a, j] = argAt(s, i); out += `${XD.plain(a)}̄`; i = j; }
+      else if (name !== 'displaystyle') out += SYM[name] || '';
+    }
+    return out;
+  };
+  XD.plain = (tex) => plainRaw(tex).replace(/\s+/g, ' ').trim();
+  // the kinds of label that carry text, in reading order: a panel's name (its title or its variable), the map arrow's label, the colour key's words,
+  // the axis titles (ticks, point labels and captions carry none)
+  const TEXT_KINDS = ['title', 'panel-letter', 'arrow', 'key', 'axis-name'];  // ('ring-mark', a key's 1, i, -1, -i, carries none)
   XD.rec = null;
   // place a typeset item; ax: start|middle|end, ay: base|mid|top|bottom. kind tags the box for the preflight
   XD.at = (it, x, y, ax = 'start', ay = 'base', kind = 'label', halo = 0) => {
     const b = XD.boxOf(it, x, y, ax, ay);
     if (XD.rec) XD.rec.push({ tex: it.tex, pt: it.pt, color: it.color, x, y, ax, ay, halo });
     XD.boxes.push({ kind, tex: it.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 });
+    if (XD.texts && TEXT_KINDS.includes(kind)) {
+      const text = XD.plain(it.tex);
+      if (text) XD.texts.push({ kind, text, x: b.x0, base: b.base, w: b.x1 - b.x0, h: b.y1 - b.y0 });
+    }
     for (const [k, d] of it.glyphs) XD.glyphs.set(`${XD.ns}-${k}`, d);
     const inner = it.inner.split('@NS@').join(XD.ns);
     const g = `<g transform="translate(${f2(b.left - it.vb0 * it.k)} ${f2(b.base)}) scale(${+it.k.toFixed(6)})">`;
@@ -104,7 +168,28 @@
   const niceStep = (span, n) => { const raw = span / n, e = Math.floor(Math.log10(raw)), b = raw / 10 ** e; return (b < 1.5 ? 1 : b < 3.5 ? 2 : b < 7.5 ? 5 : 10) * 10 ** e; };
   XD.niceStep = niceStep;
   // one precision per axis, the fewest decimals that represent every tick on it (0.90, 0.95, 1.00); a true minus
-  XD.decimals = (step) => { for (let d = 0; d < 7; d++) if (Math.abs(step * 10 ** d - Math.round(step * 10 ** d)) < 1e-9) return d; return 6; };
+  // (the tolerance is relative to the scaled step, which must reach at least 1: an absolute one read a step below 1e-9 as a whole number.
+  // It is 1e-14 of it, a few ulps of a double's error and below 10^-DEC_MAX, so that a step no count of decimals represents (1/3, pi)
+  // is not taken for one; DEC_MAX decimals are the digits a double keeps for a tick of magnitude one or more; such a step keeps 6)
+  const DEC_MAX = 12, DEC_TOL = 1e-14;
+  XD.decimals = (step) => {
+    if (step === 0) return 0;
+    for (let d = 0; d <= DEC_MAX; d++) { const v = Math.abs(step) * 10 ** d, r = Math.round(v); if (r >= 1 && Math.abs(v - r) <= DEC_TOL * r) return d; }
+    return 6;
+  };
+  // the decimals an axis's ticks ts (a step apart) print with: the step's, and more while two of them would print alike, up to
+  // TICK_DEC_MAX (toFixed's digits that still tell doubles apart)
+  const TICK_DEC_MAX = 15;
+  XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < TICK_DEC_MAX && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
+  // the decimals of an axis that a figure labels itself (the video's axes, the Landscape figure's floor, a filmstrip's reliefs):
+  // XD.tickDec's, for its ticks ts at step; fmt(v, d) is the label the figure prints. While XD.axes is a list (the tests set
+  // it), each axis is recorded there, { name, ticks, step, d, labels }; the video's y axis adds left, the leftmost edge of
+  // the labels it draws (px from the frame's left edge)
+  XD.axisDec = (name, ts, step, fmt = XD.tickTex) => {
+    const d = XD.tickDec(ts, step);
+    if (XD.axes) XD.axes.push({ name, ticks: ts.slice(), step, d, labels: ts.map((v) => fmt(v, d)) });
+    return d;
+  };
   XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
   XD.ticks = (a, b, step) => { const out = []; for (let i = Math.ceil(a / step - 1e-9); i <= Math.floor(b / step + 1e-9); i++) out.push(i * step); return out; };
   // each axis keeps at least two labelled (non-zero) ticks: a narrow panel's short axis gets a finer step of its own
@@ -253,8 +338,14 @@
     const meta = spec.meta ? `<metadata id="${XD.ns}-meta"><![CDATA[${JSON.stringify(spec.meta)}]]></metadata>` : '';
     const glyphs = [...XD.glyphs.entries()].map(([id, d]) => `<path id="${id}" d="${d}"/>`).join('');
     const W = f2(spec.W), H = f2(Math.ceil(spec.H * 100) / 100);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}</svg>`;
-    return { svg, title: spec.title || null, desc: spec.desc || null, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
+    // the invisible text layer over the glyph paths: each label's words, spread over its glyph box, in reading order (the
+    // panels' names, the arrow's label, the key's words by line, the axis titles; each left to right; the figure's title is the
+    // <title> and the PDF's title)
+    const texts = XD.texts.filter((q) => q.w > 0 && q.h > 0).sort((a, b) => TEXT_KINDS.indexOf(a.kind) - TEXT_KINDS.indexOf(b.kind) || (a.kind === 'key' ? a.base - b.base || a.x - b.x : a.x - b.x));
+    const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const layer = texts.length ? `<g class="cmw-text">${texts.map((q) => `<text x="${f2(q.x)}" y="${f2(q.base)}" font-size="${f2(q.h)}" textLength="${f2(q.w)}" lengthAdjust="spacingAndGlyphs" fill="#000000" fill-opacity="0">${esc(q.text)}</text>`).join('')}</g>` : '';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}${layer}</svg>`;
+    return { svg, title: spec.title || null, desc: spec.desc || null, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), texts, lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
   };
   // point markers (shape carries identity in grey): dot | square | tri | diamond | ring | cross
   XD.marker = (kind, px, py, r, fill, stroke, sw) => {
@@ -280,6 +371,8 @@
   XD.mapArrow = (x0, x1, y, labelTex, pt = 9, lw = 0.5, color = '#000') => {
     const L = 4.2;
     let m = `<path d="M${f2(x0)} ${f2(y)}H${f2(x1 - L * 0.6)}" stroke="${color}" stroke-width="${lw}" fill="none"/>` + XD.arrowHead(x1, y, 0, L, color);
+    // (the shaft and the head in the layout's boxes, beside the label's: a check finds what they meet)
+    XD.boxes.push({ kind: 'arrow-line', tex: '', x0, y0: y - lw / 2, x1: x1 - L, y1: y + lw / 2 }, { kind: 'arrow-head', tex: '', x0: x1 - L, y0: y - L * 0.36, x1, y1: y + L * 0.36 });
     if (labelTex) m += XD.at(XD.tex(labelTex, pt, color), (x0 + x1) / 2, y - 2.6, 'middle', 'bottom', 'arrow');
     return m;
   };
@@ -350,8 +443,8 @@
     // axes
     const step = o.step || niceStep(Math.max(box.x1 - box.x0, box.y1 - box.y0), 4);
     const [stX, stY] = XD.axisSteps(box, step);
-    const decX = XD.decimals(stX), decY = XD.decimals(stY);
     const xt = XD.ticks(box.x0, box.x1, stX), yt = XD.ticks(box.y0, box.y1, stY);
+    const decX = XD.tickDec(xt, stX), decY = XD.tickDec(yt, stY);
     const lines = [];
     let out = '';
     if (o.axes === 'box') {
@@ -414,10 +507,15 @@
         if (Math.abs(t) < 1e-12 || minor(t)) continue; const px = X(t); if (px > tipX - ah - 1 || px < x + 1) continue;
         const it = XD.tex(XD.tickTex(t, decX), tp, ink);
         const cands = /** @type {[number, number, string, string][]} */ ([[px, oy + L + 1.2, 'middle', 'top'], [px + 1.2, oy + L + 0.8, 'start', 'top'], [px - 1.2, oy + L + 0.8, 'end', 'top'], [px + 1.2, oy - L - 0.8, 'start', 'bottom']]);
-        // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines)
+        // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines; a place
+        // that starts left of the figure is none: a label centred there slides right just as far as the edge, still over
+        // its tick)
+        const inX = (q) => XD.boxOf(it, ...q).x0 >= 0;
+        const past = -XD.boxOf(it, ...cands[0]).x0;
+        if (past > 0 && past <= it.w / 2) cands[0] = [px + past, oy + L + 1.2, 'middle', 'top'];
         const sl = /** @type {[number, number, string, string][]} */ ([]);
         for (let d = -it.w / 2; d <= it.w / 2; d += 0.25) sl.push([px + d, oy + L + 1.2, 'middle', 'top']);
-        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => clean(it, q, 0.4)) || slide(it, sl) || cands[0]);
+        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => inX(q) && clean(it, q, 0.4)) || slide(it, sl.filter(inX)) || cands.find(inX) || cands[0]);
         out += XD.at(it, ...c, 'tick', under(XD.boxOf(it, ...c))[2] < 240 ? 0.4 : 0);
       }
       for (const t of yt) {
@@ -462,7 +560,7 @@
       out += XD.at(it, .../** @type {[number, number, string, string]} */ (best.q), 'point-label', halo);
     }
     if (o.over) out += o.over(X, Y, { hits, under, overlaps });
-    return { markup: body + out, defs, X, Y, step, xt, yt, lines, hits, under };
+    return { markup: body + out, defs, X, Y, step, xt, yt, labels: { x: xt.map((t) => XD.tickTex(t, decX)), y: yt.map((t) => XD.tickTex(t, decY)) }, lines, hits, under };
   };
 
   XD.bp = (texpt) => texpt * 72 / 72.27;
@@ -477,9 +575,11 @@
       const k = it.w > W ? W / it.w : 1;
       let dm = XD.at(it, x0 + (W - it.w * k) / 2, yb, 'start', 'base', 'caption');
       if (k < 1) dm = `<g transform="translate(${f2(x0 + (W - it.w * k) / 2)} ${f2(yb)}) scale(${k.toFixed(4)}) translate(${f2(-(x0 + (W - it.w * k) / 2))} ${f2(-yb)})">${dm}</g>`;
+      // (the space below the display equals the space above it: the text after it starts 0.55 of the type size under it,
+      // as the text before it ends 0.55 over it, as TeX's \belowdisplayskip equals its \abovedisplayskip)
       const yAfter = yb + it.d * k + pt * 0.55;
       const rest = segs.slice(di + 1);
-      const b = rest.some((s) => (s.t != null ? s.t.trim() : true)) ? XD.caption(rest, x0, yAfter - pt * 0.2, W, pt, color) : { markup: '', h: 0, lines: 0 };
+      const b = rest.some((s) => (s.t != null ? s.t.trim() : true)) ? XD.caption(rest, x0, yAfter, W, pt, color) : { markup: '', h: 0, lines: 0 };
       return { markup: a.markup + dm + b.markup, h: yAfter - y0 + (b.lines ? b.h : -pt * 0.55), lines: a.lines + 1 + b.lines };
     }
     const words = []; let cur = [];
@@ -529,7 +629,8 @@
     })().catch(() => { pdfLibs = null; return null; });
     return pdfLibs;
   };
-  // the PDF: vector, no fonts (putOnlyUsedFonts; glyphs are paths), no transparency, page = figure size in bp
+  // the PDF: vector (glyphs are paths; the one font is the invisible text layer's, embedded), no transparency, page =
+  // figure size in bp
   XD.pdf = async (fig) => {
     const lib = await pdfLib();
     if (!lib) throw new Error('The PDF library could not be loaded');
@@ -546,12 +647,26 @@
       const at = a + b, x = /\sx="([^"]*)"/.exec(at), y = /\sy="([^"]*)"/.exec(at), rest = at.replace(/\s[xy]="[^"]*"/g, '');
       const path = `<path${rest} d="${(fig.glyphs || {})[id] || ''}"/>`;
       return x || y ? `<g transform="translate(${x ? x[1] : 0} ${y ? y[1] : 0})">${path}</g>` : path;
-    }).replace(/<metadata[\s\S]*?<\/metadata>/, '');
+    }).replace(/<metadata[\s\S]*?<\/metadata>/, '').replace(/<g class="cmw-text">[\s\S]*?<\/g>/, '');
     const el = new DOMParser().parseFromString(src, 'image/svg+xml').documentElement;
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden';
     host.append(el); document.body.append(host);
     try { await lib.svg2pdf(el, doc, { x: 0, y: 0, width: fig.W, height: fig.H }); } finally { host.remove(); }
+    // the text layer: the same words in render mode 3 (invisible) over the paths, in reading order, in an embedded font of
+    // empty glyphs made for the characters they use (01-pdf-font.js): Cyrillic, Greek, subscripts and the signs included
+    if (doc.setLanguage) { try { doc.setLanguage(fig.lang === 'ru' ? 'ru-RU' : fig.lang === 'it' ? 'it-IT' : 'en-US'); } catch (e) { /* the language is optional */ } }
+    const texts = fig.texts || [], layer = pdfTextLayer(texts);
+    if (layer.codes.length) {
+      doc.addFileToVFS(`${PDF_TEXT_FONT_NAME}.ttf`, pdfTextFont(layer.codes));
+      doc.addFont(`${PDF_TEXT_FONT_NAME}.ttf`, PDF_TEXT_FONT_NAME, 'normal');
+      doc.setFont(PDF_TEXT_FONT_NAME, 'normal');
+      texts.forEach((q, i) => {
+        if (!layer.strings[i]) return;
+        doc.setFontSize(q.h);
+        doc.text(layer.strings[i], q.x, q.base, { renderingMode: 'invisible' });
+      });
+    }
     return doc.output('blob');
   };
   // PNG of the whole figure at dpi: opaque (RGB, or grey for B/W), pHYs, the scene in iTXt

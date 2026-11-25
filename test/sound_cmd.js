@@ -1,8 +1,8 @@
 // Sound (notes/sound/DESIGN.md; the engine is src/sound.js, the hooks the "sound" block of app.js): the browser side.
 // Consent (no AudioContext and no per-event work until the user turns sound on; a remembered "on" waits for a click or
-// key of the new page), the default tiers silent on hover, Shift+M (and M still the Deformation), the palette entries,
+// key of the new page), the default tiers silent on hover, Shift+M, the palette entries,
 // the settings in lsk('cmw-sound') and never in the saved work, Interface and Mathematical-event cues from the app, the
-// pointer tier (the voice, exact winding by ear, zero orders, the guards during view gestures and the deformation),
+// pointer tier (the voice, exact winding by ear, zero orders, the guards during view gestures),
 // loops (the winding, the first loop plays itself, Esc), Height contours in the Landscape, the keyboard probe (arrows,
 // Z, O, D, Enter, L, Esc), the engine's queue and cluster guards and the suspended-context rule in a live context, the
 // silent off, the loudness and phone targets (the lab of DESIGN §2.2 as assertions), the phone header, and the
@@ -12,22 +12,19 @@
 // Prints {pass, fails, R}; pass is true when every check holds.
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 // The kit's load() opens port 8793. This file loads through PORT, so the saved state, the sound settings and every
-// nav() share one origin. (With the kit's load(), the 360 px step opened 8793, where sound was never turned on.)
+// nav() share one origin. (With the kit's load(), the 360 px step would open 8793, where sound is never turned on.)
 const loadHere = async (ns, st, extra) => {
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(400);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(400);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await send('Page.navigate', { url: `${BASE}?ns=${ns}` }); await sleep(2200);
+  await go(`${BASE}?ns=${ns}`); await sleep(2200);
   return ev(`({lamps: __qa.lamps()})`);
 };
 const fails = [], R = {};
-// the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
-// the digit keys and the toggle button are gone
-const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
+// the main view through its hook (the view keys are gone)
+const mainView = async (m) => { await ev(`__cmwSetMain(${JSON.stringify(m)}); 1`); await settled(); };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
-const snd = () => ev('__cmwSound()');
 // (Hear the function: the marimba notes replace the pointer harp, perfwin/sound/impl/SOUND-PLAN.md 5.1. The
 // engine's Sound.hear.state().counts run since load; this reads them as harpCount() did, since the last call: up and
 // down are the red line's crossings (line k ≡ 0 mod n, the harp's low D), notes the notes played, cracks the cuts)
@@ -43,6 +40,8 @@ const live = async () => (await snd()).live;
 // every AudioContext the page makes is counted (window.__acN)
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__acN = 0; const A = window.AudioContext; if (!A) return; window.AudioContext = class extends A { constructor(...a) { super(...a); window.__acN++; } }; })();' });
 const ns = 'sndcmd' + Date.now();
+// (the pointer's screen point and the sound state: the kit's; the circle, spy, made and inj above and below are this file's own)
+const { W, snd } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'sound_kit.js'), 'utf8'))({ ev, send, move, click, settled, loadHere, settle, glide, ns, fn: null });
 const SQ = { steps: [{ type: 'custom', params: { expr: 'z^2-1', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 120 } };
 await view(1440, 900, false);
 await loadHere(ns, SQ);
@@ -62,7 +61,7 @@ ok('sound off: hover, drag and click create no AudioContext and do no work', R.o
 
 // 2. the header button turns it on: running, the "on" key, aria-pressed, the settings under lsk('cmw-sound')
 const btn = await ev(`(() => { const b = document.getElementById('soundBtn'), t = document.getElementById('exportBtn'), g = document.getElementById('settingsBtn'); const x = (e) => e.getBoundingClientRect().left; return { label: b.innerText.trim(), title: b.title, keys: b.getAttribute('aria-keyshortcuts'), order: x(t) < x(b) && x(b) < x(g) }; })()`);
-// ([v17 D5] Theme moved into Settings: Sound sits between Export ▾ and ⚙ Settings)
+// (Theme is in Settings: Sound sits between Export ▾ and ⚙ Settings)
 ok('Sound button: labelled Sound, Shift+M, between Export and Settings', btn.label === 'Sound' && /Shift\+M/.test(btn.title) && btn.keys === 'Shift+M' && btn.order, btn);
 await clickSel('#soundBtn');
 await settle(600);
@@ -81,23 +80,14 @@ await settle(300);
 R.quiet = { made: await made(true), live: await ev('(() => { const h = Sound.hear.state(); return h.counts.notes + (h.stroke ? 1 : 0); })()'), argStep: await ev('__calls.argStep') };
 ok('default tiers: hovering zeros makes no cue, no voice, no tracking', !R.quiet.made.length && R.quiet.live === 0 && R.quiet.argStep === 0, R.quiet);
 
-// 4. Shift+M toggles sound (silently off); M alone is still the Deformation
+// 4. Shift+M toggles sound (silently off) (standards-ok: the M-key Deformation rows went with the classic transport, #994;
+// the steps view's play is sound_steps_cmd)
 await key('M', 8); await settle(250);
 R.shiftM = { on: await ev('Sound.prefs().on'), made: await made(true), active: await ev('Sound.debug().active'), audio: await ev('Sound.state().audio'), deform: (await ev('__cmwLayout()')).deform };
 ok('Shift+M: off, silent, suspended, not the Deformation', !R.shiftM.on && !R.shiftM.made.length && R.shiftM.active === 0 && R.shiftM.audio === 'suspended' && !R.shiftM.deform, R.shiftM);
 await key('M', 8); await settle(300);
 R.shiftM2 = { on: await ev('Sound.prefs().on'), made: await made(true), audio: await ev('Sound.state().audio') };
 ok('Shift+M again: on with its key', R.shiftM2.on && R.shiftM2.made.join() === 'toggleOn' && R.shiftM2.audio === 'running', R.shiftM2);
-// M: the deformation plays (the swell once per play), arrives once, and loop repeats stay silent
-await morphKey();
-ok('M opens the Deformation', (await ev('__cmwLayout()')).deform === true);
-let mm = [];
-for (let i = 0; i < 40 && !mm.includes('morphEnd'); i++) { await sleep(150); mm = await made(); }
-await sleep(2500);
-mm = await made(true);
-R.morph = mm;
-ok('deformation: one swell and one arrival per play, none on loop repeats', count(mm, 'morphStart') === 1 && count(mm, 'morphEnd') === 1, mm);
-await morphKey();
 
 // 5. the palette entries
 await key('k', 4); await settle(300);
@@ -134,7 +124,7 @@ await key('Escape'); await settle(200);
 R.popAfter = { sonify: await ev('Sound.prefs().sonify'), hidden: await ev(`document.getElementById('sndPop').hidden`) };
 ok('popover: opens on the caret, focus on the switch, Hear F turned on, Esc closes', R.pop.open && R.pop.focus === 'sndOn' && R.pop.vol === '70' && R.popAfter.sonify && R.popAfter.hidden, { pop: R.pop, after: R.popAfter });
 await made(true);
-// the harp (v15.2): around the simple zero at 1 twice: exactly +2 turns of arg F, a rising scale twice, the low Ds
+// the harp: around the simple zero at 1 twice: exactly +2 turns of arg F, a rising scale twice, the low Ds
 // counted up minus down = 2; no continuous voice; silent while still
 const c2 = await circle([1, 0], 0.3, 2, 48, 0.4);
 await move(c2[0][0], c2[0][1]); await settle(200);
@@ -174,8 +164,6 @@ await move(...(await W(0.6, 0.6))); await settle(700); await made(true);
 }
 ok('pan: no pointer cue during the gesture and the 250 ms after', !R.pan.made.some((x) => x === 'zero' || x === 'pole' || x === 'cut' || x === 'dense'), R.pan);
 await ev(`document.getElementById('leftFit') && document.getElementById('leftFit').click(); 1`); await settle(600);
-// (while the deformation plays, the probe follows H_t in (z, t) and its cues fire as for the pointer: section 16,
-// test/sound_deform_cmd.js; until 2026-10-23 pointer cues were held during a play)
 
 // 8. loops: the Lasso around both zeros: two rising bells while drawing, W = 2 announced, the first loop plays itself;
 // Esc stops it at once and keeps sound on; a second loop sounds its winding and waits
@@ -209,7 +197,7 @@ await key('o'); await settle(200);
   R.loop2 = { made: await made(true), live: s.live, play: s.play, sang: s.sang, sing: await ev('Sound.singState()') };
 }
 ok('loop 2 (Hear F on): "Winding number 1", the loop sings W = 1 (no pings), no playback', /Winding number 1/.test(R.loop2.live) && R.loop2.sang === 1 && R.loop2.sing.on && R.loop2.sing.tier === 'events' && !R.loop2.made.includes('loopDone') && !R.loop2.play, R.loop2);
-// Listen along a curve, from the shape's menu (right-click); (v16.5 UX73) a pointer move no longer ends it: it plays to
+// Listen along a curve, from the shape's menu (right-click); a pointer move does not end it: it plays to
 // its end, Stop in its chip, Esc or another action
 {
   const p = await W(-1.4, 0);
@@ -326,7 +314,7 @@ R.lab = lab && lab.voices;
 // (palette B, notes/sound/v2/DESIGN.md §2, column B, about ±2 dB: every play is a new strike. Pole and edge lose 7.8 and
 // 5.6 dB through the phone model, as measured on the board: DESIGN v2 §8, open; their phone limit is 8 dB)
 const GROUP = { snap: [-47, -40], landmark: [-48, -36], cut: [-41, -35], contour: [-43, -36], toggleOn: [-35, -30.5], toggleOff: [-36, -31.5], stepAdd: [-34, -29.5], stepRemove: [-34.5, -30], view: [-35, -30.5], edge: [-43, -38.5], morphStart: [-34, -30], morphEnd: [-33.5, -29], zero: [-33, -27], pole: [-35, -28.5], collide: [-34, -30], exportDone: [-31, -26.5], error: [-32.5, -28.5], turn: [-31.5, -27.5], turnMany: [-42, -35], dense: [-44.5, -39.5],
-  // ([v16.5 rail SPEC 4.4] a point attached: under toggleOn; a point freed: at edge's level)
+  // (a point attached: under toggleOn; a point freed: at edge's level)
   attach: [-37, -33], detach: [-41.5, -37.5] };
 // (contours: the low ones, k ≤ −5, sit under the phone model's 550 Hz, as their Height notes do)
 const PHONE = { pole: 8, edge: 7, contour: 8.5 };
@@ -334,25 +322,24 @@ for (const r of (lab && lab.rows) || []) {
   const g = r.name === 'loopDone' ? (r.o.w ? [-33.5, -29] : [-41, -33]) : GROUP[r.name];
   ok(`level ${r.name} ${JSON.stringify(r.o)}: LUFS-M in [${g}]`, g && r.lufs >= g[0] && r.lufs <= g[1], r.lufs);
   ok(`phone ${r.name} ${JSON.stringify(r.o)}: loses ≤ ${PHONE[r.name] || 5} dB`, r.loss <= (PHONE[r.name] || 5), r.loss);
-  // (palette B's air and its woodblock and felt contacts carry more above 14 kHz than v15's cues did: −25 to −38 dB of
+  // (palette B's air and its woodblock and felt contacts carry more above 14 kHz: −25 to −38 dB of
   // the total, as on the board the user heard; the pure strikes stay under −40)
-  // ([v16.5 rail] detach is edge's felt tap: −35.6 dB, a felt contact like edge's)
+  // (detach is edge's felt tap: −35.6 dB, a felt contact like edge's)
   const hfLim = /^(view|exportDone|morphStart|error|edge|pole|detach)$/.test(r.name) ? -24 : -40;
   ok(`envelope ${r.name} ${JSON.stringify(r.o)}: peak < −6 dBFS, soft onset, ends at exactly 0, HF ≤ ${hfLim} dB`, r.peak < -6 && r.first < 0.35 && r.end === 0 && r.hf <= hfLim, r);
 }
 ok('lab: every cue measured', lab && lab.rows && lab.rows.length >= 28, lab && lab.rows && lab.rows.length);
 const V = (lab && lab.voices) || {};
-// (Hear the function: the marimba note replaces the harp's. LV.note = CAL.M2, a marimba E at |F| = 1 alone 2 dB
-// under the harp E (−32 here before): −34; D and E alike (no accent); the law dbV3, −8 dB at a zero and +4 at a pole,
+// (Hear the function: the voice is the marimba note. LV.note = CAL.M2, a marimba E at |F| = 1 alone 2 dB
+// under the harp E: −34; D and E alike (no accent); the law dbV3, −8 dB at a zero and +4 at a pole,
 // with the mallet's softness following it; a stream at 10 notes a second as loud as one at 5 (the crowding gain, R0 = 5))
 ok('notes: one marimba note at |F| = 1 (seed fixed by the note): E −34 ± 2.5 LUFS-M, D within 1 dB of E; phone loss ≤ 5 dB; a soft start, peak < −6 dBFS', V.notes && Math.abs(V.notes.e + 34) <= 2.5 && Math.abs(V.notes.d - V.notes.e) <= 1 && V.notes.loss <= 5 && V.notes.first < 0.35 && V.notes.peak < -6, V.notes);
 ok('notes: the loudness law, a note at a zero 8 ± 1 dB under |F| = 1 and at a pole 4 ± 1 dB over', V.notes && Math.abs(V.notes.zero - V.notes.e + 8) <= 1 && Math.abs(V.notes.pole - V.notes.e - 4) <= 1, V.notes);
 ok('notes: a stream of 10 notes a second as loud as one of 5 (the crowding gain, R0 = 5), within 1 dB', V.notes && Math.abs(V.notes.run10 - V.notes.run5) <= 1, V.notes);
 ok('curves sing: the release note −31 ± 2 LUFS-M at W = 1 and W = −1 (the low-note make-up), phone loss ≤ 6 dB', V.sing && Math.abs(V.sing.w1 + 31) <= 2 && Math.abs(V.sing.wm1 + 31) <= 2.5 && V.sing.loss <= 6, V.sing);
 ok('curves sing: the loudest harmonic of the note is 4 + W (F♯5 for 1, A4 for −1)', V.sing && V.sing.peak1 === 5 && V.sing.peakm1 === 3, V.sing);
-// (the Height voice is retired, the Landscape is heard as the planes are; the held voice now is the Glide, at
-// LV.glide = CAL.V3: −37.5 LUFS held on D at |F| = 1 as measured here at v16.5, the law as the notes', and the same
-// phone range limit the Height voice had)
+// (the Landscape is heard as the planes are; the held voice is the Glide, at
+// LV.glide = CAL.V3: −37.5 LUFS held on D at |F| = 1 as measured here, the law as the notes', and the phone range limit)
 ok('Glide: held on D at |F| = 1 −37.5 ± 1.5 LUFS; at a zero 8 ± 1 dB under, at a pole 4 ± 1 dB over; phone range over D, F♯, B♭ ≤ 8 dB', V.glide && Math.abs(V.glide.at0 + 37.5) <= 1.5 && Math.abs(V.glide.zero - V.glide.at0 + 8) <= 1 && Math.abs(V.glide.pole - V.glide.at0 - 4) <= 1 && V.glide.phoneRange <= 8, V.glide);
 
 // 14. the tracker's cost per pointer event (synthetic pointermoves on the X plane, z² − 1 and a heavy chain): Hear F
@@ -396,7 +383,7 @@ ok('frames: Hear F keeps the hover sweep at ≥ 55 fps and adds ≤ 2 ms at p95'
 // sin(1/z) near 0 with jumps of up to 34 px an event: arg F turns wildly between events, so the budget is used up
 await loadHere(ns, { steps: [{ type: 'custom', params: { expr: 'sin(1/z)', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 120 } });
 await ev(`__cmwSetMain('phase')`); await settle(1200); await click(5, 300); await settle(200);
-// (a pause of the page's thread, from GC or the machine, lands in one event now and then, with Hear F off as well:
+// (a pause of the page's thread, from GC or the machine, lands in one event from time to time, with Hear F off as well:
 // as the perf suite confirms a failing unit, a run over the limit is measured twice more and the median run counts)
 R.costJumpy = await cost(true);
 if (R.costJumpy.on.max >= 8 || R.costJumpy.on.p95 - R.costJumpy.off.p95 >= 2 || R.costJumpy.on.trMax >= 4) {
@@ -409,7 +396,7 @@ ok('tracker cost: the tracker itself stays within its 3 ms deadline (max < 4 ms 
 ok('tracker cost: Hear F adds < 5 ms per event at p95 (a heavy chain: the budget holds)', R.costHeavy.on.p95 - R.costHeavy.off.p95 < 5, R.costHeavy);
 await ev(`Sound.set({ sonify: false }); 1`);
 
-// 15. phones (360, 390), the v15 layout (src/phone.js; the v14 speaker in the bar is gone): Sound is a row of More (⋯)
+// 15. phones (360, 390), the phone layout (src/phone.js): Sound is a row of More (⋯)
 // with its switch and Settings; the switch shows the state and turns sound off; Settings opens the popover, which
 // fits; no sideways overflow
 for (const w of [360, 390]) {
@@ -432,28 +419,27 @@ for (const w of [360, 390]) {
 await view(1440, 900, false, false);
 await ev(`Sound.set({ on: false }); 1`);
 
-// 16. the function under a still probe changes (notes/sound/DEFORMATION.md): the Deformation played and scrubbed with
-// the pointer still over X's Phase plane, the merged deformation plane and the Landscape; a zero dragged while the
-// pointer rests elsewhere; sound off. The cases are test/sound_deform_cmd.js (also run alone).
-// (the section reads the console log itself: what came before is kept for the check of exceptions below)
+// 16. the function under a still probe changes (notes/sound/DEFORMATION.md): a zero dragged while the pointer rests
+// elsewhere, sound off, and the layout changed under a still pointer. The cases are test/sound_still_probe_cmd.js (also
+// run alone). (the section reads the console log itself: what came before is kept for the check of exceptions below)
 const logsBefore = logs();
 {
   const AF = Object.getPrototypeOf(async function () {}).constructor;
-  const H = { ev, nav, view, shot, key, type, click, move, drag, clickSel, load, logs, send, sleep, settled, img, fs, path, DIR };
-  const D = await new AF(...Object.keys(H), fs.readFileSync(path.join(DIR, '..', 'sound_deform_cmd.js'), 'utf8'))(...Object.values(H));
-  R.deform = D.R;
-  for (const f of D.fails || [{ name: 'did not run', got: D }]) fails.push(Object.assign({}, f, { name: 'deformation: ' + f.name }));
+  const H = { ev, go, nav, view, shot, key, type, click, move, drag, clickSel, load, logs, send, sleep, settled, img, fs, path, DIR };
+  const D = await new AF(...Object.keys(H), fs.readFileSync(path.join(DIR, '..', 'sound_still_probe_cmd.js'), 'utf8'))(...Object.values(H));
+  R.stillProbe = D.R;
+  for (const f of D.fails || [{ name: 'did not run', got: D }]) fails.push(Object.assign({}, f, { name: 'still probe: ' + f.name }));
   await ev(`Sound.set({ on: false }); 1`);
 }
-// 17. v15 defaults (notes/sound/README.md, the user's decision of 2026-10-23), on a page without ?ns= (the published
+// 17. defaults (notes/sound/README.md, the user's decision of 2026-10-23), on a page without ?ns= (the published
 // page's storage keys; removed again below): sound on, Interface and Mathematical events on, Snap ticks and Hear the
 // function off; no AudioContext and no cue before the first click or key; the first click starts it; a stored choice
 // wins. (Sections 1 to 16 run under ?ns=, where sound starts off.)
 {
   const clean = `localStorage.removeItem('cmw-sound'); localStorage.removeItem('complex-map-workbench-v1'); 1`;
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
   await ev(clean);
-  await send('Page.navigate', { url: BASE }); await sleep(2200);
+  await go(BASE); await sleep(2200);
   await spy();
   let s = await ev('Sound.state()');
   const pre = { st: s, ac: await ev('__acN'), pressed: await ev(`document.getElementById('soundBtn').getAttribute('aria-pressed')`), stored: await ev(`localStorage.getItem('cmw-sound')`) };
@@ -469,7 +455,7 @@ const logsBefore = logs();
   ok('v15 default: the first click creates the context, running', s.audio === 'running' && R.v15def.click.ac === 1, R.v15def.click);
   // a stored choice wins: off, stored, survives a reload
   await clickSel('#soundBtn'); await settle(400);
-  await send('Page.navigate', { url: BASE }); await sleep(2200);
+  await go(BASE); await sleep(2200);
   s = await ev('Sound.state()');
   await click(700, 400); await settle(400);
   R.v15def.stored = { on: s.on, ac: await ev('__acN'), stored: await ev(`localStorage.getItem('cmw-sound')`) };

@@ -8,7 +8,7 @@
 // current, ... (--rounds N: N pairs, default 2), each a cold and a warm pass: whatever the machine keeps between runs
 // falls on both sides alike. --clear-metal-cache (macOS): before each cold pass, empty the Metal shader cache macOS keeps
 // for Chrome outside its profile (see metalCaches); without it a fresh profile is not cold on the Mac (#237).
-// The walk: every example's first frame (until __cmwExample says there is no such example) (exact images are on by default: their inverse programs too); then on the
+// The walk: every example's first frame (until __cmwExample says there is no such example) (exact images are always on: their inverse programs too); then on the
 // first example, the steps view's main planes (Phase, Landscape, X → Y), the Sphere and the glide. --walk extended (#238's Windows list)
 // adds: the glide of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the gallery
 // opened (its thumbnails' time), the Mountain King in the Landscape, and on every pass the first minute from the page's load (the start-up bar shown, the
@@ -58,11 +58,7 @@ function walk() {
 // --walk extended: the examples by their English names in src/app/15-examples-guide.js (their indices move as examples
 // are added), each opened, then deformed and closed again; [label, statement, false, {until, measure}]: until, a
 // condition polled from the statement on (its time is the step's firstS); measure, read once the links have landed
-function exampleIndex(name) {
-  const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
-  const names = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
-  return names.indexOf(name);
-}
+const exampleIndex = (name) => SC.exampleNames(ROOT).indexOf(name);
 // (the All sheets and the Γ/ζ examples deformed; a Σ step and a power series)
 const EXTENDED_EXAMPLES = ['Sheets of the logarithm', 'Zeros of the zeta function', 'Poles of the Gamma function', 'Zeta as a Dirichlet series', 'Partial sums of the exponential', 'The dilogarithm from its series'];
 // (#395, #355) the Mountain King: its first frame (mode 0, colour), its Landscape (landTF and landEdgeS of mode 0) and
@@ -79,7 +75,13 @@ function mountainKing(landscapeOnly) {
 // --walk steps (#439): the steps view (?view=steps) on Strip to disk, the zeros of zeta and the Mountain King: a
 // glide over a step from z (the carried colour while gliding, map mode 1), a quarter-step scrub back, parked between two
 // planes (Shift+←: a two-plane chain is at its last plane after the glide; tiers' review of #456), and the colour plane set to z, then a glide to the plane after it (the carried colour at rest past the
-// colour plane): the carry, mesh, region and line programs a glide links. The keys are the view's own (svKeys)
+// colour plane): the carry, mesh, region and line programs a glide links. The keys are the view's own (svKeys).
+// The rest before the first glide lasts until the glides of the plane shown are made ready (__cmwSteps().invWarm, #2039:
+// their inverse programs linked at rest; true at once on a build without that warm-up, whose hook has no invWarm), so
+// those links are the rest's, not the glide's; the glide's firstS is its first frame by the inverse pass, or the end of
+// a glide that drew none (measure: the path of its last frame), a new glide record against the one before the key (#2067)
+const STEPS_REST = "(() => { const v = __cmwSteps().invWarm; return v !== false; })()";
+const STEPS_GLIDE = "(() => { const q = __cmwSteps(), g = q.glide; return !!g && g !== window.__gpGlide0 && (g.path === 'inverse' || !q.moving); })()";
 const svKey = (key, shift) => `(document.dispatchEvent(new KeyboardEvent('keydown', { key: '${key}', shiftKey: ${!!shift}, bubbles: true })), true)`;
 function stepsWalk() {
   const s = [];
@@ -87,8 +89,9 @@ function stepsWalk() {
     const i = exampleIndex(nm);
     if (i < 0) { console.log(`[glprof] no example named ${nm}: skipped`); continue; }
     const tag = `${nm} (example ${i})`;
-    s.push([`steps: ${tag}`, `(__cmwExample(${i}), ${svKey('PageUp')}, ${svKey('PageUp')}, ${svKey('PageUp')})`, false, null]);
-    s.push([`steps: ${tag}: glide to the next plane`, svKey('PageDown'), false, null]);
+    s.push([`steps: ${tag}`, `(__cmwExample(${i}), ${svKey('PageUp')}, ${svKey('PageUp')}, ${svKey('PageUp')})`, false, { until: STEPS_REST }]);
+    s.push([`steps: ${tag}: glide to the next plane`, `(window.__gpGlide0 = __cmwSteps().glide, ${svKey('PageDown')})`, false,
+      { until: STEPS_GLIDE, measure: "(() => { const g = __cmwSteps().glide; return g ? g.path : null; })()" }]);
     s.push([`steps: ${tag}: scrub a quarter step back`, svKey('ArrowLeft', true), false, null]);
     s.push([`steps: ${tag}: back to z`, `(${svKey('PageUp')}, ${svKey('PageUp')})`, false, null]);
     s.push([`steps: ${tag}: colour from z`, svKey('c'), false, null]);
@@ -115,7 +118,7 @@ function extended() {
 }
 // (#238 items 8 and 4) from the page's first script on: the start-up bar's visibility, the links pending and the long
 // tasks, every 100 ms for 60 s, read with the start step; and when the right pane first drew its exact image (the
-// default example has exact images on: their inverse programs, cold on the cold pass) with nothing pending
+// default example draws exact images: their inverse programs, cold on the cold pass) with nothing pending
 const STARTUP = `(() => {
   const t0 = performance.now(), lt = [], tl = [];
   let exactMs = null;
@@ -321,7 +324,7 @@ const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
   for (const r of rows.slice(0, 30)) lines.push(`| ${s2(r.ms || 0)} | ${s2(r.share)} | ${r.peers || ''} | ${s2(r.warm)} | ${s2(r.wshare)} | ${r.inv ? 'inverse ' : ''}${r.name} \`${r.key}\` | ${r.mode} | ${r.vs} + ${r.fs} | ${r.step} |`);
   lines.push('', '| step | cold: links, wall s | warm: links, wall s |', '|---|---|---|');
   cold.steps.forEach((s, i) => { const w = warm.steps[i] || { programs: [], s: 0 }; lines.push(`| ${s.label}${s.timedOut ? ' (timed out)' : ''} | ${s.programs.length}, ${s.s.toFixed(1)} | ${w.programs.length}, ${w.s.toFixed(1)} |`); });
-  // (--walk extended: the timed steps and the measurements, cold and warm)
+  // (--walk extended and steps: the timed steps and the measurements, cold and warm)
   const timed = cold.steps.map((s, i) => [s, warm.steps[i] || {}]).filter(([s]) => s.firstS !== undefined || s.measure !== undefined);
   if (timed.length) {
     lines.push('', '| step | cold: first s, measured | warm: first s, measured |', '|---|---|---|');

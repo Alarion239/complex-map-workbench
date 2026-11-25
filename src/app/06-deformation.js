@@ -126,8 +126,8 @@
   // 150 ms (a scrub, a shape drag, a pan or a zoom never re-choose per frame) and requests a render when it is done.
   // The first selection after opening starts at once.
   const mfCache = { key: '', vkey: '', v0: null, sel: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null };
-  // The kept start points are points of the plane, not of the screen (merged-views review: a 60 px pan swapped the
-  // whole set once the job ran, and during play the paths popped between sets): a selection stays while the view is
+  // The kept start points are points of the plane, not of the screen (a 60 px pan would swap the
+  // whole set once the job runs, and during play the paths would pop between sets): a selection stays while the view is
   // within a pan of 30 % of the panel and a zoom of 1.5x of the view it was chosen in, at the same panel size; the
   // frame re-projects its paths. A larger pan or zoom chooses again.
   function mfViewOk(pane) {
@@ -169,7 +169,7 @@
         const el = $(id);
         if (!el || el.hidden || el.offsetParent === null) continue;
         const q = el.getBoundingClientRect();
-        // ([v16.5 fix regress-8] only where it lies over the plane: since UX20 a desktop's legend and options sit in the
+        // (only where it lies over the plane: a desktop's legend and options sit in the
         // pane head, above the overlay, and a rectangle outside it rules out nothing)
         const b = { x0: q.left - r.left - 4, x1: q.right - r.left + 4, y0: q.top - r.top - 4, y1: q.bottom - r.top + 4 };
         if (q.width > 0 && q.height > 0 && b.x1 > 0 && b.y1 > 0 && b.x0 < r.width && b.y0 < r.height) out.push(b);
@@ -278,21 +278,19 @@
     // (its first slice too waits for the frame to end)
     nextMacrotask().then(() => (alive() ? runGenSliced(g, alive, 3) : null)).catch((e) => console.error('deformation paths ahead', e)).finally(() => { if (mfAhead.job === job) mfAhead.job = null; });
   }
-  // The merged globe's live paths (merged-views review: the design's "one plane (or one globe)" both carry them): the
-  // same selection, chosen off the frame in the deformation's own flat frame at the globe pane's size (defFitView,
-  // fixed per chain, focus, path, shapes and pane size, so orbiting never re-chooses), drawn lifted to the sphere
-  // The globe's paths are chosen on the sphere under the camera of the moment (globeSelP); an orbit that turns more than
-  // one kept start (or a quarter of them) away from the camera chooses again (epoch), after the same 150 ms of stillness.
-  // src: the deformation source (default the classic transport's); fit: the flat view the choice is made in (default
-  // the deformation's fitted frame, defFitView; the steps view passes its one camera, S.srcView)
+  // The globe's live paths: the same selection, chosen off the frame in a flat view at the globe pane's size (fit, the
+  // steps view's one camera S.srcView: fixed per chain, focus, path, shapes and pane size, so orbiting never
+  // re-chooses), drawn lifted to the sphere. The globe's paths are chosen on the sphere under the camera of the moment
+  // (globeSelP); an orbit that turns more than one kept start (or a quarter of them) away from the camera chooses again
+  // (epoch), after the same 150 ms of stillness. src: the deformation source (svPathsSource)
   const mfGlobe = { key: '', vp: null, cam: null, epoch: 0 };
-  function morphSelGlobe(pane, cam, src = classicSource(), fit = null) {
+  function morphSelGlobe(pane, cam, src, fit) {
     if (cam) mfGlobe.cam = cam;
-    const k = mfScreenKey(pane, src).key + `|${pane.w}x${pane.h}` + (fit ? `|${fit.cx},${fit.cy},${fit.s}` : '');
+    const k = mfScreenKey(pane, src).key + `|${pane.w}x${pane.h}|${fit.cx},${fit.cy},${fit.s}`;
     if (mfGlobe.key !== k || !mfGlobe.vp) {
       const vp = Object.create(Pane.prototype);
-      vp.view = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
-      vp.view = fit ? { cx: fit.cx, cy: fit.cy, s: fit.s } : defFitView(vp, false);
+      vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
+      vp.view = { cx: fit.cx, cy: fit.cy, s: fit.s };
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
     const sel = morphSelScreen(mfGlobe.vp, src);
@@ -333,7 +331,7 @@
   // path away from its own two ends and crosses none (when that leaves fewer than minN, a second pass allows one
   // crossing and 0.7 dTest); starts dS apart, ends dE apart; at most one path far longer than the way from z to F(z)
   // (a loop); at most maxN, and one per area^2 px^2 of the panel.
-  // (review fixes, notes/paths-aesthetics/AS-BUILT.md "Review fixes"): shortK caps the count by the panel's short side
+  // (notes/paths-aesthetics/AS-BUILT.md): shortK caps the count by the panel's short side
   // (a phone gets about 9); ink caps the summed length of the kept paths at ink x sqrt(panel area); a path longer than
   // longK dS keeps 2 dTest from the kept paths over all but longShare of its length; stubs under stubK dS are a last
   // resort (at most one); arrowheads live only on paths of arrowMin px or more
@@ -350,14 +348,9 @@
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
     return {
-      C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, classicSource, cmFormAnchor,
-      compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback,
-      drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
-      lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
-      morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
-      patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
-      resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-      sub, trans, transState, tweens, updateCalcChip,
+      C, MF, PATHS, SegGrid, activeSteps, allAtOnce, cap1, capT, captionLatex, classicSource, compositeTexShort,
+      isDeriv, joinList, kindType, lenPx, mDist, mfCache, morph, morphLen, morphOutline, morphRange, morphState,
+      morphX, patternSegs, rangeParts, requestRender, resamplePx, segD, shapePhrase, sheetsShown,
       get S() { return S; },
       get TH() { return TH; },
       get artMode() { return artMode; },
@@ -373,7 +366,7 @@
       get paneR() { return paneR; },
     };
   }
-  // the app calls the module by the old names (as untyped calls: their types stay the module's own)
+  // the app calls the module by plain function names (as untyped calls: their types stay the module's own)
   const MP = /** @type {any} */ (MorphPaths);
   function pathMarkTimes(...args) { return MP.pathMarkTimes(...args); }
   function pathsGen(...args) { return MP.pathsGen(...args); }
@@ -392,8 +385,4 @@
   function morphCaption(...args) { return MP.morphCaption(...args); }
   function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
-  const syncTransport = () => phoneChain();
-  function wKeyAvail(...args) { return MP.wKeyAvail(...args); }
-  function wKeyOn(...args) { return MP.wKeyOn(...args); }
-  function renderRight(...args) { return MP.renderRight(...args); }
 

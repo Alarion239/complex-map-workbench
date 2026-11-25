@@ -1,12 +1,10 @@
 // The deformation on a Dirichlet series (ζ as Σ n^{−z}) against the same scene with z² + 1: its start and the choice of
 // its paths, with the main thread's long tasks. In the steps view the start is the thread parked halfway from z to w₁
-// (a glide's frame) and the paths are the glide's (__cmwSteps().paths.ready); in the classic view it is the click on
-// Deformation and the X → Y path selection (rightMode image, __cmwMorphCache().ready). The series is sampled by
+// (a glide's frame) and the paths are the glide's (__cmwSteps().paths.ready). The series is sampled by
 // Euler–Maclaurin per residue, no slower than a formula, so the park and the choice stay within a margin of the
 // formula's; the absolute times on software GL are dominated by the shader link, which both scenes pay. Also: η
 // ((−1)^{n+1}) builds as a Dirichlet series and deforms. It runs pinned to the steps view (ci/suite_views.js:
-// steps({ pin: true })): the classic view's Deformation has no control that opens it, so its X → Y selection is not a
-// feature to test. A command file for a CDP daemon.
+// steps({ pin: true })). A command file for a CDP daemon.
 const fails = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const shapes = [{ id: 's1', kind: 'rect', a: [1.5, -6], b: [5, 6] }];
@@ -20,15 +18,13 @@ async function run(name, steps) {
   const on = await ev('__cmwSteps().on');
   await ev(OBS);
   const err = await ev('__cmwP().errors.join("")');
-  const start = on ? '__cmwSteps({ park: 0.5 })' : '__cmwMorph({ open: true })';
-  const r = await ev(`(() => { const t0 = performance.now(); ${start}; return { t0, park: performance.now() - t0 }; })()`);
+  const r = await ev(`(() => { const t0 = performance.now(); __cmwSteps({ park: 0.5 }); return { t0, park: performance.now() - t0 }; })()`);
   const T = Date.now();
   let ready = false, paths = null;
-  const PATHS = on ? '__cmwSteps().paths' : '(() => { const m = __cmwMorphCache(); return { ready: m.ready, kept: m.zs ? m.zs.length : 0 }; })()';
-  while (Date.now() - T < 60000) { await sleep(200); paths = await ev(PATHS); if (paths && paths.ready === true) { ready = true; break; } }
+  while (Date.now() - T < 60000) { await sleep(200); paths = await ev('__cmwSteps().paths'); if (paths && paths.ready === true) { ready = true; break; } }
   const at = await ev('performance.now()');
   const lt = (await ev('__lt')).filter(([s]) => s >= r.t0);
-  await ev(on ? '__cmwSteps({ go: 0, now: true })' : '__cmwMorph({ open: true })'); await settled({ until: on ? '!__cmwSteps().moving' : '__cmwMorph().open === true', max: 8000 });
+  await ev('__cmwSteps({ go: 0, now: true })'); await settled({ until: '!__cmwSteps().moving', max: 8000 });
   const durs = lt.map(([, d]) => d);
   return { on, err, ready, kept: paths && paths.kept, park: Math.round(r.park), readyMs: Math.round(at - r.t0), tasks: lt.length,
     largest: Math.round(Math.max(0, ...durs)), blocked: Math.round(durs.reduce((a, d) => a + d, 0)) };
@@ -45,9 +41,11 @@ const chose = (r) => r.err === '' && r.ready && r.kept > 0;
 ok('ζ as a Dirichlet series builds and its deformation chooses its paths', chose(zeta), zeta);
 ok('z² + 1 builds and its deformation chooses its paths', chose(poly), poly);
 ok('η, (−1)^{n+1} as a Dirichlet series, builds and deforms', chose(eta), eta);
-// gated, generous: GitHub's lavapipe runner takes ~16 times z² + 1's choice on ζ, SwiftShader ~2 times
-ok('the paths on ζ are ready within 30 times those of z² + 1 and 2 s', zeta.readyMs <= 30 * poly.readyMs + 2000, { zeta, poly });
-ok('the start on ζ (the park halfway, or the Deformation click) takes at most 100 ms more than on z² + 1', zeta.park <= poly.park + 100, { zeta, poly });
+// gated, generous: on GitHub's lavapipe runners the ratio is bimodal, about 28 times z² + 1's choice on the fast ones and about 34 times on
+// the slow ones (ζ's time is the main thread held by the cold first draw of its inverse programs, which a slower runner stretches more than
+// z² + 1's), so the limit is 45 times; SwiftShader takes ~2 times. A limit that does not depend on the runner is open: #1365
+ok('the paths on ζ are ready within 45 times those of z² + 1 and 2 s', zeta.readyMs <= 45 * poly.readyMs + 2000, { zeta, poly });
+ok('the start on ζ (the park halfway) takes at most 100 ms more than on z² + 1', zeta.park <= poly.park + 100, { zeta, poly });
 // tighter: reported, not gated (ci/browser_suites.js TIMING)
 ok('timing: the paths on ζ within 5 times those of z² + 1', zeta.readyMs <= 5 * poly.readyMs, { zeta, poly });
 ok('timing: the start on ζ within 50 ms of z² + 1', zeta.park <= poly.park + 50, { zeta, poly });

@@ -21,7 +21,8 @@ const open = async (extra = {}) => {
   await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane') && __cmwSteps().planes.length > 1", 40000);
 };
 const sv = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, T: q.T, planes: q.planes, stage: q.stage }; })()');
-const hide = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
+// (out of the pane's frames: the toasts, the tips and the glide's formula tile (#1533), whose plane names a Split renumbers)
+const hide = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important} #svTile{visibility:hidden!important}' : ''; return 1; })()`);
 // (below the colour key, whose text names the colour plane's function: it changes with the Split)
 const pane = async () => { await ev('__cmwSteps({ bare: true })'); await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 2 : r.top; return { x: Math.round(r.left) + 2, y: Math.round(t) + 90, width: Math.round(r.width) - 4, height: Math.round(r.bottom - t - 210) }; })()`); const i = await img(r); await hide(false); await ev('__cmwSteps({ bare: false })'); return i; };
 const diff = (a, b) => { if (a.w !== b.w || a.h !== b.h) return -1; let n = 0; for (let j = 0; j < a.data.length; j += a.ch) if (Math.abs(a.data[j] - b.data[j]) > 8 || Math.abs(a.data[j + 1] - b.data[j + 1]) > 8 || Math.abs(a.data[j + 2] - b.data[j + 2]) > 8) n++; return n; };
@@ -34,13 +35,19 @@ await open();
 await ev('__cmwSteps({ park: 1.5 })'); await until('Math.abs(__cmwSteps().x - 1.5) < 1e-6');
 const a = await pane(), s0 = await sv(); await shot('ssr-before');
 await split();
+// (the Undo toast closes after 6 s; the frames below take longer on a busy page: hold it as a pointer over it does)
+await ev(`document.querySelector('#toastHost .toast').dispatchEvent(new PointerEvent('pointerenter')); 1`);
 const s1 = await sv();
 ok('3 steps became 5', s1.planes.length === 6, s1);
 ok('parked: x 1.5 → 2.5', Math.abs(s1.x - 2.5) < 1e-9, [s0, s1]);
 ok('the colour plane stays the last (F)', s1.T === 5 || s1.T === -1, s1);
 await shot('ssr-after'); { const a2 = await pane(); info.parkedPx = diff(a, a2); info.parkedWhere = where(a, a2); }
 ok('parked: the frame is pixel-equal', info.parkedPx === 0, [info.parkedPx, info.parkedWhere]);
-await clickSel('#toastHost .toast button'); await until('__cmwSteps().planes.length === 4'); await quiet();
+// (Undo through the top bar's button, as the toast's Undo does: the toast goes by itself 6 s after the Split, and a page that
+// takes longer to get here has no toast to click)
+await ev("document.getElementById('undoBtn').click()");
+const undone = await until('__cmwSteps().planes.length === 4'); await quiet();
+ok('Undo: the click landed (the chain has its 3 steps again)', undone.ok, undone);
 const s2 = await sv();
 ok('Undo: 3 steps and x = 1.5 again', s2.planes.length === 4 && Math.abs(s2.x - 1.5) < 1e-9, s2);
 

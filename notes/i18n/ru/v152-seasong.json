@@ -5,11 +5,6 @@
   "ru": "В пещере горного короля",
   "note": "app.js EX, the example's name (the Examples menu and button). The standard Russian title of Grieg's piece."
  },
- "v152sea.example_blurb": {
-  "en": "Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral's menu (right-click, or hold on touch): the theme speeds up and grows louder as the curve winds in, and the branch cut is the drum.",
-  "ru": "Эдвард Григ, «Пер Гюнт» (1875). Выберите «Слушать вдоль кривой» в меню спирали (щелчок правой кнопкой, на сенсорном экране — долгое нажатие): тема ускоряется и звучит всё громче, пока кривая закручивается внутрь, а разрез — это барабан.",
-  "note": "app.js EX, the example's description (the gallery line, cut with an ellipsis: its first clause works on every device, review ui-8; the whole text is the tooltip where the line is cut; the palette). Gestures as glossary 3 («щелчок правой кнопкой», «долгое нажатие»); «Слушать вдоль кривой»: glossary 1.12 (the menu item reads «Слушать вдоль кривой «{name}»»)."
- },
  "v152sea.off_phone": {
   "en": "Sound is off: turn it on here, or in the ⋯ menu.",
   "ru": "Звук выключен: включите его здесь или в меню ⋯.",
@@ -29,11 +24,6 @@
   "en": "Turn on and listen",
   "ru": "Включить и слушать",
   "note": "app.js sndListenAsk, the toast's button."
- },
- "v152sea.guide_melody": {
-  "en": "<b>A curve as a melody.</b> <b>Listen along</b>, in a curve's menu, plays the harp along the curve at an even pace: arg <i>F</i> is the pitch, each phase line it crosses plucks that line's string, crossing back plucks it again and a leap runs over the strings between, and |<i>F</i>| sets the register (lower near zeros, higher near poles). A closed loop's last note is its winding number. The example “In the Hall of the Mountain King” (after Edvard Grieg) is a single curve: at constant speed each turn of its spiral is shorter, so the theme speeds up by itself, and each time it crosses the branch cut the drum sounds. This example has its own strings, one for each note Grieg wrote: only those notes and the drum sound, each in its written octave.",
-  "ru": "<b>Кривая как мелодия.</b> Пункт <b>Слушать вдоль кривой</b> в меню кривой играет на арфе вдоль кривой в ровном темпе: arg <i>F</i> — это высота звука, каждая линия фазы при пересечении звучит щипком своей струны, обратное пересечение щиплет её снова, а скачок пробегает по промежуточным струнам; |<i>F</i>| задаёт регистр (ниже у нулей, выше у полюсов). Последняя нота замкнутой петли — её число оборотов. Пример «В пещере горного короля» (по Эдварду Григу) — одна кривая: при постоянной скорости каждый виток её спирали короче предыдущего, поэтому тема ускоряется сама, а всякий раз, когда кривая пересекает разрез, звучит барабан. У этого примера собственные струны, по одной на каждую ноту Грига: звучат только эти ноты и барабан, каждая в той октаве, в которой она написана.",
-  "note": "app.js guide, Sound, after the harp paragraph. «щипок струны», «линии фазы», «число оборотов», «нуль», «полюс» as in v152s.guide_sound; «разрез»: glossary branch cut; «регистр», «громкость»: glossary 1.12. The title in «ёлочки» (rule 9; the English in quotes, not <i>, the math italic: review ui-5); «каждая линия фазы при пересечении» has no pronoun to misread (review ui-6: «которую он пересекает» read as the menu item). Round 2 (notes/sea-song/r2): the last sentence now says the example plays on its own strings, only Grieg's notes and the drum, each in its written octave (it was: sets its own register and dynamics)."
  },
  "v152sea.play_button": {
   "en": "Open and play “In the Hall of the Mountain King”",

@@ -9,7 +9,23 @@
   }
   // the curves drawn in this plane: shapes of 'list' under F (from drawPoints)
   function labelCurves(pane, F, list) { labelReg(pane).curves.push({ F, list }); }
-  // labels: STIX italic for variables, the UI face for words. it: {x, y, text, word?, rad? (marker radius)}
+  // the controls drawn over a pane's plane (its chips, key, options and view buttons), as boxes in the plane's css px
+  function labelChrome(pane) {
+    const cv = pane.canvas, host = cv && cv.parentElement;
+    if (!host) return [];
+    const o = cv.getBoundingClientRect(), out = [];
+    for (const el of host.querySelectorAll(':scope > .chip, :scope > .legend-chip, :scope > .options, :scope > .viewstack, :scope > .empty-chip, :scope > .ld-key')) {
+      if (el.hidden || el.offsetParent === null) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) out.push({ x0: r.left - o.left, x1: r.right - o.left, y0: r.top - o.top, y1: r.bottom - o.top });
+    }
+    return out;
+  }
+  // labels: STIX italic for variables, the UI face for words. it: {x, y, text, word?, id?, rad? (marker radius), chrome?
+  // (kept off labelChrome's controls), avoid? (boxes in css px the label keeps off where it can: each one a spot crosses
+  // costs AVOID_COST), ink? (the text's colour, else the ink)}
+  // the font of a label that is a word ("+2 more"), not a name in maths
+  const wordFont = () => `500 12px ${TH.ui}`;
   function placeLabels(ctx, pane, items) {
     const r = labelReg(pane);
     for (const it of items) { r.items.push(it); r.marks.push([it.x, it.y, it.rad || 8]); }
@@ -33,20 +49,27 @@
     pane.labels = null;
     if (!r.items.length) return;
     const v0 = pane.view; pane.view = r.view;
-    const t0 = labelProbe ? performance.now() : 0;
-    try { flushLabelsIn(pane, r); } finally { pane.view = v0; if (labelProbe) labelProbe(performance.now() - t0, r.curves.length); }
+    // (the probe times the screen's panes' passes: a frame drawn off-screen, the steps view's frames drawn ahead, is none of them)
+    const probe = labelProbe && (pane === paneL || pane === paneR) ? labelProbe : null, t0 = probe ? performance.now() : 0;
+    try { flushLabelsIn(pane, r); } finally { pane.view = v0; if (probe) probe(performance.now() - t0, r.curves.length); }
   }
   // (a probe for the time of a pass and the curves it keeps the labels off, set by the test page and the perf run: none in the
   // published page)
   let labelProbe = null;
   function setLabelProbe(f) { labelProbe = f; }
-  // (#1059) a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
+  // a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
   // (no re-pick, so no side flips). A full placement is a function of the view alone (the parked-frame rule), so the
   // offset it records is not carried into the next full placement: the stop may move a label that the moving frames held
   const labelSlots = new Map();
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
+  // (a point under a control has its label in the free part of the plane, level with the point or LEADER_ROWS rows above and below it, with a LEADER_COST penalty: a leader joins it to the point)
+  const LEADER_ROWS = 3, LEADER_COST = 3;
+  // (a point whose marker lies wholly under controls is not seen: its label stands where it would, with no leader, which would only point at the control. A plain dot's marker reaches 5 px from the point: its 3.5 px ring, the ring's stroke and halo; it is sampled at its centre and at eight points on the circle of MARKER_R px, on the disc's edge. test/label_controls_cmd.js samples the same nine points, its MARK_R matched to this by hand)
+  const MARKER_R = 5;
+  // (a label's halo, and the leader's ink line, in px)
+  const HALO_W = 3, LEADER_W = 1;
   // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
-  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4;
+  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4, AVOID_COST = 1;
   // (the points that are gone, deleted or replaced with the chain, lose their offsets)
   function pruneLabelSlots() {
     if (!labelSlots.size) return;
@@ -55,10 +78,40 @@
     for (const s of S.targets || []) live.add(s.id);
     for (const id of labelSlots.keys()) if (!live.has(id)) labelSlots.delete(id);
   }
+  // (each box grown by CTRL_PAD px, so that a label does not sit against a control's edge)
+  const CTRL_PAD = 4;
+  // the boxes of the controls over a plane's canvas, in the plane's pixels (what the labels' boxes are in): the plot's children that are not
+  // canvases, shown and with a box. A label drawn under one is covered by it. Not the progress hairline along the top of the plots (it is no
+  // control), nor the readout chip: its width follows the pointer, and a resting picture's labels do not depend on where the pointer was.
+  // Called once for each full placement (a picture at rest or after a change), never for a frame of a drag, a glide or a scrub (lite)
+  function controlBoxes(pane) {
+    const plot = pane.ocanvas && pane.ocanvas.parentElement;
+    if (!plot) return [];
+    const pr = plot.getBoundingClientRect(), out = [];
+    for (const c of plot.children) {
+      if (c.tagName === 'CANVAS' || c.classList.contains('hairline') || c.classList.contains('readout')) continue;
+      const r = c.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1 || getComputedStyle(c).visibility === 'hidden') continue;
+      out.push({ x0: r.left - pr.left - CTRL_PAD, x1: r.right - pr.left + CTRL_PAD, y0: r.top - pr.top - CTRL_PAD, y1: r.bottom - pr.top + CTRL_PAD });
+    }
+    return out;
+  }
+  // whether a control of the plane is on top at every one of the marker's nine sample points: the marker is not seen. Nine hit tests, only for a point that a control covers and that has no free spot, once per labels pass
+  function markerHidden(pane, x, y) {
+    const plot = pane.ocanvas && pane.ocanvas.parentElement;
+    if (!plot) return false;
+    const pr = plot.getBoundingClientRect();
+    const samples = [[0, 0]];
+    for (let k = 0; k < 8; k++) samples.push([MARKER_R * Math.cos(k * Math.PI / 4), MARKER_R * Math.sin(k * Math.PI / 4)]);
+    return samples.every(([dx, dy]) => {
+      const e = document.elementFromPoint(pr.left + x + dx, pr.top + y + dy);
+      return !!e && e !== plot && e.tagName !== 'CANVAS' && !e.classList.contains('ph-col') && plot.contains(e);   // (the column's own box spans the gaps between its keys)
+    });
+  }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
     const lite = !!r.lite;
-    // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles
+    // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles (a frame between two planes' marks too)
     const marks = r.marks;
     const hard = [];
     const sel = pane === paneL && lFlat() && leftStage() === 0 ? S.shapes.find((x) => x.id === selected)
@@ -66,7 +119,11 @@
     if (sel) {
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }
-    if (pane === paneL && lFlat()) for (const hd of cutHandlesL) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
+    if (pane === paneL && lFlat()) for (const hd of cutHandlesL.concat(cutMarksL)) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
+    // (the plane's own controls, over its canvas: the legend chips, the view buttons, the phone's button column. Read at a full
+    // placement only: a pass on the move keeps the offsets of the last one)
+    const ctrl = lite ? [] : controlBoxes(pane);
+    hard.push(...ctrl);
     // soft obstacles: the curves, as a 4px occupancy grid
     const G = 4, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     let grid = null;
@@ -116,9 +173,11 @@
     for (const it of r.items) {
       const g = groups.find((q) => Math.abs(q.x - it.x) < 2.5 && Math.abs(q.y - it.y) < 2.5);
       const word = /\s|[a-z]{3,}/i.test(it.text) && !/^[a-z][′″‴⁽]?/i.test(it.text.slice(0, 2)) ? true : !!it.word;
-      if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; }
-      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id });
+      if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; g.chrome = g.chrome || !!it.chrome; g.avoid = g.avoid.concat(it.avoid || []); }
+      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id, chrome: !!it.chrome, avoid: it.avoid || [], ink: it.ink });
     }
+    // (an item with chrome set keeps off the controls drawn over the plane, labelChrome)
+    const chrome = groups.some((g) => g.chrome) ? labelChrome(pane) : [];
     const placed = [];
     const th = 13;
     let mcx = 0, mcy = 0;
@@ -127,10 +186,10 @@
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.lineJoin = 'round'; ctx.lineWidth = 3;
+    ctx.lineJoin = 'round'; ctx.lineWidth = HALO_W;
     for (const g of groups) {
       const text = g.texts.join(' = ');
-      ctx.font = g.word ? `500 12px ${TH.ui}` : `italic 500 13px ${TH.math}`;
+      ctx.font = g.word ? wordFont() : `italic 500 13px ${TH.math}`;
       const tw = ctx.measureText(text).width;
       // NE, NW, SE, SW; then E, W, N, S; then the diagonals one step further out
       const cands = [[7, -7, 0], [-7 - tw, -7, 0], [7, 7 + th, 0], [-7 - tw, 7 + th, 0],
@@ -149,19 +208,20 @@
         const x0 = g.x + dx, y1 = g.y + dy, y0 = y1 - th, x1 = x0 + tw;
         if (x0 < 2 || x1 > W - 2 || y0 < 2 || y1 > H - 2) return null;
         const hit = (b) => x0 < b.x1 && x1 > b.x0 && y0 < b.y1 && y1 > b.y0;
-        if (placed.some(hit) || hard.some(hit)) return null;
+        if (placed.some(hit) || hard.some(hit) || (g.chrome && chrome.some(hit))) return null;
         if (marks.some(([mx, my, rad]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && x0 < mx + rad && x1 > mx - rad && y0 < my + rad && y1 > my - rad)) return null;
         // a label nearer another marker than its own reads as that marker's: allowed only as a last resort
         const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, dOwn = Math.hypot(bx - g.x, by - g.y);
         const amb = marks.some(([mx, my]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && Math.hypot(bx - mx, by - my) < dOwn - 1);
-        const cc = curveCost(x0, y0, x1, y1);
-        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) };
+        const cc = curveCost(x0, y0, x1, y1), av = g.avoid.filter(hit).length;
+        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) + AVOID_COST * av };
       };
       const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
-      let x, y;
+      let x, y, leader = false;
       if (lite && g.id !== undefined) {
         // on the move: the last full placement's offset, drawn as it is
         [x, y] = [g.x + (slot || LABEL_DEFAULT)[0], g.y + (slot || LABEL_DEFAULT)[1]];
+        leader = !!(slot && slot[2]);
       } else {
         // at rest: the best candidate for the view alone, so a resting picture does not depend on the path taken to it
         let best = null, bestCost = Infinity;
@@ -169,19 +229,34 @@
           const e = evalCand(dx, dy, pen);
           if (e && e.cost < bestCost) { best = e; bestCost = e.cost; if (e.cost === 0) break; }
         }
+        // a point under a control (the phone's key column rises over it): its label stands left of that control, joined to the point by a leader
+        const cover = best ? null : ctrl.find((b) => g.x > b.x0 && g.x < b.x1 && g.y > b.y0 && g.y < b.y1);
+        if (cover) {
+          for (let k = 0; k <= LEADER_ROWS * 2 && !best; k++) {
+            const row = k % 2 ? (k + 1) / 2 : -k / 2;
+            best = evalCand(cover.x0 - tw - g.x, row * (th + 2), LEADER_COST);
+          }
+          leader = !!best && !markerHidden(pane, g.x, g.y);
+        }
         if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
         ({ x, y } = best);
-        if (g.id !== undefined) labelSlots.set(g.id, [x - g.x, y - g.y]);
+        if (g.id !== undefined) labelSlots.set(g.id, leader ? [x - g.x, y - g.y, true] : [x - g.x, y - g.y]);
       }
-      placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text });
+      placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text, leader });
+      if (leader) {
+        ctx.beginPath(); ctx.moveTo(x + tw + 1, y - th / 2 + 1); ctx.lineTo(g.x, g.y);
+        ctx.strokeStyle = TH.halo; ctx.lineWidth = HALO_W; ctx.stroke();
+        ctx.strokeStyle = g.ink || TH.ink; ctx.lineWidth = LEADER_W; ctx.stroke();
+        ctx.lineWidth = HALO_W;
+      }
       ctx.strokeStyle = TH.halo; ctx.strokeText(text, x, y);
-      ctx.fillStyle = TH.ink; ctx.fillText(text, x, y);
+      ctx.fillStyle = g.ink || TH.ink; ctx.fillText(text, x, y);
     }
     ctx.restore();
     if (!lite) pruneLabelSlots();
     if (labelProbe) pane.labelsPlaced = placed;   // (what the last pass put down, kept only where a probe is set: the suites compare it at rest and after a glide)
   }
-  // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
+  // (a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
   // as they are)
   const primesOf = (s, p) => (p > 0 ? Math.max(0, p - shapeStage(s)) : p || 0);
   function drawPoints(pane, F, opt = {}) {
@@ -189,7 +264,7 @@
     const ctx = pane.ctx;
     let pi = 0;
     const labels = [];
-    // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
+    // (opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
     const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
     // (opt.lite: a view on the move, a glide or a scrub, has no curves to keep the labels off: sampling every curve through the
     // plane's map costs up to 600 evaluations a curve. Its labels keep their last full placement's offsets, so they do not
@@ -206,7 +281,7 @@
       if (x < -20 || y < -20 || x > pane.w + 20 || y > pane.h + 20) continue;
       const ink = shapeInk(s);
       if (mk) {
-        // (v16 review picture-10) the same outer extent as a dot (r 4 and its halo reach 5 px): a 1.5 px ring at r 3.5
+        // the same outer extent as a dot (r 4 and its halo reach 5 px): a 1.5 px ring at r 3.5
         // inside a 3.5 px halo (1 px each side of the ring), unfilled, so it reads hollow on any pattern
         const rr = mk === 'helper' ? (opt.thin ? 2 : 2.75) : (opt.thin ? 2.4 : 3.5);
         ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
@@ -226,8 +301,11 @@
   }
   // branch cuts and poles of step k+1 live in the plane of stage k
   const offEdge = (pane, x, y, m) => x < m || y < m || x > pane.w - m || y > pane.h - m;
+  // a chain the GPU refuses draws no plane, and the status card is the plane's: its cuts, their handles and θ chips are not drawn over the card's words
+  const chainRefused = () => { const st = GLR.frameStatus ? GLR.frameStatus() : null; return !!(st && st.error); };
   function drawCuts(pane, k, editable, thin) {
     if (artMode) return [];
+    if (chainRefused()) { carriedCuts = []; return []; }
     const handles = [];
     if (editable && !thin && SV.on) drawCarriedCuts(pane, k, handles);
     const st = S.steps[k];
@@ -254,7 +332,7 @@
       } else if (c.kind === 'seg') {
         [x0, y0] = pane.w2s(c.a); [x1, y1] = pane.w2s(c.b);
       } else if (c.kind === 'circle' || c.kind === 'vline') {
-        // [issue #5] a series' region of convergence: dashed, in the cut ink, over its halo
+        // a series' region of convergence: dashed, in the cut ink, over its halo
         ctx.setLineDash([6, 4]);
         for (const [style, w, a] of [[TH.halo, thin ? 2.5 : 3.5, TH.haloA], [TH.cut, thin ? 1.25 : 1.75, 1]]) {
           ctx.strokeStyle = style; ctx.lineWidth = w; ctx.globalAlpha = a;
@@ -277,9 +355,7 @@
         ctx.beginPath();
         for (let t = 8; t < L; t += 7) { const px = x0 + ux * t, py = y0 + uy * t; ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54); }
         ctx.stroke();
-        // branch point
-        ctx.fillStyle = TH.halo; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, TAU); ctx.fill(); ctx.stroke();
+        branchDot(pane, c.p);
       }
     }
     const sc = thin ? 0.66 : 1;
@@ -290,7 +366,7 @@
       for (const z of b.zp.zeros) {
         if (!CX.isFin(z)) continue;
         const [x, y] = pane.w2s(z);
-        if (thin && offEdge(pane, x, y, 4 * sc + 2)) continue;   // (review design-20: a card never shows half a mark)
+        if (thin && offEdge(pane, x, y, 4 * sc + 2)) continue;   // (a card never shows half a mark)
         ctx.fillStyle = TH.zero; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2.5 * sc;
         ctx.beginPath(); ctx.arc(x, y, 4 * sc, 0, TAU); ctx.stroke(); ctx.fill();
       }
@@ -311,9 +387,10 @@
   // of the exact preimages of w (the inverse branches, whatever the cut), the one nearest q0; else reached from q0 by
   // moving the target from F(q0) to w in small steps, a Newton solve at each (the continuation keeps the drag on one
   // branch). Off the image of F's branch (the exact preimages are then none) the continuation runs on Fc, the same map
-  // with its cut turned half a turn away (cutFree), so a drag leaves the image either way. Null where there is none
+  // with its cut turned half a turn away (cutFree), so a drag leaves the image either way. Null where there is none.
+  // With no plane b (F the picture of a frame between two planes, the glide's map at its u) the continuation alone
   function cutPull(F, w, q0, a, b, Fc) {
-    const ex = exactPre(a, b, [w.re, w.im]);
+    const ex = b == null ? null : exactPre(a, b, [w.re, w.im]);
     if (ex && ex.zs.length) {
       let best = null, bd = Infinity;
       for (const z of ex.zs) { const d = CX.abs(CX.sub(z, q0)); if (d < bd) { bd = d; best = z; } }
@@ -392,10 +469,11 @@
     return out;
   }
   // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
-  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs)
-  function strokeCurves(pane, curves, dash) {
+  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs); dash, the dash pattern, starts
+  // dashOffset px into it on every arc (the offset holds for a bank drawn as one run: an arc after a pen lift starts at it too)
+  function strokeCurves(pane, curves, dash, dashOffset = 0) {
     const ctx = pane.ctx;
-    ctx.setLineDash(dash || []);
+    ctx.setLineDash(dash || []); ctx.lineDashOffset = dashOffset;
     const arcs = distinctArcs(curves.map((pts) => {
       let pen = null;
       return pts.flatMap((q) => {
@@ -414,13 +492,16 @@
       }
       ctx.stroke();
     }
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.globalAlpha = 1;
   }
   // (CUT_FLAT: under the 1.75 px stroke's half width, so a split chord never shows; CUT_DEPTH: a turn between two samples
   // is under 1.5 rad and 2^6 pieces of it are under 0.03 rad, which a circle of 100 px keeps within CUT_FLAT; CUT_BEND: a
   // chord of c px along an arc that turns by t rad is off it by about c t / 8, so a pair is tested only where c t exceeds
-  // 8 CUT_FLAT, t read off the neighbouring chords: a straight bank costs no sample beyond the base set)
-  const CUT_FLAT = 0.75, CUT_DEPTH = 6, CUT_SAMPLES = 480, CUT_BEND = 8 * CUT_FLAT;
+  // 8 CUT_FLAT, t read off the neighbouring chords: a straight bank costs no sample beyond the base set; CUT_SHARP: the
+  // turn (rad) at a thinned chord's end past which it takes the full set's samples whatever its length, as at a corner
+  // of the image, where c t / 8 falls short. A chord across a right-angled corner (the strips of arcosh and arccos)
+  // turns by 90° over its two ends, so by 45° at one of them at least: 20° takes it with room to spare)
+  const CUT_FLAT = 0.75, CUT_DEPTH = 6, CUT_SAMPLES = 480, CUT_BEND = 8 * CUT_FLAT, CUT_SHARP = 0.35;
   // the distance (px) of the point q from the segment a-b
   function segDist(q, a, b) {
     const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
@@ -432,15 +513,19 @@
   // points [re, im]. The samples run along the ray quadratically over its first 5/6 and geometrically past it; every
   // `step`-th of the full set is taken (step 4: a quarter of them, the same radii), a glide's frames being drawn
   // many times a second. A step of two visible samples whose midpoint is more than CUT_FLAT px off the segment between
-  // them is split there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a sample apart, and
-  // the chords would cut across it
+  // them is split there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a
+  // sample apart, and the chords would cut across it. Where a chord of the `step`-th samples bends (CUT_BEND,
+  // CUT_SHARP), the full set's samples between its ends are taken too, and split as the full set splits them: where the
+  // image bends, as at a corner of arcosh's half-strip, a glide frame's polyline is the full set's, its length past
+  // the bend is the same, and the dashes laid along it (strokeCurves) keep their phase when the glide arrives on the
+  // plane at rest
   function cutBank(pane, c, F, side, win, proj, step = 1) {
     const a = c.ang + side * 1e-7, Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
     const pts = [], ws = [];
     const at = (i) => {
       const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
       const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
-      return { w, q: CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null };
+      return { i, w, q: CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null };
     };
     const put = (p) => { pts.push(p.q); if (CX.isFin(p.w)) ws.push([p.w.re, p.w.im]); };
     const split = (i0, p0, i1, p1, depth) => {
@@ -449,19 +534,34 @@
       if (!pm.q || segDist(pm.q, p0.q, p1.q) <= CUT_FLAT) return;
       split(i0, p0, im, pm, depth + 1); put(pm); split(im, pm, i1, p1, depth + 1);
     };
-    const base = [];
-    for (let i = 0; i <= CUT_SAMPLES; i += step) base.push(at(i));
-    // (the direction of the chord k -> k + 1; null where either end is hidden or there is no such chord)
-    const dir = (k) => {
-      const p = base[k], q = base[k + 1];
+    // (the direction of the chord k -> k + 1 of the samples s; null where either end is hidden or there is no chord)
+    const dir = (s, k) => {
+      const p = s[k], q = s[k + 1];
       return p && q && p.q && q.q ? Math.atan2(q.q[1] - p.q[1], q.q[0] - p.q[0]) : null;
     };
     const turn = (d0, d1) => (d0 == null || d1 == null ? 0 : Math.abs(Math.atan2(Math.sin(d1 - d0), Math.cos(d1 - d0))));
-    for (let k = 0; k < base.length; k++) {
-      if (k > 0 && base[k - 1].q && base[k].q) {
-        const len = Math.hypot(base[k].q[0] - base[k - 1].q[0], base[k].q[1] - base[k - 1].q[1]), d = dir(k - 1);
-        if (len * Math.max(turn(dir(k - 2), d), turn(d, dir(k))) > CUT_BEND) split((k - 1) * step, base[k - 1], k * step, base[k], 0);
+    // (the chord k - 1 -> k of s, both ends visible: its length and the larger turn at its ends; null otherwise)
+    const bend = (s, k) => {
+      if (!(k > 0 && s[k - 1].q && s[k].q)) return null;
+      const d = dir(s, k - 1), len = Math.hypot(s[k].q[0] - s[k - 1].q[0], s[k].q[1] - s[k - 1].q[1]);
+      return { len, t: Math.max(turn(dir(s, k - 2), d), turn(d, dir(s, k))) };
+    };
+    let base = [];
+    for (let i = 0; i <= CUT_SAMPLES; i += step) base.push(at(i));
+    if (step > 1) {
+      const dense = [base[0]];
+      for (let k = 1; k < base.length; k++) {
+        const b = bend(base, k);
+        if (b && (b.len * b.t > CUT_BEND || b.t > CUT_SHARP)) {
+          for (let i = base[k - 1].i + 1; i < base[k].i; i++) dense.push(at(i));
+        }
+        dense.push(base[k]);
       }
+      base = dense;
+    }
+    for (let k = 0; k < base.length; k++) {
+      const b = bend(base, k);
+      if (b && b.len * b.t > CUT_BEND) split(base[k - 1].i, base[k - 1], base[k].i, base[k], 0);
       put(base[k]);
     }
     return { pts, ws };
@@ -471,11 +571,14 @@
   // globe's), the plane's own scale without it; step thins the samples (cutBank). pre = { k, jMin, H }: the cuts of the
   // steps from jMin on, which live in planes after the picture's, drawn as their preimages in plane k (the exact curves
   // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
-  // as drawCarriedCuts draws them. While the strokes are hidden (the tests' __cmwHideStrokes) none is drawn
-  function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1) {
+  // as drawCarriedCuts draws them. look = { own, marks } makes the picture the cut's look at rest as well: with own(j0) true for the plane j0 a cut lives in, the hatches on the closed side of each
+  // cut's solid bank and the dot at the image of its branch point (the marks of the plane the cut lives in); marks, an array (or null: no handles), takes the editable cuts' handles
+  // ({ x, y, step, deg, p, q, F, from }, for drawCutHandles: the branch point p, the handle's point q on the ray, F and the cut's plane from, which a drag of the handle pulls the
+  // pointer back through, cutPull)
+  function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1, look = null) {
     if (artMode) return;
     carriedCuts = [];
-    if (hideStrokes) return;
+    if (chainRefused()) return;
     pane.ctx.save();
     pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
     for (let j = 1; j <= S.steps.length; j++) {
@@ -484,10 +587,25 @@
       for (const c of b.cuts) {
         if (c.kind !== 'ray') continue;
         const win = stageWin(j - 1);
-        for (const side of [-1, 1]) {
-          const { pts, ws } = cutBank(pane, c, F, side, win, proj, step);
+        // (the clockwise bank is dashed under the solid one: where the two coincide, as along the whole ray of a cut at the start of a glide, the dashes are left out, so the
+        // line is the single one the plane at rest draws; the dashes after a run left out at the bank's start keep their phase from that start, as the plane at rest
+        // draws them, by the run's length as the dash offset)
+        const banks = [-1, 1].map((side) => cutBank(pane, c, F, side, win, proj, step)), solid = banks[1].pts;
+        banks.forEach(({ pts, ws }, i) => {
+          const side = i ? 1 : -1;
           carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
-          strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
+          if (side > 0) { strokeCurves(pane, [pts], []); } else {
+            const kept = pts.map((q, k) => (q && solid[k] && Math.hypot(q[0] - solid[k][0], q[1] - solid[k][1]) < CUT_COINCIDE_PX ? null : q));
+            let lead = 0;
+            for (let k = 1; k < pts.length && !kept[k - 1] && pts[k - 1] && pts[k]; k++) lead += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+            strokeCurves(pane, [kept], [6, 4], lead);
+          }
+          if (look && look.own && look.own(j - 1) && side > 0) hatchCurve(pane, pts);
+        });
+        if (look && look.own && look.own(j - 1)) branchDot(pane, F(c.p), proj);
+        if (look && look.marks && c.editable) {
+          const h = cutHandleAt(pane, F, c, st, win, proj, !!(look.own && look.own(j - 1)));
+          if (h) look.marks.push({ x: h.s[0], y: h.s[1], step: j, deg: st.params.cut ?? 180, p: c.p, q: h.q, F, from: j - 1 });
         }
       }
     }
@@ -508,6 +626,77 @@
     pane.ctx.restore();
   }
   let carriedCuts = [];
+  const CUT_COINCIDE_PX = 1;   // screen px: samples of a cut's two banks this close are one point
+  // the hatches of a cut's closed side along the screen polyline pts (null where it breaks), as drawCuts hatches a ray: a stroke every 7 px of arc length from 8 px on,
+  // 5 px long, turned toward the clockwise side. Only the stretch of each segment inside the pane and HATCH_PAD px around it is stroked (a bank runs tens of thousands of px
+  // out), the strokes keeping their place on the arc
+  const HATCH_PAD = 20;
+  function hatchCurve(pane, pts) {
+    const ctx = pane.ctx;
+    ctx.save();
+    ctx.strokeStyle = TH.cut; ctx.globalAlpha = 1; ctx.lineWidth = 1.25; ctx.setLineDash([]);
+    ctx.beginPath();
+    let run = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      if (!a || !b) { run = 0; continue; }
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (!(L > 0)) continue;
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      // (the parameter range of the segment inside the padded pane, by slabs)
+      let lo = 0, hi = 1;
+      for (const [p0, d, size] of [[a[0], dx, pane.w], [a[1], dy, pane.h]]) {
+        if (d === 0) { if (p0 < -HATCH_PAD || p0 > size + HATCH_PAD) hi = -1; continue; }
+        const t0 = (-HATCH_PAD - p0) / d, t1 = (size + HATCH_PAD - p0) / d;
+        lo = Math.max(lo, Math.min(t0, t1)); hi = Math.min(hi, Math.max(t0, t1));
+      }
+      if (hi >= lo) {
+        const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+        // (the first stroke at or after the visible stretch's start: the strokes are at arc lengths 8 + 7 n)
+        for (let t = 8 + 7 * Math.max(0, Math.ceil((run + lo * L - 8) / 7)); t - run < hi * L; t += 7) {
+          if (t - run < 0) continue;
+          const k = t - run, px = a[0] + ux * k, py = a[1] + uy * k;
+          ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54);
+        }
+      }
+      run += L;
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  // the dot at a cut's branch point, drawn as drawCuts draws it
+  function branchDot(pane, w, proj) {
+    if (!CX.isFin(w)) return;
+    const [x, y] = proj ? proj(w) || [NaN, NaN] : pane.w2s(w), ctx = pane.ctx;
+    if (!Number.isFinite(x)) return;
+    ctx.save();
+    ctx.fillStyle = TH.halo; ctx.strokeStyle = TH.cut; ctx.lineWidth = 1.5; ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  // where the editable cut c of step st has its handle in the picture F draws, { s: [x, y] on the screen, q: its point on the ray } or null: on the plane the cut lives in (own), where drawCuts puts it (a third of the view's
+  // smaller side along the solid bank from the branch point, st.handleR if the step has one that is in view and 20 px from it); on a later plane where drawCarriedCuts does (a third of the
+  // plane's window, pulled in along the ray until it is in view and 20 px clear of the branch point's image)
+  function cutHandleAt(pane, F, c, st, win, proj, own) {
+    const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);   // (d1: the ray's solid bank, the counter-clockwise one, on which the handle stays through the whole glide: it is the ray itself at the start and the plane's own solid bank at the end)
+    const to = (w) => (CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
+    const at = (R) => { const q = CX.add(c.p, CX.scale(d1, R)), s = to(F(q)); return s ? { s, q } : null; };
+    if (own) {
+      const bx = pane.box();
+      let R = Math.min(bx.x1 - bx.x0, bx.y1 - bx.y0) * 0.33;
+      if (st.handleR > 0) { const h = at(st.handleR), p0 = to(o); if (h && p0 && !offEdge(pane, h.s[0], h.s[1], 24) && Math.hypot(h.s[0] - p0[0], h.s[1] - p0[1]) >= 20) R = st.handleR; }
+      return at(R);
+    }
+    // (a branch point that lands at infinity, as log's: nothing to keep clear of)
+    const p0 = to(o) || [Infinity, Infinity];
+    let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
+    for (let tries = 0; tries < 14; tries++, R *= 0.7) {
+      const h = at(R);
+      if (!h || offEdge(pane, h.s[0], h.s[1], 24) || Math.hypot(h.s[0] - p0[0], h.s[1] - p0[1]) < 20) continue;
+      return h;
+    }
+    return null;
+  }
   // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
   // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the clockwise one
   // dashed, and for the editable cuts a handle on the solid curve (the ray's handle point carried the same way, pulled in
@@ -532,18 +721,8 @@
           strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
         }
         if (!c.editable) continue;
-        const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);
-        // (a branch point that lands at infinity, as log's: nothing to keep clear of)
-        const [ox, oy] = CX.isFin(o) ? pane.w2s(o) : [Infinity, Infinity];
-        let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
-        for (let tries = 0; tries < 14; tries++, R *= 0.7) {
-          const q = CX.add(c.p, CX.scale(d1, R)), w = F(q);
-          if (!CX.isFin(w)) continue;
-          const [x, y] = pane.w2s(w);
-          if (offEdge(pane, x, y, 24) || Math.hypot(x - ox, y - oy) < 20) continue;
-          handles.push({ x, y, step: j, p: c.p, deg: st.params.cut ?? 180, F, q, from: j - 1, to: k });
-          break;
-        }
+        const h = cutHandleAt(pane, F, c, st, win, null, false);
+        if (h) handles.push({ x: h.s[0], y: h.s[1], step: j, p: c.p, deg: st.params.cut ?? 180, F, q: h.q, from: j - 1, to: k });
       }
     }
     drawCutPreimages(pane, k, handles);
@@ -606,65 +785,8 @@
       }
     }
   }
-  // images of the two banks of each ray cut, in the plane of stage R (dashed)
-  function drawCutBanks(pane, R) {
-    if (artMode) return;
-    const ctx = pane.ctx;
-    ctx.save();
-    ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.strokeStyle = TH.cut; ctx.globalAlpha = 0.7;
-    for (let k = 1; k <= R; k++) {
-      const b = built[k - 1];
-      // a d/dz step after the cut's step makes the stage no function of the cut's plane: no banks to draw
-      if (!stepFn(k) || !b || derivIn(k - 1, R)) continue;
-      const tail = (z) => { for (let j = k; j <= R; j++) { const f = stepFn(j); if (f) z = f(z); } return z; };
-      for (const c of b.cuts) {
-        if (c.kind !== 'ray') continue;
-        for (const side of [-1, 1]) {
-          const a = c.ang + side * 1e-7;
-          ctx.beginPath();
-          let pen = false;
-          for (let i = 0; i <= 200; i++) {
-            const rr = 1e-3 * Math.pow(1e7, i / 200);
-            const z = C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a));
-            const w = tail(z);
-            if (!CX.isFin(w)) { pen = false; continue; }
-            const [x, y] = pane.w2s(w);
-            if (Math.abs(x) > 1e5 || Math.abs(y) > 1e5) { pen = false; continue; }
-            if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-            pen = true;
-          }
-          ctx.stroke();
-        }
-      }
-    }
-    ctx.restore();
-  }
-  // image of the left viewport rectangle (where the left view lands)
-  function drawFov(pane, F) {
-    if (artMode) return;
-    const b = leftPaneBox();
-    const ctx = pane.ctx;
-    const corners = [C(b.x0, b.y0), C(b.x1, b.y0), C(b.x1, b.y1), C(b.x0, b.y1)];
-    ctx.save();
-    ctx.strokeStyle = TH.fov; ctx.globalAlpha = TH.fovA; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    for (let e = 0; e < 4; e++) {
-      const p = corners[e], q = corners[(e + 1) % 4];
-      let pen = false, lx = 0, ly = 0;
-      for (let i = 0; i <= 64; i++) {
-        const w = F(C(p.re + (q.re - p.re) * i / 64, p.im + (q.im - p.im) * i / 64));
-        if (!CX.isFin(w)) { pen = false; continue; }
-        const [x, y] = pane.w2s(w);
-        if (pen && Math.hypot(x - lx, y - ly) > 200) pen = false;
-        if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-        pen = true; lx = x; ly = y;
-      }
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    for (const c of corners) { const w = F(c); if (!CX.isFin(w)) continue; const [x, y] = pane.w2s(w); ctx.strokeRect(x - 2, y - 2, 4, 4); }
-    ctx.restore();
-  }
+
+
   // orientation chevrons: at mid-length of open curves and at angle 0 of closed boundaries
   function drawChevrons(pane, F0, k) {
     if (artMode) return;
@@ -672,7 +794,7 @@
     const ctx = pane.ctx;
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point' || s.kind === 'cgrid' || s.kind === 'pgrid') continue;
-      const F = shapeF(s, F0, k);   // ([#253] a later plane's shape: its image, from its own plane)
+      const F = shapeF(s, F0, k);   // (a later plane's shape: its image, from its own plane)
       if (!F) continue;
       const r = gpu.get(s.id);
       if (!r || !r.polys) continue;
@@ -714,11 +836,12 @@
     ctx.fillStyle = color || TH.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(text, x + 6, y + 0.5);
   }
-  function drawCutHandles(pane, handles) {
+  // the cut handles on pane's overlay; inert: marks that take no press (a frame between two planes'), never drawn hot
+  function drawCutHandles(pane, handles, inert = false) {
     const ctx = pane.octx;
     for (const hd of handles) {
-      const dragging = drag && drag.mode === 'cut' && drag.step === hd.step;
-      const hot = hoverCut === hd.step || dragging;
+      const dragging = !inert && drag && drag.mode === 'cut' && drag.step === hd.step;
+      const hot = (!inert && hoverCut === hd.step) || dragging;
       if (dragging && !hd.F && !hd.fwd) {
         const [bx, by] = pane.w2s(hd.p);
         const r = 40, ang = hd.deg * DEG;
@@ -741,7 +864,7 @@
   // A zero is a filled dot in the zero ink with a pip, a pole a cross in the pole colour, labelled ζ₁, ζ₂, … and p₁, p₂, …
   // as on the card (shape handles are white squares and circles; target roots are rings in the target's colour).
   const ZP_KINDS = ['zeros', 'poles'];
-  // [UX54] by its number, kept for life (Constr.zpNum: st.zpNums, else its place)
+  // by its number, kept for life (Constr.zpNum: st.zpNums, else its place)
   const zpSym = (kind, i, st) => (kind === 'zeros' ? 'ζ' : 'p') + sub(Constr.zpNum(st, kind, i));
   // (the marks are drawn with every overlay frame: a field's text is parsed once)
   const zpParsed = new Map();
@@ -755,7 +878,7 @@
   };
   const zpSame = (a, k, kind, i) => !!a && a.k === k && a.kind === kind && a.i === i;
   const zpItems = (st, kind) => Funcs.splitList(st.params[kind]);
-  // (review verify-4, design-17 / math-14: a zero or pole field shows the true minus, U+2212, as the Parameters' value
+  // (a zero or pole field shows the true minus, U+2212, as the Parameters' value
   // fields do; the stored text keeps the ASCII hyphen, so a field's text is read back through zpRaw)
   const zpShow = (raw) => String(raw).replace(/-/g, '−');
   const numShow = zpShow;
@@ -763,7 +886,7 @@
   // the zeros-and-poles step that acts on the plane X shows (its input plane): step 1 at the whole chain, step k when
   // k is focused. {k, st, items: {zeros, poles}} (values; null where a field does not parse) or null
   function zpStep() {
-    if (!S || !paneL || solo() === 'R' || !lFlat()) return null;
+    if (!S || !paneL || !lFlat()) return null;
     const j = leftStage(), st = S.steps[j];
     if (!st || st.type !== 'zp' || st.on === false) return null;
     const items = {};
@@ -816,7 +939,7 @@
       }
       if (dr && dr.off) {
         ctx.globalAlpha = 1;
-        const msg = Construct.zpOffNote(dr.k, dr.kind, dr.i) || $t('Release to remove {t}', { t });   // (v16 [C12])
+        const msg = Construct.zpOffNote(dr.k, dr.kind, dr.i) || $t('Release to remove {t}', { t });
         ctx.font = `11px ${TH.mono}`;
         const cw = ctx.measureText(msg).width + 12;
         chip(ctx, x + 14 + cw > pane.w - 4 ? x - 14 - cw : x + 14, Math.min(pane.h - 14, y + 18), msg, TH.error, TH.error);
@@ -916,7 +1039,7 @@
     if (!st || st.type !== 'zp') return;
     const list = zpItems(st, kind);
     if (i < 0 || i >= list.length) return;
-    cmZeroRemoved(k, kind, i);   // (v16 [C12])
+    cmZeroRemoved(k, kind, i);
     list.splice(i, 1);
     zpWrite(st, kind, list);
     if (zpSame(zpSel, k, kind, i)) zpSel = null;
@@ -1063,7 +1186,7 @@
     const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': $t('Remove {sym}', { sym }), 'aria-label': kind === 'zeros' ? $t('Remove zero {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }) : $t('Remove pole {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }), html: ICONS.close,
       onclick: (e) => { e.stopPropagation(); zpRemove(k, kind, i); } });
     const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': kind === 'zeros' ? $t('Zero {sym}: drag it in the input plane', { sym }) : $t('Pole {sym}: drag it in the input plane', { sym }) }, sym);
-    // (v15, review design-8: every zero and pole row has its Argand button, named by the indexed symbol)
+    // (every zero and pole row has its Argand button, named by the indexed symbol)
     const arg = h('button', { class: 'icon-btn argand', type: 'button', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: sym }), html: ICONS.argand,
       onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     return h('div', { class: 'pf zp-item' }, lab, h('div', { class: 'pair' }, input, arg, del));
@@ -1075,7 +1198,7 @@
     let r;
     try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast(((r && r.error) || $t('This step cannot be rewritten.')).replace(/\.?$/, '.')); return null; }
-    // ([issue #6] the same function written another way: a repeat it ends stays)
+    // (the same function written another way: a repeat it ends stays)
     setStepAt(k - 1, Object.assign({ type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     zpSel = null;
     chainChanged(true);
@@ -1084,14 +1207,14 @@
     undoToast(to ? $t('f{k} is now given by its zeros and poles ({note}): drag them in its input plane.', { k: sub(k), note: r.note }) : $t('f{x} is now given by its coefficients.', { x: sub(k) }));
     return null;
   }
-  // [v16.5 UX09] a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
+  // a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
   // mouse: 7 px marks grabbed within 8 px. Before any press, a coarse pointer counts as a finger
   const fingerNow = () => (ptrTouch != null ? ptrTouch : touchUI());
   function handleAt(pane, sel, x, y) {
     const finger = ptrTouch;
     let best = null, bd = Infinity;
     for (const [key, hz] of Region.handlesOf(sel)) {
-      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (a bound handle is no handle; v16.3: nor a fixed shape's)
+      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (a bound handle is no handle; nor a fixed shape's)
       const [hx, hy] = pane.w2s(hz);
       if (finger) { const d = Math.hypot(hx - x, hy - y); if (d < 22 && d < bd) { bd = d; best = key; } }
       else if (Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8) return key;
@@ -1101,16 +1224,21 @@
   function drawHandles(pane, list) {
     const s = (list || S.shapes).find((x) => x.id === selected);
     if (!s) return;
-    const ctx = pane.octx;
-    const k = shapeInk(s).edge, hr = fingerNow() ? 6 : 3.5;
+    const k = shapeInk(s).edge;
     for (const [key, z] of Region.handlesOf(s)) {
-      if (s.def || s.fixed || (s.at && s.at[key])) continue;   // (v16; v16.3 user-1: a fixed unit circle or axis)
+      if (s.def || s.fixed || (s.at && s.at[key])) continue;   // (a fixed unit circle or axis)
       const [x, y] = pane.w2s(z);
-      ctx.fillStyle = TH.surface; ctx.strokeStyle = k; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      if (key === 'c' || key === 'm') ctx.arc(x, y, hr, 0, TAU); else ctx.rect(x - hr, y - hr, 2 * hr, 2 * hr);
-      ctx.fill(); ctx.stroke();
+      drawHandleMark(pane.octx, x, y, key === 'c' || key === 'm', k);
     }
+  }
+  // a shape's handle at (x, y) on ctx (css px): a disc (round, a centre's) or a square, filled with the surface and stroked
+  // in ink, its half size larger for a finger (fingerNow); the Stack's glass draws the target's square with it
+  function drawHandleMark(ctx, x, y, round, ink, lw = 1.5) {
+    const hr = fingerNow() ? 6 : 3.5;
+    ctx.fillStyle = TH.surface; ctx.strokeStyle = ink; ctx.lineWidth = lw;
+    ctx.beginPath();
+    if (round) ctx.arc(x, y, hr, 0, TAU); else ctx.rect(x - hr, y - hr, 2 * hr, 2 * hr);
+    ctx.fill(); ctx.stroke();
   }
   function drawProbe(pane, z, color, casing) {
     if (!z || !CX.isFin(z)) return;
@@ -1137,45 +1265,7 @@
     ctx.lineWidth = 1.25; ctx.strokeStyle = color; arms();
     ctx.restore();
   }
-  // derivative gauge: a small circle and tick around the probe, and their images under the map
-  function drawGauge(paneDom, paneImg, z, F) {
-    const rho = 10 / paneDom.view.s;
-    const ctxD = paneDom.octx, ctxI = paneImg.octx;
-    const [x, y] = paneDom.w2s(z);
-    ctxD.save();
-    ctxD.strokeStyle = TH.probe; ctxD.globalAlpha = 0.6; ctxD.lineWidth = 1;
-    ctxD.beginPath(); ctxD.arc(x, y, 10, 0, TAU); ctxD.stroke();
-    ctxD.globalAlpha = 1; ctxD.strokeStyle = TH.accent; ctxD.lineWidth = 1.5;
-    ctxD.beginPath(); ctxD.moveTo(x + 10, y); ctxD.lineTo(x + 16, y); ctxD.stroke();
-    ctxD.restore();
-    const w0 = F(z);
-    if (!CX.isFin(w0)) return null;
-    const h = rho * 1e-3;
-    const d = CX.scale(CX.sub(F(C(z.re + h, z.im)), F(C(z.re - h, z.im))), 1 / (2 * h));
-    if (!CX.isFin(d)) return null;
-    let r = rho, factor = 1;
-    const rimg = CX.abs(d) * rho * paneImg.view.s;
-    if (rimg > 120) { factor = 120 / rimg; } else if (rimg < 3 && rimg > 0) { factor = 3 / rimg; }
-    r = rho * factor;
-    ctxI.save();
-    ctxI.strokeStyle = TH.probe; ctxI.globalAlpha = 0.6; ctxI.lineWidth = 1;
-    ctxI.beginPath();
-    let pen = false;
-    for (let i = 0; i <= 48; i++) {
-      const a = TAU * i / 48;
-      const w = F(C(z.re + r * Math.cos(a), z.im + r * Math.sin(a)));
-      if (!CX.isFin(w)) { pen = false; continue; }
-      const [px, py] = paneImg.w2s(w);
-      if (pen) ctxI.lineTo(px, py); else ctxI.moveTo(px, py);
-      pen = true;
-    }
-    ctxI.stroke();
-    ctxI.globalAlpha = 1; ctxI.strokeStyle = TH.accent; ctxI.lineWidth = 1.5;
-    const t0 = F(C(z.re + r, z.im)), t1 = F(C(z.re + r * 1.6, z.im));
-    if (CX.isFin(t0) && CX.isFin(t1)) { ctxI.beginPath(); ctxI.moveTo(...paneImg.w2s(t0)); ctxI.lineTo(...paneImg.w2s(t1)); ctxI.stroke(); }
-    ctxI.restore();
-    return { d, factor };
-  }
+
   function drawDraft(pane) {
     if (!draft) return;
     const ctx = pane.octx;

@@ -52,17 +52,25 @@
       return [x + (px - c[0]) * k, y + (py - c[2]) * k];
     };
   };
-  // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera
+  // a sphere's mark is labelled when its normal makes more than this with the line to the eye (the screen's labels start to show
+  // above it)
+  const GLOBE_LABEL_FACE = 0.05;
+  // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera and keep clear of its
+  // outline and of the other labels
   function globeLabels(g, r, c, x, y, k, tp) {
     if (!g || !A.lift) return '';
     const P = (p) => { const q = GLR.M4.apply(g.MVP, p); if (q[3] <= 1e-6) return null; return [x + ((q[0] / q[3] * 0.5 + 0.5) * r.w - c[0]) * k, y + ((1 - (q[1] / q[3] * 0.5 + 0.5)) * r.h - c[2]) * k]; };
     const face = (p) => { const tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]]; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1); };
+    const limb = GLR.globeLimb(g.eye, P), centre = P([0, 0, 0]);
     let m = '';
     for (const [lab, p] of [['0', [0, 0, -1]], ['\\infty', [0, 0, 1]], ['1', A.lift(1, 0)], ['i', A.lift(0, 1)], ['-1', A.lift(-1, 0)], ['-i', A.lift(0, -1)]]) {
-      if (face(p) < 0.3) continue;
-      const q = P(p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
+      if (face(p) <= GLOBE_LABEL_FACE) continue;
+      let q = P(p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (!q) continue;
-      const it = XD.tex(lab, tp), b = XD.boxOf(it, q[0], q[1], 'middle', 'mid');
+      const it = XD.tex(lab, tp), boxAt = (at) => XD.boxOf(it, at[0], at[1], 'middle', 'mid');
+      q = GLR.clearOfLimb(q, boxAt, limb, centre);
+      if (!q) continue;
+      const b = boxAt(q);
       if (XD.boxes.some((o2) => o2.x0 < b.x1 + 0.6 && o2.x1 > b.x0 - 0.6 && o2.y0 < b.y1 + 0.6 && o2.y1 > b.y0 - 0.6)) continue;
       m += XD.at(it, q[0], q[1], 'middle', 'mid', 'globe-label', 0.4);
     }
@@ -101,7 +109,7 @@
     const free = (bb) => !XD.boxes.some((q) => q.x0 < bb.x1 + 1 && q.x1 > bb.x0 - 1 && q.y0 < bb.y1 + 1 && q.y1 > bb.y0 - 1) && bb.x0 > fr.x + 1 && bb.x1 < fr.x + fr.iw - 1 && bb.y0 > fr.top + 1 && bb.y1 < fr.top + fr.ih - 1;
     let tk = '', out = '';
     const edge = (vals, at, dir, name) => {
-      const dec = XD.decimals(vals.step);
+      const dec = XD.axisDec(name, vals.list, vals.step);
       let mid = null, dirm = null;
       const e0 = proj(at(vals.lo)), e1 = proj(at(vals.hi));
       if (e0 && e1) tk += `M${f2(e0[0])} ${f2(e0[1])}L${f2(e1[0])} ${f2(e1[1])}`;
@@ -260,13 +268,11 @@
       }
     }
     if (keyW) {
-      const R = keyW / 2 - 12, r0k = R * 0.55, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2, kid = `${XD.ns}-key`;
-      const url = await ringKey(R, 300);
-      items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0k)} ${f2(ky)}a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(2 * r0k)} 0a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(-2 * r0k)} 0Z" clip-rule="evenodd"/></clipPath>`
-        + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
-        + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0k)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'key'));
+      // (the key's ring: 12 pt of the column's half width go to its marks and margins; 6 pt is the gap under each row)
+      const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2;
+      items.push(ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, P.lw.frame));
+      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
+      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
     }
     const box = kind === 'land' && raws[0].land ? raws[0].land.box : null;
@@ -324,26 +330,23 @@
     const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
     const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
     let boxes = idx.map((i) => {
-      const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD);
+      const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, { pad: SV_FIT_PAD });
       return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null;
     });
     const fellBack = boxes.some((b) => !b);
     boxes = boxes.map((b) => b || cam);
     return { boxes: boxes.every((b) => sameBox(b, cam)) ? null : boxes, fellBack };
   }
-  // The frames are laid out as the deformation's filmstrips (figFilmPic, figFilmPhase): 8 pt between frames, a title
-  // 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the frame and at least 2 pt
-  // of room right of it for the last x label
-  async function figSvFilm(o, P, W, T) {
-    const [tp, lp] = T;
-    const frames = A.svFrames(), n = frames.length, gap = 8;
+  // The frames of a filmstrip (figSvFilm, figNumFilm) laid out as the deformation's filmstrips (figFilmPic, figFilmPhase):
+  // 8 pt between frames, a title 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the
+  // frame and at least 2 pt of room right of it for the last x label. titles: the frames' typeset titles; artAt(i, opts):
+  // frame i's picture (svArt's options), in turn, null when cancelled; boxes: each frame's own window (its axes and
+  // ticks), or null for pictures with no axes. -> {items, defs, lines, H}, or null
+  async function filmGrid(o, P, W, T, titles, artAt, boxes) {
+    const [tp] = T;
+    const n = titles.length, gap = 8;
     const cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols);
     const ink = printInkFor(o, A.state().alpha);
-    // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
-    const fit = svFitBoxes(o, frames.map((f, i) => i));
-    let boxes = fit.boxes;
-    const fellBack = fit.fellBack;
-    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp));
     const tH = Math.max(...titles.map((it) => it.a + it.d + 4));
     // (with windows of their own, each frame carries its ticks: room for its y labels on the left and its x labels below)
     const roughW = (W - gap * (cols - 1)) / cols;
@@ -361,7 +364,7 @@
     for (let i = 0; i < n; i++) {
       // (rendered at SV_FILM_OVER times the frame's width: the frames are small, and the extra pixels keep thin level
       // lines sharp in print)
-      const r = await A.svArt(i, Object.assign({ wpt: pw * SV_FILM_OVER, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
+      const r = await artAt(i, Object.assign({ wpt: pw * SV_FILM_OVER, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
       if (!r) return null;
       raws.push(r);
     }
@@ -372,7 +375,7 @@
       const x = (i % cols) * (mL + pw + mR + gap) + mL, y = Math.floor(i / cols) * (tH + ph + below + ROW_GAP) + tH, r = raws[i];
       if (boxes) {
         const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), boxes[i], { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
-        const p = XD.panel({ x, y, w: pw, h: ph, box: boxes[i], step: steps[i], art: [a], curves: [], points: [], axes: 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw });
+        const p = XD.panel({ x, y, w: pw, h: ph, box: boxes[i], step: steps[i], art: [a], curves: [], points: [], axes: 'box', ylab: 'left', tickPt: tp, labelPt: T[1], ink: '#000000', lw: P.lw });
         items.push(p.markup); defs += p.defs; lines.push(...p.lines);
       } else {
         const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
@@ -382,9 +385,41 @@
       }
       items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
     }
+    return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2 };
+  }
+  async function figSvFilm(o, P, W, T) {
+    const frames = A.svFrames();
+    // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
+    const fit = svFitBoxes(o, frames.map((f, i) => i));
+    const boxes = fit.boxes;
+    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, T[1]));
+    const body = await filmGrid(o, P, W, T, titles, (i, opts) => A.svArt(i, opts), boxes);
+    if (!body) return null;
     // (ownWin: the frames' windows differ, which the caption says)
     const ownWin = !!boxes && boxes.some((b) => !sameBox(b, boxes[0]));
-    return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2, info: { svFilm: true, frames, ownWin, fellBack: ownWin && fellBack, boxes } };
+    return Object.assign(body, { info: { svFilm: true, frames, ownWin, fellBack: ownWin && fit.fellBack, boxes } });
+  }
+  // a filmstrip over a Number: the shown plane's picture at o.numN values of the Number o.numName, evenly from o.numFrom to
+  // o.numTo ({re, im}: along the segment between them for a complex Number), each titled with its value, laid out as the
+  // planes' filmstrip. The Number is set as a change at rest and the app settles before each frame is drawn (A.numberAt);
+  // it is back at its value and range at the end, also when the build is cancelled (A.numberHold)
+  // (the frames a filmstrip over a Number takes: at least, at most, and by default)
+  const NUM_FILM_MIN = 2, NUM_FILM_MAX = 12, NUM_FILM_N = 4;
+  async function figNumFilm(o, P, W, T) {
+    const nu = A.numbers().find((q) => q.name === o.numName);
+    const a = o.numFrom, b = o.numTo, n = Math.max(NUM_FILM_MIN, Math.min(NUM_FILM_MAX, Math.round(o.numN) || NUM_FILM_N));
+    if (!nu || !a || !b) return null;
+    const vals = Array.from({ length: n }, (_, i) => ({ re: a.re + (b.re - a.re) * i / (n - 1), im: a.im + (b.im - a.im) * i / (n - 1) }));
+    const labs = vals.map((v) => cxTexL({ re: +v.re.toPrecision(6), im: +v.im.toPrecision(6) }));
+    const titles = labs.map((l) => XD.tex(`${nu.tex}=${l}`, T[1]));
+    const k = A.svIndex(), release = A.numberHold(nu.name);
+    if (!release) return null;
+    let body;
+    try {
+      body = await filmGrid(o, P, W, T, titles, async (i, opts) => ((await A.numberAt(nu.name, vals[i], o.alive)) ? A.svArt(k, opts) : null), null);
+    } finally { release(); }
+    if (!body) return null;
+    return Object.assign(body, { info: { numFilm: true, num: nu.tex, labs, plane: A.svFrames()[k].name } });
   }
   // the steps view's two-plane figure: plane o.svFrom and plane o.svTo of the thread (indexes into A.svFrames(); by
   // default z and the last plane) side by side, each as the Shown plane exports it, each headed by its name, with the
@@ -392,6 +427,10 @@
   // the other plane figures (Crop, Axes); on the sphere the frames are the stage's pictures, as in the filmstrip.
   // a TeX plane or map name as plain text: w_{2} -> w₂, f_{2}\circ f_{1} -> f₂∘f₁
   const plainName = (tex) => tex.replace(/_\{(\d+)\}/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[+c]).join('')).replace(/\\circ ?/g, '∘').replace(/\\cdots/g, '⋯');
+  // whether a box meets an axis name already placed (XD.boxes), within NAME_GAP pt; the passes that settle the left margin
+  // with the panel it leaves, and the pt it may still be short by
+  const NAME_GAP = 1, MARGIN_PASSES = 6, MARGIN_EPS = 0.01;
+  const nameMeets = (b) => XD.boxes.some((q) => q.kind === 'axis-name' && q.x0 < b.x1 + NAME_GAP && q.x1 > b.x0 - NAME_GAP && q.y0 < b.y1 + NAME_GAP && q.y1 > b.y0 - NAME_GAP);
   async function figSvTwo(o, P, W, T) {
     const [tp, lp] = T, frames = A.svFrames(), n = frames.length;
     const from = Math.max(0, Math.min(n - 2, o.svFrom == null ? 0 : o.svFrom | 0)), to = Math.max(from + 1, Math.min(n - 1, o.svTo == null ? n - 1 : o.svTo | 0));
@@ -412,7 +451,8 @@
     const arrowSpan = Math.max(axes === 'box' ? 22 : 26, arrowLab.w + 12);
     const titles = names.map((nm) => [`\\operatorname{Re} ${nm}`, `\\operatorname{Im} ${nm}`]);
     const ah = 4.6;
-    let mL, gut, mR, top, bottom;
+    // (imHalf: with cross axes, half the width of the first panel's imaginary-axis name, which stands centred over that axis)
+    let mL, gut, mR, top, bottom, imHalf = 0;
     if (axes === 'box') {
       mL = tickW(boxes[0], steps[0], tp) + 3; gut = arrowSpan + 10 + tickW(boxes[1], steps[1], tp) + 3; mR = Math.max(2, overR(boxes[1], steps[1], tp));
       top = lp * 1.15 + 3; bottom = tp * 1.05 + 4.2;
@@ -422,9 +462,28 @@
       const nA = XD.tex(titles[0][0], lp).w, nB = XD.tex(titles[1][0], lp).w, t1 = XD.tex(titles[0][1], lp);
       mL = 3; gut = ah * 0.3 + 2 + nA + 8 + arrowSpan + 8; mR = ah * 0.3 + 2 + nB + 2;
       top = Math.max(t1.a + t1.d + ah + 5, lp * 1.15 + 3); bottom = 3;
+      imHalf = t1.w / 2;
     }
-    let h = (W - mL - gut - mR) / (asp[0] + asp[1]);
-    h = Math.min(h, W * 0.62, P.maxH - top - bottom);
+    // (past the colour plane the To plane's pane key, as the plain still of that plane carries it: the hue ring and the line
+    // saying where the colour is carried from, in a column right of the second picture and of its real-axis name)
+    const sk = A.svKey ? A.svKey(to) : null;
+    const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
+    // (the key's column starts after the room kept right of the second picture, as in the plain still)
+    const keyAt = mR;
+    mR += keyW ? keyW + KEY_GAP : 0;
+    const heightOf = () => Math.min((W - mL - gut - mR) / (asp[0] + asp[1]), W * 0.62, P.maxH - top - bottom);
+    let h = heightOf();
+    // (the first panel's imaginary axis stands at its left edge when its window is right of 0, and its name, centred over it,
+    // and its tick labels, left of it, reach left of the panel: the left margin holds what reaches past it)
+    // (the axis stands f of the panel's width in, and the panel narrows as the margin grows: a few passes settle the two)
+    if (imHalf) {
+      const b = boxes[0], f = Math.min(1, Math.max(0, -b.x0 / (b.x1 - b.x0))), reach = Math.max(imHalf + 1, tickW(b, steps[0], tp) + 3);
+      for (let pass = 0; pass < MARGIN_PASSES; pass++) {
+        const over = reach - f * h * asp[0];
+        if (over <= mL + MARGIN_EPS) break;
+        mL = over; h = heightOf();
+      }
+    }
     const used = mL + gut + mR + h * (asp[0] + asp[1]), x0 = (W - used) / 2, y = top;
     const xs = [x0 + mL, x0 + mL + h * asp[0] + gut];
     const items = [], lines = [];
@@ -443,15 +502,25 @@
         items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(wpt)}" height="${f2(h)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
         lines.push({ x0: x, y0: y, x1: x + wpt, y1: y + h, kind: 'frame' });
       }
+      // (the name heads its panel at the top left corner; where the imaginary axis stands near that corner its name is there,
+      // and the plane's name heads the panel at the top right corner)
       const nm = XD.tex(names[k], lp);
-      items.push(XD.at(nm, x, y - 3, 'start', 'base', 'title'));
+      const corners = [[x, 'start'], [x + wpt, 'end']];
+      const [nx, na] = corners.find(([cx, ca]) => !nameMeets(XD.boxOf(nm, cx, y - 3, ca, 'base'))) || corners[0];
+      items.push(XD.at(nm, nx, y - 3, na, 'base', 'title'));
     }
     // (cross axes: the arrow keeps clear of both real axes, so it never reads as their continuation)
     const oys = axes === 'cross' ? boxes.map((b) => Math.min(y + h, Math.max(y, y + (b.y1 / (b.y1 - b.y0)) * h))) : [];
     const { a0, a1, ay } = arrowPlace({ box: axes === 'box', xr: xs[0] + h * asp[0], xn: xs[1], y, h, oys, label: arrowLab, span: arrowSpan, off: axes === 'cross' ? ah * 0.3 + 2 + XD.tex(titles[0][0], lp).w + 8 : 8 });
     items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
+    let keyBottom = 0;
+    if (keyW) {
+      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + keyAt + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
+      items.push(...k.items);
+      keyBottom = k.bottom;
+    }
     const ownWin = !!fit.boxes && !sameBox(boxes[0], boxes[1]);
-    return { items, defs, lines, H: y + h + bottom, info: { svTwo: true, frames: [frames[from], frames[to]], from, to, arrow: arrowTex, ownWin, fellBack: ownWin && fit.fellBack, boxes } };
+    return { items, defs, lines, H: Math.max(y + h + bottom, keyBottom), info: { svTwo: true, keyLine: keyW ? sk.carried.text : null, frames: [frames[from], frames[to]], from, to, arrow: arrowTex, ownWin, fellBack: ownWin && fit.fellBack, boxes } };
   }
   // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
   async function figFilmPhase(o, P, W, T) {
@@ -515,13 +584,11 @@
       await breathe();
     }
     if (keyW) {
-      const R = keyW / 2 - 12, r0k = R * 0.55, kx = W - keyW / 2, ky = rows * rowH / 2, kid = `${XD.ns}-key`;
-      const url = await ringKey(R, 300);
-      items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0k)} ${f2(ky)}a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(2 * r0k)} 0a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(-2 * r0k)} 0Z" clip-rule="evenodd"/></clipPath>`
-        + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
-        + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0k)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'key'));
+      // (the key's ring: 12 pt of the column's half width go to its marks and margins)
+      const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * rowH / 2;
+      items.push(ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, P.lw.frame));
+      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
+      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
     }
     return { items, defs, lines, H: rows * rowH, info: { film: 'phase', ts, m, labs: ts.map(lab), box, bw, zp: zps, dc } };

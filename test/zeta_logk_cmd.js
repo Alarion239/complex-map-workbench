@@ -14,7 +14,7 @@ const ZETA = 'Zeros of the zeta function';
 await view(1280, 800, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=zetalogk${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const idx = names.indexOf(ZETA);
 ok('the zeta example is in the examples', idx >= 0, idx);
 await ev(`__cmwExample(${idx}); 1`);

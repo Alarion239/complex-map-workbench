@@ -6,14 +6,16 @@
 //         formulas of SPEC 12.1 (a)) x random shapes x random view points: a recording program (the production
 //         lib, INV_HEAD and walker, with the IX_RECORD hook) writes the first 8 visited leaves of each test point
 //         (z, range level in px, sqrt|det dz/dw|), the visited / covering counts and the front keys; compared with
-//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl|, coverage to 0.03,
+//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl| (+ lvlTol's float32 term for a
+//         chain with a Complex power step of |alpha| < 1), coverage to 0.03,
 //         the same visited count; |J| to 5e-3 and the keys D to 2e-3 where float32 resolves them (D <= 16 and
 //         1e-15 < |J| < 1e15; the deeper leaves are counted in skipped.deepLeaves). A point is skipped when the CPU's leaf paths change within
 //         2e-4 (1 + |w|) of it (a cut, a window or a range boundary: float32 decides those differently) or when a
 //         member's range level lies within 0.02 px of the -1 px ramp.
-//  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included)
+//  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included; a line float32
+//         cannot place, one whose crossings its inputs' float32 rounding moves past the tolerance, left out)
 //  fs     REGION_FS(false / true) byte-identical to the fixtures (SPEC 6.1; patterns 0-8 since P3)
-//  flip   12.1 (l): poly 1,0,-1,0 <-> 1,0,0,5, rational q 1,0 <-> 0,1, a Mobius map through degeneracy, at a constant
+//  flip   12.1 (l): poly 1,0,0,0,-1,0 <-> 1,0,0,0,0,5, rational q 1,0 <-> 0,1, a Mobius map through degeneracy, at a constant
 //         forward key: the inverse key changes, the program drawn is the one of the current inverse key (its source
 //         is the current info's lib + walker), the forward uChain layout is unchanged, every frame draws (inverse when
 //         eligible and compiled, else the forward mesh)
@@ -104,6 +106,45 @@ window.__invTestRun = async (opts = {}) => {
     chains.push({ name: 'mobius > zp', steps: [St('mobius'), St('zp', ZPS[4])] });
     chains.push({ name: 'zp > zp', steps: [St('zp', ZPS[0]), St('zp', ZPS[3])] });
   }
+  // a plane past a d/dz step, as the steps view plans it: the steps before the d/dz off and the derivative of their
+  // composition in the d/dz's place (Funcs.derivativeStep for one step, Funcs.chainDerivativeStep for more); gallery
+  // example 15, [z³ - 3z, d/dz], at plane w₂ (no derivative step throws: the chain is never left out, nor planned as
+  // the identity)
+  {
+    const f = St('custom', { expr: 'z^3-3z', cut: 180 }), d = Funcs.derivativeStep(f);
+    if (!d || !d.step) throw new Error('d/dz chain: ' + ((d && d.error) || 'no derivative'));
+    chains.push({ name: 'd/dz of z^3-3z (the step off, its derivative after it)', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step)] });
+    // (a step after the d/dz, as a glide past it plans the chain: M(w) = (w - 1)/(w + 1), whose pole lies on the plane)
+    chains.push({ name: 'd/dz of z^3-3z > mobius', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step), St('mobius', { a: '1', b: '-1', c: '1', d: '1' })] });
+    // (more than one step before the d/dz: the chain rule composed into one formula, Funcs.chainDerivativeStep;
+    // [z + i/2, z³, 2z], D = 6 (z + i/2)²)
+    const before = [St('add', { c: '0.5i' }), St('pown', { n: 3 }), St('mul', { c: '2' })], dc = Funcs.chainDerivativeStep(before);
+    if (!dc || !dc.step) throw new Error('d/dz chain: ' + ((dc && dc.error) || 'no derivative'));
+    chains.push({ name: 'd/dz of z+i/2 > z^3 > 2z (the steps off, the composed derivative after them)', steps: before.map((x) => Object.assign({}, x, { on: false })).concat([Object.assign({ on: true }, dc.step)]) });
+  }
+  // degree 3 in closed form (RAT3, Cardano's roots polished): a cubic polynomial, rational maps of degree 3 (the catalog's,
+  // formulas, zeros and poles), and a cubic inside a chain
+  chains.push({ name: 'cubic poly (1-i)z^3+2z^2+0.5iz-1', steps: [St('poly', { co: '1-i, 2, 0.5i, -1' })] });
+  chains.push({ name: 'cubic rational (z^3+1)/z', steps: [St('rational', { p: '1, 0, 0, 1', q: '1, 0' })] });
+  chains.push({ name: 'cubic rational (z^3+1)/(z^2-4)', steps: [St('custom', { expr: '\\frac{z^3+1}{z^2-4}', cut: 180 })] });
+  chains.push({ name: 'cubic zp zeros 1, 2i poles 0, 3, -1', steps: [St('zp', { a: '1', zeros: '1, 2i', poles: '0, 3, -1' })] });
+  chains.push({ name: 'cubic z^3-2z+1 > exp', steps: [St('poly', { co: '1, 0, -2, 1' }), St('exp')] });
+  // (its value at infinity, 1, inside the views: about w = 1 the cubic's leading coefficient vanishes and one root runs off)
+  chains.push({ name: 'cubic rational (z^3+1)/(z^3-2z+0.5)', steps: [St('custom', { expr: '\\frac{z^3+1}{z^3-2z+0.5}', cut: 180 })] });
+  // degree 4 in closed form (RAT4, Ferrari's roots through the cubic, polished): a quartic polynomial, rational maps of
+  // degree 4 (one with its value at infinity, 1, inside the views), zeros and poles, and a quartic inside a chain
+  chains.push({ name: 'quartic poly z^4+z^3-2z+1', steps: [St('poly', { co: '1, 1, 0, -2, 1' })] });
+  chains.push({ name: 'quartic rational z^3+1/z', steps: [St('custom', { expr: 'z^3+\\frac{1}{z}', cut: 180 })] });
+  chains.push({ name: 'quartic rational (z^4+1)/(z^4-z^2+2z)', steps: [St('custom', { expr: '\\frac{z^4+1}{z^4-z^2+2z}', cut: 180 })] });
+  chains.push({ name: 'quartic zp zeros 1, 2, i poles 0, 3, 4, -i', steps: [St('zp', { a: '1', zeros: '1, 2, i', poles: '0, 3, 4, -i' })] });
+  chains.push({ name: 'quartic mobius > (1-i)z^4+2z^3+0.5iz-1', steps: [St('mobius'), St('poly', { co: '1-i, 2, 0, 0.5i, -1' })] });
+  // degree 5 to 12 by Aberth's iteration (RAT<n>): rational maps of degree 5 (a formula, the catalog's, zeros and poles),
+  // of degree 6 with its value at infinity inside the views, and of degree 12
+  chains.push({ name: 'rat5 rational (z^5+z)/(2z^2-1)', steps: [St('custom', { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 })] });
+  chains.push({ name: 'rat5 catalog rational (z^5+1)/(z^2+z)', steps: [St('rational', { p: '1, 0, 0, 0, 0, 1', q: '1, 1, 0' })] });
+  chains.push({ name: 'rat5 zp zeros 1, 2, i, -i, 0.5 poles 0, 3', steps: [St('zp', { a: '1', zeros: '1, 2, i, -i, 0.5', poles: '0, 3' })] });
+  chains.push({ name: 'rat6 rational (z^6+z)/(z^6-z^2+2)', steps: [St('custom', { expr: '\\frac{z^6+z}{z^6-z^2+2}', cut: 180 })] });
+  chains.push({ name: 'rat12 rational (z^12+z)/(z^2-3)', steps: [St('custom', { expr: '\\frac{z^{12}+z}{z^2-3}', cut: 180 })] });
   // ---- shapes ----
   const SH = [];
   const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (the exact-form discs, when constr.js is loaded)
@@ -173,6 +214,7 @@ void main() {
   ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
   invWalk(t.xy);
+  ixTieOrder();
   if (c.y == 8) o = vec4(float(ixRecN), float(nCov), U, float(nb));
   else if (c.y == 9) o = vec4(nb > 0 ? bD[0] : -1.0, nb > 1 ? bD[1] : -1.0, nb > 2 ? bD[2] : -1.0, ixTailInf ? 1.0 : 0.0);
   else o = ixRecOut;
@@ -186,6 +228,22 @@ void main() {
   float lo, hi, hlo, hhi;
   ixShapeClip(t.xy, t.zw, m, lo, hi, hlo, hhi);
   o = vec4(lo, hi, hlo, hhi);
+}
+`;
+  // the members of generic NEWT op 0 (NB members) for each pixel's w, as the NEWT roots pass writes them: member m at
+  // target m >> 1, .xy for even m and .zw for odd m, IX_NR_NONE where it is not kept
+  const MAIN_MEMBERS = (NB) => `
+void main() {
+  vec2 f = gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw;
+  vec2 w = uCenter + (f * uInvScale + uCenterLo);
+  ixPixW = w; ixNrTexel = ivec2(gl_FragCoord.xy - uVp.xy);
+  ix0_roots(w, uInv[0].x);
+  vec2 q[${NB + (NB & 1)}];
+  for (int m = 0; m < ${NB + (NB & 1)}; m++) q[m] = m < ${NB} && ix0_k[m < ${NB} ? m : 0] ? ix0_r[m < ${NB} ? m : 0] : vec2(3.0e38);
+  o = vec4(q[0], q[1]);
+${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1}
+  o${k + 1} = vec4(q[${2 * k + 2}], q[${2 * k + 3}]);
+#endif`).join('\n')}
 }
 `;
   const EXTRA_WALK = { pre: PRE, main: MAIN_WALK }, EXTRA_CLIP = { pre: PRE, main: MAIN_CLIP };
@@ -230,17 +288,61 @@ void main() {
   }
   const isF = (z) => z && Number.isFinite(z.re) && Number.isFinite(z.im);
   const cabs = (z) => Math.hypot(z.re, z.im);
+  // The level's tolerance in px: 0.05 + 1e-4 |lvl|, and for a chain whose inverse raises to a power 1/|alpha| > 1 (a Complex power
+  // step with |alpha| < 1) the float32 resolution of the points that power amplifies: (cond - 1) ulps of |w| in the output
+  // plane, in px (pix is the px in that plane's units). cond is the product of those 1/|alpha| over the chain; 1 for every other
+  // chain, whose tolerance is the plain one. A step that is off (on: false) is no part of the chain. WARP (Direct3D 11's software renderer)
+  // gave gaps of 0.43 and 0.44 px at levels of 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): about 85 ulps of
+  // w, where SwiftShader's gap is one ulp of the level (6e-5 px)
+  const F32_ULP = 2 ** -23;
+  const lvlTol = (cl, w, pix, cond) => 0.05 + 1e-4 * Math.abs(cl) + (cond - 1) * F32_ULP * cabs(w) / pix;
+  const condOf = (steps, built) => steps.reduce((c, st, i) => (st.type === 'powa' && st.on !== false && built[i] && built[i].vals && built[i].vals.alpha ? c * Math.max(1, 1 / cabs(built[i].vals.alpha)) : c), 1);
+  // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
+  // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
+  // member its residual |H_t(z) - w| / (1 + |w|)
+  async function nrMembers(o, steps, built, planBuilt, plan, prep, st0) {
+    const NB = 2 + Inverse.NEWT_LADDER.length, G = o.grid, inv = GLChain.buildInverse(steps, planBuilt);
+    inv.nr = { j: 0, targets: Math.ceil(NB / 2), main: MAIN_MEMBERS(NB) };
+    const view = { cx: (o.win.x0 + o.win.x1) / 2, cy: (o.win.y0 + o.win.y1) / 2, s: G / (o.win.x1 - o.win.x0) };
+    const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape: o.shape, inv, view, dpr: 1, pw: G, ph: G, t: o.hom, look: { alpha: 1, alphaOwn: 1 } };
+    const reads = [];
+    const draw = gl.drawArrays;
+    gl.drawArrays = function (...a) {
+      draw.apply(this, a);
+      if (!reads.length) for (let k = 0; k < inv.nr.targets; k++) { gl.readBuffer(gl.COLOR_ATTACHMENT0 + k); const buf = new Float32Array(4 * G * G); gl.readPixels(0, 0, G, G, gl.RGBA, gl.FLOAT, buf); reads.push(buf); }
+    };
+    let r;
+    try { r = await untilCompiled(() => { const q = GLR.newtRoots(st); return q.state === 'drawn' ? 'drawn' : q.state === 'pending' ? 'pending' : q.state; }); } finally { gl.drawArrays = draw; }
+    if (r !== 'drawn') return { error: r };
+    const op = Inverse.homOps(built[0], o.hom).ops.find((q) => q.kind === 'NEWT'), Hh = built[0].hom(o.hom);
+    const out = [];
+    for (let j = 0; j < G; j++) {
+      for (let i = 0; i < G; i++) {
+        const w = [o.win.x0 + (i + 0.5) * (o.win.x1 - o.win.x0) / G, o.win.y0 + (j + 0.5) * (o.win.y1 - o.win.y0) / G];
+        const px = j * G + i, gpu = [];
+        for (let m = 0; m < NB; m++) { const b = reads[m >> 1], q = 4 * px + 2 * (m & 1); if (Math.abs(b[q]) < 1e37) gpu.push([b[q], b[q + 1], m, CX.abs(CX.sub(Hh(C(b[q], b[q + 1])), C(w[0], w[1]))) / (1 + Math.hypot(w[0], w[1]))]); }
+        out.push({ w, gpu, cpu: op.pre(C(w[0], w[1])).map((m) => [m.u.re, m.u.im, m.m]) });
+      }
+    }
+    return out;
+  }
   // ---- one case (debugging): opts.single = {steps: [[type, params]], shape, win, pts, pix, alpha} ----
   if (opts.single) {
     const o = opts.single, steps = o.steps.map(([t, p]) => St(t, p)), built = steps.map(Funcs.build);
-    const plan = Inverse.planChain(steps, built);
+    // (o.hom: the glide's frame at u = o.hom, the inverse of each step's homotopy, as the app builds it)
+    const planBuilt = o.hom == null ? built : built.map((b) => Inverse.homBuilt(b, Inverse.homOps(b, o.hom)));
+    const plan = Inverse.planChain(steps, planBuilt);
     GLR.setChain(GLChain.build(steps, built));
     const prep = Inverse.prepare(plan, { win: o.win, shape: o.shape });
     GLR.packShapes([o.shape], { debounce: false });
     const data = new Float32Array(1024 * 2 * 4);
     o.pts.forEach((w, i) => { data[4 * i] = w[0]; data[4 * i + 1] = w[1]; data[4 * i + 2] = Math.fround(o.pix); });
     const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape: o.shape, look: { alpha: o.alpha, alphaOwn: o.alpha }, extra: EXTRA_WALK };
+    // (the homotopy's functions, chainHom, come with the carried colour's program)
+    if (o.hom != null) { st.inv = GLChain.buildInverse(steps, planBuilt); st.extra = Object.assign({ carry: true }, EXTRA_WALK); st.view = { cx: 0, cy: 0, s: 1 }; st.dpr = 1; st.carry = { s: 0, T: 1, an: false }; }
+    if (o.members) return nrMembers(o, steps, built, planBuilt, plan, prep, st);
     const g = await gpuRun(st, data, NP, ROWS);
+    if (g.error) return { error: g.error };
     const B = GLR.inverseB(o.alpha), K = Math.min(B, GLR.inverseK(o.alpha));
     return o.pts.map((w, i) => ({
       gpu: Array.from({ length: ROWS }, (_, r) => Array.from(g.out.subarray(4 * (r * NP + i), 4 * (r * NP + i) + 4))),
@@ -250,14 +352,14 @@ void main() {
   }
   // ---- walk parity ----
   const SPC = opts.shapesPerChain ?? 2;
-  let seedRat = null;   // the rational chains (last in the list) hand the random stream back as they found it: the clip test keeps its sample
   // the first gChains eligible chains take one exact-form disc after their other shapes, on a
   // random stream of its own (the other cases stay the same cases); the GPU packs it at the window's centre, as the app does
   let gSaved = null, gLeft = GDISC ? (opts.gChains ?? 60) : 0;
   R.gWalk = { cases: 0 };
   // (test/glsl_tiers.js: the whole page, tier all, walks every chain on one random stream, as it always did; a tier or a
   // part walks the chains it keeps, each on a stream seeded by its name, so a chain's cases do not depend on which
-  // other chains run; the clip test after the walk then starts from the page's seed)
+  // other chains run; the clip test after the walk starts from the page's seed either way, so its sample does not depend
+  // on the chains or on which of them are eligible)
   const legacy = GLSLTiers.LEGACY || (GLSLTiers.TIER === 'all' && GLSLTiers.PARTS === 1), seed0 = opts.seed || 20261019;
   let prevCh = null, prevT = 0;
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -271,8 +373,8 @@ void main() {
     if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
     prevCh = ch.name; prevT = performance.now();
     const steps = ch.steps, built = steps.map(Funcs.build);
+    const cond = condOf(steps, built);
     const RA = /^(rational|rand-rational)/.test(ch.name) ? R.rational : null;
-    if (RA && seedRat === null) seedRat = seed;
     const plan = Inverse.planChain(steps, built);
     if (!plan.ok) { R.skipped.ineligible++; continue; }
     if (RA) { RA.chains++; const k = plan.ops.map((o) => o.kind).join('>'); RA.kinds[k] = (RA.kinds[k] || 0) + 1; }
@@ -345,7 +447,7 @@ void main() {
           const dz = Math.hypot(q[0] - c.z.re, q[1] - c.z.im);
           if (!(dz <= 2e-3 * (1 + cabs(c.z)))) bad.push(`leaf ${r} z gpu ${q[0]},${q[1]} cpu ${c.z.re},${c.z.im} (${c.path})`);
           const cl = Number.isFinite(c.lvl) ? c.lvl : 1e38;
-          if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= 0.05 + 1e-4 * Math.abs(cl))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl}`);
+          if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= lvlTol(cl, w, pix, cond))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl} (allowed ${lvlTol(cl, w, pix, cond).toFixed(3)}, cond ${cond.toFixed(1)})`);
           // |J| and D only where float32 resolves them: keys D <= 16 (deeper sheets lie 2^16 window radii away or within
           // ~1e-6 rs of an accumulation point, and are never visible) and 1e-15 < |dz/dw| < 1e15
           const cj = Math.sqrt(Math.abs(c.J[0] * c.J[3] - c.J[1] * c.J[2]));
@@ -375,9 +477,7 @@ void main() {
     }
   }
   if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
-  if (seedRat !== null) seed = seedRat;
-  if (!legacy) seed = seed0;
-  if (gSaved !== null) { seed = gSaved; gSaved = null; }
+  seed = seed0; gSaved = null;
   if (GLR.setFormAnchor) GLR.setFormAnchor(null);
   // ---- saturation anchors (SPEC 13.12, P2 review): artanh / arctan of shapes through +-1 / +-i, far out in the strip
   // (|Re w| up to 40: float32 tanh w is +-1 there): GPU leaf coverage = CPU (anchored, float64), and the coverage of
@@ -442,13 +542,235 @@ void main() {
     }
     if (AN.failCount) R.failCount += AN.failCount;
   }
+  // ---- multiple roots (#2098): RAT3 and RAT4 at a critical value list a k-fold root once, as the CPU's ops do
+  // (InvOps.rootMembers): (z - 1)^2 (z + 2) and (z - 1)^2 (z + 2)(z - 3) at w = 0 (the double root 1), and at points
+  // off it, where every root is simple: down to w = 1e-6, whose pair about 1 (8e-4 apart for the quartic, 1e-3 for the
+  // cubic) float32 still resolves. The GPU's leaves (visited count, and each leaf's z) against Inverse.enumerate's, a disc
+  // of radius 4 about 0 holding every root. Closer in (the band rows, w = 1e-8 for the cubic and 1e-7 for the quartic)
+  // the pair lies within float32's rounding of the double root: whether the GPU's arithmetic tells it apart depends on
+  // the GPU (lavapipe and SwiftShader list it once), so there the GPU lists it once or twice: its leaves matched one to
+  // one with CPU leaves (each CPU leaf used once), and a CPU leaf left over only where it merges with a GPU leaf (within
+  // the tolerance of one). The match is checked first on GPU 1, 1, 1 and on GPU 1, 1 against CPU 1 - d, 1 + d, -2, both
+  // of which must fail. A
+  // failure is listed in the walk's fails and byChain too ----
+  {
+    const MR = R.multi = { compared: 0, failCount: 0, fails: [] };
+    // the GPU leaves gl ([x, y] each) matched one to one with CPU leaves cl ({re, im} each), each to the nearest CPU
+    // leaf not yet used within 1e-3 (1 + |z|) -> what does not hold: a GPU leaf left without one, a CPU leaf left over
+    // that is within that tolerance of no GPU leaf (a root the GPU missed, not one merged with another)
+    const near = (q, c) => Math.hypot(q[0] - c.re, q[1] - c.im) <= 1e-3 * (1 + cabs(c));
+    const unmatched = (gl, cl) => {
+      const used = new Set(), bad = [];
+      gl.forEach((q, r) => {
+        let best = -1, bd = Infinity;
+        cl.forEach((c, i) => { const d = Math.hypot(q[0] - c.re, q[1] - c.im); if (!used.has(i) && near(q, c) && d < bd) { best = i; bd = d; } });
+        if (best < 0) bad.push(`band leaf ${r} gpu ${q[0]}, ${q[1]} matches no CPU leaf left`); else used.add(best);
+      });
+      cl.forEach((c, i) => { if (!used.has(i) && !gl.some((q) => near(q, c))) bad.push(`cpu leaf ${c.re}, ${c.im} is left over, and near no GPU leaf`); });
+      return bad;
+    };
+    const dd = [C(1 - 1e-4, 0), C(1 + 1e-4, 0), C(-2, 0)];
+    for (const gl of [[[1, 0], [1, 0], [1, 0]], [[1, 0], [1, 0]]]) {
+      MR.compared++;
+      if (!unmatched(gl, dd).length) { MR.failCount++; MR.fails.push({ chain: 'the band match', bad: [`GPU ${gl.map((q) => q[0]).join(', ')} passed against CPU 1 - 1e-4, 1 + 1e-4, -2, which misses -2`] }); }
+    }
+    const shape = { id: 'mr', kind: 'disc', c: [0, 0], r: 4, ci: 0, visible: true }, win = { x0: -5, x1: 5, y0: -5, y1: 5 }, pix = 0.01;
+    for (const [name, co, kind, band] of [['(z-1)^2 (z+2)', '1, 0, -3, 2', 'RAT3', 1e-8], ['(z-1)^2 (z+2)(z-3)', '1, -3, -3, 11, -6', 'RAT4', 1e-7]]) {
+      const steps = [St('poly', { co })], built = steps.map(Funcs.build), plan = Inverse.planChain(steps, built);
+      if (!plan.ok || plan.ops.map((o) => o.kind).join() !== kind) { MR.failCount++; MR.fails.push({ chain: name, bad: ['plan ' + (plan.ok ? plan.ops.map((o) => o.kind).join() : plan.reason)] }); continue; }
+      GLR.setChain(GLChain.build(steps, built));
+      const prep = Inverse.prepare(plan, { win, shape });
+      GLR.packShapes([shape], { debounce: false });
+      const pts = [C(0, 0), C(1e-6, 0), C(3e-6, 0), C(0, 1e-6), C(0.01, 0), C(-0.02, 0.01), C(0.5, 0.25), C(band, 0)];
+      const data = new Float32Array(1024 * 2 * 4);
+      pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(pix); });
+      const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1, pattern: 'checker', cell: 0.5 }, extra: EXTRA_WALK };
+      const g = await gpuRun(st, data, NP, ROWS);
+      if (g.error) { R.errors.push(`multiple roots ${name}: gpu ${g.error}`); continue; }
+      pts.forEach((w, i) => {
+        const cpu = Inverse.enumerate(plan, prep, w, Math.fround(pix), { K: 1, B: 3, paths: true }), o = g.out;
+        const at = (row) => [o[4 * (row * NP + i)], o[4 * (row * NP + i) + 1]], bad = [];
+        const inBand = w.re === band, gv = at(8)[0];
+        if (inBand ? gv !== cpu.visited && gv !== cpu.visited - 1 : gv !== cpu.visited) bad.push(`visited gpu ${gv} cpu ${cpu.visited}${inBand ? ' (band: the same or one fewer)' : ''}`);
+        else if (inBand) {
+          const gl = [...Array(Math.min(gv, 8)).keys()].map(at);
+          bad.push(...unmatched(gl, cpu.leaves.map((c) => c.z)));
+        } else cpu.leaves.slice(0, 8).forEach((c, r) => { const q = at(r); if (Math.hypot(q[0] - c.z.re, q[1] - c.z.im) > 1e-3 * (1 + cabs(c.z))) bad.push(`leaf ${r} gpu ${q[0]}, ${q[1]} cpu ${c.z.re}, ${c.z.im}`); });
+        MR.compared++;
+        if (bad.length) { MR.failCount++; MR.fails.push({ chain: name, w: [w.re, w.im], bad }); }
+      });
+    }
+    if (MR.failCount) R.failCount += MR.failCount;
+    for (const f of MR.fails) { const k = 'multiple roots ' + f.chain; R.byChain[k] = (R.byChain[k] || 0) + 1; R.fails.unshift(Object.assign({ multi: true }, f)); }
+  }
+  // ---- Repeat chains (#1472): the REPT walker's coverage against its CPU twin's (Inverse.enumerate) on the scenes of
+  // test/steps_parked_repeat_cmd.js (Newton's step for z^3 - 1: the gallery square at Repeat x 20, the bite box at x 2 and,
+  // pruned through its forward enclosures, at x 20), on a grid over the plane and over the bite box: at every point the
+  // verdict is the same (covered, empty, unresolved; a coverage below the leaves' 0.03 counts as either side of the edge)
+  // and U is within the leaves' 0.03 ----
+  if (opts.rept !== false) {
+    const RP = R.rept = { points: 0, compared: 0, failCount: 0, byScene: {}, fails: [], verdicts: { covered: 0, empty: 0, unresolved: 0 } };
+    const MAIN_REPT = `
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
+  ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
+  nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
+  if (ixRepKeep()) discard;
+  invWalk(t.xy);
+  if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
+  o = vec4(U, nCov > 0 ? 1.0 : 0.0, ixRepFail || ixRepCap || ixRepUnres ? 1.0 : 0.0, ixRepFull > 0 ? 1.0 : 0.0);
+}
+`;
+    const EXTRA_REPT = { pre: 'uniform highp sampler2D uW;\n', main: MAIN_REPT };
+    const PASS_B_FAST = 5;   // root solves of the first pass in the second run: the gallery's 20 go on in the second
+    const EDGE_U = 0.03, PIX = 1 / 140, VIEW = { x0: -4.3, x1: 4.3, y0: -2.9, y1: 2.9 }, BOX = { x0: 0.5, x1: 1.7, y0: -0.6, y1: 0.6 };
+    const NEWTON = 'z-(z^3-1)/(3*z^2)';
+    const grid = (b, k) => { const out = []; for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) out.push(C(Math.fround(b.x0 + (i + 0.5) * (b.x1 - b.x0) / k), Math.fround(b.y0 + (j + 0.5) * (b.y1 - b.y0) / k))); return out; };
+    const SCENES = [['gallery square x 20', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32)],
+      ['bite x 2', 2, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(BOX, 22).concat(grid(VIEW, 23)).slice(0, 1024)],
+      ['bite x 20', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32)],
+      // (z^3 x 20 on a disc tangent to |z| = 1 from inside: E_r's radius bound, the walker's radius test)
+      ['tangent disc z^3 x 20', 20, { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3']];
+    // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
+    for (const fastN of [0, PASS_B_FAST]) {
+      GLR.setReptFastNodes(fastN);
+      for (const [name0, nRep, shape, pts, expr = NEWTON] of SCENES) {
+        const name = name0 + (fastN ? ` (first pass ${fastN} solves)` : '');
+        const steps = [Object.assign(St('custom', { expr, cut: 180 }), { repeat: { n: nRep, len: 1 } })];
+        const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built);
+        if (!plan.ok || plan.ops[0].kind !== 'REPT') { RP.failCount++; RP.fails.push({ chain: name, bad: ['plan ' + (plan.reason || plan.ops.map((o) => o.kind).join('>'))] }); continue; }
+        GLR.setChain(GLChain.build(steps, built));
+        const prep = Inverse.prepare(plan, { win: VIEW, shape });
+        GLR.packShapes([shape], { debounce: false });
+        const px32 = Math.fround(PIX), alpha = 1, B = GLR.inverseB(alpha), K = Math.min(B, GLR.inverseK(alpha));
+        const data = new Float32Array(1024 * 2 * 4);
+        pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = px32; });
+        const st = { map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha, alphaOwn: alpha, pattern: 'checker', cell: 0.5 }, extra: EXTRA_REPT };
+        const g = await gpuRun(st, data, pts.length, 1);
+        if (g.error) { R.errors.push(`rept ${name}: gpu ${g.error}`); continue; }
+        pts.forEach((w, i) => {
+          RP.points++;
+          const q = g.out.subarray(4 * i, 4 * i + 4), vg = q[1] > 0 ? 1 : q[2] > 0 ? -1 : 0;
+          const cpu = Inverse.enumerate(plan, prep, w, px32, { K, B, leaves: false }), vc = cpu.rept.verdict;
+          RP.verdicts[vc > 0 ? 'covered' : vc < 0 ? 'unresolved' : 'empty']++;
+          RP.compared++;
+          const bad = [];
+          if (vg !== vc && !(vg >= 0 && vc >= 0 && Math.max(q[0], cpu.U) <= EDGE_U)) bad.push(`verdict gpu ${vg} cpu ${vc} (U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)})`);
+          if (Math.abs(q[0] - cpu.U) > EDGE_U) bad.push(`U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)}`);
+          if (bad.length) { RP.failCount++; RP.byScene[name] = (RP.byScene[name] || 0) + 1; if (RP.fails.length < 30) RP.fails.push({ chain: name, w: [w.re, w.im], bad }); }
+        });
+      }
+    }
+    GLR.setReptFastNodes(0);
+    // control: a non-finite root (NaN, then an infinity) forced into every first node (GLR.setReptPoison) reads
+    // unresolved at every point of the gallery scene, never covered or empty
+    {
+      const [name, nRep, shape, pts] = SCENES[0];
+      const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } })];
+      const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built);
+      GLR.setChain(GLChain.build(steps, built));
+      const prep = Inverse.prepare(plan, { win: VIEW, shape });
+      GLR.packShapes([shape], { debounce: false });
+      const data = new Float32Array(1024 * 2 * 4);
+      pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(PIX); });
+      RP.poison = {};
+      for (const poison of ['nan', 'inf']) {
+        GLR.setReptPoison(poison);
+        const g = await gpuRun({ map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1 }, extra: EXTRA_REPT }, data, pts.length, 1);
+        GLR.setReptPoison(null);
+        if (g.error) { R.errors.push(`rept ${name} ${poison}: gpu ${g.error}`); continue; }
+        let unres = 0;
+        for (let i = 0; i < pts.length; i++) if (g.out[4 * i + 1] === 0 && g.out[4 * i + 2] > 0) unres++;
+        RP.poison[poison] = `${unres}/${pts.length} unresolved`;
+        if (unres !== pts.length) { RP.failCount++; RP.fails.push({ chain: name, bad: [`a ${poison} root: ${unres} of ${pts.length} points unresolved`] }); }
+      }
+    }
+    // the certificate on the GPU itself: the GPU's roots z_i, refined radii rho_i and crude radii of one node at each
+    // (v, dv), read back; every float64 Durand-Kerner root of the true P - v Q lies within the GPU's rho_i of its z_i.
+    // The v: the CPU twin's nodes of the scenes' pixels, and adversarial ones (near the double roots at the cube roots of
+    // unity, where |p'| meets its slack and the discs nearly touch; far out; near 0), with chain errors up to the
+    // roots' separation. Control: rho scaled by CERT_CONTROL must show misses
+    const CERT_CONTROL = 1e-3, DK_ITER = 400, DK_TOL = 1e-13, NODE_PIX = 40;
+    const MAIN_NODE = `
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
+  ixPix = 1.0; ixRepCrude = vec3(-1.0);
+  bool ok = ix0_node(t.xy, t.z, 0);
+  if (c.y == 0) o = vec4(ixRZ[0], ixRZ[1]);
+  else if (c.y == 1) o = vec4(ixRZ[2], ok ? 1.0 : 0.0, 0.0);
+  else if (c.y == 2) o = vec4(ixRR[0], ixRR[1], ixRR[2], 0.0);
+  else o = vec4(ixRepCrude, 0.0);
+}
+`;
+    const dkRoots = (a) => {
+      const m = a.map((x) => CX.div(x, a[0])), p = (z) => CX.add(CX.mul(CX.add(CX.mul(CX.add(z, m[1]), z), m[2]), z), m[3]);
+      let z = [C(0.4, 0.9), C(-0.9, 0.3), C(0.7, -0.6)].map((s) => CX.scale(s, 1 + CX.abs(m[1]) + Math.cbrt(CX.abs(m[3]))));
+      for (let it = 0; it < DK_ITER; it++) {
+        const nz = z.map((zi, i) => { let d = C(1, 0); z.forEach((zj, j) => { if (j !== i) d = CX.mul(d, CX.sub(zi, zj)); }); return CX.sub(zi, CX.div(p(zi), d)); });
+        const mv = Math.max(...nz.map((x, i) => CX.abs(CX.sub(x, z[i]))));
+        z = nz;
+        if (mv < DK_TOL * (1 + Math.max(...z.map(CX.abs)))) break;
+      }
+      return z;
+    };
+    const CERT = RP.cert = { nodes: 0, certified: 0, misses: 0, controlMisses: 0, refinedAboveCrude: 0, fails: [] };
+    const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: 20, len: 1 } })];
+    const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built), op = plan.ops[0];
+    // the nodes: the twin's search at NODE_PIX pixels of each scene (InvOps' reptNode, the v and chain error of each node)
+    const nodes = [];
+    const walk = (v, dv, depth) => {
+      if (nodes.length >= 700) return;
+      nodes.push([v, dv]);
+      const nd = depth < 20 ? InvOps.reptNode(op.p.P, op.p.Q, v, dv) : null;
+      if (nd) for (let i = 0; i < 3 && depth < 3; i++) walk(nd.z[i], nd.rho[i], depth + 1);
+      if (nd && depth >= 3) walk(nd.z[0], nd.rho[0], depth + 1);
+    };
+    for (const w of grid(VIEW, 7).slice(0, NODE_PIX)) walk(w, 0, 0);
+    const adv = [];
+    for (const r0 of [C(1, 0), C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)]) for (let k = 1; k <= 8; k++) for (let a = 0; a < 8; a++) adv.push([CX.add(r0, C(10 ** -k * Math.cos(a * 0.785 + 0.1), 10 ** -k * Math.sin(a * 0.785 + 0.1))), 0]);
+    for (const R0 of [1e-6, 1e-3, 30, 1e3, 1e5]) for (let a = 0; a < 8; a++) adv.push([C(R0 * Math.cos(a * 0.785 + 0.3), R0 * Math.sin(a * 0.785 + 0.3)), 0]);
+    for (const dv of [1e-7, 1e-5, 1e-3, 1e-2, 0.1, 0.3]) for (let a = 0; a < 8; a++) adv.push([C(0.8 * Math.cos(a * 0.785), 0.8 * Math.sin(a * 0.785)), dv]);
+    const all = nodes.concat(adv).slice(0, 1024).map(([v, dv]) => [C(Math.fround(v.re), Math.fround(v.im)), Math.fround(dv)]);
+    GLR.setChain(GLChain.build(steps, built));
+    const shape = { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] };
+    const prep = Inverse.prepare(plan, { win: VIEW, shape });
+    GLR.packShapes([shape], { debounce: false });
+    const data = new Float32Array(1024 * 2 * 4);
+    all.forEach(([v, dv], i) => { data[4 * i] = v.re; data[4 * i + 1] = v.im; data[4 * i + 2] = dv; });
+    const g = await gpuRun({ map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1 }, direct: true, extra: { pre: 'uniform highp sampler2D uW;\n', main: MAIN_NODE } }, data, all.length, 4);
+    if (g.error) R.errors.push(`rept certificate: gpu ${g.error}`);
+    else {
+      const n = all.length, at = (row, i) => g.out.subarray(4 * (row * n + i), 4 * (row * n + i) + 4);
+      all.forEach(([v], i) => {
+        CERT.nodes++;
+        const r0 = at(0, i), r1 = at(1, i), rr = at(2, i), rc = at(3, i);
+        if (r1[2] !== 1) return;
+        CERT.certified++;
+        const z = [C(r0[0], r0[1]), C(r0[2], r0[3]), C(r1[0], r1[1])], rho = [rr[0], rr[1], rr[2]];
+        const ref = dkRoots(op.p.P.map((pk, k) => CX.sub(pk, CX.mul(v, op.p.Q[k]))));
+        const within = (s) => z.every((zi, k) => ref.some((r) => CX.abs(CX.sub(zi, r)) <= s * rho[k]));
+        if (!within(1)) { CERT.misses++; if (CERT.fails.length < 10) CERT.fails.push({ v: [v.re, v.im], z: z.map((q) => [q.re, q.im]), rho, ref: ref.map((q) => [q.re, q.im]) }); }
+        if (!within(CERT_CONTROL)) CERT.controlMisses++;
+        if (rho.some((r, k) => !(r <= rc[k]))) CERT.refinedAboveCrude++;
+      });
+      if (CERT.misses || CERT.refinedAboveCrude) RP.failCount++;
+      if (!(CERT.controlMisses > 0)) { RP.failCount++; CERT.fails.push({ control: `rho x ${CERT_CONTROL} shows no miss` }); }
+    }
+    if (RP.failCount) R.failCount += RP.failCount;
+  }
   // ---- shapeClip vs Region.shapeClip ----
   {
     const steps = [St('mul', { c: '1' })], built = steps.map(Funcs.build);
     GLR.setChain(GLChain.build(steps, built));
     const plan = Inverse.planChain(steps, built);
     const kinds = { disc: 0, rect: 0, halfplane: 0, sector: 0, annulus: 0, polygon: 0, cdisc: 0, chalf: 0, cpoly: 0, formula: 0, gform: 0 };
-    const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0 };
+    // (ULP32: float32's rounding, relative; illCond: of skipped, the lines float32 cannot place, at most ILL_MAX of the lines:
+    // 14 of the core tier's 102,400 on lavapipe, near-parallel half-plane and sector lines)
+    const ULP32 = 2 ** -24, ILL_MAX = 1e-3;
+    const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0, illCond: 0 };
     const N = 1024;
     // after the nV15 shapes (their random stream unchanged), the exact-form discs: near
     // collinear, a far anchor (1e4 away; the GPU packs at the view's centre, as the app does), complements
@@ -481,6 +803,15 @@ void main() {
         const emptyC = !(c.lo <= c.hi), emptyG = !(o[0] <= o[1]);
         // near-tangent lines (interval shorter than the tolerance) decide emptiness by rounding
         if (emptyC !== emptyG) { if ((!emptyC && (c.hi - c.lo) <= 4 * tol(c.lo)) || emptyC) { CL.skipped++; continue; } }
+        // lines float32 cannot place: their inputs moved by float32's rounding (q turned by ULP32 either way, z0 moved by
+        // ULP32 (1 + |z0|) across q) move the CPU's own crossings by more than the tolerance (a line nearly parallel to a
+        // boundary, whose crossing is that rounding over the sine of their angle), so the GPU's are rounding too
+        if (!emptyC) {
+          const n = C(-q.im / qa, q.re / qa), dz = ULP32 * (1 + cabs(z0));
+          const moved = [C(q.re - ULP32 * q.im, q.im + ULP32 * q.re), C(q.re + ULP32 * q.im, q.im - ULP32 * q.re)].map((q2) => Region.shapeClip(prim, z0, q2, m))
+            .concat([1, -1].map((sg) => Region.shapeClip(prim, C(z0.re + sg * dz * n.re, z0.im + sg * dz * n.im), q, m)));
+          if (moved.some((c2) => !(c2.lo <= c2.hi) || !same(c.lo, c2.lo) || !same(c.hi, c2.hi))) { CL.skipped++; CL.illCond++; continue; }
+        }
         CL.compared++;
         const bad = [];
         if (emptyC !== emptyG) bad.push(`empty cpu ${emptyC} gpu ${emptyG}`);
@@ -492,6 +823,9 @@ void main() {
       }
       kinds[shape._g ? 'gform' : shape.kind + (shape.complement ? '~' : '')] = (kinds[shape._g ? 'gform' : shape.kind + (shape.complement ? '~' : '')] || 0) + 1;
     }
+    // (a mass skip cannot hide behind clip 0 failed: past ILL_MAX of the lines, the lines left out as float32 cannot place
+    // them are a fail of their own)
+    if (CL.illCond > ILL_MAX * CL.lines) { CL.failCount++; CL.fails.push({ illCond: CL.illCond, lines: CL.lines, bad: [`${CL.illCond} of ${CL.lines} lines left out as float32 cannot place them, more than ${ILL_MAX} of them`] }); }
     CL.kinds = kinds;
   }
   // ---- REGION_FS byte identity (SPEC 6.1) ----
@@ -501,6 +835,28 @@ void main() {
   }
   // ---- 12.1 (l): program identity under eligibility flips ----
   if (opts.flip !== false) R.flip = await flipTest();
+  // ---- the level tolerance and the gaps WARP produced on rand#172 (GitHub job 137195994579: powa alpha 0.008, cut 90, k 2) ----
+  // each gap is inside the rule for its chain (cond 125), the plain rule would have rejected it (control), and a chain with no
+  // Complex power step keeps the plain rule
+  {
+    const WARP = [{ cl: 810.7226543436661, gpu: 811.1634521484375, w: C(1.0038121938705444, 0.09487950801849365) },
+      { cl: 953.5565243774365, gpu: 953.9886474609375, w: C(1.0055485963821411, 0.09170592576265335) }];
+    const WPIX = 0.000023453630650284904;
+    const wst = [St('recip'), St('recip'), St('powa', { alpha: '0.008', cut: 90, k: 2 })], plainSt = [St('recip'), St('exp')];
+    const T = R.tolCheck = { cond: condOf(wst, wst.map(Funcs.build)), plainCond: condOf(plainSt, plainSt.map(Funcs.build)), rows: [], bad: [] };
+    if (!(Math.abs(T.cond - 125) < 1e-9)) T.bad.push(`cond of the powa chain ${T.cond}, not 125`);
+    if (T.plainCond !== 1) T.bad.push(`cond of a chain without a Complex power step ${T.plainCond}, not 1`);
+    const offSt = [St('recip'), Object.assign(St('powa', { alpha: '0.008', cut: 90, k: 2 }), { on: false })];
+    if (condOf(offSt, offSt.map(Funcs.build)) !== 1) T.bad.push('a Complex power step that is off counts in cond');
+    for (const x of WARP) {
+      const gap = Math.abs(x.gpu - x.cl), tol = lvlTol(x.cl, x.w, WPIX, T.cond), plain = lvlTol(x.cl, x.w, WPIX, 1);
+      T.rows.push({ gap, tol, plain });
+      if (!(gap <= tol)) T.bad.push(`gap ${gap.toFixed(3)} px is over the allowed ${tol.toFixed(3)} (level ${x.cl.toFixed(1)})`);
+      if (!(gap > plain)) T.bad.push(`gap ${gap.toFixed(3)} px is inside the plain ${plain.toFixed(3)}: the control is not one`);
+      if (plain !== 0.05 + 1e-4 * x.cl) T.bad.push('the plain rule is not 0.05 px + 1e-4 |lvl|');
+    }
+    if (T.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the level tolerance', bad: T.bad }); }
+  }
   R.programs = R.programs.size;
   R.ms = Math.round(performance.now() - t0);
   R.done = true;
@@ -511,7 +867,7 @@ void main() {
     const disc = { id: 7, kind: 'disc', c: [0.3, 0.2], r: 0.9 };
     const win = { x0: -3.4, x1: 3.4, y0: -4.3, y1: 4.3 };
     const seqs = [
-      ['poly', [{ co: '1, 0, -1, 0' }, { co: '1, 0, 0, 5' }, { co: '1, 0, -1, 0' }]],
+      ['poly', [{ co: '1, 0, 0, 0, -1, 0' }, { co: '1, 0, 0, 0, 0, 5' }, { co: '1, 0, 0, 0, -1, 0' }]],
       ['rational', [{ p: '1, 2', q: '1, 0' }, { p: '1, 2', q: '0, 1' }, { p: '1, 2', q: '1, 0' }]],
       // through degeneracy: (z + 2) / (2z + 4) is the constant 1/2 (its image is a point: nothing to fill)
       ['mobius', [{ a: '1', b: '2', c: '1', d: '3' }, { a: '1', b: '2', c: '2', d: '4' }, { a: '1', b: '2', c: '2', d: '4.1' }, { a: '1', b: '2', c: '2', d: '4' }, { a: '1', b: '2', c: '1', d: '3' }]],

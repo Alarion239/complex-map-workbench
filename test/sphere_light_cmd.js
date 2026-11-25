@@ -3,8 +3,8 @@
 // the other side of the equator, the poles' places swapped (pitch -> -pitch), and from straight below and above,
 // in the light and the dark theme: the mean OKLab lightness of the lower half of the visible disc is within 10 % of
 // the upper half's. The Phase style paints every arg at one lightness, so what differs between the halves is the
-// light. The disc is the globe's silhouette, from the camera (sphereView: the silhouette radius
-// tan(asin(1 / D)) / tan(fov / 2) * h / 2 around the pane's centre), sampled inside 0.95 of its radius.
+// light. The disc is the globe's silhouette (the app's own radius, __cmwGlobeDisk, around the pane's centre), sampled inside
+// 0.95 of its radius.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/sphere_light_cmd.js
 // SPHERE_LIGHT_SHOTS=<folder> also saves the pane of every case there (evidence for a review; not in git).
 const fails = [], R = {};
@@ -12,13 +12,14 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const base = process.env.CMW_BASE || 'http://localhost:8793/';
 const shots = process.env.SPHERE_LIGHT_SHOTS || '';
+const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 // the mean OKLab L of the upper and the lower half of the globe's disc in #canvasL (device px), and the disc itself
 const MEASURE = `(() => {
   const cv = document.getElementById('canvasL'), W = cv.width, H = cv.height;
-  const c = __cmwCam('L'), D = c.dist;
-  const r = Math.tan(Math.asin(1 / D)) / Math.tan(c.fov / 2) * H / 2, cx = W / 2, cy = H / 2;
+  const c = __cmwCam('L'), d = __cmwGlobeDisk('L');
+  const r = d.R * H / d.h, cx = W / 2, cy = H / 2;
   const px = cv.getContext('2d').getImageData(0, 0, W, H).data;
-  const lin = (u) => (u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4));
+  ${LUM_JS}
   const okL = (R8, G8, B8) => {
     const r1 = lin(R8 / 255), g1 = lin(G8 / 255), b1 = lin(B8 / 255);
     const l = Math.cbrt(0.4122214708 * r1 + 0.5363325363 * g1 + 0.0514459929 * b1);
@@ -47,7 +48,6 @@ for (const dark of [false, true]) {
   const ns = 'spherelight' + theme + Date.now();
   await load(ns, st);
   await nav(`${base}test.html?ns=${ns}&lang=en`);
-  await settle(1500);
   // (the sphere: the Phase view's saved sphere in the classic view, the plane's Sphere surface in the steps view)
   const sv = await ev(`document.documentElement.classList.contains('sv')`);
   if (sv) { await ev(`__cmwSteps({ surf: 'sphere' })`); await settle(1200); }

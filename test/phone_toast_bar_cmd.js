@@ -22,7 +22,7 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   await view(w, h, false, true);
   const ns = 'ptb' + w + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwToast === 'function' && !!window.Phone && Phone.isOn() && document.getElementById('svStrip').getBoundingClientRect().height > 0 && document.getElementById('plotL').getBoundingClientRect().height > 0` });
   // (English: a long message with one action; Russian: the step added, "Показать отдельно" and "Отменить" beside its words)
   if (lang === 'ru') await ev(`(__cmwAddStep('exp'), 1)`); else await show('Added f₃: Exponential, and a longer second part so that the message needs its second line here');
@@ -41,7 +41,8 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   ok(`${at}: two lines at most`, g.lines <= 2, g.lines);
   ok(`${at}: its words are not cut`, g.cut <= 0, g.cut);
   // a short drag keeps it, a swipe down dismisses it
-  const x = Math.round((g.toast.l + g.toast.r) / 2), y = Math.round((g.toast.t + g.toast.b) / 2);
+  // (from the message's top edge, 2 px in: the short drag then ends on its words, not on a button of a message of two rows, whose buttons lie across its middle)
+  const x = Math.round((g.toast.l + g.toast.r) / 2), y = Math.round(g.toast.t + 2);
   await touch(x, y, y + 12);
   await settled({ max: 3000, panes: false, until: SETTLED });
   ok(`${at}: a short drag keeps it`, await ev(`!!${T}`), null);

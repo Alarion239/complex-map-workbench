@@ -14,21 +14,31 @@
 //   once, without strokes, by the idle job, each with at least half a slice's time left;
 // - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
 //   region under zeta) runs no slice until the thread is let go, then runs;
-// - the Mountain King after a glide there and back: two scrubs of the rail, plane 0 to the last and back, each after a
+// - the Mountain King after a glide there and back, each pressed with the Play gate on (the page's default: a press
+//   waits until the chain is prepared): two scrubs of the rail, plane 0 to the last and back, each after a
 //   rest longer than the scratch sweep's second, once the idle job has ended (checked: a starved idle job is reported
-//   as such); the carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
-//   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs), and
-//   its frames return to the default framebuffer once (every mesh's off-screen passes before the draws); a third
+//   as such), the carried entries' keep time long for the block (on a slow machine the rests outlast 30 s); the
+//   carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
+//   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs; a scratch
+//   texture freed and made again is named as such, its free's stack beside the allocation's; each texture made names
+//   its mesh, that mesh's scratch entry before the draw and at its last draw before, and whether the idle job reserved
+//   it), and its frames return to the default framebuffer once (every mesh's off-screen passes before the draws); a third
 //   scrub's frames decompose no step of the chain (each glide's plans share its t-free part: invHomPath);
 //   a chain edit (a step bypassed) frees those scratch textures, as does the scratch sweep once the map cache is over
 //   its budget.
+// - a long-lived page: a chain of three glides with polar rings (z + c, 1/z, e^z), c edited until the polar meshes kept
+//   are SV_POLAR_KEEP, then a zeta step added, whose glide draws the carried meshes and their polar ring: that far glide
+//   (to plane 4, the thread on plane 0) still has its ring sizes made and their meshes built by the idle job, and parked
+//   at x after x on it, its frames make no size and create no buffer, texture or vertex array for the ring.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { holdIdle, runIdle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'idle_queue.js'), 'utf8'))({ ev });
 // the calls of the named methods of target (a page expression) whose stack holds every one of the frames named, kept in
 // the page as window[into]: each a line "name at < ... <" of the stack's first frames
 const GL_CREATES = ['createTexture', 'createBuffer', 'createVertexArray'];
@@ -41,19 +51,6 @@ const watchCalls = (target, methods, frames, into) => ev(`(() => {
   return 1;
 })()`);
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwSvKey === "function" && !!window.GLR' }); };
-// the thread held at x mid-glide: a scrub on the rail, not let go (window.__svScrubUp lets it go)
-// (links: wait for every program to have linked too; false while links are held)
-async function hold(x, links = true) {
-  await ev(`(() => {
-    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
-    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 73, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
-    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
-    window.__svScrubUp = () => ev('pointerup', cx);
-    return 1;
-  })()`);
-  await settled({ max: 30000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving` });
-}
 // ---- the stand-ins while the carry's programs link ----
 {
   const ex = names.indexOf('Square root and its sheets');
@@ -61,6 +58,7 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gl${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 20000 });
@@ -68,7 +66,7 @@ async function hold(x, links = true) {
   await ev('GLR.holdLinks(true), 1');
   await ev(`__cmwAddStep('exp'), 1`);
   await settled({ max: 20000, panes: false, until: '!!document.querySelector(".sv-plane")' });
-  await hold(0.5, false);
+  { const h = await hold(0.5, false); ok('the thread is held at x = 0.5', h.ok, h); }
   // (the glide's frames asked for the carry's own programs: the map cache's and the cached places')
   await settled({ max: 20000, panes: false, until: '["tfRegion", "regionKC"].every((n) => GLR.chainProgs().includes(n))' });
   const started = await ev('GLR.chainProgs()');
@@ -79,7 +77,7 @@ async function hold(x, links = true) {
   info['while the programs link'] = { started, after: { ok: after.ok, busy: after.busy, pendingLinks: await ev('GLR.pendingLinks') } };
   const list = Array.isArray(started) ? started : [];
   ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => list.includes(n)), started);
-  ok('while the carry\'s programs link: no stand-in is started (the sheet program, the plain one)', Array.isArray(started) && !['regionKS', 'regionK'].some((n) => list.includes(n)), started);
+  ok('while the carry\'s programs link: no stand-in is started (the sheet program, the plain ones)', Array.isArray(started) && !['regionKS', 'regionK', 'regionKN'].some((n) => list.includes(n)), started);
   ok('once the links are let go: every held program links', after.ok, info['while the programs link'].after);
 }
 
@@ -90,6 +88,7 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gp${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000, panes: false });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000, panes: false });
@@ -97,7 +96,7 @@ async function hold(x, links = true) {
   // callback asked for is queued, and run with 50 ms left)
   await ev('__cmwSvKey(1, 0.5, true), __cmwSvKey(2, 0.5, true), 1');
   await settled({ max: 30000, panes: false, until: '!__cmwSvKey().busy' });
-  await ev('window.__svIdleQ = [], window.requestIdleCallback = (f) => (window.__svIdleQ.push(f), 1), 1');
+  await holdIdle();
   // (a step put between the King's two: plane 1's chain is the same)
   await ev(`__cmwAddStep('mul', { c: '1' }, 1), 1`);
   await settled({ max: 30000, panes: false, until: '!!document.querySelector(".sv-plane") && __cmwSteps().planes.length === 4' });
@@ -112,7 +111,7 @@ async function hold(x, links = true) {
   // (and the searches a glide's frames make while the tracks are not whole: t over (0, 0.3) in 20 frames' steps)
   const sweep = await ev('(() => { globalThis.__svPathStats = {}; for (let i = 1; i <= 20; i++) __cmwSvKey(2, 0.3 * i / 20); const s = globalThis.__svPathStats; return s; })()');
   // (then the idle moments, until the job is done)
-  const idle = await ev('(() => { globalThis.__svPathStats = {}; const q = window.__svIdleQ; let n = 0; while (q.length && n < 5000) { n++; q.shift()({ timeRemaining: () => 50, didTimeout: false }); } const s = globalThis.__svPathStats; globalThis.__svPathStats = null; s.callbacks = n; return s; })()');
+  const idle = await runIdle(5000, '{ timeRemaining: () => 50, didTimeout: false }');
   const whole = await ev('__cmwSvKey(2, 0.5)');
   const near = (p, L) => L.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-3 * (1 + Math.hypot(q[0], q[1])));
   info['after an edit'] = { kept, now: now.sing, nowTracks: now.tracks, frames: now.stats, sweep, idle, whole: whole.sing, wholeTracks: whole.tracks };
@@ -136,6 +135,7 @@ async function hold(x, links = true) {
   // (the strokes built for the ring's meshes: their stack passes through svRingGPU)
   await watchCalls('GLR', ['createLines'], ['svRingGPU'], '__ringLines');
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   // (from here, the work counted: the idle job's after the page settles on plane 0, before any frame between planes)
   await ev('globalThis.__svPathStats = {}, 1');
@@ -176,12 +176,13 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gz${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000 });
   // (held mid-scrub by plane 1, whose plane the left pane follows; the meshes rebuilt, so a fix-up is asked for: the
   // left pane's region under zeta, seconds of CPU work)
-  await hold(0.9, false);
+  { const h = await hold(0.9, false); ok('the thread is held at x = 0.9', h.ok, h); }
   await ev(`globalThis.__svPathStats = {}, __cmwSet('meshN', __cmwState().meshN), window.__heldT = performance.now(), 1`);
   await settled({ max: 20000, panes: false, until: 'performance.now() - window.__heldT > 2000' });
   const held = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
@@ -198,7 +199,42 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=ga${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
+  // (each carried draw on this page, by the mesh it is for (GLR.carryPrep), from before the glides: once the watch
+  // below begins, each one that creates a texture is kept, with that mesh's scratch entry in its slot before the draw
+  // and at its last draw before ([W, H], or null: none), whether it was drawn before, whether the idle job reserved it
+  // (GLR.carryReserve), when, and idle: how long since the last carried draw or reservation (past the keep time, the
+  // sweep has freed every carried entry). tmpEntry makes a texture for a mesh with no entry (a mesh not drawn before,
+  // or whose entry was freed) or remakes one whose size no longer fits it; meshes numbered in the order first seen)
+  // (the carried scratch entries' keep time, CARRY_TMP_MS, long for this block: the idle job reserves the entries
+  // (GLR.carryReserve) of glides no frame has drawn yet, and the sweep frees every carried entry once none has been
+  // drawn or reserved for the keep time; on a slow machine the idle job's tail, the rests and the Play gate's wait
+  // before a scrub's first carried frame outlast 30 s, and the scrub would make them again, the keep time's doing,
+  // not a frame's. The rows of the keep time itself shorten it on their own below; set back at the block's end)
+  const keepDefault = await ev('GLR.carryKeepMs(600000)');
+  await ev(`(() => {
+    const C = window.__svCarryMade = [], P = WebGL2RenderingContext.prototype, mk = P.createTexture;
+    let made = 0;
+    P.createTexture = function () { if ((new Error().stack || '').includes('svCarryRegions')) made++; return mk.apply(this, arguments); };
+    const ids = new WeakMap(), reserved = new WeakSet(), last = new WeakMap();
+    let meshes = 0;
+    const id = (r) => { if (!ids.has(r)) ids.set(r, ++meshes); return ids.get(r); };
+    const wh = (e) => (e ? [e.W, e.H] : null);
+    let lastT = performance.now();
+    const rsv = GLR.carryReserve;
+    GLR.carryReserve = function (res) { if (res) reserved.add(res); lastT = performance.now(); return rsv.apply(this, arguments); };
+    const prep = GLR.carryPrep;
+    GLR.carryPrep = function (res, st) {
+      const slot = 'm' + ((st && st.L) || 4), e = res && res.tmp && res.tmp.get(slot), n0 = made;
+      const r = prep.apply(this, arguments);
+      if (made > n0 && window.__svCarryT0 != null) C.push({ t: Math.round(performance.now() - window.__svCarryT0), idle: Math.round(performance.now() - lastT), mesh: res ? id(res) : null, n: res && res.n, entry: wh(e), drawnBefore: !!res && last.has(res), entryBefore: res && last.has(res) ? last.get(res) : null, reserved: !!res && reserved.has(res) });
+      if (res) { id(res); last.set(res, wh(res.tmp && res.tmp.get(slot))); }
+      lastT = performance.now();
+      return r;
+    };
+    return 1;
+  })()`);
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000 });
   for (const to of [1, 0]) {
@@ -207,8 +243,16 @@ async function hold(x, links = true) {
   }
   const idle = await settled({ max: 30000, until: '!__cmwSvKey().busy' });
   ok('before the scrubs: the idle job ends (the outer ring\'s sizes and meshes made)', idle.ok, idle);
+  // (a scrub crosses every glide of the chain: with the idle job ended, the outer ring's sizes of all of them are made,
+  // so that no frame of a scrub makes one and builds its mesh)
+  const made = await ev('__cmwSvRingMade()');
+  ok('before the scrubs: the outer ring\'s sizes of every glide are made, not only those next to the thread', made.glides > 1 && made.left === 0, made);
   // (each texture, buffer or vertex array created from the carried colour's draws: its stack passes through svCarryRegions)
   await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svCarryRegions'], '__svAlloc');
+  // (each scratch texture freed (freeTmp: a chain edit, the keep time or the budget's sweep): an allocation after one
+  // is the same texture made again, one with none a texture the page had not made before)
+  await watchCalls('WebGL2RenderingContext.prototype', ['deleteTexture'], ['freeTmp'], '__svFreed');
+  await ev('window.__svCarryT0 = performance.now(), 1');
   // (each frame's returns to the default framebuffer in the carried colour's draws: a draw there after one into a
   // framebuffer of its own, the map cache's or a point pass's; frames counted by a rAF loop)
   await ev(`(() => {
@@ -255,7 +299,9 @@ async function hold(x, links = true) {
   await scrub(-1, 0);
   await rest();
   const alloc = await ev('window.__svAlloc');
-  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc };
+  const freed = await ev('window.__svFreed');
+  const carried = await ev('window.__svCarryMade');
+  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, carried, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc, freed: Array.isArray(freed) ? { n: freed.length, first: freed.slice(0, 4) } : freed };
   ok('two scrubs of the Mountain King: the carried colour creates no texture, buffer or vertex array in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
   // (Everywhere: the whole plane's mesh and the outer ring's, each with its map cache's pass)
   const returns = Object.values(await ev('window.__svReturns'));
@@ -315,5 +361,40 @@ async function hold(x, links = true) {
   })()`);
   info['the kept scratch entries'] = { king: kept, after };
   ok('a step bypassed: the carried colour\'s kept scratch entries are freed', kept && kept.n > 0 && after && after.changed && after.held.n === 0, info['the kept scratch entries']);
+  await ev(`GLR.carryKeepMs(${keepDefault}), 1`);
+}
+// ---- a long-lived page: the far glide's ring meshes once the polar meshes kept are SV_POLAR_KEEP ----
+{
+  // (the steps view's polar meshes kept at most, SV_POLAR_KEEP; c's edits, each a new pole of 1/z on plane 0 and new
+  // polar meshes, past what fills them; FAR: the zeta step's glide)
+  const POLAR_KEEP = 12, EDITS = 4, FAR = 3;
+  const ns = 'gf' + Date.now();
+  await load(ns, { shapes: [], steps: [{ type: 'add', params: { c: '0.3' } }, { type: 'recip', params: {} }, { type: 'exp', params: {} }], srcView: { cx: 0, cy: 0, s: 60 } });
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
+  await ready();
+  await settled({ max: 30000, until: '!!window.GLR && GLR.ok && __cmwSteps().on' });
+  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
+  await settled({ max: 30000, until: '!__cmwSvKey().busy' });
+  for (let k = 1; k <= EDITS; k++) {
+    await ev(`__cmwStepParam(0, 'c', '${(0.3 + 0.37 * k).toFixed(2)}+${(0.11 * k).toFixed(2)}i'), 1`);
+    await settled({ max: 30000, until: '!__cmwSvKey().busy' });
+  }
+  await ev(`__cmwAddStep('zeta', {}), 1`);
+  await settled({ max: 60000, until: '__cmwSteps().planes.length === 5 && !__cmwSvKey().busy' });
+  const kept = await ev('__cmwSvRingMade()'), far = await ev(`__cmwSvRingMade(${FAR})`);
+  // (the frames' work counted from here: the ring's sizes made in a frame, and its GL objects created in one)
+  await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svRingGPU', 'svCarryRegions'], '__farAlloc');
+  await ev('globalThis.__svPathStats = {}, 1');
+  for (const x of [0.2, 0.35, 0.5, 0.65, 0.8]) {
+    await ev(`__cmwSteps({ park: ${FAR + x} }), 1`);
+    await settled({ max: 20000, until: `Math.abs(__cmwSvX() - ${FAR + x}) < 1e-6` });
+  }
+  const ps = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
+  const alloc = await ev('window.__farAlloc');
+  info['the far glide'] = { kept, far, ringFrame: ps.ringFrame || 0, alloc: alloc.length, first: alloc.slice(0, 3) };
+  ok('a long-lived page: the polar meshes kept are SV_POLAR_KEEP after the edits', kept.polar === POLAR_KEEP, info['the far glide']);
+  ok('a long-lived page: the far glide\'s ring sizes are made and their polar meshes built by the idle job', far.made > 0 && far.left === 0 && far.unbuilt === 0, info['the far glide']);
+  ok('a long-lived page: parked on the far glide, no frame makes a ring size', !(ps.ringFrame > 0), info['the far glide']);
+  ok('a long-lived page: parked on the far glide, no frame creates a buffer, texture or vertex array for the ring', alloc.length === 0, info['the far glide']);
 }
 return { pass: fails.length === 0, fails, info };

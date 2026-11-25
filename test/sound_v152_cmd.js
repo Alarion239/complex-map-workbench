@@ -1,9 +1,8 @@
-// v15.2 sound (notes/sound/AS-BUILT-v152.md): hearing the function as the user chose it, in the app. Under the
-// pointer, the notes of Hear the function (the marimba at each colour line arg F crosses, which replaced the
+// Sound (notes/sound/AS-BUILT-v152.md): hearing the function as the user chose it, in the app. Under the
+// pointer, the notes of Hear the function (the marimba at each colour line arg F crosses, in place of the
 // pointer harp): the red line's crossings (its low D) counted up minus down equal the winding number of a loop round
 // a zero, a double zero and a pole (rising, rising twice, falling), a note at each colour line crossed; curves sing: a drawn loop sings W (around a pole: −1); off
-// silences the notes; a held finger and a phone's long press near a zero. The parts that run on the classic Deformation (the loop
-// singing while t runs, Esc while it plays) are in sound_v152_deform_classic_cmd.js. A command file for the CDP daemon (test/cdp_kit README):
+// silences the notes; a held finger and a phone's long press near a zero. A command file for the CDP daemon (test/cdp_kit README):
 //   python3 build.py && CMW_PORT=<port> node test/<you>_cdp/cdpd.js &   test/<you>_cdp/q.sh test/sound_v152_cmd.js
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const loadHere = async (ns, st) => {
@@ -15,38 +14,14 @@ const loadHere = async (ns, st) => {
   // hook read before it (__cmwSound, __cmwW2S) answers an exception, not a value)
   await settled({ until: `typeof __cmwSound === 'function' && typeof __cmwW2S === 'function'`, max: 10000, panes: false });
 };
-// (the engine's Sound.hear.state().counts run since load; __hearCount() reads them as __hearCount() did, since
-// its last call: up and down the red line's crossings (line k ≡ 0 mod n, the low D), notes the notes played, merged
-// the crossings merged into one note, cracks the cuts; as sound_cmd.js's hearCount)
-const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__hearCount = () => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, merged: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, merged: c.merged, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, merged: c.merged - p.merged, cracks: c.cracks - p.cracks }; }; })();' });
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = () => settled({ max: 4000 });
-const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
-const snd = () => ev('__cmwSound()');
 const glide = async (pts, dt = 16) => { for (const p of pts) { await move(p[0], p[1]); await sleep(dt); } };
-const circle = async (c, r, turns = 1, n = 48, a0 = 0.4) => { const out = []; for (let i = 0; i <= n * turns; i++) { const a = a0 + 2 * Math.PI * i / n; out.push(await W(c[0] + r * Math.cos(a), c[1] + r * Math.sin(a))); } return out; };
-const spy = () => ev(`(() => { window.__made = []; for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; } return 1; })()`);
-const made = () => ev(`(() => { const m = __made.slice(); __made.length = 0; return m; })()`);
 const ns = 'snd152' + Date.now();
 const fn = (expr, s = 120) => ({ steps: [{ type: 'custom', params: { expr, cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s } });
-const start = async (expr) => {
-  await loadHere(ns, fn(expr));
-  await ev(`__cmwSetMain('phase')`); await settle();
-  await click(5, 300); await settle();
-  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); 1`);
-  await settled({ until: `Sound.state().audio === 'running'`, max: 4000, panes: false });
-  await ev(`__cmwSet('loop', false); 1`);
-  await spy();
-};
-// a pointer loop round c (radius r, laps), the notes' count over it
-const harpLoop = async (c, r, laps = 1) => {
-  const pts = await circle(c, r, laps, 64);
-  await move(pts[0][0], pts[0][1]); await settle();
-  const phi0 = (await snd()).phi; await ev('__hearCount()');
-  await glide(pts); await settle();
-  return { dphi: +((await snd()).phi - phi0).toFixed(6), harp: await ev('__hearCount()') };
-};
+const { W, snd, circle, spy, made, hearInject, start, harpLoop } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'sound_kit.js'), 'utf8'))({ ev, send, move, click, settled, loadHere, settle, glide, ns, fn });
+await hearInject();
 logs();
 await view(1440, 900, false);
 
@@ -119,9 +94,9 @@ await ev(`Sound.set({ sonify: true }); 1`);
   R.heldLap = await harpLoop([0, 0], 0.25, 1);
   ok('the same zero, one lap of radius 0.25: the red line 1 up 0 down, the 12 lines (11 or 12 notes)', R.heldLap.harp.up === 1 && R.heldLap.harp.down === 0 && R.heldLap.harp.notes + R.heldLap.harp.merged >= 11 && R.heldLap.harp.notes + R.heldLap.harp.merged <= 12, R.heldLap);
 }
-// 8. (review verify-1, v15.2.1) the phone: a long press near a zero, then one lap round it that stops where it began.
+// 8. The phone: a long press near a zero, then one lap round it that stops where it began.
 // Its D sounds at the end, from any start: 3°, 5° and 8° above the D line 15 px from the zero, 3° at 30 px, and 5.7°
-// at 6 px (inside the harp's D-only zone, where that lap was silent); then the finger held there with a ±1.5 px
+// at 6 px (inside the harp's D-only zone, where that lap is silent); then the finger held there with a ±1.5 px
 // tremor: no note at 15 and 30 px; at 6 px a few notes at most (#266, a declared limit)
 {
   const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
@@ -176,14 +151,19 @@ await ev(`Sound.set({ sonify: true }); 1`);
     ok(`a touch lap ${r} px from a zero, from ${deg}° above the D line: 1 low D up at its end, the 12 lines (11 or 12 notes); held there: no note`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 11 && q.notes + q.merged <= 12 && q.held === 0, q);
   }
   // (#266, a declared limit: 6 px from a simple zero arg F turns about 14° for a 1.5 px pull on the probe, past the 3.75°
-  // Schmitt band (Sound.HT.HB, 1/96 turn), so the held tremor crosses a colour line and plays a note now and then; the
+  // Schmitt band (Sound.HT.HB, 1/96 turn), so the held tremor crosses a colour line and plays a note from time to time; the
   // marimba notes have no D-only zone near a zero as the harp had. It is documented in the guide, under "Reading the
   // sound". Three rounds of 1.5 s are counted apart; measured over 10 runs here: 0 to 2 notes in a round (the lap's own notes finished first), at most MAXHELD asked, where 15 and 30 px play none)
   {
     const MAXHELD = 3;
-    const q = R.touchLaps['r6_from5.7'] = await lap(6, 5.7, 48, 3);
-    ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (10 to 12 notes: at 6 px the 5 px rope lags about 56° of arg, so the lift's jump crosses two lines at once and one can go uncounted; 10 notes in 6 of 10 runs)`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 10 && q.notes + q.merged <= 12, q);
-    ok(`held 6 px from a zero, trembling ±1.5 px: known limit (#266), the tremor is past the arg hysteresis there (14° against 3.75°), so at most ${MAXHELD} notes (merged ones included) in 1.5 s, not none`, q.heldRuns.every((n) => n <= MAXHELD), q.heldRuns);
+    // (a lap with no hold: the stroke's 9 notes and the lift's 3 (the finger's jump from 56° behind crosses 3 lines,
+    // sounded 42 ms apart, none dropped), 12 in 3 runs of 3. With the tremor held first, two of the lines the rope still
+    // owes sound in the hold whenever the tremor pulls the probe over them: the same notes, earlier, and they are the
+    // hold's 0 to 2 below, so the lap's own count is read with no hold)
+    const q0 = R.touchLaps['r6_from5.7'] = await lap(6, 5.7, 48, 0);
+    ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (11 or 12 notes; the 5 px rope lags about 56° of arg there, so the lift's jump crosses 3 lines, each sounded)`, q0.up === 1 && q0.down === 0 && q0.notes + q0.merged >= 11 && q0.notes + q0.merged <= 12, q0);
+    const q = R.touchLaps['r6_hold'] = await lap(6, 5.7, 48, 3);
+    ok(`held 6 px from a zero, trembling ±1.5 px: known limit (#266), the tremor is past the arg hysteresis there (14° against 3.75°) and pulls the probe over the lines the rope still owes, so at most ${MAXHELD} notes (merged ones included) in 1.5 s, not none`, q.heldRuns.every((n) => n <= MAXHELD), q.heldRuns);
   }
   await view(1440, 900, false, false);
   await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: 'en-US,en' });

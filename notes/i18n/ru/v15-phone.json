@@ -4,9 +4,7 @@
   "v15ph.numbers_list": { "en": "Numbers: {list}", "ru": "Числа: %{list}", "note": "Accessible name of the Numbers chip: the names of the shared numbers, comma-separated (a, ρ)." },
   "v15ph.theme": { "en": "Theme", "ru": "Тема", "note": "Row label in the phone's More sheet, followed by the Auto / Light / Dark switch (GLOSSARY: Тема: Авто / Светлая / Тёмная)." },
   "v15ph.settings": { "en": "Settings", "ru": "Настройки", "note": "Link on the Sound row of the phone's More sheet: opens the sound settings (GLOSSARY: Настройки звука)." },
-  "v15ph.this_view": { "en": "This view", "ru": "Этот вид", "note": "Heading in the phone's Display sheet over the options of the open view (the ones the plane's sliders button held)." },
   "v15ph.resize": { "en": "Resize the sheet", "ru": "Изменить высоту панели", "note": "Accessible name of the bottom sheet's grabber: a tap toggles half and full height." },
   "v15ph.show_large": { "en": "Show {x} large", "ru": "Показать %{x} крупно", "note": "Accessible name of the small inset plane on a phone: a tap swaps it with the large plane. {x} is X or Y (Latin, italic in the picture)." },
-  "v15ph.search": { "en": "Search functions and commands", "ru": "Поиск функций и команд", "note": "Row in the phone's More sheet: opens the command palette (GLOSSARY: Поиск)." },
   "v15ph.links": { "en": "Links, scenes and LaTeX", "ru": "Ссылки, сцены и LaTeX-код", "note": "Row in the phone's More sheet: opens the export menu (copy LaTeX, copy link, save and open scene files)." }
 }

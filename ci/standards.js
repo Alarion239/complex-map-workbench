@@ -3,9 +3,15 @@
 // change adds (the Plan job runs it; ci/README.md, Standards check). Three rules:
 //   history   a comment that tells the code's history: the words, version and wave labels and changelog issue numbers
 //             of HISTORY below
-//   plan      a plan label in a comment: the labels of PLAN below
+//   plan      a plan label in a comment: the labels of PLAN below (an entry's third part: the files it leaves alone)
 //   asserts   a test file (test/t_*.js, test/*_cmd.js) whose diff removes more assertions (check/ok/assert calls) than it
-//             adds, unless the diff creates a test file that takes them over (a split)
+//             adds, unless the diff creates a test file that takes them over (a split), or retires the file (below)
+//   retired   a suite the diff deletes is retired, its assertions not counted as dropped, when the same diff names it in
+//             the ledger ci/retired_suites.js with a reason and drops it from what runs: from ci/suite_views.js and
+//             ci/browser_shards.js (a suite the base's shard lists never named ran in the catch-all shard, so it has no
+//             shard line to drop), or from ci/browser_suites.js (EXCLUDED). A unit test (test/t_*.js) runs because it
+//             exists, so its ledger line alone retires it. A ledger entry the diff adds for a file it does not delete is a
+//             finding
 // Only comments on added lines of src/, ci/, test/ and tools/ are read, and not the generated files. An added line
 // opts out with `standards-ok: <reason>` in its own comment; a test file opts out of the assertion count with the
 // same marker on any line it adds. A marker with no reason is itself a finding.
@@ -14,7 +20,7 @@
 // annotations on the lines and the job summary. It reports and exits 0 unless --block is given, then exits 1 when
 // anything is found.
 const { execFileSync } = require('child_process');
-const { ROOT, summary, esc } = require('./lib');
+const { ROOT, summary, esc, reEscape } = require('./lib');
 
 // room for the diff of a large change (256 MiB); git's output is read whole
 const GIT_BUFFER = 1 << 28;
@@ -32,8 +38,12 @@ const HISTORY = [
   [new RegExp(`\\bwas (?:then |first |later )?(?:${CHANGED})\\b`, 'i'), 'was <changed>'], [/\bused to\b/i, 'used to'],
   [/\bnow (?:\w+ )?(?:has|have|caches|stores?|keeps?|clamps?|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|returns?|lives?|goes|comes|sits)\b/i, 'now <verb>'],
   [/\bpreviously\b/i, 'previously'], [/\bno longer (?:has|have|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|needs?|exists?|returns?|goes|comes)\b/i, 'no longer <verb>'],
-  [/\breplaces\b/i, 'replaces'], [/\binstead of the old\b/i, 'instead of the old'],
-  [/\bv1\d(?:\.\d+)?(?:-beta(?:\.\d+)?)?\b/i, 'a version label'], [/\bbeta\.\d+\b/i, 'a version label'],
+  // (`replaces` alone says what the code does now, one thing taking another's place while a condition holds; beside a word
+  // for the past it is history)
+  [/\breplaces (?:the |an? )?(?:old|former|legacy|classic)\b/i, 'replaces the old'], [/\binstead of the old\b/i, 'instead of the old'],
+  // (a version inside a path, notes/constructions-v16/, or before a file's extension, SPEC-v17.md, is a name, not a label;
+  // a point release, a release series ending in .x and a label after a hyphen are labels)
+  [/(?<![/\w])v1\d(?:\.\d+)*(?:\.x)?(?:-beta(?:\.\d+)?)?\b(?![\w.-]*\/)(?!\.(?:md|js|json|html|txt|py|ya?ml|css)\b)/i, 'a version label'], [/(?<![-_/.\w])beta\.\d+\b(?![/.]\w)/i, 'a version label'],
   [/\bwaves? \d+\b/i, 'a wave label'],
   [/\b(?:fixed|fixes|added|removed|changed|introduced) (?:in|by|after) #\d+/i, 'an issue number as a changelog'],
   [/\bafter #\d+/i, 'an issue number as a changelog'],
@@ -43,6 +53,11 @@ const PLAN = [
   [/#\d+ (?:item|step|phase|part) \d+/i, 'an issue number as a plan step'],
   [/\b(?:item|step|phase) \d+ of #\d+/i, 'an issue number as a plan step'],
   [/\[[A-Za-z]{1,3}\d+(?: [^\]]*)?\]/, 'a bracketed plan label'],
+  // (the number of a review round's finding, bracketed or not: a review, check or verify item, a UX item, a
+  // regression or speed item; a numbered review round itself, outside a path; a suite under test/ names the finding
+  // its rows pin, so the rule leaves test/ alone)
+  [/\b(?:review|check) (?:user|app|ux)-\d+\b|\b(?:verify|regress|speed)-\d+\b|\bUX ?\d{1,3}\b|(?<!\/)\br\d+ review\b/, 'a review label',
+    /^test\//],
 ];
 const MARKER = /standards-ok:(.*)$/;
 // a call that checks something: check(, ok(, assert( and assert.method(; not a definition (function check(, ok = (...))
@@ -105,9 +120,38 @@ function parseDiff(text) {
   return out;
 }
 
-// the findings of a parsed diff: [{ file, line, rule, text, why }]
-function check(files) {
-  const found = [], counted = [];
+const LEDGER = 'ci/retired_suites.js';
+// the suites a parsed diff retires (a Set of test/ paths), and the findings of ledger entries for files it does not delete.
+// baseOf(path): the text of a file at the diff's base, or null (a suite in no shard line there ran in the catch-all shard)
+function retiredBy(files, baseOf = () => null) {
+  const byFile = (name) => files.find((f) => f.file === name) || { added: [], removed: [] };
+  const entry = (b) => new RegExp(`^\\s*'${reEscape(b)}':`);
+  const named = (b) => new RegExp(`'${reEscape(b)}[#']`);
+  // dropped from a list: a removed line names it and no added line does
+  const dropped = (name, re) => { const f = byFile(name); return f.removed.some((l) => re.test(l)) && !f.added.some((a) => re.test(a.text)); };
+  const deleted = new Set(files.filter((f) => f.deleted && TEST_FILE.test(f.file)).map((f) => f.file));
+  const retired = new Set(), found = [];
+  for (const a of byFile(LEDGER).added) {
+    const m = /^\s*'([^']+_cmd\.js|t_[^']+\.js)':\s*(['`"])(.*)$/.exec(a.text);
+    if (!m) continue;
+    const file = 'test/' + m[1], b = m[1];
+    if (!deleted.has(file)) { found.push({ file: LEDGER, line: a.n, rule: 'retired', text: a.text.trim(), why: `names ${file}, which this change does not delete` }); continue; }
+    if (!m[3].replace(/['`",\s]/g, '')) continue;   // (no reason: not retired)
+    if (b.startsWith('t_')) { retired.add(file); continue; }
+    // (in ci/browser_suites.js only an EXCLUDED line, whose value is its reason string, counts: a SUITES or TIMING entry
+    // dropped alone leaves the suite running)
+    const excluded = new RegExp(entry(b).source + `\\s*'`);
+    const shardsBase = baseOf('ci/browser_shards.js');
+    const offShards = dropped('ci/browser_shards.js', named(b)) || (shardsBase != null && !named(b).test(shardsBase));
+    const gone = (dropped('ci/suite_views.js', entry(b)) && offShards) || dropped('ci/browser_suites.js', excluded);
+    if (gone) retired.add(file);
+  }
+  return { retired, found };
+}
+
+// the findings of a parsed diff: [{ file, line, rule, text, why }]; baseOf as for retiredBy
+function check(files, baseOf) {
+  const { retired, found } = retiredBy(files, baseOf), counted = [];
   for (const f of files) {
     if (!SCOPE.test(f.file) || GENERATED.test(f.file)) continue;
     const marked = f.added.some((a) => (MARKER.exec(commentOf(a.text, f.file)) || [])[1]?.trim());
@@ -121,11 +165,11 @@ function check(files) {
           continue;
         }
         for (const [rule, list] of [['history', HISTORY], ['plan', PLAN]]) {
-          for (const [re, what] of list) if (re.test(c)) { found.push({ file: f.file, line: a.n, rule, text: a.text.trim(), why: what }); break; }
+          for (const [re, what, skip] of list) if (!(skip && skip.test(f.file)) && re.test(c)) { found.push({ file: f.file, line: a.n, rule, text: a.text.trim(), why: what }); break; }
         }
       }
     }
-    if (TEST_FILE.test(f.file) && !marked) {
+    if (TEST_FILE.test(f.file) && !marked && !retired.has(f.file)) {
       const count = (lines) => lines.reduce((s, l) => s + assertionsOf(l, f.file), 0);
       counted.push({ f, before: count(f.removed), after: count(f.added.map((a) => a.text)) });
     }
@@ -143,11 +187,11 @@ function check(files) {
 }
 
 function report(found) {
-  const rules = { history: 'history words in a comment', plan: 'plan label in a comment', asserts: 'dropped test assertions', marker: 'opt-out without a reason' };
-  if (!found.length) return '### Standards check: nothing found\n\nReport only (no check here fails the Gate). Opt a line out with `standards-ok: <reason>` in its comment.\n';
+  const rules = { history: 'history words in a comment', plan: 'plan label in a comment', asserts: 'dropped test assertions', retired: 'ledger entry for a file kept', marker: 'opt-out without a reason' };
+  if (!found.length) return '### Standards check: nothing found\n\nA finding fails the Gate, which runs this check with --block. Opt a line out with `standards-ok: <reason>` in its comment.\n';
   const rows = found.map((x) => `| ${x.rule} | \`${x.file}:${x.line}\` | ${esc(x.why)} | ${x.text ? '`' + esc(x.text.slice(0, SHOWN_CHARS)) + '`' : ''} |`);
   const by = Object.entries(rules).map(([k, v]) => [v, found.filter((x) => x.rule === k).length]).filter(([, c]) => c).map(([v, c]) => `${c} ${v}`);
-  return ['### Standards check: ' + by.join(', '), '', 'Report only. Review each; opt a line out with `standards-ok: <reason>` in its comment.', '',
+  return ['### Standards check: ' + by.join(', '), '', 'Each fails the Gate, which runs this check with --block: fix it, or opt its line out with `standards-ok: <reason>` in its comment.', '',
     '| rule | where | found | line |', '|---|---|---|---|', ...rows, ''].join('\n');
 }
 
@@ -158,11 +202,11 @@ function diffAgainst(ref) {
 if (require.main === module) {
   const a = process.argv.slice(2);
   const ref = a.includes('--ref') ? a[a.indexOf('--ref') + 1] : 'HEAD~1';
-  const found = check(parseDiff(diffAgainst(ref)));
+  const found = check(parseDiff(diffAgainst(ref)), (file) => { try { return execFileSync('git', ['show', `${ref}:${file}`], { cwd: ROOT, encoding: 'utf8', maxBuffer: GIT_BUFFER }); } catch (e) { return null; } });
   const gh = a.includes('--github') || !!process.env.GITHUB_ACTIONS;
   if (gh) for (const x of found.slice(0, MAX_ANNOTATIONS)) console.log(`::warning file=${x.file},line=${x.line},title=standards ${x.rule}::${x.why}`);
   for (const x of found) console.log(`${x.file}:${x.line}: ${x.rule}: ${x.why}${x.text ? '  ' + x.text.slice(0, SHOWN_CHARS) : ''}`);
   summary(report(found));
   process.exit(a.includes('--block') && found.length ? 1 : 0);
 }
-module.exports = { commentOf, assertionsOf, parseDiff, check, report };
+module.exports = { commentOf, assertionsOf, parseDiff, check, retiredBy, report };

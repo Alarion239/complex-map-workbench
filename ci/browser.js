@@ -3,7 +3,7 @@
 // sound, ...), one after another, each in its own headless Chrome: a fresh copy of the test/cdp_kit daemon whose port
 // is this runner's server of dist/. Exit 1 when one fails. Each suite's result goes to the log in a collapsible group;
 // the job summary gets one row per suite.
-//   node ci/browser.js [--shard ID] [--only REGEX] [--no-build] [--port N] [--list]
+//   node ci/browser.js [--shard ID] [--only REGEX] [--no-build] [--port N] [--wait] [--list]
 // Suites are found by the glob, so a new one runs with no edit here (ci/browser_shards.js puts it in its catch-all
 // shard); EXCLUDED (ci/browser_suites.js) lists the files that are not pass/fail suites and those that need the GPU
 // machines. Speed is gated only by the perf suite on our GPU machines (gpu-gate.yml), and GitHub's machines render
@@ -12,6 +12,9 @@
 // because those machines draw in software (each with its reason, and the evidence from the check's own detail), and
 // KNOWN the failures that are understood and open (each with its reason): the summary prints both, the job does not
 // fail on them.
+// A run takes a lock for its worktree (.ci/browser.lock, ci/run_lock.js): it rewrites test/ci_cdp, .ci/browser and dist/, so a second
+// run there would break the first. The second refuses and names the holder; --wait waits for it. A lock left by a run that was killed
+// is removed, and so is the daemon it left behind.
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -19,6 +22,8 @@ const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { SUITES, EXCLUDED, TIMING, SOFTWARE, KNOWN, PAGES, ALWAYS } = require('./browser_suites');
 const { suitesOf } = require('./browser_shards');
 const { VIEWS } = require('./suite_views');
+const runLock = require('./run_lock');
+const { noCheckOf, noCheckMarkdown } = require('./browser_no_check');
 
 const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
@@ -31,6 +36,7 @@ const KIT = path.join(ROOT, 'test', 'cdp_kit');
 const COPY = path.join(ROOT, 'test', 'ci_cdp');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const secs = (ms) => `${(ms / 1000).toFixed(0)} s`;
+let HELD = null;   // the lock this run holds (ci/run_lock.js), once main has it
 
 // every test/*_cmd.js; -> the runs to make here, [{ file, run }] (a suite may run more than once: SUITES[f].runs; a
 // shard may take some of them, 'file#label')
@@ -71,6 +77,10 @@ async function waitFor(files, child, ms) {
 // gpu_probe.js start: the same JSON in the log, the same line in the summary, and no WebGL2 fails
 // the job with the same error. -> null until asked, then { webgl2, renderer, vendor, parallelCompile }
 let PROBE = null;
+// the renderer the daemons' Chrome is started with (test/cdp_kit/renderer.js: CI's lavapipe where the machine has it), said once; the
+// probe below says which one answered
+let RENDERER = require('../test/cdp_kit/renderer.js').resolveRenderer();
+const rendererLine = () => `renderer: ANGLE ${RENDERER.angle}, chosen by ${RENDERER.source === 'CMW_ANGLE' ? 'CMW_ANGLE' : RENDERER.source === 'platform' ? 'the platform' : RENDERER.source === 'lavapipe' ? 'default: lavapipe found, as in CI' : 'default: no lavapipe'}`;
 const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|basic render|warp|microsoft basic|software/i;
 const PROBE_JS = `return await ev(\`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return { webgl2: false };
   const e = gl.getExtension('WEBGL_debug_renderer_info');
@@ -79,8 +89,11 @@ const PROBE_JS = `return await ev(\`(() => { const gl = document.createElement('
 function reportProbe(info) {
   const software = !info.webgl2 || SOFTWARE_GL.test(`${info.renderer} ${info.vendor}`);
   const machine = `${require('os').platform()} ${require('os').arch()} · ${(require('os').cpus()[0] || {}).model} · ${require('os').cpus().length} cores`;
-  const flags = [process.env.CMW_ANGLE && `--use-angle=${process.env.CMW_ANGLE}`, process.env.CMW_CHROME_ARGS].filter(Boolean).join(' ');
+  const flags = [`--use-angle=${RENDERER.angle}`, ...RENDERER.args, process.env.CMW_CHROME_ARGS].filter(Boolean).join(' ');
+  console.log(`${rendererLine()}; drawn by: ${info.webgl2 ? info.renderer : 'no WebGL2'}`);
+  if (RENDERER.warning) console.log(`warning: ${RENDERER.warning}`);
   console.log(JSON.stringify(Object.assign({ software, machine }, info, { flags }), null, 1));
+  if (RENDERER.warning) summary(`**Warning:** ${esc(RENDERER.warning)}  \n`);
   summary(`**WebGL2:** ${info.webgl2 ? esc(info.renderer) : 'none'}${software ? ' (software rendering)' : ''} · parallel compile ${info.parallelCompile ? 'yes' : 'no'}  \n${esc(machine)} · \`${esc(flags)}\`\n`);
 }
 // one run of one suite in a fresh daemon; -> { out (its return value), error, log, ms } (noWebgl2: the job's first
@@ -100,6 +113,7 @@ async function runOne(file, run, port) {
   }, run.env || {});
   const t0 = Date.now();
   const child = spawn(process.execPath, [daemon], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+  if (HELD) HELD.daemon(child.pid, daemon);
   let log = '';
   child.stdout.on('data', (d) => { log += d; });
   child.stderr.on('data', (d) => { log += d; });
@@ -132,6 +146,7 @@ async function runOne(file, run, port) {
     try { fs.writeFileSync(path.join(Q, 'QUIT'), ''); } catch (e) { /* no queue: the daemon never got that far */ }
     await waitFor([], child, 5000);
     killTree(child);
+    if (HELD) HELD.daemon(null);
     keepShots(file, run);
     fs.rmSync(COPY, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
@@ -152,6 +167,8 @@ function keepShots(file, run) {
 function failures(out) {
   if (out == null || typeof out !== 'object' || Array.isArray(out)) return null;
   if (out.__daemonError) return [{ name: 'the suite threw', detail: out.__daemonError }];
+  // (#1328) answers the kit could not give as data that the suite did not read: a page exception, a wait that ran out
+  const kit = Array.isArray(out.kitFaults) && out.kitFaults.length ? [{ name: 'the kit answered a page exception or a wait that ran out, and the suite read on', detail: out.kitFaults }] : [];
   // (a suite whose fails are names keeps each check's detail in out.info[name]: the release smokes)
   const info = out.info && typeof out.info === 'object' && !Array.isArray(out.info) ? out.info : {};
   const item = (f) => (Array.isArray(f) ? { name: String(f[0]), detail: f[2] } : typeof f === 'string' ? { name: f, detail: info[f] }
@@ -160,7 +177,8 @@ function failures(out) {
   const verdict = typeof out.pass === 'boolean' ? out.pass : typeof out.ok === 'boolean' ? out.ok
     : typeof out.pass === 'number' && typeof out.of === 'number' ? out.pass === out.of : list ? !list.length : null;
   if (verdict == null) return null;
-  if (list && list.length) return list;
+  if (list && list.length) return list.concat(kit);
+  if (verdict && kit.length) return kit;
   return verdict ? [] : [{ name: typeof out.pass === 'number' ? `${out.pass} of ${out.of} checks passed` : 'the suite says it failed', detail: out }];
 }
 // the entry of a list (TIMING, SOFTWARE, KNOWN) that a failed check matches: by name, and, when the entry has a
@@ -177,6 +195,7 @@ async function main() {
   const { all, runs } = selected();
   if (argv.includes('--list')) { for (const x of runs) console.log(x.file + (x.run.label ? '#' + x.run.label : '')); return 0; }
   if (!runs.length) { summary(`### Browser suites${shard ? ' (' + shard + ')' : ''}: none selected\n`); return 0; }
+  HELD = await runLock.acquire(path.join(ROOT, '.ci', 'browser.lock'), { wait: argv.includes('--wait') });
   if (!argv.includes('--no-build') && run(PY, ['build.py']) !== 0) throw new Error('build failed');
   // the extra pages some suites open (old versions of the app, built from their commits; the published page as served)
   const dist = path.join(ROOT, 'dist');
@@ -186,7 +205,7 @@ async function main() {
   const srv = await serve(dist, Number(opt('--port', 0)));
   const port = srv.server.address().port;
   console.log(`dist/ at ${srv.base}; ${runs.length} run(s)${shard ? ` of shard ${shard}` : ''}`);
-  const rows = [], timing = [], soft = [], known = [], notes = [];
+  const rows = [], timing = [], soft = [], known = [], noCheck = [], notes = [];
   let failed = 0, n = 0;
   const t00 = Date.now();
   try {
@@ -194,7 +213,15 @@ async function main() {
       const cfg = SUITES[file] || {};
       n++;
       const name = file + (r.label ? ` (${r.label})` : '');
-      const res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+      let res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+      // (lavapipe was found and chosen, but Chrome has no WebGL2 with the Vulkan flags here: the run goes on with SwiftShader, once)
+      if (res.noWebgl2 && RENDERER.source === 'lavapipe') {
+        console.log('warning: Chrome has no WebGL2 through lavapipe on this machine; the suites run with SwiftShader (CMW_ANGLE=swiftshader), which CI does not use');
+        process.env.CMW_ANGLE = 'swiftshader';
+        RENDERER = require('../test/cdp_kit/renderer.js').resolveRenderer();
+        PROBE = null;
+        res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+      }
       // (gpu_probe.js's error and exit code: the suites never run on a Chrome without WebGL2)
       if (res.noWebgl2) { console.error('::error title=No WebGL2::headless Chrome has no WebGL2 on this machine'); return 1; }
       const fl = res.error ? [{ name: res.error }] : (res.out && res.out.__daemonError ? failures(res.out) : cfg.verdict ? cfg.verdict(res.out) : failures(res.out))
@@ -206,12 +233,14 @@ async function main() {
       for (const f of t) timing.push({ name, f });
       for (const f of sw) soft.push({ name, f, why: matches(SOFTWARE[file], f).why });
       for (const f of k) known.push({ name, f, why: matches(KNOWN[file], f).why });
+      const nc = noCheckOf(res.out);
+      for (const row of nc) noCheck.push({ name, row });
       const ok = !hard.length;
       if (!ok) failed++;
       // (a passing suite's screenshots are not kept, unless it reports with them: SUITES[f].keepShots)
       if (ok && !(SUITES[file] && SUITES[file].keepShots)) fs.rmSync(shotsDir(file, r), { recursive: true, force: true });
       fs.writeFileSync(path.join(OUT, name.replace(/[^\w.-]+/g, '_') + '.json'), JSON.stringify({ file, run: r.label, ms: res.ms, error: res.error, out: res.out }, null, 1));
-      const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${sw.length ? `, ${sw.length} software` : ''}${k.length ? `, ${k.length} known` : ''}`;
+      const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${sw.length ? `, ${sw.length} software` : ''}${k.length ? `, ${k.length} known` : ''}${nc.length ? `, ${nc.length} no check` : ''}`;
       console.log(gh ? `::group::${head}` : `== ${head}`);
       if (res.out && res.out.pass != null && res.out.of != null) console.log(`${res.out.pass} of ${res.out.of}`);
       // (a suite that reports, SUITES[f].logLine: its result in one line of the log, readable with the job's log alone)
@@ -222,13 +251,15 @@ async function main() {
       for (const f of t) console.log(`  timing (not gated) ${f.name}: ${short(f.detail, 600)}`);
       for (const f of sw) console.log(`  software renderer (not gated here) ${f.name}: ${short(f.detail, 600)}`);
       for (const f of k) console.log(`  known ${f.name}: ${short(f.detail, 600)}`);
+      for (const row of nc) console.log(`  no check (the runner was late for it, not a failure) ${row}`);
       if (!ok && res.log) console.log('-- daemon log --\n' + res.log.slice(-4000));
       if (!ok && res.out && res.out.logs) console.log('-- page console --\n' + short(res.out.logs, 4000));
       if (gh) console.log('::endgroup::');
       if (!ok && gh) console.log(`::error title=${name} failed::${esc(short(hard[0].name + (hard[0].detail !== undefined ? ': ' + short(hard[0].detail, 200) : ''), 300))}`);
       if (t.length && gh) console.log(`::warning title=${name}: timing (not gated)::${esc(short(t.map((f) => f.name).join('; '), 300))}`);
+      if (nc.length && gh) console.log(`::warning title=${name}: rows made no check::${esc(short(nc.join('; '), 300))}`);
       const res1 = res.out && typeof res.out.pass === 'number' && typeof res.out.of === 'number' ? `${res.out.pass}/${res.out.of}` : ok ? 'pass' : '';
-      rows.push(`| ${ok ? (t.length || sw.length || k.length ? '✅⚠️' : '✅') : '❌'} | \`${name}\` | ${secs(res.ms)} | ${esc(short([res1, ...hard.slice(0, 3).map((f) => f.name)].filter(Boolean).join('; '), 240))} | ${t.length || ''} | ${sw.length || ''} | ${k.length || ''} |`);
+      rows.push(`| ${ok ? (t.length || sw.length || k.length || nc.length ? '✅⚠️' : '✅') : '❌'} | \`${name}\` | ${secs(res.ms)} | ${esc(short([res1, ...hard.slice(0, 3).map((f) => f.name)].filter(Boolean).join('; '), 240))} | ${t.length || ''} | ${sw.length || ''} | ${k.length || ''} |`);
     }
   } finally { srv.server.close(); }
   const md = [`### Browser suites${shard ? ` (${shard})` : ''}: ${n - failed} of ${n} passed, ${secs(Date.now() - t00)}`, '',
@@ -241,6 +272,7 @@ async function main() {
     ...soft.map((x) => `| \`${x.name}\` | ${esc(short(x.f.name, 160))} | ${esc(x.why)} | ${esc(short(x.f.detail, 200))} |`), '', '</details>', '');
   if (known.length) md.push('**Known failures (listed in ci/browser_suites.js, not gated):**', '', '| suite | check | why |', '|---|---|---|',
     ...known.map((x) => `| \`${x.name}\` | ${esc(short(x.f.name, 160))} | ${esc(x.why)} |`), '');
+  md.push(...noCheckMarkdown(noCheck, esc, short));
   const ex = all.filter((f) => EXCLUDED[f]);
   if (notes.length) md.push(...notes, '');
   md.push(`<details><summary>Not run here (${ex.length} files: ci/browser_suites.js EXCLUDED)</summary>`, '', ...ex.map((f) => `- \`${f}\`: ${esc(EXCLUDED[f])}`), '', '</details>', '');

@@ -15,17 +15,10 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ns = 'svf' + Date.now();
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
-  steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
+const { MOB, CUBE, EXP, S2, WHOLEMAP_UP, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
+const CHAIN3 = [EXP, MOB, CUBE];
 const LONG = { type: 'sin', params: {}, on: true };
-const open = async (w, h, touch, lang, chain) => {
-  const stx = chain ? Object.assign({}, st, { steps: chain }) : st;
-  await view(w, h, false, touch);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(stx))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
-};
+const open = (w, h, touch, lang, chain) => openChain({ ns, w, h, mobile: touch, lang, shapes: [S2], steps: chain || CHAIN3, until: WHOLEMAP_UP, max: 30000 });
 const S = () => ev('__cmwSteps()');
 const whole = () => ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'); if (!f) return null; const rail = document.querySelector('#svStrip .sv-rail'), add = document.querySelector('#svStrip .sv-add'), planes = [...document.querySelectorAll('#svStrip .sv-plane')], last = planes[planes.length - 1];
   return { text: f.textContent, label: f.getAttribute('aria-label'), pressed: f.getAttribute('aria-pressed'), tab: f.tabIndex, tag: f.tagName, hidden: f.hidden, shown: getComputedStyle(f).display !== 'none',
@@ -56,7 +49,7 @@ const PLANES = 4;   // (z and the three steps' images)
 ok('F is not a step: the chain and the place on the thread are as they were', (await S()).planes.length === PLANES && (await S()).x === 0, await S());
 
 // a saved page that had F selected opens with the chip pressed
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
 await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 ok('a page saved with F selected opens with the chip pressed', (await S()).sel === 'F' && (await whole()).pressed === 'true', { sel: (await S()).sel, f: await whole() });
 // room: the chip is after the rail, the round F alone (its words are its label and tip):
@@ -66,10 +59,13 @@ const atRest = () => ev(`(() => { const r = document.querySelector('#svStrip .sv
   r.scrollLeft = 0; const fb = f.getBoundingClientRect(), rb = r.getBoundingClientRect(), at = document.elementFromPoint(fb.left + fb.width / 2, fb.top + fb.height / 2);
   return { rail: Math.round(r.clientWidth), scrolls: r.scrollWidth > r.clientWidth + 1, onlyF: getComputedStyle(n).display === 'none', label: f.getAttribute('aria-label'), tip: f.dataset.tip,
     addFolded: getComputedStyle(document.querySelector('#svStrip .sv-add-t')).display === 'none', moreLast: (() => { const k = [...document.querySelector('#svStrip').children].filter((e) => e.getClientRects().length).pop(); return !!k && k.classList.contains('sv-playmore'); })(), addOnTop: (() => { const a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(), e = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2); return !!e && !!e.closest('.sv-add'); })(), clearOfRail: fb.left >= rb.right - 1, onTop: !!at && (at === f || f.contains(at)), w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
-const LABEL = { en: 'Whole map', ru: 'Вся карта', it: 'Mappa intera' };
+// (the chip's name is the page's own translation of the English key, read under each language from the table the page ships,
+// so a new wording in tools/it_table.json or tools/ru_extra.json keeps this check; ru and it must differ from the English)
+const KEY = 'Whole map';
+const labelOf = (lang) => ev(`I18N.at(${JSON.stringify(lang)}).t(${JSON.stringify(KEY)})`);
 const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
-  for (const [what, chain] of [['1 step', st.steps.slice(0, 1)], ['2 steps', st.steps.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
+  for (const [what, chain] of [['1 step', CHAIN3.slice(0, 1)], ['2 steps', CHAIN3.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
     await open(1440, 900, false, lang, chain);
     if (what === '1 step') {
       // (a one-step chain has no F chip: F is f₁ there)
@@ -79,9 +75,11 @@ for (const lang of ['en', 'ru', 'it']) {
       continue;
     }
     const w = await atRest();
+    const label = await labelOf(lang);
+    ok(`1440 ${lang}, ${what}: the chip's name is ${lang === 'en' ? 'the English' : 'translated, not the English'}`, typeof label === 'string' && label.length > 0 && (lang === 'en' ? label === KEY : label !== KEY), label);
     info[`1440 ${lang} ${what}`] = w;
     ok(`1440 ${lang}, ${what}: the chip is the F alone with its words as its label and tip, on top at its centre, clear of the rail`,
-      w.onlyF && w.label === LABEL[lang] && w.tip === LABEL[lang] && w.clearOfRail && w.onTop, w);
+      w.onlyF && w.label === label && w.tip === label && w.clearOfRail && w.onTop, w);
     if (what === '12 steps') ok(`1440 ${lang}, 12 steps: the thread scrolls, and the chip is still pressable at rest`, w.scrolls && w.onTop, w);
     if (what === '3 steps') ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 320 px, with the chip beside it)`, w.rail >= 320, w);
     // (the Playback ⋯ ends the strip and takes the room of "+ Add function"'s words once the thread is longer than a step or two:

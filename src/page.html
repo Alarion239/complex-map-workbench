@@ -294,6 +294,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-hear { margin-top: 2px; border-bottom: 1px solid var(--line); }
 .snd-fine-touch { display: none; }
 @media (pointer: coarse) { .snd-fine-ptr { display: none; } .snd-fine-touch { display: inline; } .snd-keys { display: none; } }
+:root.sv .snd-keys-cl, :root:not(.sv) .snd-keys-sv { display: none; }
 .snd-more, .snd-diag { margin: 2px 0 4px; font: 400 11px/15px var(--f-ui); color: var(--muted); }
 .snd-more > summary, .snd-diag > summary { cursor: pointer; min-height: 24px; display: flex; align-items: center; font: var(--t-label); color: var(--ink-2); }
 .snd-diag { margin-top: 6px; }
@@ -426,14 +427,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .panes > * { min-width: 0; min-height: 0; }
 .panes.solo-L, .panes.solo-R { grid-template-columns: minmax(0, 1fr); }
 .panes.solo-L > #gutterCol, .panes.solo-L > #paneR, .panes.solo-R > #gutterCol, .panes.solo-R > #paneL { display: none; }
-/* the plane an expanded one leaves out: a strip at its edge, named, that brings it back */
 .panes { position: relative; }
-.hidden-strip { position: absolute; top: 50%; translate: 0 -50%; z-index: 4; writing-mode: vertical-rl; padding: 12px 4px; border: 1px solid var(--line); background: var(--surface); color: var(--accent); font: var(--t-label); cursor: pointer; }
-.hidden-strip[hidden] { display: none; }
-.hidden-strip[data-side="R"] { right: 0; border-right: 0; border-radius: var(--r-2) 0 0 var(--r-2); }
-.hidden-strip[data-side="L"] { left: 0; border-left: 0; border-radius: 0 var(--r-2) var(--r-2) 0; }
-:root.ph .hidden-strip { display: none; }
-.gutter { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
+:root.ph .gutter { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
 .gutter-col { cursor: col-resize; }
 .gutter-row { cursor: row-resize; }
 .gutter::after { content: ""; position: absolute; background: var(--line-strong); opacity: 0; transition: opacity var(--t-fast) var(--ease-out); }
@@ -480,9 +475,11 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pane-head .led { margin-left: 6px; margin-right: 4px; }
 .led { display: inline-block; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
 .led.ok { background: var(--good); }
-.led.busy { background: var(--warn); animation: led-pulse 1.2s var(--ease-inout) infinite; }
-.led.err { background: var(--error); }
-@keyframes led-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+/* (the three states differ in shape as well as hue: a filled dot is up to date, a ring is busy, a filled square is failed) */
+.led.busy { background: transparent; box-shadow: inset 0 0 0 1.5px var(--warn); animation: led-pulse 1.2s var(--ease-inout) infinite; }
+.led.err { background: var(--error); border-radius: 1px; }
+/* (the lowest opacity keeps the busy ring at 3:1 against the bar in light and dark) */
+@keyframes led-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.75; transform: scale(0.8); } }
 @container pane (max-width: 519px) {
   .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
   .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
@@ -528,7 +525,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .plot > canvas.overlay { touch-action: none; }
 
 /* level 2: anything floating over a canvas */
-.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip {
+.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip, .ld-key, .sv-tile {
   background: var(--overlay); border: 1px solid var(--line-strong); box-shadow: var(--shadow-1); border-radius: var(--r-2);
 }
 .chip.readout {
@@ -540,6 +537,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   cursor: copy; transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
 .chip.readout:empty { display: none; }
+@media (pointer: coarse) { .chip.readout { pointer-events: none; } }   /* (the readout copies on a press, which a touch has no use for: where the primary pointer is coarse, phones and tablets whose main input is touch, the chip is a reading, not a target, as on the phone layout; a laptop or tablet with a trackpad usually reports a fine pointer and keeps copy-on-tap) */
 /* the probe's one readout: z on the first line, w = F(z) on the second */
 .chip.readout:has(> .rln) { height: auto; line-height: 18px; padding-top: 2px; padding-bottom: 2px; }
 :root.ph .chip.readout:has(> .rln) { height: auto; line-height: 20px; padding-top: 3px; padding-bottom: 3px; }
@@ -568,6 +566,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pane.no-rulers .ruler, .pane.no-rulers .ruler-corner { visibility: hidden; }
 /* a 3D stage (Landscape, Sphere, the domain globe) has no rulers: it fills the whole plate body, centred */
 .pane.no-rulers .pane-body > .plot { grid-area: 1 / 1 / 3 / 3; }
+/* (the plot grows over the rulers' row, and the stack keeps its place above it: the key under the pointer is the same key after a surface switch) */
+:root:not(.ph) .pane.no-rulers .viewstack { bottom: calc(8px + var(--ruler)); }
 .field-err { grid-column: 1 / -1; margin-top: 2px; font: 400 11px/16px var(--f-ui); color: var(--error); }
 .chip.readout .rv i, .chip.readout .rk i { font: italic 500 12px/16px var(--f-math); }
 /* a key set wholly in STIX (parentheses and subscripts with the variables), and a word key in the UI face */
@@ -617,12 +617,12 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   .pane .plot:has(> .legend-chip:not([hidden]):not(.calc-chip)) > .legend-chip.calc-chip { top: 120px; }
 }
 /* the integral popover (a right click on a curve): values in the mono face, math in STIX, words in the UI face */
-.pop.int-pop { width: min(296px, calc(100vw - 24px)); padding: 0; overflow: hidden; }
-.int-pop .pop-title { padding: 0 4px 0 10px; }
+.pop.int-pop { width: min(296px, calc(100vw - 24px)); padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: calc(100svh - 24px); }
+.int-pop .pop-title { flex: none; padding: 0 4px 0 10px; }
 .int-pop .pop-title .grow { flex: 1 1 auto; }
 .int-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--t-heading); }
 .int-title .int-part { font: var(--t-label); color: var(--muted); }
-.int-body { display: grid; gap: 4px; padding: 8px 10px 10px; }
+.int-body { display: grid; gap: 4px; padding: 8px 10px 10px; min-height: 0; overflow-y: auto; }   /* (taller than the screen, the body scrolls and the title stays) */
 .int-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 24px; align-items: center; gap: 6px; min-height: 24px; }
 .int-row.sub { grid-template-columns: minmax(0, 1fr) auto; min-height: 20px; padding-left: 4px; }
 .int-k { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--t-label); color: var(--ink-2); }
@@ -642,6 +642,16 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .int-cap { font: var(--t-label); color: var(--muted); }
 .int-cap i { font: var(--t-math-s); color: var(--ink-2); }
 .int-pop .icon-btn.copied { color: var(--good); }
+/* touch: the popover's Copy and Close keep their 32 px look and have a 44 px hit area (as the phone's alone chip, phone.css), and the
+   rows and the title are 44 px tall (the title's 1 px rule besides), so the buttons are 44 px apart centre to centre (WCAG 2.2's 2.5.8
+   spacing, and the project's 44 px rule on touch, test/lib/layout.js targetSizes). The buttons sit 10 px from the popover's edge, which
+   clips (overflow), so the hit area, 6 px beyond a button, is whole. A mouse keeps 24 px (#2191) */
+@media (pointer: coarse) {
+  .int-pop .icon-btn.small::after { content: ""; position: absolute; inset: -6px; }
+  .int-pop .pop-title { height: 45px; padding: 0 10px 0 8px; gap: 4px; }   /* (44 px and the 1 px rule under it; the text keeps its width) */
+  .int-row { grid-template-columns: minmax(0, 1fr) auto 32px; column-gap: 3px; min-height: 44px; }   /* (the label keeps its width: 24 px column + 6 px gaps before) */
+  .int-pad { width: 32px; }
+}
 /* the shape panel lists the w-plane targets of the Preimage view under their own heading */
 .shapes .shapes-sub { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .shapes .shapes-sub i { font: italic 500 12px/14px var(--f-math); color: var(--ink-2); }
@@ -705,6 +715,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .vbtn:last-child { border-radius: 0 0 2px 2px; }
 .vbtn:hover { background: var(--well); color: var(--ink); }
 .vbtn[aria-pressed="true"] { background: var(--well); color: var(--ink); }
+.vbtn[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.vbtn[aria-disabled="true"]:hover { background: transparent; color: var(--ink-2); }
 .vbtn svg { width: 16px; height: 16px; display: block; }
 .vbtn:focus-visible { outline-offset: -2px; }
 
@@ -719,6 +731,30 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 #warmBar > i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--warm, 0)); transition: transform var(--t-med) var(--ease-out, ease-out); }
 #warmBar.indet > i { width: 30%; transform: none; transition: none; animation: hairline 900ms var(--ease-inout) infinite; }
 
+/* Look down's key, and the Stack's (19-lookdown.js): what each mark over the plane is, at its bottom left, clear of the rulers and of the
+   view buttons at the bottom right */
+.ld-key {
+  position: absolute; z-index: 10; left: 28px; bottom: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+  max-width: calc(100% - 96px); padding: 4px 10px; font: var(--t-label); color: var(--ink-2);
+}
+.ld-key[hidden] { display: none; }
+/* (on the Stack the card's Look down switch is hidden: the Stack's view control has a Look down of its own, 19-stack.js) */
+:root.sv-stack .ro-look { display: none; }
+.sv-camseg[hidden] { display: none; }
+/* (a phone's head has no room for it: the plane's Tilt key and the Display sheet carry the Stack's view control there) */
+:root.ph .sv-camseg { display: none; }
+.ld-key .ld-ttl { color: var(--ink); }
+.ld-key > .ld-links-row { flex: none; display: inline-flex; align-items: center; gap: 8px; }
+.ld-list { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
+.ld-it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ld-sw { display: inline-block; flex: none; box-sizing: border-box; width: 14px; }
+.ld-ring { width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 50%; }
+.ld-line { height: 0; border-top: 1.5px solid var(--ink); }
+.ld-dash { height: 0; border-top: 2px dashed var(--cut); }
+.ld-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cut); }
+.ld-tube { width: 10px; height: 13px; border: 1.5px solid var(--c6-edge); border-radius: 5px / 3px; }
+.ld-strand { height: 0; border-top: 2px dotted var(--cut); }
+.ld-cross { width: 11px; height: 11px; background: linear-gradient(45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%); }
 .empty-chip {
   position: absolute; z-index: 10; top: 40px; left: 50%; translate: -50% 0;
   display: flex; align-items: center; gap: 10px; height: 32px; max-width: calc(100% - 16px); padding: 0 4px 0 10px;
@@ -737,6 +773,12 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pane-hint[hidden] { display: none; }
 .pane-hint-t { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .pane-hint .toast-act { flex: 0 0 auto; height: 24px; }
+/* the steps view's glide tile (#1533): the formulas of the two planes a glide is between, cross-faded, over the left
+   plane at the spot the steps view finds clear (svTileSpot); never a target */
+.sv-tile { position: absolute; z-index: 9; display: grid; align-items: center; padding: 3px 8px; font: var(--t-math-s); color: var(--ink); white-space: nowrap; pointer-events: none; }
+.sv-tile[hidden], :root:not(.sv) .sv-tile { display: none; }
+.sv-tile > .sv-tile-f { grid-area: 1 / 1; justify-self: start; display: inline-block; }   /* (each its own width: the tile measures it) */
+.sv-tile > .sv-tile-f[hidden] { display: none; }
 /* the draft chip takes the place of the plane's empty chip while a polygon is drafted there */
 .plot:has(> .draft-chip:not([hidden])) > .empty-chip:not(.draft-chip) { visibility: hidden; }
 /* below the legend chip (8 + 72 + 8) when it shows, so the two never overlap on a narrow plate */
@@ -848,6 +890,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .tool > span { position: absolute; left: -3px; right: -3px; bottom: 4px; font: var(--t-label); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 .tool:hover { background: var(--surface); border-color: var(--line); color: var(--ink); }
 .tool.on, .tool.on:hover, .tool[aria-pressed="true"] { background: var(--inverse); border-color: var(--inverse); color: var(--inverse-ink); }
+/* a tool that does not apply here (Pick, outside the steps view's floor) keeps its slot, hidden */
+.tool.tool-na { visibility: hidden; }
 /* Annulus, Sector and Polar grid while X shows its globe (P3b: they draw in Plane only) */
 .tool.globe-off:not(.on) { opacity: 0.45; }
 .tool.rail-tool { width: 28px; height: 28px; display: grid; place-items: center; }
@@ -1528,7 +1572,12 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
   .xf-hint { white-space: normal; font-size: 11px; line-height: 13px; }
   .xf-foot .xf-sp { display: none; }
-  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; }
+  /* (touch targets of 44 px: the destinations, and Cancel while a video is made; the progress row has the name row's place,
+     a row of its own, so its meter is not squeezed beside the destinations) */
+  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; height: 44px; }
+  .xf-prog { flex: 1 1 100%; }
+  .xf-prog .btn { min-height: 44px; }
+  .xf-meter { min-width: 96px; }
 }
 .modal p, .modal li { max-width: 68ch; }
 .guide-nav { display: grid; gap: 8px; margin: 12px 0 4px; }
@@ -1812,7 +1861,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   :root { --t-fast: 0ms; --t-med: 0ms; --t-slow: 0ms; --t-view: 0ms; --t-hom: 0ms; }
   *, *::before, *::after { transition-duration: 0ms !important; scroll-behavior: auto !important; }
-  .led.busy { animation: none; opacity: 1; }
+  .led.busy { animation: none; opacity: 1; transform: none; }
   .hairline::before { animation: none; width: 100%; opacity: 0.6; }
   #warmBar.indet > i { animation: none; width: 100%; opacity: 0.6; }
   .pop, .modal, .modal-bg, .hdr-menu:popover-open { animation: fade-in 80ms linear !important; }
@@ -1930,7 +1979,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <span class="hdiv" aria-hidden="true"></span>
     <!-- Examples is the bar's first stop, ahead of the views, as it is on screen: in the bar itself, not in the menu below,
          whose buttons Tab reaches as one block after the views. On the phone the "more" sheet lists it, so the bar hides it. -->
-    <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
+    <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu" aria-expanded="false"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
     <button class="icon-btn" id="undoBtn" title="Undo  ⌘Z" aria-label="Undo"><span class="ic-slot" data-icon="undo"></span></button>
     <button class="icon-btn" id="redoBtn" title="Redo  ⇧⌘Z" aria-label="Redo"><span class="ic-slot" data-icon="redo"></span></button>
     <div class="spacer"></div>
@@ -1943,11 +1992,11 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="cmd-field" id="cmdBtn" aria-label="Add function" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function</span><span class="kbd" id="cmdKbd">⌘K</span></button>
       <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Draw  [" aria-label="Show or hide the Draw panel" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Draw panel</span></button>
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
-      <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span><span class="hw">Export</span><span class="ic-slot hc" data-icon="chevD"></span></button>
-      <button class="icon-btn" id="shareBtn" title="Share: a link to this figure, scene files" aria-label="Share" aria-haspopup="menu"><span class="ic-slot" data-icon="share"></span><span class="hw">Share</span><span class="ic-slot hc" data-icon="chevD"></span></button>
-      <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span><span class="hw">Theme</span><span class="ic-slot hc" data-icon="chevD"></span></button>
+      <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" aria-expanded="false" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span><span class="hw">Export</span><span class="ic-slot hc" data-icon="chevD"></span></button>
+      <button class="icon-btn" id="shareBtn" title="Share: a link to this figure, scene files" aria-label="Share" aria-haspopup="menu" aria-expanded="false"><span class="ic-slot" data-icon="share"></span><span class="hw">Share</span><span class="ic-slot hc" data-icon="chevD"></span></button>
+      <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" aria-haspopup="menu" aria-expanded="false" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span><span class="hw">Theme</span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <!-- Phase colors (issue 8): the palette every view paints with, a per-viewer setting; app.js opens its menu -->
-      <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
+      <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" aria-expanded="false" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
       <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
@@ -2007,7 +2056,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
            lent from here while that is open -->
       <div id="settingsHome" hidden><div id="meshGroup" class="field-col">
           <div class="fader-group">
-          <label class="fader-row"><span class="fl">Mesh quality</span><input type="range" id="meshRange" step="10" aria-label="Mesh resolution"><span class="fval mono" id="meshVal"></span></label>
+          <label class="fader-row"><span class="fl">Mesh quality</span><input type="range" id="meshRange" step="10" aria-label="Mesh quality"><span class="fval mono" id="meshVal"></span></label>
           <div class="fader-stops" id="meshPresets"><button data-n="160">Draft</button><button data-n="240">Normal</button><button data-n="480">Fine</button><button data-n="960">Ultra</button><button data-n="1920">Max</button></div>
         </div>
         <div class="lbl" id="meshNote">Fine and above finish refining after you stop dragging.</div>
@@ -2024,19 +2073,19 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             </div>
             <div class="pane-title" id="leftTitle"></div>
             <div class="grow"></div>
-            <span class="led" id="leftLed" title="Up to date"></span>
+            <span class="led" id="leftLed" role="img" tabindex="0" title="Up to date"></span>
           </div>
           <div class="pane-body">
             <canvas class="ruler ruler-y" id="rulerLY" aria-hidden="true"></canvas>
             <div class="plot" id="plotL">
               <canvas id="canvasL"></canvas><canvas id="overlayL" class="overlay" aria-label="X, the z-plane: domain of F" role="img"></canvas>
               <div class="hairline" id="hairL" hidden></div>
-              <button class="chip readout" id="leftReadout" title="Click to copy">Hover to probe a point</button>
+              <button class="chip readout" id="leftReadout" title="Click to copy" aria-description="Copy the reading">Hover to probe a point</button>
               <div class="legend-chip" id="leftLegend" hidden><canvas id="legendCanvasL" width="272" height="144"></canvas><label class="check key-sw" id="wKeyRow" data-tip="Paint these colours in the w-plane on the right"><input type="checkbox" id="wKeyChk"><span data-i18n="html">Key in the <i>w</i>-plane</span></label></div>
               <div class="options" id="leftFoot" hidden></div>
               <div class="viewstack" role="toolbar" aria-label="Left plane view">
                 <div class="vgroup"><button class="vbtn" id="leftZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="leftZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
-                <div class="vgroup"><button class="vbtn" id="leftFit" title="Fit view  Z" aria-label="Fit view"></button><button class="vbtn" id="leftSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the left plane"></button></div>
+                <div class="vgroup"><button class="vbtn" id="leftFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="leftFitWhy"></button><button class="vbtn" id="leftSph" aria-pressed="false" aria-label="Sphere" aria-describedby="leftSphWhy"></button></div><span class="sr-only" id="leftSphWhy"></span><span class="sr-only" id="leftFitWhy"></span>
               </div>
               <div class="empty-chip draft-chip" id="draftChipL" hidden><span>Click the first vertex or press Enter to close</span></div>
               <div class="empty-chip draft-chip note-chip" id="sphereChipL" hidden><span></span></div>
@@ -2053,20 +2102,20 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             </div>
             <div class="pane-title" id="rightTitle"></div>
             <div class="grow"></div>
-            <span class="led" id="rightLed" title="Up to date"></span>
+            <span class="led" id="rightLed" role="img" tabindex="0" title="Up to date"></span>
           </div>
           <div class="pane-body">
             <canvas class="ruler ruler-y" id="rulerRY" aria-hidden="true"></canvas>
             <div class="plot" id="plotR">
               <canvas id="canvasR"></canvas><canvas id="overlayR" class="overlay" aria-label="Y, the w-plane: image of F" role="img"></canvas>
               <div class="hairline" id="hairR" hidden></div>
-              <button class="chip readout" id="rightReadout" title="Click to copy"></button>
+              <button class="chip readout" id="rightReadout" title="Click to copy" aria-description="Copy the reading"></button>
               <div class="legend-chip" id="rightLegend" hidden><canvas id="legendCanvas" width="272" height="144"></canvas></div>
               <div class="legend-chip calc-chip" id="calcChip" role="group" aria-label="Readings" hidden></div>
               <div class="options" id="rightFoot"></div>
               <div class="viewstack" role="toolbar" aria-label="Right plane view">
                 <div class="vgroup"><button class="vbtn" id="rightZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="rightZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
-                <div class="vgroup"><button class="vbtn" id="rightFit" title="Fit view  Z" aria-label="Fit view"></button><button class="vbtn" id="rightSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the right plane"></button></div>
+                <div class="vgroup"><button class="vbtn" id="rightFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="rightFitWhy"></button><button class="vbtn" id="rightSph" aria-pressed="false" aria-label="Sphere" aria-describedby="rightSphWhy"></button></div><span class="sr-only" id="rightSphWhy"></span><span class="sr-only" id="rightFitWhy"></span>
               </div>
               <div class="empty-chip" id="emptyRight" hidden></div>
               <div class="empty-chip draft-chip" id="draftChipR" hidden><span>Click the first vertex or press Enter to close</span></div>
@@ -2112,11 +2161,13 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   </fieldset>
   <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
   <!-- no keyboard help on a touch screen; the engine line under Diagnostics -->
-  <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine snd-keys snd-keys-sv">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: Alt + the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine snd-keys snd-keys-cl">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
   <p class="snd-fine">Saved on this device only, never in your work or a shared link.</p>
   <details class="snd-diag"><summary>Diagnostics</summary><p class="snd-fine mono" id="sndState">Audio engine: not started</p></details>
 </div>
 <div id="sndLive" class="sr-only" aria-live="polite"></div>
+<div id="ledLive" class="sr-only" aria-live="polite"></div>
 <div id="popHost"></div>
 <div id="toastHost" aria-live="polite"></div>
 <div id="tip" role="tooltip" hidden></div>

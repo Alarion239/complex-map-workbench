@@ -5,11 +5,6 @@
   "ru": "Здесь кривые совпадают, поэтому их точки пересечения не определены",
   "note": "Reason of an undefined crossing point (constructions): a 3-point circle whose points are collinear to rounding met with that line (review math-5)."
  },
- "fix.br_line": {
-  "en": "Drag either end to choose the deformed steps",
-  "ru": "Перетащите любой конец, чтобы выбрать деформируемые шаги",
-  "note": "Tooltip of the deformation bracket's line over the cards (review user-3)."
- },
  "fix.mk_hint": {
   "en": "Right-click the spiral, then Listen along.",
   "ru": "Правой кнопкой по спирали: «Слушать вдоль кривой».",
@@ -24,15 +19,5 @@
   "en": "Listen",
   "ru": "Слушать",
   "note": "The toast's button: turns sound on if needed and listens along the spiral."
- },
- "fix.listening": {
-  "en": "Listening along {name} · Esc stops",
-  "ru": "Звучит вдоль кривой «{name}» · Esc — стоп",
-  "note": "Chip over the X plane while a curve is listened along; {name} the curve's name (Spiral)."
- },
- "fix.listening_ph": {
-  "en": "Listening along {name}",
-  "ru": "Звучит вдоль кривой «{name}»",
-  "note": "The same chip on a phone (no Esc key)."
  }
 }

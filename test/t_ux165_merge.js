@@ -3,7 +3,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { source } = require('./src_text');
+const { source, fnText } = require('./src_text');
 // (a src/ file as build.py reads it: src/app.js is joined from src/app/*.js)
 const R = (f) => (f.startsWith('src/') ? source(f.slice(4)) : fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 let pass = 0, fail = 0;
@@ -12,7 +12,7 @@ const ok = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('
 const APP = R('src/integrals.js') + '\n' + R('src/examples.js') + '\n' + R('src/app.js'), CON = R('src/construct.js'), PAGE = R('src/page.html'), TOUR = R('src/tour.js'),
   MK = R('tools/make_ru_table.py');
 const count = (s, sub) => s.split(sub).length - 1;
-const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0; const j = src.indexOf('{', i); for (let k = j; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
+const fnBody = (src, name) => fnText(src, name, { indent: '', soft: true });
 
 // ---- no conflict marker left anywhere
 for (const f of ['src/app.js', 'src/construct.js', 'src/constr.js', 'src/page.html', 'src/tour.js', 'src/phone.js', 'src/phone.css', 'src/desk.css', 'src/inspector.js', 'tools/make_ru_table.py'])
@@ -51,7 +51,7 @@ ok('integrateSelected: the touch toast (phone), the pick-a-curve guard and integ
 
 // ---- plane UX27 + learn UX103 in paneTitles
 const pt = fnBody(APP, 'paneTitles');
-ok('paneTitles: Deformation in words (learn) and the Y tag on the four other right titles (plane)', pt.includes("$t('Deformation'), $t('from {a} to {b}'") && count(pt, 'right = T(YT + ') === 4);
+ok('paneTitles: the Y tag on the four right titles (plane)', count(pt, 'right = T(YT + ') === 4);
 // ---- plane + learn: the tag gives way before the title (merge: with Add function in Y's head the title vanished)
 const ft = fnBody(APP, 'fitTitle');
 ok('fitTitle: the note, then the X / Y tag, give way before the title', ft.includes("t.classList.add('notag')") && ft.indexOf('fitTitle(side, true)') < ft.indexOf("add('notag')") && ft.indexOf("add('notag')") > ft.indexOf("querySelector('.ptag')") && PAGE.includes('.pane-title.notag .ptag { display: none; }'));

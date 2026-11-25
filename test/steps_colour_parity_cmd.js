@@ -6,15 +6,10 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ns = 'svpar' + Date.now();
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
-  steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
+const { MOB, EXP, S2, WHOLEMAP_UP, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 const S = () => ev('__cmwSteps()');
 const openAt = async (w, lang = 'en', touch = false) => {
-  await view(w, 900, false, touch);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
+  await openChain({ ns, w, h: 900, mobile: touch, lang, shapes: [S2], steps: [EXP, MOB], srcView: { cx: 0, cy: 0, s: 80 }, until: WHOLEMAP_UP, max: 30000 });
   await ev(`document.querySelector('.sv-cp').click(); 1`);
   await settled({});
 };
@@ -81,9 +76,9 @@ const geo = await ev(`(() => { const r = document.querySelector('.ph-sheet').get
 ok('the sheet is at most 60 % of the viewport', geo.h <= 0.6 * geo.vh + 1, geo);
 ok('opening moves focus to the current style, with no tooltip', geo.focus === 'style' && !geo.tip, geo);
 ok('the disabled Outlines is dimmed', +geo.dim <= 0.45, geo);
-const sh = await ev(`(() => { const o = document.querySelector('.ph-vopts #outlineChk'), k = [...document.querySelectorAll('.ph-vopts > *')]; return { title: (document.querySelector('.ph-sh .ph-t, .ph-sh .ttl') || {}).textContent || document.querySelector('.ph-sheet').getAttribute('aria-label'), first: k[0] && k[0].id, outDis: !!o && o.disabled && o.getAttribute('aria-description') || '' }; })()`);
+const sh = await ev(`(() => { const o = document.querySelector('.ph-vopts #outlineChk'), k = [...document.querySelectorAll('.ph-vopts > .ph-grp > :not(h3)')]; return { title: (document.querySelector('.ph-sh .ph-t, .ph-sh .ttl') || {}).textContent || document.querySelector('.ph-sheet').getAttribute('aria-label'), first: k[0] && k[0].id, scopeFirst: !!k[0] && k[0].classList.contains('sv-sheet-scope') && k[1] && k[1].id, outDis: !!o && o.disabled && o.getAttribute('aria-description') || '' }; })()`);
 ok('the sheet names the colour panel and the shown plane', /Colour · w/.test(sh.title || ''), sh);
-ok('the sheet opens on the style row', sh.first === 'dcSeg', sh);
+ok('the sheet lists the scope switch, then the style row', sh.scopeFirst === 'dcSeg', sh);
 ok('Outlines in the sheet is disabled with its reason past the colour plane', /colour plane/.test(sh.outDis), sh);
 await ev(`document.querySelector('.ph-sheet .ph-x').click(); 1`); await settled({ floor: 500 });
 ok('closing gives the focus back to the button that opened the sheet', await ev(`document.activeElement && document.activeElement.classList.contains('ph-dsp')`), await ev(`document.activeElement && document.activeElement.className`));

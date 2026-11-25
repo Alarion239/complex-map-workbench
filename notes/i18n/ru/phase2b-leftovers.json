@@ -157,12 +157,6 @@
   "ru": "Дробно-линейная функция",
   "note": "app.js: the guarantees lamp and chip name. The catalog label (funcs.js, the card) stays «Дробно-линейная», which fits the card."
  },
- "lo.field.cmd": {
-  "en": "Add function",
-  "ctx": "field",
-  "ru": "Добавить функцию",
-  "note": "The visible text of the header command field (GLOSSARY: placeholder; DESIGN.md 8.3). #35: the field is Add function (notes/i18n/TERMS.md)."
- },
  "lo.readout.at": {
   "en": "at",
   "ctx": "readout",

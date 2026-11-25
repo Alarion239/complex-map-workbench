@@ -20,6 +20,8 @@
     return Object.assign({
       for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null,
       ink: s.ink, crop: cropOf(s), svPic: s.svPic === 'two' && A.svSurf() === 'land' ? 'plane' : s.svPic, svFrom: s.svFrom, svTo: s.svTo, axes: s.axes[s.for] || null, deform: s.deform,
+      // (a filmstrip over a Number: its name, first and last values ({re, im}) and frames)
+      film: s.film === 'number' && A.numbers && A.numbers().some((q) => q.name === s.numName) ? 'number' : 'planes', numName: s.numName, numFrom: A.numberParse ? A.numberParse(s.numFrom) : null, numTo: A.numberParse ? A.numberParse(s.numTo) : null, numN: s.numN,
       panels: s.panels || 'both', lang: capLangOf(s),
     }, extra || {});
   }
@@ -51,7 +53,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}#xfSvPic{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}@media (max-width:560px){#xfSvPic{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}.xf-nums{flex-wrap:wrap}.xf-nums .xf-nw{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}.xf-nums input.xf-numv{width:7em}#xfSvPic{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}@media (max-width:560px){#xfSvPic{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -60,7 +62,7 @@
 .xf-pv{display:flex;flex-direction:column;gap:6px;max-width:100%;margin:auto}.xf-scroll:not(.video) .xf-pv{display:none}.xf-pv .xf-poster{margin:0}.xf-pv.busy .xf-poster{opacity:.6;transition:opacity var(--t-med) var(--ease-out)}.xf-pv.busy .xf-pvbar{opacity:.55}
 .xf-pvcv{display:block;background:#fff;box-shadow:var(--xf-paper-shadow);cursor:pointer}.xf-pvbar{display:flex;align-items:center;gap:8px;min-width:0}.xf-pvbtn{flex:0 0 auto;width:28px;height:28px;padding:0;display:inline-grid;place-items:center;border-radius:var(--r-2);background:var(--surface);border:1px solid var(--line);color:var(--ink);cursor:pointer}.xf-pvbtn:hover{border-color:var(--line-strong)}
 .xf-pvbtn:focus-visible,.xf-pvrange:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-pvrange{flex:1 1 auto;min-width:60px;margin:0;accent-color:var(--accent)}.xf-pvtime{font:var(--t-label);color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}.xf-pvt i{font-family:var(--f-math, serif)}.xf-pvnote{font:var(--t-label);color:var(--muted);min-height:16px;overflow-wrap:anywhere}
-@media (max-width:560px){#xfSvPic>button{min-height:44px}.xf-fmtrow{flex-wrap:wrap}.xf-planes{flex-direction:column;align-items:stretch}.xf-planes select.xf-select{width:100%;height:44px}.xf-planes>span{padding:0 2px}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
+@media (max-width:560px){#xfFilmSrc{height:auto}#xfSvPic>button,#xfFilmSrc>button{min-height:44px}.xf-nums select.xf-select,.xf-nums input.xf-numv{height:44px}.xf-fmtrow{flex-wrap:wrap}.xf-planes{flex-direction:column;align-items:stretch}.xf-planes select.xf-select{width:100%;height:44px}.xf-planes>span{padding:0 2px}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
   const injectCSS = () => { if (document.getElementById('xfR3css')) return; const st = document.createElement('style'); st.id = 'xfR3css'; st.textContent = CSS3; document.head.append(st); };
   let dlg = null; // the open dialog's state (tests read it)
   let lastFig = null;
@@ -161,7 +163,7 @@
     for (const t of ['pointerup', 'pointercancel']) stage.addEventListener(t, (e) => { if (e.pointerType !== 'mouse') { clearTimeout(loupeT); loupeT = setTimeout(() => { loupe.hidden = true; }, 1600); } });
     stage.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') loupe.hidden = true; });
     // ---- the controls ----
-    const sizeBtn = h('button', { type: 'button', class: 'xf-select', id: 'xfSize', 'aria-haspopup': 'menu' });
+    const sizeBtn = h('button', { type: 'button', class: 'xf-select', id: 'xfSize', 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
     const textSel = h('select', { class: 'xf-select xf-text', id: 'xfText', 'aria-label': $t('Text size'), onchange: () => { set.text[set.for] = +textSel.value; changed(); } }, ...[10, 11, 12].map((v) => h('option', { value: String(v) }, $t('Text {v} pt', { v }))));
     const customRow = h('div', { class: 'xf-custom', hidden: true });
     // \the\linewidth prints pt; 6.5in, 16.5cm, 165mm and bp are read too (TeX points: 72.27 per inch)
@@ -179,6 +181,9 @@
     const row = (label, ...els) => { const r = h('div', { class: 'xf-row' }, h('div', { class: 'xf-h' }, label), ...els); rows.push(r); return r; };
     const sizeRow = row($t('Size'), colsSeg, h('div', { class: 'xf-pair' }, sizeBtn, textSel), customRow);
     sizeRow.classList.add('wide');
+    // (the button's name is its row's heading, then the size it shows: "Size, Two column ...")
+    sizeRow.querySelector('.xf-h').id = 'xfSizeH';
+    sizeBtn.setAttribute('aria-labelledby', 'xfSizeH xfSize');
     const forRow = row($t('For'), forSeg); forRow.classList.add('wide');
     const inkRow = row($t('Ink'), inkSeg); inkRow.classList.add('wide');
     // the caption language (DESIGN.md 12): offered only when the interface is not English (the English dialog is
@@ -192,6 +197,8 @@
     const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
     // the steps view without a glide to record: Video is not offered until the thread has a step
     const noGlide = A.svOn() && !glide ? $t('Add a step to make a video') : null;
+    // the classic view without the deformation: no motion to record, so Video is unavailable, with the reason as its tip
+    const noMotion = !A.svOn() && !defo ? $t('A video records a glide along the chain, which only the steps view has') : null;
     const dOpts = [['film', $t('Filmstrip')]];
     if (defo && PATHS_OK.has(defo)) dOpts.push(['paths', $t('Paths')]);
     if (defo && defo !== 'plane') dOpts.push(['frame', $t('One frame')]);
@@ -199,8 +206,9 @@
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
-    // (Two planes needs a flat surface: the Landscape's picture is 3D, and a 2D figure never stands in for it. Paths: the plane
-    // with the paths of the step that leads to it; off, with its reason, where there is no such step)
+    // (Two planes and Paths need the Plane or the Sphere: the Landscape's picture is 3D, and a 2D figure never stands in for it.
+    // Paths: the plane with the paths of the step that leads to it; off, with its reason, on the Landscape or where there is no
+    // such step)
     const svPics = [['plane', $t('Shown plane')], ['paths', $t('Paths')], ['two', $t('Two planes')], ['film', $t('Filmstrip')]];
     const svFlat = () => A.svSurf() !== 'land';
     const svp = A.svOn() && A.svPathsFig ? A.svPathsFig() : null, svpOk = !!svp && svp.i != null;
@@ -212,11 +220,11 @@
     const svPicRow = svPicSeg ? row($t('Picture'), svPicSeg) : null;
     if (svPicRow && !svpOk) {
       const pb = svPicRow.querySelector('[data-v="paths"]');
-      const why = svp && svp.why === 'deriv' ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : $t('No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw', { p: svp && svp.name ? svp.name : 'z' });
+      const why = !svFlat() ? $t('Paths is for the Plane and Sphere surfaces') : svp && svp.why === 'deriv' ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : $t('No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw', { p: svp && svp.name ? svp.name : 'z' });
       if (pb) { pb.setAttribute('aria-disabled', 'true'); pb.dataset.tip = why; pb.setAttribute('aria-description', why); }
     }
     if (svPicRow) svPicRow.classList.add('wide');
-    if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'), why = $t('Two planes is for the flat surfaces'); tb.setAttribute('aria-disabled', 'true'); tb.dataset.tip = why; tb.setAttribute('aria-description', why); }
+    if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'), why = $t('Two planes is for the Plane and Sphere surfaces'); tb.setAttribute('aria-disabled', 'true'); tb.dataset.tip = why; tb.setAttribute('aria-description', why); }
     const planeSel = (id, label, onchange) => { const el = h('select', { class: 'xf-select xf-plane', id, 'aria-label': label, onchange: () => onchange(+el.value) }); return el; };
     const fromSel = planeSel('xfSvFrom', $t('From plane'), (v) => { set.svFrom = v; if (set.svTo <= v) set.svTo = v + 1; fillTo(); changed(); });
     const toSel = planeSel('xfSvTo', $t('To plane'), (v) => { set.svTo = v; changed(); });
@@ -228,35 +236,65 @@
     }
     const svPlanesRow = A.svOn() ? row($t('Planes'), h('div', { class: 'xf-fmtrow xf-planes' }, h('span', null, $t('from')), fromSel, h('span', null, $t('to')), toSel)) : null;
     if (svPlanesRow) svPlanesRow.classList.add('wide');
-    function syncPlanes() { if (svPlanesRow) svPlanesRow.hidden = fmtOf() === 'video' || svPicOf() !== 'two'; }
+    // a filmstrip's source: the planes of the thread, or a Number at evenly spaced values: the Number, its first and last
+    // values (typed as its own field takes them, real or complex) and the frames. By default the Number's slider ends and
+    // four frames; the values are remembered for the same Number only
+    const nums = A.svOn() && A.numbers ? A.numbers() : [];
+    const filmOf = () => (set.film === 'number' && nums.length ? 'number' : 'planes');
+    const filmSeg = A.svOn() ? segB('xfFilmSrc', filmOf(), [['planes', $t('The planes')], ['number', $t('A Number')]], (v) => { set.film = v; syncPlanes(); changed(); }, $t('Filmstrip of')) : null;
+    const filmRow = filmSeg ? row($t('Filmstrip of'), filmSeg) : null;
+    if (filmRow) filmRow.classList.add('wide');
+    if (filmSeg && !nums.length) {
+      const nb = filmSeg.querySelector('[data-v="number"]'), why = $t('Add a Number to the formula first');
+      nb.setAttribute('aria-disabled', 'true'); nb.dataset.tip = why; nb.setAttribute('aria-description', why);
+    }
+    const numOf = () => nums.find((q) => q.name === set.numName) || nums[0] || null;
+    const numEnds = (q) => { set.numName = q.name; set.numFrom = String(q.min); set.numTo = String(q.max); };
+    if (nums.length) {
+      const q = numOf();
+      if (q.name !== set.numName || !A.numberParse(set.numFrom) || !A.numberParse(set.numTo)) numEnds(q);
+      if (!(set.numN >= NUM_FILM_MIN && set.numN <= NUM_FILM_MAX)) set.numN = NUM_FILM_N;
+    }
+    const numSel = h('select', { class: 'xf-select xf-num', id: 'xfNum', 'aria-label': $t('Number'), onchange: () => { numEnds(nums.find((q) => q.name === numSel.value)); numFrom.value = set.numFrom; numTo.value = set.numTo; changed(); } });
+    for (const q of nums) numSel.append(h('option', { value: q.name }, q.label));
+    // (a value that does not read as a number is marked and not taken: the last one that did stays)
+    const numInput = (id, label, key) => {
+      const el = /** @type {HTMLInputElement} */ (h('input', { type: 'text', class: 'xf-select xf-numv', id, 'aria-label': label, spellcheck: 'false' }));
+      el.addEventListener('change', () => { const ok = !!A.numberParse(el.value); el.setAttribute('aria-invalid', String(!ok)); if (ok) { set[key] = el.value.trim(); changed(); } });
+      return el;
+    };
+    const numFrom = numInput('xfNumFrom', $t('From value'), 'numFrom'), numTo = numInput('xfNumTo', $t('To value'), 'numTo');
+    const numN = h('select', { class: 'xf-select xf-numn', id: 'xfNumN', 'aria-label': $t('Frames'), onchange: () => { set.numN = +numN.value; changed(); } });
+    for (let k = NUM_FILM_MIN; k <= NUM_FILM_MAX; k++) numN.append(h('option', { value: String(k) }, String(k)));
+    if (nums.length) { numSel.value = set.numName; numFrom.value = set.numFrom; numTo.value = set.numTo; numN.value = String(set.numN); }
+    const numRow = filmSeg && nums.length ? row($t('Number'), h('div', { class: 'xf-fmtrow xf-nums' }, numSel, h('span', null, $t('from')), numFrom, h('span', null, $t('to')), numTo, h('span', { class: 'xf-nw' }, h('span', null, $t('Frames')), numN))) : null;
+    if (numRow) numRow.classList.add('wide');
+    function syncPlanes() {
+      const vid = fmtOf() === 'video';
+      if (svPlanesRow) svPlanesRow.hidden = vid || svPicOf() !== 'two';
+      if (filmRow) filmRow.hidden = vid || svPicOf() !== 'film';
+      if (numRow) numRow.hidden = vid || svPicOf() !== 'film' || filmOf() !== 'number';
+    }
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save)
     const canVideo = typeof VideoEncoder !== 'undefined';
     const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
-    // (Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
-    // opens again on Video: a video records the deformation)
+    // (Video is always listed: aria-disabled with its reason as the tip where there is nothing to record, noGlide and noMotion)
     fOpts.push(['video', $t('Video')]);
     // (PNG: 600 dpi for an article, where journals ask for it; 300 dpi for homework and slides; remembered per For)
     const dpiOf = () => { const v = set.dpiFor && set.dpiFor[set.for]; return v === 300 || v === 600 ? v : set.for === 'article' ? 600 : 300; };
     const dpiSel = h('select', { class: 'xf-select', id: 'xfDpi', 'aria-label': $t('Resolution'), onchange: () => { set.dpiFor = Object.assign({}, set.dpiFor, { [set.for]: +dpiSel.value }); set.dpi = +dpiSel.value; saveSet(set); syncFmt(); } }, ...[300, 600].map((v) => h('option', { value: String(v) }, `${v} dpi`)));
     dpiSel.value = String(dpiOf());
     const fmtSeg = segB('xfFmt', fmtOf(), fOpts, (v) => {
-      if (v === 'video' && !defo && !glide) {
-        if (!(A.deformOn && A.deformOn())) { syncFmt(); return; }
-        set.fmt = 'video'; saveSet(set); close();
-        toast($t('A video records the deformation: it is on now.'));
-        setTimeout(() => open(), 0);
-        return;
-      }
       set.fmt = v; saveSet(set); syncFmt();
     }, $t('Format'));
     const fmtRow = row($t('Format'), h('div', { class: 'xf-fmtrow' }, fmtSeg, dpiSel)); fmtRow.classList.add('wide');
     { const vb = fmtSeg.querySelector('[data-v="video"]');
       if (vb && !canVideo) { vb.disabled = true; vb.title = $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.'); }
       else if (vb && noGlide) { vb.setAttribute('aria-disabled', 'true'); vb.dataset.tip = noGlide; vb.setAttribute('aria-description', noGlide); }
-      else if (vb && !defo && !glide) { const can = !(A.canDeform && !A.canDeform()); vb.disabled = !can; vb.title = can ? $t('A video records the deformation: choosing it turns the deformation on') : $t('A video records the deformation: add a function to the chain first'); } }
+      else if (vb && noMotion) { vb.setAttribute('aria-disabled', 'true'); vb.dataset.tip = noMotion; vb.setAttribute('aria-description', noMotion); } }
     // the LaTeX of the chosen format, in view and one click from the clipboard
     const texPre = h('pre', { class: 'xf-tex', id: 'xfTex', tabindex: '0', 'aria-label': $t('LaTeX snippet') });
     const texNote = h('div', { class: 'xf-texnote', id: 'xfTexNote' });
@@ -281,7 +319,7 @@
       h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', glide ? $t('Label') : $t('t label'))));
     // (the steps view: where the video goes and how long it is, kept current by posterSoon)
     const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
-    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = `${glide.from} → ${glide.to} · ${I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1)} s`; };
+    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = $t('{from} → {to} · {secs} s', { from: glide.from, to: glide.to, secs: I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1) }); };
     if (vSum) { vSumSet(); vidBox.prepend(vSum); }
     const vidRow = row($t('Video'), vidBox); vidRow.classList.add('wide');
     // Fine-tune
@@ -301,7 +339,7 @@
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
     printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
-    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow, svPlanesRow] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
+    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow, svPlanesRow, filmRow, ...(numRow ? [numRow] : [])] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
     const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, deformOf(), fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });
@@ -309,7 +347,7 @@
     const fitName = () => { nameInp.style.width = `${Math.min(40, Math.max(8, nameInp.value.length + 1))}ch`; };
     fitName();
     const extEl = h('span', { class: 'xf-ext' }, '.pdf');
-    const moreBtn = h('button', { type: 'button', class: 'btn quiet xf-more', id: 'xfMore', 'aria-haspopup': 'menu' }, $t('More formats '), h('span', { html: ICON.down }));
+    const moreBtn = h('button', { type: 'button', class: 'btn quiet xf-more', id: 'xfMore', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, $t('More formats '), h('span', { html: ICON.down }));
     // the plain Save names the format; Copy image and the LaTeX button are the two others (the phone also gets Share first)
     const saveBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfSave' }, $t('Save {format}', { format: 'PDF' }));
     const shareBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfShare', hidden: !canShareFiles() }, $t('Share PNG…'));
@@ -318,8 +356,9 @@
     const after2 = h('div', { class: 'xf-after2', hidden: true });
     const vidBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfVideo' }, $t('Save video'));
     const meter = h('i'), progTxt = h('span', { class: 'xf-progtxt', 'aria-hidden': 'true' }), progSr = h('span', { class: 'xf-sr', role: 'status' });
-    const cancelBtn = h('button', { type: 'button', class: 'btn quiet', id: 'xfVCancel' }, $t('Cancel'));
-    const meterEl = h('div', { class: 'xf-meter', role: 'progressbar', 'aria-label': $t('Making the video'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, meter);
+    // (Cancel is described by the meter, so a screen reader hears what it cancels: "Cancel, button, Making the video")
+    const cancelBtn = h('button', { type: 'button', class: 'btn quiet', id: 'xfVCancel', 'aria-describedby': 'xfVMeter' }, $t('Cancel'));
+    const meterEl = h('div', { class: 'xf-meter', id: 'xfVMeter', role: 'progressbar', 'aria-label': $t('Making the video'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, meter);
     const prog = h('div', { class: 'xf-prog', hidden: true }, meterEl, progTxt, cancelBtn);
     const nameLab = h('label', { class: 'xf-name' }, nameInp, extEl), footSp = h('span', { class: 'xf-sp' });
     const foot = h('div', { class: 'xf-foot' }, nameLab, prog, footSp, moreBtn, shareBtn, saveBtn, docsBtn, olBtn, vidBtn, after2, progSr);
@@ -643,19 +682,25 @@
     });
     let vRun = null;
     cancelBtn.addEventListener('click', () => { if (vRun) vRun.cancel = true; });
+    // (Save video gives Cancel the focus within the Enter that pressed it, so a held Enter's repeats land on Cancel: only a
+    // fresh press of Enter cancels, a repeat is ignored. Space acts on its release, so a held Space presses one button once)
+    cancelBtn.addEventListener('keydown', (e) => { if (e.repeat && e.key === 'Enter') e.preventDefault(); });
     // (while a video is made its options are locked: the plan is fixed at the start; the progress takes the name row's
     // place, so the dialog does not move; the screen reader hears the start, every quarter and the end)
     const running = (on) => {
       nameLab.hidden = on; prog.hidden = !on;
       for (const el of vidBox.querySelectorAll('button, select, input')) el.disabled = on;
-      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && !glide && !noGlide && A.canDeform && !A.canDeform())));
+      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && !canVideo);
     };
     const onVis = () => { if (vRun && document.hidden) vRun.hid = true; else if (vRun && vRun.hid) { vRun.hid = false; toast($t('Keep this tab in front while the video is made: a hidden tab can slow it down.')); } };
     document.addEventListener('visibilitychange', onVis);
     vidBtn.addEventListener('click', async () => {
       if (vRun) return;
       const run = vRun = { cancel: false, q: -1 };
-      vidBtn.disabled = true; running(true); meter.style.width = '0%'; meterEl.setAttribute('aria-valuenow', '0'); progTxt.textContent = $t('Preparing…'); progSr.textContent = $t('Making the video');
+      // (Save video is disabled while the frames are made: the focus it had goes to Cancel, which the progress row shows, and
+      // comes back to Save video, which then says it is saved, when the video is done or cancelled)
+      const hadFocus = document.activeElement === vidBtn;
+      vidBtn.disabled = true; running(true); if (hadFocus) cancelBtn.focus({ preventScroll: true }); meter.style.width = '0%'; meterEl.setAttribute('aria-valuenow', '0'); progTxt.textContent = $t('Preparing…'); progSr.textContent = $t('Making the video');
       try {
         const r = await makeVideo(opts({ video: vset, alive: () => !closed && !run.cancel }), { cancelled: () => closed || run.cancel, progress: (i, n) => {
           const pc = 100 * i / n, q = Math.floor(pc / 25);
@@ -672,7 +717,11 @@
         after2.hidden = false;
         after2.textContent = $t('{w} × {h}, {fps} fps, {secs} s, {codec} ({ext}).', { w: r.W, h: r.H, fps: r.fps, secs: I18 ? I18.num(r.secs.toFixed(1)) : r.secs.toFixed(1), codec: /^avc1/.test(r.codec) ? 'H.264' : /^vp09/.test(r.codec) ? 'VP9' : 'VP8', ext: r.ext.toUpperCase() });
       } catch (e) { console.error(e); cueError(); toast(/WebCodecs/.test(String(e && e.message)) ? $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.') : $t('The video could not be made here.')); }
-      finally { vRun = null; vidBtn.disabled = false; running(false); if (!vidBtn.classList.contains('done')) syncFmt(); }
+      finally {
+        const lost = document.activeElement === cancelBtn || document.activeElement === document.body;
+        vRun = null; vidBtn.disabled = false; running(false); if (!vidBtn.classList.contains('done')) syncFmt();
+        if (!closed && lost) vidBtn.focus({ preventScroll: true });
+      }
     });
     let rz = 0;
     const onResize = () => { clearTimeout(rz); rz = setTimeout(() => { placePaper(); if (pvWH && fmtOf() === 'video') pv.resize(fitPv(pvWH[0], pvWH[1])); }, 60); }; // (bigger: sharper frames; review vp-3)
@@ -731,5 +780,5 @@
     makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), glide: () => (A && A.svGlide ? A.svGlide() : null), glideArt: (x, o) => A.svGlideArt(x, o), svKey: (x) => (A && A.svKey ? A.svKey(x) : null), shortCaption,
     settings: loadSet, saveSettings: saveSet, sizes: SIZES, presets: PRESET,
     dialog: () => dlg, last: () => lastFig, segsOf, plainOf, XD,
-    geom: { senseAt, chevronAt, fitBox },
+    geom: { senseAt, chevronAt, fitBox, ringKey: ringKeyMarkup },
   };

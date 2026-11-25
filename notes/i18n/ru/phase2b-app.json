@@ -110,18 +110,6 @@
   "note": "split atLeast of chrome.extra.n_preimages_of",
   "file": "app.js:2615"
  },
- "int.sym_around_name": {
-  "en": "{sym} around {name}{part}",
-  "ru": "{sym} по контуру {name}{part}",
-  "note": "integral popover title; {sym} is ∮ or ∫, {name} the curve name, {part} the \"(visible part)\" note",
-  "file": "app.js:1"
- },
- "int.sym_along_name": {
-  "en": "{sym} along {name}{part}",
-  "ru": "{sym} по кривой {name}{part}",
-  "note": "integral popover title",
-  "file": "app.js:1"
- },
  "roots.n_roots_of": {
   "en": "<div class=\"ch\">{n} roots of {fxHtml} = {val} {where}{choice}</div>",
   "ru": "<div class=\"ch\">{n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
@@ -153,50 +141,6 @@
   ],
   "note": "split atLeast of chrome.choice_nz_root_choice",
   "file": "app.js:6022"
- },
- "roots.the_target_area": {
-  "en": "the target area",
-  "ru": "целевую область",
-  "note": "accusative: \"попадает в целевую область\"",
-  "file": "app.js:6047"
- },
- "roots.the_target_curve": {
-  "en": "the target curve",
-  "ru": "целевую кривую",
-  "note": "accusative",
-  "file": "app.js:6048"
- },
- "roots.the_n_target_areas": {
-  "en": "the {n} target areas",
-  "ru": "{n} целевых областей",
-  "plural": {
-   "one": "{n} целевую область",
-   "few": "{n} целевые области",
-   "many": "{n} целевых областей",
-   "other": "{n} целевой области"
-  },
-  "en_plural": [
-   "the {n} target area",
-   "the {n} target areas"
-  ],
-  "note": "accusative after «в»",
-  "file": "app.js:6047"
- },
- "roots.the_n_target_curves": {
-  "en": "the {n} target curves",
-  "ru": "{n} целевых кривых",
-  "plural": {
-   "one": "{n} целевую кривую",
-   "few": "{n} целевые кривые",
-   "many": "{n} целевых кривых",
-   "other": "{n} целевой кривой"
-  },
-  "en_plural": [
-   "the {n} target curve",
-   "the {n} target curves"
-  ],
-  "note": "accusative after «на»",
-  "file": "app.js:6048"
  },
  "pane.w_sphere": {
   "en": "{w}-sphere",
@@ -279,13 +223,6 @@
   "note": "legend: \"cell 0,5 in z\" -> «клетка 0,5 в плоскости z»",
   "file": "app.js:7021",
   "ctx": "legend"
- },
- "speech.frac": {
-  "en": "$1 over $2",
-  "ru": "$1 делённое на $2",
-  "note": "texSpeech: a fraction read aloud",
-  "file": "app.js:7584",
-  "ctx": "speech"
  },
  "speech.at_most": {
   "en": " at most ",
@@ -610,47 +547,17 @@
   "note": "English source fixed (README \"Two English errors to fix\"): exp followed by log -> log followed by exp. New English key; the Russian of chrome.list_sound_but_not was already right.",
   "file": "app.js:8795"
  },
- "int.aria_around": {
-  "en": "Line integral around {name}",
-  "ru": "Интеграл по контуру {name}",
-  "note": "integral popover aria-label",
-  "file": "app.js:5893"
- },
- "int.aria_along": {
-  "en": "Line integral along {name}",
-  "ru": "Интеграл по кривой {name}",
-  "note": "integral popover aria-label",
-  "file": "app.js:5893"
- },
  "chip.per_div": {
   "en": "{x} / div",
   "ru": "{x} / дел.",
   "note": "the scale chip: grid step per division (DESIGN.md 8, hotspot 14)",
   "file": "app.js:1"
  },
- "morph.hide_paths_tip": {
-  "en": "Hide the paths t ↦ H_t(z)  P",
-  "ru": "Скрыть пути t ↦ H_t(z)  P",
-  "note": "Paths button tooltip (two spaces, then the key)",
-  "file": "app.js:6789"
- },
- "morph.show_paths_tip": {
-  "en": "Show the paths t ↦ H_t(z)  P",
-  "ru": "Показать пути t ↦ H_t(z)  P",
-  "note": "Paths button tooltip",
-  "file": "app.js:6789"
- },
  "param.cut_angle": {
   "en": "Cut angle, in degrees",
   "ru": "Угол разреза в градусах",
   "note": "parameter label of θ",
   "file": "app.js:8029"
- },
- "morph.deformation_of_m": {
-  "en": "Deformation of {F}  M",
-  "ru": "Деформация {F}  M",
-  "note": "Deformation button tooltip; {F} is F or the step formula",
-  "file": "app.js:11452"
  },
  "snd.zero_order_here": {
   "en": "Zero of order {m} here.",
@@ -963,19 +870,6 @@
   "note": "shapePhrase, genitive",
   "file": "app.js:9053"
  },
- "cap.shape_the_label_m": {
-  "en": "the %{label} %{m}",
-  "ru": "%{label} %{m}",
-  "note": "shapePhrase, nominative",
-  "file": "app.js:9053"
- },
- "cap.shape_the_label_m_gen": {
-  "en": "the %{label} %{m}",
-  "ru": "%{label} %{m}",
-  "ctx": "gen",
-  "note": "shapePhrase, genitive",
-  "file": "app.js:9053"
- },
  "cap.shape_a_shape": {
   "en": "a shape",
   "ru": "фигура",
@@ -1032,53 +926,17 @@
   "note": "morphHomSegs: the deformation stopped before its end; {r} is 0 ≤ t ≤ T",
   "file": "app.js:4812"
  },
- "cap.pat_checker": {
-  "en": " Regions are shaded by a checkerboard of squares of side %{cell} in the %{z}-plane, carried by the map.",
-  "ru": " Области раскрашены шахматной раскраской плоскости %{z} (квадраты со стороной %{cell}), перенесённой отображением.",
-  "note": "patternSegs (adapted from export.extra.pat_checker; the English is the current code's)",
-  "file": "app.js:9120"
- },
- "cap.pat_polar": {
-  "en": " Regions are shaded by a log-polar checkerboard in the %{z}-plane, whose cells stay square under conformal maps.",
-  "ru": " Области раскрашены лог-полярными клетками плоскости %{z}; при конформном отображении малые клетки остаются почти квадратными.",
-  "note": "patternSegs (adapted from export.extra.pat_polar; the English is the current code's)",
-  "file": "app.js:9121"
- },
- "cap.pat_tiles": {
-  "en": " Regions are shaded by tiles marked with the letter F, which show rotation, scaling and reflection.",
-  "ru": " Области покрыты плитками с буквой F; плитки показывают поворот, растяжение и отражение.",
-  "note": "patternSegs (adapted from export.extra.pat_tiles; the English is the current code's)",
-  "file": "app.js:9122"
- },
  "cap.pat_grid": {
   "en": " Lines are the coordinate lines of the %{z}-plane, spaced %{cell}.",
   "ru": " Линии — координатные линии плоскости %{z} с шагом %{cell}.",
   "note": "patternSegs (adapted from export.extra.pat_grid; the English is the current code's)",
   "file": "app.js:9123"
  },
- "cap.pat_polargrid": {
-  "en": " Lines are circles about 0 and rays from 0 in the %{z}-plane.",
-  "ru": " Линии — окружности с центром в точке 0 и лучи, выходящие из 0, в плоскости %{z}.",
-  "note": "patternSegs (adapted from export.extra.pat_polargrid; the English is the current code's)",
-  "file": "app.js:9124"
- },
  "cap.pat_phase": {
   "en": " Regions are coloured by the argument of the source point.",
   "ru": " Области окрашены по аргументу исходной точки.",
   "note": "patternSegs (adapted from export.extra.pat_phase; the English is the current code's)",
   "file": "app.js:9125"
- },
- "cap.pat_stretch": {
-  "en": " The colour shows the local scale factor %{F} (bar).",
-  "ru": " Цвет показывает коэффициент растяжения %{F} (шкала).",
-  "note": "patternSegs (adapted from export.extra.pat_stretch; the English is the current code's)",
-  "file": "app.js:9126"
- },
- "cap.pat_sphere": {
-  "en": " Regions are shaded by a checkerboard of %{n} longitude sectors and %{n2} latitude bands of the Riemann sphere of the %{z}-plane, carried by the map.",
-  "ru": " Области раскрашены в шахматном порядке: сфера Римана плоскости %{z} разбита на долготные секторы (%{n}) и широтные пояса (%{n2}); раскраска перенесена отображением.",
-  "note": "patternSegs (adapted from export.extra.pat_sphere; the English is the current code's)",
-  "file": "app.js:9127"
  },
  "latex.section_map": {
   "en": "\\section*{The map}",
@@ -1234,12 +1092,6 @@
  "cap.and_colour": {
   "en": " and the colour %{arg} (bar)",
   "ru": ", цвет — %{arg} (шкала)",
-  "note": "figureCaption (legacy figure path and test hook)",
-  "file": "app.js:9170"
- },
- "cap.all_sheets": {
-  "en": "; all sheets of the Riemann surface are shown.",
-  "ru": "; показаны все листы римановой поверхности.",
   "note": "figureCaption (legacy figure path and test hook)",
   "file": "app.js:9170"
  },
@@ -1425,13 +1277,6 @@
   "note": "figureCaption (legacy figure path and test hook)",
   "file": "app.js:9228"
  },
- "mcap.pat_checker": {
-  "en": "checkerboard",
-  "ru": "клетки",
-  "ctx": "pat",
-  "note": "morphCaption; context pat",
-  "file": "app.js:4864"
- },
  "mcap.pat_tiles": {
   "en": "tiles",
   "ru": "плитки",
@@ -1557,18 +1402,6 @@
   "note": "morphCaption",
   "file": "app.js:4893"
  },
- "mcap.arrows": {
-  "en": " Arrows are the paths %{p} of %{parts}, from %{z} (dot) to %{end}%{clause}.",
-  "ru": " Стрелки — пути %{p} для %{parts}: от %{z} (точка) до %{end}%{clause}.",
-  "note": "morphCaption",
-  "file": "app.js:4895"
- },
- "mcap.arrows_meet": {
-  "en": " Arrows that meet show points with the same image.",
-  "ru": " Сходящиеся стрелки отмечают точки с одинаковым образом.",
-  "note": "morphCaption",
-  "file": "app.js:4896"
- },
  "mcap.n_boundary": {
   "en": "{n} boundary points",
   "ru": "{n} граничных точек",
@@ -1634,12 +1467,6 @@
   "ru": " Деформация %{H}: ",
   "note": "buildFigure: panel (b)",
   "file": "app.js:9435"
- },
- "guide.sound_fixed": {
-  "en": "<b>Sound</b> in the top bar ({x}) is off until you turn it on; the setting stays on this device. Its caret sets the volume and what you hear: the interface, mathematical events (the deformation, a closed loop's winding number), and <b>Hear the function under the pointer</b>, a tone whose pitch class is arg <i>F</i>, so a loop around a zero of order <i>m</i> climbs <i>m</i> cycles. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.",
-  "ru": "Звук включается кнопкой <b>Звук</b> в верхней панели ({x}); до этого он выключен, а настройка хранится только на этом устройстве. Стрелка рядом с кнопкой открывает настройки громкости и состава звуков: интерфейс, математические события (деформация, число оборотов замкнутой петли) и <b>Слушать функцию под указателем</b> — тон, звуковысотный класс которого задаётся значением arg <i>F</i>, так что петля вокруг нуля порядка <i>m</i> даёт <i>m</i> восходящих циклов. {x2} останавливает всё, что звучит. С клавиатуры: перейдите клавишей Tab на левую плоскость; стрелки перемещают указатель, {x3} переходит к следующему нулю или полюсу, {x4} сообщает его порядок, {x5} описывает вид, {x6} рисует петлю, а {x7} включает прослушивание вдоль неё. Если программа чтения с экрана работает в режиме просмотра, пользуйтесь кнопкой: сочетание {x} может не дойти до страницы.",
-  "note": "guide.sound_top_bar_x with its last key fixed: the second key is ⇧ M (x), not Esc (x2) (phase 2b integration: the Russian had the whole paragraph pasted twice and still named {x2}; repaired)",
-  "file": "app.js:11158"
  },
  "hint.drag_to_draw_a": {
   "en": "Drag to draw a {tool}",

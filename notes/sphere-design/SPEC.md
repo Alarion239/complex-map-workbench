@@ -76,6 +76,11 @@ bound. Rev 2 therefore:
 - Shape-level reasons (rev 2): ranges that do not fit (3.4), an unbounded range in a family other than the innermost,
   an unbounded shape through a non-affine prefix without far cover (3.6), more than 64 polygon vertices, a fifth
   formula shape, an unrecognised unbounded formula under a window family, member indices beyond 2²⁰ (precision).
+  A curve of a later plane stroked by its polylines at rest (a freehand curve, a formula curve, an external ray, an
+  equipotential) has no 64-vertex limit: its polylines are simplified to fit 1024 vertices (`GLR.INV_CURVE_MAX`), and
+  one that still does not fit is left out of the frames between planes. An open region of a later plane is stroked
+  dashed, as at rest, by its outline's polylines at rest within the same 1024 vertices, each vertex with its arc at
+  rest; an outline that does not fit is stroked solid, by the region's level.
 - Frames of a **playing** homotopy (morph, transitions) keep today's GPU path, as do all shapes during the first frames
   of a pending compile.
 
@@ -175,7 +180,7 @@ Until a row is enabled, `pathOf` answers `'forward'` for it and its fix-ups run 
 pathOf(s, map, role, viewKind) =
   m = normalizeMap(map)                                   // paused homotopy at t = 0 or 1 -> mode 0 (10.5)
   !GLR.ok || isIdent(m)                       -> 'forward'          // identity draws stay as today
-  !S.exactImages || !PHASE[role][viewKind]    -> 'forward'          // hidden switch; phase flags
+  !PHASE[role][viewKind]                      -> 'forward'          // phase flags
   (m.mode || 0) !== 0                         -> 'forward'          // playing homotopy frames, transitions
   !(plan = invPlan(m.a, m.b)).ok              -> 'forward'          // Inverse.planChain, cached per rebuild()
   s._err                                      -> 'forward'          // an invalid shape draws nothing, as today
@@ -216,8 +221,7 @@ A shape changes path only when one of these changes:
 - map mode: morph play or pause (paused frames normalise), transitions;
 - program state;
 - the cost guard (D8), which only demotes bounded clean shapes, and only after half resolution in motion did not bring
-  the pane inside the 60 fps budget;
-- the `exactImages` switch.
+  the pane inside the 60 fps budget.
 
 **Never on pans, zooms or orbits**, with the single exception of the cost guard's demotion, whose two renders agree to
 ≤ 0.011 % golden_diff.
@@ -233,7 +237,7 @@ A shape changes path only when one of these changes:
 
 The left plane at stage 0, Phase, Landscape, the phase sphere, Preimage targets (`drawPreimage`), the line renderer's
 shaders, the map cache (still used by forward draws), `Region.buildMesh` (still meshes the left plane and the forward
-paths), the morph and transition renderers, and saved state (one new optional boolean, `exactImages`).
+paths), the morph and transition renderers, and saved state (an old save's `exactImages` key is read and ignored: exact images are always on).
 
 ---
 
@@ -737,7 +741,7 @@ shapeClip, ixRange, sheetKey, compositor, ixDK, ixStop, patternColor, invLeaf) +
 |---|---|
 | view (flat) | `uCenter` (hi), `uCenterLo`, `uInvScale`, `uVp`, `uDpr` |
 | view (globe) | `uMVP`, `uEye`, light (`lightUniforms`), via `SPHERE_VS` |
-| sheet key | `uWin` (x0, y0, x1, y1 of `clipWin`), `uWinR` (half-diagonal), `uWinRs` (= R/8), `uSing[4]`, `uSingN` |
+| sheet key | `uWin` (x0, y0, x1, y1 of `clipWin`), `uWinR` (half-diagonal), `uWinRs` (= R/8), `uSing[4]`, `uSingN`, `uSingT` (the period T of 5.1, 0 for none) |
 | compositing | `uAlpha` (the shape's alpha, hover-dimmed), `uKsat` (K, capped at B) |
 | shape | `uPts` (texture unit 4: every shape's record, packed once per frame), `uShOff` (this shape's record offset), `uShape` (kind, complement, count), `uShA`, `uShB`, `uFormSlot` |
 | look | as `regionUniforms`: `uC0`, `uC1`, `uK`, `uPattern`, `uCell`, `uLines`, `uShrink`, `uGrow`, `uMid`, `uOrigin`, `uQ`, plus `uSphN` |
@@ -962,12 +966,19 @@ suite's machine for every acceptance scene.
 ### 5.1 The key D
 
 ```
-D(z) = log2(1 + dist(z, W) / R) + sum over p in P of max(0, log2(rs / |z - p|))
+D(z) = log2(1 + dist(z, W) / R) + sum over p in P of max(0, log2(rs / |z - p|_T))
 ```
 
 - W is the box of `clipWin`, R its half-diagonal, and rs = R/8.
 - dist is Euclidean, and 0 inside W.
 - P is the accumulation set of 3.7 (at most 4 points).
+- T is the key's period (`Inverse.keyPeriod`), or none. A chain whose first step after affine ones u = A z + B is
+  periodic (an additive family of period p: exp, sin, cos, tan and their kin) has F(z + T) = F(z) with T = p / A, so
+  its singular points come in classes modulo T. P holds one point of each class, and |z - p|_T is the distance from z
+  to the nearest point of p's class. Every copy z + kT of a point then takes the same singular terms, and the copies
+  rank by their distance to W alone. A key without T would penalise only the copies beside the listed poles, so a copy
+  beside a pole P leaves out would come in front of the copies near the window (on Strip to disk's w₂, copies 3
+  periods down). Mid-glide, T is the period of the steps before the glide's step, which the glide's map keeps.
 - With Λ and Re Λ > 60: dist ≈ e^{Re Λ}, so log2(1 + dist/R) ≈ (Re Λ − ln R)/ln 2. For p = 0 the singular term is
   log2(rs) − Re Λ/ln 2.
 
@@ -1084,6 +1095,22 @@ net at cell edges, as `net()`.
 - **float32 transcendentals** on real GPUs are 2–4 ulp. The GLSL parity test (12.2) checks enumerator outputs on the
   GPU against `Inverse.enumerate`. The real-GPU benchmark reproduced the z^i hole, rims and polar checker exactly
   (4.7).
+- **A Series step's float32 limit (#1898): where a pixel is white.** A glide's inverse pass through a Series step draws a pixel
+  only where a member of its walk lies inside the regions (Inside regions). `SER_CANCEL` (src/glsl.js) makes the series'
+  value NaN where its largest term times float32's epsilon passes a share of 1 + |S|, as does |z| > 88, so a walk that meets
+  such a point has no member. A pixel is white, and never carries a colour, in three cases:
+  1. *cancelled*: every member inside the rectangle has a walk that meets a cancelled point (none at u = ½ of the default
+     series, 0 of 1,050 sampled pixels);
+  2. *off canvas*: the members lie outside the plane's canvas;
+  3. *outside the rectangle*: no member lies inside the regions' rectangle, the picture outside the regions' image, which
+     Inside regions leaves white (501 of the 503 white pixels sampled at u = ½).
+
+  The edge of the white area is ragged where float32 loses a member the CPU's float64 walk keeps: a band a few pixels wide
+  along the image's boundary (2 of the 503 white pixels sampled, ≈ 0.2 % of the pane), moving with u. It is a float32 limit,
+  not drawn differently: the GPU does not know, per pixel, which lost walks would have ended inside the rectangle (a "walk met
+  a cancelled point" flag also marks the whole empty area, since the polynomial's far roots die at cancelled points for
+  every pixel), so the page draws no fill for it, and a colour always means a true member. `test/series_limit_cmd.js` pins
+  it at u = ½: no coloured pixel without a root inside the rectangle, and the band at most 8 of the sampled pixels.
 - **Fallback.** float64 vertices in two charts (z, and u = 1/z). Relative precision is 1e−13 at the refinement floor,
   and |z| is resolved from 1e−290 to 1e290 (sphere-native section 11).
 
@@ -1093,8 +1120,8 @@ net at cell edges, as `net()`.
 
 ### 8.1 When
 
-For each role, view kind and area shape whose path is `'forward'` because the shape is ineligible (or `exactImages` is
-off), and whose map is still:
+For each role, view kind and area shape whose path is `'forward'` because the shape is ineligible, and whose map is
+still:
 - the shape is stretched or unbounded (`Region.bboxOf` null, or larger than 3 windows), **or**
 - today's `computeFix` first pass finds trouble: a vertex with a non-finite image, or a triangle still failing the
   relative midpoint test (0.2 × longest edge) at depth 5. **Rev 2:** the test is view-independent (rev 1's "image
@@ -1302,10 +1329,9 @@ defects in practice.
 ## 10. App integration (`src/app.js`)
 
 ### 10.1 State and hooks
-- `S.exactImages` (default true; `sanitizeState` makes it a boolean).
+- No state: exact images are always on. An old save's `exactImages` key is dropped by `sanitizeState`.
 - Test hooks inside `TEMP-DEBUG-HOOK` blocks:
   - `__cmwPaths()` → `[{id, role, viewKind, path, reason}]`;
-  - `__cmwSet('exactImages', bool)`;
   - `__cmwForceForward([ids])` → `pathOf` returns `'forward'` for those shape ids (mixed-path tests, 12.4 (c));
   - `__cmwSphereW(x, y)` → w under a Sphere-view pixel (for 12.4);
   - `__cmwGuard()` → the cost guard's state per pane (12.5).
@@ -1519,7 +1545,7 @@ Phase flags (2.1) live in one table in app.js: `PHASE = {R: {flat: P2, globe: P3
 - **Work.** `src/sphere.js` (8.2–8.9), `regionP`/`regionSP`, app jobs (10.4) for ineligible shapes, the display rule
   during rebuilds, job keys and tokens (8.8), `prepareExport` for SphereMesh (10.6).
 - **Tests.**
-  - 12.3, including a forced-forward quality run: every acceptance scene with `exactImages` off reaches IoU ≥ 0.999
+  - 12.3, including a forced-forward quality run: every acceptance scene with every shape forced forward (`__cmwForceForward`) reaches IoU ≥ 0.999
     after settle.
   - Perf: `image.custom_e_z1z.m240` (e^{z+1/z} on H) settles within budget, no slice over 6 ms; `image.expexp_H`
     (an unbounded shape forced forward by the outer-family rule) pan and zoom settle units.
@@ -1666,7 +1692,7 @@ shapes: the scissor box contains every image pixel of a dense (10⁵-point) forw
   - Repeat both on the globe (rev 2: merged list order).
 - (d) Compile gap: right after adding a step, a frame with `frameStatus().pending` shows the forward image; within 2 s
   it is replaced by the inverse image; no frame is blank. The step thumbnail drawn during the gap is redrawn.
-- (e) `exactImages` toggled off and on: forward and inverse images of the bounded golden scenes differ by
+- (e) every shape forced forward and not: forward and inverse images of the bounded golden scenes differ by
   ≤ 0.5 % golden_diff.
 - (f) Sphere view z^i(H): 400 globe samples inside the hole cap are globe-coloured; 400 annulus samples are fill;
   Cayley at the north pole has no notch (via `__cmwSphereW`).

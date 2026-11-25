@@ -6,7 +6,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 | workflow | where | when | what it can tell |
 |---|---|---|---|
 | **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
-| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there; by hand with mode `suites` and the input `suites` (a regex as `ci/browser.js --only`): only those browser suites, at the dispatched ref |
+| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac, and on request our Windows desktop ([RUNNERS.md](RUNNERS.md), #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate` (the Mac alone; the desktop only by hand, with *machines* `windows` or `both`); each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there; by hand with mode `suites` and the input `suites` (a regex as `ci/browser.js --only`): only those browser suites, at the dispatched ref |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
@@ -19,8 +19,9 @@ show results sooner and can be re-run alone).
 | Quality, each of the 9 shards | 3–6 min |
 | GLSL on macOS, each page | 2–5 min |
 | GLSL on Windows (software rendering) | `glsl` 1/8: 8–24 min; `inverse`, whole: 34–35 min; `adv`: `direct,keys,compile` 34 min, its chains 2 min a quarter (see below) |
+| GLSL on Linux (SwiftShader, core tier, both sides) | `glsl` 1/2: 7–8 min, 2/2: 4–6 min; `adv` 3 min; `inverse` 2.5–3 min; `dh` (outright, one side) under a minute |
 | Perf on Windows, each shard | 5–21 min; up to 36 when a unit is re-run |
-| Browser, each of the 24 shards (Linux, lavapipe) | 7–16 min: a minute of setup and 6–15 min of suites (each suite's time is in `ci/browser_shards.js`) |
+| Browser, each of the 35 shards (Linux, lavapipe) | 7–16 min: a minute of setup and 6–15 min of suites (each suite's time is in `ci/browser_shards.js`) |
 
 The `adv` page splits only its chains (`main`) into parts; its other sections (`direct`, `keys`, `compile`: 12-step
 chains and the largest shaders) run whole, so in parts they ran once per part (a quarter of the page took 33–48 min,
@@ -41,7 +42,7 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 |---|---|---|
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
-| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
+| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `critical`, `pieces`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl` and `glslroots`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
 | **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-params.js`, `20-init.js`, `22-start.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
@@ -88,11 +89,11 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A stack** (#787): PRs into the integration branch are often stacked, each head holding the lower PRs, so every
   push to a lower one re-runs the whole stack's tier on every PR above it. The job *ready* also asks, on every pull
   request into a branch other than `main`, which open PRs into the same branch contain this head (the compare API) and
-  takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed or is still going, this
-  PR gets tier `none` like a ready-for-review mirror: nothing runs, and its Gate check waits for the top's run and carries
-  its verdict (so it is never green before that run passed). A failed, cancelled or missing run of the top means this PR
-  runs its own tier. A push to the top cancels its run, so the Gate checks that carried it fail: re-run them (or push)
-  once the top's new run is going. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
+  takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed, this PR gets tier `none`
+  like a ready-for-review mirror: nothing runs, and its Gate check carries the verdict of the attempt that passed (it
+  reads that attempt, so a later re-run of the top's run does not change it). A run of the top still
+  queued or running is not carried: a push to the top cancels it, and the PR carrying it would end red with
+  nothing run. A run still going, failed, cancelled or missing means this PR runs its own tier. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
   summary says which run would have gated this head, and every PR still runs its tier.
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
@@ -114,16 +115,27 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
 | **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build, at most 8 shards of a run at a time (`max-parallel`: the runners are shared by every open pull request); their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
-| **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
+| **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages; Linux: the core tier in 5 jobs) | the GLSL pages on each platform's shader compiler (Direct3D 11's, Metal's, SwiftShader's): the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`), paired: this change fails only where it is worse than the reference on the same machine; and on Linux the `dh` page (`test/glsl_dh_orbit_test.js`, `glsl_dh_stop_test.js`), the Douady–Hubbard / Böttcher orbit's shader against other forms of itself on the same GPU (its orbit in an array, the full orbit without the early stop), which holds on any renderer, so it passes outright and has no reference side. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job the plan chose passed (perf: when it ran): make it the required check |
 
 ### GLSL tiers
 
+Each platform's job is there for its own shader compiler:
+
+- **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
+  loops.
+- **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
+- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`; a local browser-suite run uses lavapipe instead where it is installed, below): CPU WebGL2. Headless Chrome falls back to it without a
+  usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
+  (#1739), and it has corner cases of its own (`atan(−0, x)`, #1709). The Linux browser jobs render with lavapipe
+  instead, which is not SwiftShader.
+
 Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
-hours there; macOS takes minutes. The chains are in two tiers (`test/glsl_tiers.js`, by name, so adding a chain moves
-no other):
+hours there; macOS takes minutes; SwiftShader compiles a program on one core of the GPU process, so its core tier of
+the `glsl` page takes about 6 minutes a side. The chains are in two tiers (`test/glsl_tiers.js`, by name, so adding a
+chain moves no other):
 
 - **core**: every hand-written chain (catalog defaults, natural paths, regressions, errors, d/dz, the special
   functions, series, recurrences, repeats, ...) and a fixed eighth of each random family; on the `adv` page its
@@ -133,29 +145,50 @@ no other):
 
 The Gate (`gate.yml`, GitHub's machines):
 
-| run | Windows | macOS |
-|---|---|---|
-| a pull request (also a wave PR into `main`, and the whole gate) | core | all |
-| a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
-| a pull request with the label `glsl-deep` | all | all |
+| run | Windows | macOS | Linux (SwiftShader) |
+|---|---|---|---|
+| a pull request (also a wave PR into `main`, and the whole gate) | core | all | core |
+| a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all | core |
+| a pull request with the label `glsl-deep` | all | all | core |
 
-The GPU gate (`gpu-gate.yml`, our machines; the Windows laptop's runner was removed on 2026-11-01, #169, so its column
-below applies once a Windows runner is back). Its Windows laptop compiles on one core (FXC): the glsl page alone took
-over 170 minutes a side there on the nightly run of 2026-10-29, which its single job never finished. So every chain
+On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv`, `inverse` and `dh` whole: five jobs, about 20 minutes
+of machine time together. `GLSLTiers.SWIFTSHADER_HANG` (`test/glsl_tiers.js`) names chains whose program SwiftShader does not
+finish (minutes of one core, then the GPU process is lost and every later chain errors): `GLSLTiers.keep` leaves them out when
+the page's renderer is SwiftShader, and the job summary names each with its reason ("not run on SwiftShader"); Windows and
+macOS run them. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
+every call inlined; compile and link take milliseconds), and it grows faster than the shader's size with the number of call
+sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inner `cxs0_sg<p>` from one site per level
+(`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its
+pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the same chains and the `glsl` page is
+compared on Linux too.
+`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe on LLVM 20 or older (Mesa's llvmpipe on Vulkan, a Linux machine's software
+renderer when it has no GPU; Mesa 25): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made
+every later chain of a long run error; `GLSLTiers.keep` leaves it out there. The Gate's browser job (Ubuntu 26.04, Mesa 26, LLVM
+21) runs that chain once, in its `smoke` shard (`node ci/glsl.js --only glsl --filter 'sheets sqrt d d' --expect-compared 7172`), so a Mesa that crashes
+on it again shows there. `--expect-compared N` fails a page that compared fewer than N values: on a lavapipe that leaves the chain
+out (LLVM 20 or older, which the Mesa cache could fall back to) the page passes with none; #1835 lifts the entry when no Mesa in use crashes. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
+the summary names each chain left out, with its reason ("not run on lavapipe (#1815): …").
+
+The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
+with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
+minutes a side on the laptop on the nightly run of 2026-10-29, which its single job never finished. So every chain
 runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inverse whole:
 
 | run | Windows | macOS |
 |---|---|---|
-| a pull request (the label `gpu-gate`), a push to `main` | core, one job | all |
-| the nightly run, a run by hand | all, ten jobs | all |
+| a pull request (the label `gpu-gate`), a push to `main`, the nightly run | not run | all |
+| a run by hand, *machines* `mac` (the default) | not run | all |
+| a run by hand, *machines* `windows` | all, ten jobs | not run |
+| a run by hand, *machines* `both` | all, ten jobs | all |
 
 A page whose shader code and tests are the same as the reference's is not run unless forced: the nightly run always
 is, a run by hand only with its *force* input, so a by-hand run covers every chain only with *force*. The cold cost
-of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first nightly
-runs after this change is that cost first, not a regression.
+of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first by-hand
+run with *machines* `windows` or `both` is that cost first, not a regression.
 
 **A release tag** needs a green run of every chain (`all`) on the commit's `main`, on both systems: the GPU gate's
-nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run.
+nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run. The GPU gate's nightly run
+gives no Windows result: that one comes from a run by hand with *machines* `both` and *force*.
 
 `ci/glsl.js --tier core|deep|all` runs one tier locally. A page whose browser uses no CPU for `CMW_GLSL_STALL_MIN`
 minutes (the GPU gate: 20) is stuck (a lost GPU, a hung driver): it fails as *stalled* then, not at the job's
@@ -197,9 +230,9 @@ CI (they serve `test/regress/quality/run.sh` by hand). The GLSL pages `glsl` and
 
 The perf shard `phone` emulates a phone in the same headless Chrome: a 390 × 844 mobile viewport at device pixel
 ratio 3 (the app's phone layout), touch input, and the page's main thread slowed 4× (DevTools' mid-tier mobile; the
-GPU stays the machine's). Units: opening the app, one-finger pans, Landscape orbits, the deformation playing,
-loading examples (`test/regress/perf/run.js`, `phone.*`). It runs on every machine of both workflows. It is an
-approximation of a phone, not a phone.
+GPU stays the machine's). Units: opening the app, one-finger pans, Landscape orbits, loading examples
+(`test/regress/perf/run.js`, `phone.*`). It runs on every machine of both workflows. It is an approximation of a
+phone, not a phone.
 
 ## Browser suites
 
@@ -222,11 +255,68 @@ artifact.
   listed with their numbers in the summary and a warning, and do not fail the job. Where one condition also asserts
   something else (the drag drew frames, the step did advance), the check counts as timing only when that part held.
   Every other check gates.
+- **Rows that made no check** (`noCheck` in a suite's result, `ci/browser_no_check.js`): a suite that cannot test a row when the
+  runner is late (tour_auto's 400 ms spike rows when the poll came too late for them) passes it and lists it in `noCheck`.
+  The log, the head line (`, N no check`) and the summary show those rows, and a warning names them; they do not fail the job.
+  (Not `skipped`: tour_phone and tour_audit return that for the tour's "step skipped" log lines, which a normal run has.)
 - **Software-renderer failures** (`SOFTWARE` in `ci/browser_suites.js`): a few correctness checks need several frames
   in a short window (a voice update in each of 60 frames, a Loop that moves t within 1 s, a ring drawn 450 ms after
   a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
   cause (no frame missed, t still moving, the program still compiling), is printed in the summary, and does not fail
   the job; the GPU machines run the suites at full speed.
+- **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
+  It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
+  on the 26.04 image two files, the package and `libdisplay-info3`, both `amd64v3` builds) and installs them with `dpkg`. Those files are kept in an Actions cache,
+  keyed by the runner's Ubuntu release (`ImageOS`) and the package's version in the image's lists, what the files
+  depend on: a new image of the same release with the same version finds them (GitHub's images change weekly, the
+  package seldom). When the key has no entry, the restore takes the newest entry of the release (`restore-keys`, the key
+  up to the version). A job that installed from a mirror saves the files when the key had no entry and the version
+  installed is the key's (`dpkg-query`, the step outputs `version`); a pull request's run restores what it saved
+  itself or what main's runs saved (each wave's push, the nightly run). GitHub evicts an entry after 7 days unused.
+  - **When Ubuntu's mirrors cannot be reached**, cached files of the key's version are installed after that first
+    download fails. With
+    none, or when they do not install, the same version comes from a fallback mirror on another domain:
+    kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
+    `*.ubuntu.com` leaves reachable. Ubuntu's list of archive mirrors has kernel.org's once, as "Kernel.org" at
+    `mirrors.us.kernel.org`, for http, ftp and rsync; `mirrors.edge.kernel.org` is kernel.org's HTTPS front for its
+    mirrors and is not on the list. What keeps the files intact is apt's check of the mirror against Ubuntu's archive
+    keyring, as for Ubuntu's own mirrors. The fallback has a sources file and package lists of its own (the runner's
+    are untouched). Then come 2 more downloads from Ubuntu's mirrors, each after a wait (10, then 20 s) and a refresh
+    of the lists.
+  - **After a Mesa update**, until GitHub's image has it: each pocket's package list names only its newest version,
+    so the fallback fails (apt: `Version '…' was not found`) unless the image's version is still published in the
+    security pocket (an older version can stay there after the updates pocket has moved on: 25.2.8-0ubuntu0.24.04.2
+    stayed in noble-security after …04.3 replaced it in noble-updates). The downloads with refreshed lists install the
+    newer version, which the job does not save under the key that names the image's.
+  - **Last, an older version from the cache:** when no mirror gave the key's version and the restore matched the
+    release prefix alone, the cached files of that other version are installed. `dpkg` checks their dependencies, so a
+    copy that does not fit the image fails at its install, and the job does not save them.
+  - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
+    not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
+    cache, the step fails within 2 minutes when SIGTERM stops apt, and within 140 s when apt has to be killed
+    (`timeout -k 5` sends SIGKILL 5 s after SIGTERM).
+  - **It fails loudly:** a job that ends the step without the package installed (`dpkg -s`) or without lavapipe's ICD
+    file (the `lvp_icd*.json` the package lists) fails there, with the annotation *Mesa (lavapipe)* naming the cause:
+    the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
+    errors are in the log), got no answer, ended without an error but downloaded no files, or were refreshes of the
+    lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
+    "Failed to fetch" warnings are in the log); and whether the cache had a copy for the release. Without
+    lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
+- **The image:** the browser jobs run on `ubuntu-26.04`, by name, not `ubuntu-latest`. The layout gate compares the
+  renderer's name with its baseline's (26.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.335 (llvmpipe (LLVM 21.1.8 256 bits) …`),
+  so a job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
+  there ([Layout invariants](#layout-invariants-and-visual-inspection-470)); and while `ubuntu-latest` moves from one
+  image to the next, the jobs of one run land on either. The other Linux jobs draw nothing with lavapipe and run on
+  `ubuntu-latest` (Quality's Linux row and the Linux GLSL jobs draw with SwiftShader, and pair both sides on one
+  machine).
+- **llvmpipe emits AVX code only** (`GALLIUM_OVERRIDE_CPU_CAPS: avx` in the browser job's env, #1507): LLVM 21, in Mesa
+  26.0.8's lavapipe, miscompiles sin∘√'s glide through sin's step (mode 1, the root in full, then sin's path) on
+  GitHub's AMD Zen 4/5 machines (EPYC 9V74, 9V45): NaN at every point, while their Zen 3 (EPYC 7763) and Intel
+  (Xeon 6975P-C) machines compute it. Each job gets one of these machines at random; without the setting,
+  `deform_range_gl_cmd.js` and `deform_range_cmd.js` fail on the Zen 4/5 ones, and `test/t_lavapipe.js` checks that
+  every job that draws with lavapipe has it. Without AVX2, FMA and AVX-512 the four slowest shards took 1 to 8 % longer
+  (each run twice on one machine: views-2 2300 → 2484 s, export-4 1470 → 1556 s, views-3 1652 → 1726 s, tour
+  1158 → 1169 s). Users on llvmpipe with such a CPU still meet the fault: #1735.
 - **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
   long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
   sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
@@ -249,14 +339,15 @@ artifact.
 - no horizontal page scroll, and nothing visible is cut by the viewport's edge;
 - targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
 - a control focused from the keyboard shows it, and its ring isn't cut;
-- the rows declared even are evenly spaced.
+- the boxes declared whole (`INTENT.whole`: the open key of Look down and the Stack on a phone) show all they hold: no content past their own box, so no scroll to reach it (`scroll-cut`, #2418);
+- the rows declared even (`INTENT.rows`: the segmented controls of three members or more, the steps view's track, the phone's tool rail, in landscape a column) are evenly spaced, within 1 px; a row that wraps onto a second line is skipped; `test/layout_rows_cmd.js` moves one member of each by 3 px and expects the check to report it.
 
 It runs over the matrix of `test/lib/layout_matrix.js`:
 - **sizes:** phones 360, 390 and 412 portrait, 740×360 and 915×412 landscape; desktops 1024, 1280 and 1440;
 - **themes:** light and dark;
 - **views:** the classic view, and `?view=steps` where the build has it;
 - **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
-  sheets; and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
+  sheets; the Line integral popover on an open and on a closed curve (phone, #2191); the open Look down / Stack key on its own page load, seeded with M3 and a disc on w₁, at 360, 568×320, 600×320 and 740×360 (phone, steps view, #2418); and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
   `tour longest <chapter>`, #565).
 
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
@@ -301,9 +392,16 @@ adds to `src/`, `ci/`, `test/` and `tools/` (generated files excluded) and repor
 let a script see: history words and version, wave or changelog labels in a comment (`history`), plan labels such as an
 item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it adds
 (`asserts`; assertions moved into a test file the diff creates, a split, are not counted as dropped). The words `was`, `now` and
-`no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines, and never fails the job; with
-`--block` it exits 1 when it finds anything. An added line opts out with `standards-ok: <reason>` in its comment (a
+`no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines; with
+`--block`, as the Plan job runs it, it exits 1 when it finds anything, so a finding fails the Gate. A version inside a path or a file name
+(`notes/constructions-v16/`) is a name, not a label. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
+A deleted suite carries no added line, so it is retired instead (`retired`): the change names it in the ledger
+`ci/retired_suites.js`, one line with the reason it goes and what covers it, and drops it from what runs (from
+`ci/suite_views.js` and `ci/browser_shards.js`, or from `ci/browser_suites.js`' EXCLUDED); its assertions then do not count
+as dropped. A suite that no shard line named at the base ran in the catch-all shard, so it has no shard line to drop; a unit
+test (`test/t_*.js`) runs because it exists, so its ledger line alone retires it. A ledger line for a file the change does
+not delete is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
 
 ### Perf on a loaded machine
@@ -342,7 +440,7 @@ worse (reference → this change, with the rule it broke), what improved, and th
 
 ## Perf shards and their parts
 
-The perf suite's units (`node test/regress/perf/run.js --list`) are cut into shards (`ci/perf_shards.js`, each one CI job; every unit is in exactly one). The larger shards (`steps`, `pointer`, `phone`, `views`, `interaction`) also have named **parts**, a scene or a map each, whose units split their shard's exactly (the plan job's check fails when a unit is in no part or in two): `steps-first`, `steps-default`, `steps-zeta`, `steps-king`, `steps-globe`, `steps-land`, `steps-cold`, `steps-long`; `pointer-hover`, `pointer-drag`, `pointer-morph`; `phone-open`, `phone-motion`; `views-phase`, `views-landscape`, `views-sphere`; `interaction-mesh`, `interaction-morph`, `interaction-hover`, `interaction-cards`. A part is only a unit regex: rows, kinds, limits and tolerances live in `run.js` and `compare_perf.py`, so no row is dropped and no threshold moves.
+The perf suite's units (`node test/regress/perf/run.js --list`; each opens the steps view and stands where it measures through `__cmwSteps`, `ci/steps_scenes.js`) are cut into shards (`ci/perf_shards.js`, each one CI job; every unit is in exactly one). The larger shards (`steps`, `pointer`, `phone`, `views`, `interaction`) also have named **parts**, a scene or a map each, whose units split their shard's exactly (the plan job's check fails when a unit is in no part or in two): `steps-first`, `steps-default`, `steps-zeta`, `steps-king`, `steps-globe`, `steps-land`, `steps-cold`, `steps-long`; `pointer-hover`, `pointer-drag`; `phone-open`, `phone-motion`; `views-phase`, `views-landscape`, `views-sphere`; `interaction-mesh`, `interaction-hover`. A part is only a unit regex: rows, kinds, limits and tolerances live in `run.js` and `compare_perf.py`, so no row is dropped and no threshold moves.
 
 - **On GitHub's machines** (the Gate) every shard is one job, as before the parts; a by-hand run's *shards* input also takes part ids.
 - **On the GPU gate** (`gpu-gate.yml`, `--leaves`) the `steps` shard stands for its eight parts, one job each (its *leaves*): a run is about 3 minutes for `steps-first`, 4 for `steps-default` and `steps-zeta`, 5–6 for `steps-king` (`steps-globe`, about 2 on lavapipe, `steps-land`, `steps-cold` and `steps-long` are not timed yet; each unit's limit is 15 minutes), plus about a minute a job for the build and the quiet wait. The *shards* input takes shard ids, part ids and two groups: `all` (or nothing) is every shard (the wave sweep), `classic` the shards that are not split; `steps` is its eight parts. A part named beside its own whole shard is covered by it; an unknown id fails the plan. The loaded-Mac guard runs once per job, and a unit's reference and current runs are in the same job.
@@ -369,12 +467,15 @@ node ci/quality.js --ref origin/main               # image quality, paired again
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
 node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
+node ci/fxc_size.js --ref origin/main --json f.json   # each linked program's size with every call inlined, as Windows' FXC compiles it (#1545): fails on a new program over 100 KB, or +20 % on one over 40 KB
+node ci/newt_ab.js --base origin/claude/funny-darwin-l5uis3   # the NEWT ops' GPU output against the base's, bit for bit, with a negative control (#1365)
 node ci/browser.js --only '^steps_glide_look_cmd' # browser suites by file name; on the Mac's GPU: GPU gate by hand, mode suites, input suites (run it on two refs to compare)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 CMW_VIEW=steps node ci/browser.js --only '^warm_bar_cmd'   # ... with every page in the steps view (#620; CI sets it for a suite tagged steps({ pin: true }) in ci/suite_views.js)
-node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (report only)
+node ci/browser.js --wait --only '^smoke_cmd'     # one run per worktree (a lock, .ci/browser.lock: a run rewrites test/ci_cdp, .ci/browser and dist/): a second refuses and names the holder, --wait waits; a killed run's lock and daemon are swept by the next (ci/run_lock.js, #2163)
+node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (add --block to fail on a finding, as the Gate does)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard, with its view (ci/suite_views.js, #620)
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
@@ -386,14 +487,14 @@ The sandbox has no `google-chrome` and no route to the CDNs, and its GL is softw
 
 ```sh
 export CHROME_BIN=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux64/chrome | head -1)   # Playwright's Chromium; the browser suites look for google-chrome
-export CMW_ANGLE=swiftshader CMW_CHROME_ARGS="--no-sandbox"                              # CPU rendering; no Vulkan flags
+export CMW_CHROME_ARGS="--no-sandbox"                                                 # the renderer is chosen by default: lavapipe where installed, else SwiftShader (below)
 node ci/browser.js --only '^key_popup_cmd' --port 9950                                   # a suite; --no-build skips build.py
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'                                # the same with MathJax and the faces from vendor/ (no CDN here; see "No network" below)
 node ci/snapshots.js && node ci/unit.js                                                  # unit tests (see the clone note below)
 npm run -s typecheck                                                                     # runs tools/join_src.js, then tsc
 ```
 
-- **Do not use CI's Vulkan flags** (`--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`, `CMW_ANGLE=vulkan`) here: Chrome then has no WebGL, the colour keys are hidden and every picture is blank. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
+- **The browser suites pick their renderer themselves** (`test/cdp_kit/renderer.js`): lavapipe through ANGLE's Vulkan back end, as the browser jobs, when the machine has it (the Vulkan ICD `lvp_icd.json` and its library: the package `mesa-vulkan-drivers`), with `GALLIUM_OVERRIDE_CPU_CAPS=avx` and CI's Vulkan flags; else SwiftShader, with a warning line. The first line of `ci/browser.js`'s output says which one drew (`renderer: …; drawn by: …`). The Vulkan loader is pointed at the lavapipe ICD found (`VK_ICD_FILENAMES`, unless you set it), because the package also ships the GPU drivers' ICDs and a machine with a GPU would draw on that. If Chrome has no WebGL2 through lavapipe here (the colour keys hidden and every picture blank), the run goes on with SwiftShader and says so. `CMW_ANGLE=swiftshader`, as above, opts out. A red on SwiftShader that CI does not show (`steps_chain`, `steps_strip_layout`: #2025) is checked with lavapipe first. The GLSL, Quality and Perf runs keep SwiftShader on Linux, as their CI jobs do. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
 - **A shallow clone** lacks the old commits that `ci/snapshots.js` restores. It fetches them, and the six tests that read the snapshots fail with a line saying what is missing (never skip).
 - **Keep your own scripts' output out of the repository:** screenshots and measurements go to a scratch folder (a script run from the repository's root once left a `shots/` folder in it).
 - **The lint ratchet** is the same as in CI: `npx eslint -f json . > es.json; npm run -s typecheck > tsc.txt; node ci/lint_ratchet.js check es.json tsc.txt`.
@@ -409,7 +510,7 @@ output fail. `CMW_VENDOR=1` makes the browser daemon (test/cdp_kit/cdpd.js) answ
 `vendor/` (test/cdp_kit/vendor.js; the fonts as @font-face rules over the vendored faces, as the offline page has them)
 and lets every other request through. It is opt-in and never set in CI, which keeps testing the CDN path;
 test/t_vendor_serve.js checks that every CDN URL in src/ and build.py is answered. What it does not fix: in a sandbox
-with SwiftShader (no Vulkan/lavapipe, the CI's GL), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
+on SwiftShader (`CMW_ANGLE=swiftshader`, or a sandbox without lavapipe; the browser jobs draw with lavapipe), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
 holes, the welcome, the palette's Try line are typeset checks) and `custom_show_cmd` passes, but `tour_auto`,
 `ux165_learn`, `v15_desktop`, `v15_phone`, `sound` and `land_release` still fail there on timing and software-GL
 checks that pass in CI (30 Oct, f4e601a).
@@ -419,8 +520,8 @@ checks that pass in CI (30 Oct, f4e601a).
 `test/landscape_walls_cmd.js` stays in `EXCLUDED` (`ci/browser_suites.js`): its speckle, cold-open and perf parts need
 `r1/` and `base/` builds (the base is v16.3.1, `ci/reference.js` builds it) and a GPU, and the whole suite takes about
 25 min on a Mac GPU. Its mesh and motion parts read the Landscape grid back through the hooks in `src/gl/`
-(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEMP-DEBUG-HOOK` blocks that `build.py`
-strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
+(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEST-HOOK` blocks (`tools/hook_marker.js`) that
+the build strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
 and the motion part (on this build only) run on lavapipe:
 
 ```sh
@@ -439,7 +540,7 @@ Settings (environment variables):
 
 | variable | meaning |
 |---|---|
-| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
+| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) for the browser suites on Linux when it is installed, else `swiftshader` (CPU rendering, with a warning); the browser jobs use `vulkan` with lavapipe. `CMW_ANGLE=swiftshader` opts out of lavapipe (`test/cdp_kit/renderer.js`) |
 | `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
 | `CMW_DPR` | the device pixel ratio the browser daemon's `view()` emulates (default 1; `steps_glide_look_cmd.js` runs at 1 and at 2, ci/browser_suites.js) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |
@@ -454,21 +555,28 @@ Settings (environment variables):
 
 | file | |
 |---|---|
+| `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files and a fallback mirror (Browser suites); `test/t_lavapipe.js` tests it |
 | `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
+| `ci/retired_suites.js` | the ledger of test files deleted on purpose, each with its reason (Standards check) |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
+| `ci/glsl_failures.js` | a failing GLSL page's failures as short text (a few lines per row, the counts, the rows left out) for the log and the job summary; `test/t_glsl_failures.js` tests it |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
+| `ci/fxc_size.js` | every program the app links over a walk of it (the default example, each example's first frame, typed formulas; glides, the globe, Landscape), sized with every call inlined, as Windows' FXC compiles it (#1545): the largest, their top functions and flagged loops; `--ref` fails on a new program over 100 KB or +20 % on one over 40 KB; `test/t_fxc_size.js` tests it |
+| `ci/glsl_inline.js` | a GLSL stage as FXC sees it: its own `#if`s resolved, the inlined size of `main`, each function's copies, the constant-bound loops that call into the chain; for `ci/fxc_size.js` and unit tests; `test/t_fxc_size.js` tests it |
+| `ci/newt_ab.js` | the NEWT ops' GPU output, this build's against a base's bit for bit (#1365): both built in worktrees, `test/newt_ab_cmd.js` records every float target of its scenes (zeta, the series, the inverse Joukowski map, a polynomial, the Douady-Hubbard map under Everywhere) and the settled canvas as hashes; a third build with the Newton kit's forward-difference step moved to the next float32 must differ in at least a quarter of the targets |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
 | `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome (the test page in the steps view, its scenes from `ci/steps_scenes.js`, as `ci/glprof.js`'s walks), every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
+| `tools/part_move.js` | is a split of a file into parts a pure move? the joined file at two commits, tokenised: one run moved, the rest the same token for token, and the lines that differ as a multiset, and no top-level statement runs before a const, let, class or var it reads (`node tools/part_move.js <old> <new>`; Review checklist in `CONTRIBUTING.md`); `tools/part_move_order.js` reads that order; `test/t_part_move.js` tests both |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
-| `ci/RUNNERS.md` | setting up our Mac (and, again, a Windows laptop: #169) as runners |
+| `ci/RUNNERS.md` | setting up our Mac and, for runs on request, a Windows desktop (#169) as runners |

@@ -34,6 +34,9 @@ ruff check
 
 - `npm test` runs every unit test (`test/t_*.js`) through `ci/unit.js`. The browser, GLSL, quality and perf gates
   run in CI (`ci/README.md`).
+- A browser suite you run locally (`node ci/browser.js --only …`) draws with CI's lavapipe where `mesa-vulkan-drivers` is installed, else
+  with SwiftShader and a warning; the run's first line names the renderer. Judge a red by it: a red on SwiftShader that CI does not show
+  is not a regression (`ci/README.md`, Locally).
 - Run `node ci/snapshots.js` once before the unit tests: `t_constr`, `t_i18n_english` and `t_i18n_parse` compare with old
   versions it restores from the git history into `notes/*/src`. In a shallow clone it fetches the commits it needs; a
   test whose snapshot is missing fails and says so (#427).
@@ -52,6 +55,10 @@ ruff check
 - **No new globals without a reason.** A file exposes one name (`const Tour = (() => { ... return api; })()`); the
   linter reads those names from `src/` itself. A file that also runs in the node unit tests exports itself with
   `module.exports` and is then listed in `types/globals.d.ts`.
+- **A pure file of `src/` may be TypeScript** (`src/<name>.ts`, issue #20), with erasable syntax only: annotations,
+  `type` and `interface`, `as`; no `enum`, `namespace` or parameter property. Its importers still name it
+  `./<name>.js` (esbuild and tsc resolve it), tsc checks it, and ESLint, the unit tests and the test pages read it
+  without its types (`tools/ts_strip.js`, node's own type stripping, which keeps every line and column).
 - **Comments describe the code as it is now:** what it does, its contract (inputs, outputs, units, invariants) and,
   where the code can't show it, why it must be this way. Link a spec in `notes/` where it explains a decision.
 - **A comment never tells the code's history.** No "was", "used to", "previously", "no longer", "now" or "instead of
@@ -77,7 +84,13 @@ ruff check
   unexplained magic numbers** (name a constant instead).
 - **Keep functions short.** A new function over about 80 lines needs a reason; split it where a split is natural.
 - **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/seasong.js`
-  (each names its generator at the top).
+  (each names its generator at the top). `node test/t_i18n_tables.js` fails a pull request whose ru or it table is not a
+  fresh generation (a changed ru or it JSON, or a changed string): run the generator it
+  names (`python3 tools/make_ru_table.py --strict`, `python3 tools/make_it_table.py`; `--check` writes nothing).
+  The Russian of a string is edited in `tools/ru_extra.json`. The later tables of `notes/i18n/ru/` (phase 2b's and the
+  versioned rounds') are history: to change a string one of them holds, put its key in `tools/ru_extra.json` and delete the
+  table's entry; a key held by both fails `--strict` and `--check` (`IN BOTH`). `tools/ru_extra.json` overrides the base
+  inventory tables (`chrome.json`, `math.json`, `guide-tour.json`) without an edit there.
 - **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
   characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run
   `python3 tools/vendor.py` again (it needs npm and `pip install fonttools brotli`) and commit `vendor/`. A character
@@ -93,6 +106,9 @@ ruff check
 - The size budget is two ESLint warnings in `eslint.config.js`. `max-lines` is 1500 per file, and each file still over
   it has its own limit in `SIZE_BUDGET`, its size when the budget was set: such a file may shrink, never grow, and
   `max-lines` warns when it does. When a file shrinks, lower its number; once it is under 1500, drop it from the table.
+  `src/app/` is joined from parts (`src/app/NN-*.js`): a part has its own entry, keyed by its path from the repository's root
+  (`src/app/19-steps-view.js`), and `max-lines` measures the part, not the joined `app.js`; a part without an entry is
+  measured against the 1500.
   `max-lines-per-function` is today's largest function, so a change that makes one bigger is flagged. Lower the limits
   when you split something; never raise them.
 
@@ -111,6 +127,15 @@ taste that no rule here covers is a "Nit:" and never blocks.
   - generated files regenerated with their tools;
   - the lint and type ratchet only goes down;
   - the code rules above: comments, simplicity, names, API docs and hygiene;
+  - a **part split** (a block moved out of one file of `src/app/`, `src/gl/` or another split file into a new part)
+    cites the output of `node tools/part_move.js <merge base> <head>` (the commit where the PR last merged the
+    integration branch, or the integration commit it branched from, and the PR's head): it tokenises the joined file
+    at both commits and says `pure move: yes` when one contiguous run of tokens moved and the rest is the same token
+    for token, with the lines the run came from and went to, and the lines that differ as a multiset. A comment line
+    it lists (a new part's header) is read, a code line that differs fails it (`--strict` fails any line). It also
+    fails a move after which a top-level statement runs before a `const`, `let`, `class` or `var` that it reads while
+    it runs (a ReferenceError at load). What a function called at load reads is not followed: the reviewer checks that
+    by eye or by loading the page;
   - one subject per PR, with no reformatting mixed into a behaviour change. A change to how the project is built,
     tested, run or released updates the docs (`README.md`, `ci/README.md`, this file), and deleted code takes its
     docs with it;
