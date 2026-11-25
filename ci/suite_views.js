@@ -217,6 +217,7 @@ const VIEWS = {
   'steps_bare_status_cmd.js': steps({ pin: true }),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
+  'steps_play_camera_cmd.js': steps({ pin: true }),
   'steps_ru_keys_cmd.js': steps(),
   'toast_keys_cmd.js': steps(),
   'phone_toast_bar_cmd.js': steps(),
