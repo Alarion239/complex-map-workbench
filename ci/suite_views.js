@@ -165,6 +165,7 @@ const VIEWS = {
   'steps_stack_levels_cmd.js': steps(),
   'steps_stack_tubes_cmd.js': steps(),
   'steps_stack_pick_cmd.js': steps(),
+  'steps_land_pick_cmd.js': steps(),
   'steps_stack_links_cmd.js': steps(),
   'steps_stack_surface_cmd.js': steps(),
   'steps_stack_phone_cmd.js': steps(),

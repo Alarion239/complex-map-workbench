@@ -415,6 +415,8 @@
       const c = camOf('L');
       if (c && stackOn()) stackMarkOff();
       if (c) { c.vyaw = 0; c.vpitch = 0; drag = { mode: (panBtn || e.shiftKey) && !stackOn() ? 'pan3' : 'orbit', cam: c, side: 'L', x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty }; }
+      // (the Landscape's sheets: a click or a held press of the Pick tool picks on them, 19-land-pick.js)
+      if (drag && drag.mode === 'orbit') landPickArm(drag, pane, x, y, ptrTouch);
       setCursor(pane, side);
       return;
     }
@@ -1103,6 +1105,7 @@
     if (drag && drag.mode !== 'probe') { // a touch probe (long press) moves like a hover
       if (drag.x != null && !drag.far && Math.hypot(x - drag.x, y - drag.y) > 4) drag.far = true;   // (a pan, not a click)
       if (drag.mode === 'gdraw' || drag.mode === 'ghandle' || drag.mode === 'gmove') { drag.gx = x; drag.gy = y; globeMove(pane, drag.side, e, x, y); return; }
+      if (drag.mode === 'orbit' && landPickMove(drag, x, y)) return;
       if (drag.mode === 'orbit') {
         const c = drag.cam || cam3();
         const dyaw = -(x - drag.lx) * 0.35 * DEG, dpitch = (y - drag.ly) * 0.35 * DEG;
@@ -1507,7 +1510,7 @@
     if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
-    if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
+    if (d.mode === 'orbit' && d.side === 'L') { landPickUp(d); requestRender('L'); return; }
     // a zero or a pole: released off the plane it is removed; one undo step per gesture (an added one included)
     if (d.mode === 'zp') {
       if (d.off) { zpRemove(d.k, d.kind, d.i); return; }
@@ -1590,7 +1593,7 @@
       if (e.key === 'Escape') {
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
-        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (stackUnpin()) { /* unpinned the glass's point, or put out the floor's lit twins */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (stackUnpin()) { /* unpinned the glass's point, or put out the floor's lit twins */ } else if (landPickOff()) { /* put out the lit twins on the Landscape's sheets */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
         else if (tool !== 'select') setTool('select');
         else if (escSound) { /* the sound was this Esc's level */ }
         else if (modeNext()) modeClose(modeNext());
