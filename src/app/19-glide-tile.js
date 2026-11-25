@@ -10,7 +10,7 @@
   // turns into the second glyph by glyph (#2409): a glyph only the first has fades out, then a glyph of one that is a
   // glyph of the other (GlyphMatch.match) slides and resizes from its place in the first to its place in the second,
   // across the middle of the way, then a glyph only the second has fades in; the plane's name's index changes over in
-  // place about the half. The frame is the thread's position's alone (svTileMorphAt), so a
+  // place as those start to come in. The frame is the thread's position's alone (svTileMorphAt), so a
   // held, dragged or played thread at the same place shows the same frame. Under reduced motion, and where the morph
   // cannot be drawn (a formula not typeset as SVG, or one too wide for the tile), the two change over at the half instead,
   // only the formula shown taking room in the tile: while the glide moves, the first fades out before the half and the
@@ -114,7 +114,8 @@
   }
   // the morph's frame for the thread u of the way from the first plane to the second, in GlyphMatch's three parts: the
   // first's glyphs alone fade out, then each pair moves from its place in the first to its place in the second, then the
-  // second's glyphs alone fade in; the name's index changes over in place about the half
+  // second's glyphs alone fade in; the name's index changes over in place as those start to
+  // come in
   function svTileMorphAt(mo, u) {
     const t = GlyphMatch.move(u), op = { pair: 1, out: GlyphMatch.fadeOut(u), in: GlyphMatch.fadeIn(u), nameOut: GlyphMatch.nameOut(u), nameIn: GlyphMatch.nameIn(u) };
     for (const p of mo.parts) {

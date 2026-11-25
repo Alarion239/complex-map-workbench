@@ -1,7 +1,8 @@
 // The glide tile's morph (#2409): between two planes the tile's first formula turns into the second glyph by glyph, in
 // three parts of the way: a glyph only the first has fades out (0 to OUT), a glyph of both slides and resizes from its
 // place in the first to its place in the second (OUT to IN, across the middle), a glyph only the second has fades in (IN
-// to 1); the plane's name's index changes over in place about the half. The frame is the thread's position's alone.
+// to 1); the plane's name's index changes over in place as the second's glyphs start to come in. The frame is the
+// thread's position's alone.
 // TILE_CHAIN (z² + 1/z, then sin z + e^z/(z − 1)), the thread held between w₁ and w₂, at desktop 1200 × 800 in en, ru
 // and it, and on a phone at 740 × 360 in en:
 // - at 10 % to 90 % of the way the tile shows the morph (where it shows: on the phone it may have no room, and
@@ -12,7 +13,7 @@
 //   (none before IN), and the name's index at nameOut's and nameIn's;
 // - at 40 % to 90 % of the way, no glyph coming in that shows lies over a pair's glyph still in transit (rvE's
 //   «sinz(²»), and at 10 % to 90 % the name shows an index (w_k's k, the glyphs between w and the first =), one at
-//   least half there;
+//   least half there, the first plane's up to where the second's glyphs come in (IN) and the second's after;
 // - the frame at 50 % is the same held from either side (from 25 % and from 75 %): the thread's position's alone;
 // - the tile lies inside the plane and meets nothing it keeps clear of (steps_glide_tile's list, GAP px to spare), at
 //   each frame, 10 % to 90 % of the way.
@@ -60,7 +61,7 @@ const frames = async () => { await ev('new Promise((r) => requestAnimationFrame(
 const hold = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: 60000, until: '__cmwSteps().ready.ready' }); await frames(); };
 // (GlyphMatch's three parts, as src/glyphmatch.js has them: the pairs move from OUT to IN, the name's index changes over
 // from NAME_A to NAME_B)
-const OUT = 0.25, IN = 0.75, NAME_A = 0.45, NAME_B = 0.55;
+const OUT = 0.25, IN = 0.75, NAME_A = 0.7, NAME_B = 0.8;
 const ease = (u) => { const t = Math.min(1, Math.max(0, u)); return t * t * (3 - 2 * t); }, span = (u, a, b) => ease((u - a) / (b - a));
 const PHASE = { pair: () => 1, out: (u) => 1 - span(u, 0, OUT), in: (u) => span(u, IN, 1), nameOut: (u) => 1 - span(u, NAME_A, NAME_B), nameIn: (u) => span(u, NAME_A, NAME_B) };
 // (a part's role: the hook's, or from the sign it gave before roles: 0 a pair, below the first's alone, above the second's)
@@ -114,6 +115,9 @@ for (const c of CASES) {
     const els = t.els.slice().sort((a, b) => a.l - b.l), w = els[0], eq = els.find((g) => g.c.toUpperCase() === '3D');
     const index = w && eq ? t.els.filter((g) => g !== w && g.l >= (w.l + w.r) / 2 && g.r <= eq.l + 0.5) : [];
     ok(`${tag}: the name shows an index, one at least half there`, index.some((g) => g.op >= 0.5), index.map((g) => g.op));
+    // (rvE: the tile names the first plane while it shows the first's formula, up to where the second's glyphs come in)
+    const old = parts.filter((p) => p.role === 'nameOut'), neu = parts.filter((p) => p.role === 'nameIn');
+    if (old.length && neu.length) ok(`${tag}: the name's index is the ${u < IN ? 'first' : 'second'} plane's${u < IN ? ', the second\'s glyphs not yet coming in' : ''}`, u < IN ? old.every((p) => p.op >= 0.5) && neu.every((p) => p.op < 0.5) : neu.every((p) => p.op >= 0.5), { old: old.map((p) => p.op), neu: neu.map((p) => p.op) });
   }
   // (the frame at the half from either side)
   if (r[0.5] && r[0.5].morph) {

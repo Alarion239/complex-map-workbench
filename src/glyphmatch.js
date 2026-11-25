@@ -78,10 +78,11 @@ const GlyphMatch = (() => {
   const ease = (u) => { const t = Math.min(1, Math.max(0, u)); return t * t * (3 - 2 * t); };
   // the morph in three parts of the thread's way u from the first plane to the second, one after another, so what fades
   // never lies over what moves: the first's glyphs alone fade out (0…OUT), then the pairs move (OUT…IN), then the
-  // second's alone fade in (IN…1). The plane's name's index (w_k's k, another for each plane) changes over in place about
-  // the half (NAME_A…NAME_B), so the name always has one: the old index is at least half there before the half, the new
-  // one after it
-  const OUT = 0.25, IN = 0.75, NAME_A = 0.45, NAME_B = 0.55;
+  // second's alone fade in (IN…1). The plane's name's index (w_k's k, another for each plane) changes over in place as the
+  // second's glyphs start to come in (NAME_A…NAME_B, about IN), so the tile names the first plane while it shows the first's
+  // formula and the second once the second's comes, and always has an index: the old one at least half there up to IN,
+  // the new one from it
+  const OUT = 0.25, IN = 0.75, NAME_A = 0.7, NAME_B = 0.8;
   const span = (u, a, b) => ease((u - a) / (b - a));
   const move = (u) => span(u, OUT, IN), fadeOut = (u) => 1 - span(u, 0, OUT), fadeIn = (u) => span(u, IN, 1);
   const nameOut = (u) => 1 - span(u, NAME_A, NAME_B), nameIn = (u) => span(u, NAME_A, NAME_B);
