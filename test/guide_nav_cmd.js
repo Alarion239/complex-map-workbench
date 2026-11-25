@@ -57,18 +57,18 @@ await ev(`[...document.querySelectorAll('.guide-sec')].find((x) => x.querySelect
 const td = await ev(`({ modal: !!document.querySelector('.modal-bg'), cur: Tour.isActive() ? Tour.current().chapter : null })`);
 ok('Show me on Deformation starts Playing the chain', !td.modal && td.cur === 'playing', td);
 await ev(`Tour.stop(), 1`); await settled();
-// the classic view (?view=classic) has the same guide, Deformation section and Keys rows included, and its palette offers no
-// Deformation command but the jump to that section
+// the classic view (?view=classic) has no deformation: its guide has no Deformation section and no Keys row for it, and its
+// palette offers no Deformation command and no jump to that section
 await loadView('classic', 'guidenavc' + Date.now(), { shapes: [], steps: [{ type: 'sin', params: {}, on: true }, { type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } });
 await settled();
 await key('?'); await settled();
 const cg = await ev(`(() => { const m = document.querySelector('.modal'); return m ? { hs: [...m.querySelectorAll('h3')].map((h) => h.textContent.trim()), deformKeys: /Deformation on or off|Deformation: paths|Play the chain|Paths t ↦/.test(m.innerText) } : null; })()`);
-ok('classic: the guide has the Deformation section and the Keys rows for the deformation', cg && cg.hs.includes('Deformation') && cg.hs.includes('Views') && cg.deformKeys, cg);
+ok('classic: the guide has no Deformation section and no Keys row for the deformation', cg && !cg.hs.includes('Deformation') && cg.hs.includes('Views') && !cg.deformKeys, cg);
 await key('Escape'); await settled();
 await key('k', 4); await settled();
 await type('deformation'); await settled();
 const cp = await ev(`(document.getElementById('palList') || {}).innerText || ''`);
-ok('classic: the palette has no Deformation command, and has Guide: Deformation', !!cp && !/Deformation:/.test(cp) && /Guide: Deformation/.test(cp), cp.slice(0, 300));
+ok('classic: the palette has no Deformation command and no Guide: Deformation', !!cp && !/Deformation:/.test(cp) && !/Guide: Deformation/.test(cp), cp.slice(0, 300));
 await key('Escape'); await settled();
 // the same in Russian: the section's bold names are the page's Russian names for the controls
 await go(`${await ev('location.origin')}/test.html?ns=guidenavru${Date.now()}&lang=ru`); await settled();

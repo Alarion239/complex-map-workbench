@@ -30,6 +30,8 @@ const Examples = (() => {
   }
   // an example whose steps this build cannot make is left out of the menus
   const exOk = (ex) => ex.steps.every((st) => Funcs.DEFS[st.type]);
+  // whether the steps view is on: the guide's Deformation section and its Keys rows for play and paths are its only
+  const exSv = () => !!(A.svOn && A.svOn());
   // a first visit opens a worked example, not the empty canvas listed first
   const firstExample = () => Math.max(0, EX.findIndex((e) => e.shapes.length && e.steps.length));
   // An example's Try line closes when the user does what it asks: ex.tryDone lists the actions, each a group of
@@ -370,7 +372,7 @@ const Examples = (() => {
       [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
       [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
       // (K or M plays the chain, P shows its paths)
-      [`${k('K')} ${k('M')}`, $t('Play the chain, or pause it')], [k('P'), $t('Paths t ↦ Hₜ(z) on or off')], [k('⇧ M'), $t('Sound on or off')],
+      ...(exSv() ? [[`${k('K')} ${k('M')}`, $t('Play the chain, or pause it')], [k('P'), $t('Paths t ↦ Hₜ(z) on or off')]] : []), [k('⇧ M'), $t('Sound on or off')],
       [k('Z'), $t('Fit view')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
       [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, X, Y, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s cards')],
@@ -422,6 +424,8 @@ const Examples = (() => {
       <h3>${$t(`Keys`)}</h3>
       <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
     if (touchUI()) guideTouch(m);
+    // (the classic view has no deformation: its guide leaves out the Deformation section)
+    if (!exSv()) { const dh = [...m.querySelectorAll('h3')].find((x) => x.textContent.trim() === $t('Deformation')); if (dh) { for (let e = dh.nextElementSibling; e && e.tagName !== 'H3';) { const nx = e.nextElementSibling; e.remove(); e = nx; } dh.remove(); } }
     guideNav(m, close);
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
     const pb = m.querySelector('[data-play="piece"]');
