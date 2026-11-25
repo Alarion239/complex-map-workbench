@@ -11,9 +11,11 @@
 //   itself) ended cut for time, by the fill's own record; a second glide says nothing more;
 // - cut: such a fill ends within the draw wait and a frame of its start, and its glide started within that of the press.
 // info.glide has each map's estimate (cost times frames) beside the wait it made and its fill's record (each frame's ms).
-// - the fill times itself (z^-2 at normal speed, its chain's cost seeded far under its real one, so it plans 'ahead', and the draw wait
-//   half the real fill): the fill is cut within a fraction of the wait and says why once; its chain's cost is raised to what the fill found
-//   and the chain then plans live; the next glide starts at once and says nothing more; with a draw wait that holds, the fill is made whole.
+// - the fill times itself (z^-2 at normal speed): a fill is drawn whole first, with a draw wait that holds, to see what it takes (its frames
+//   are not fenced to the GPU as the probe's are, so it may be far faster than the probe's cost says); then the chain's cost is seeded
+//   far under the fill's rate, so it plans 'ahead', and the draw wait is half the fill's time. The fill, which projects its end at the rate
+//   so far, ends early and says why once; its chain's cost is raised to its rate and the chain then plans live; the next glide starts at
+//   once and says nothing more.
 // It asserts nothing about which side of a limit a map lands on: that depends on the machine. Run with CMW_AHEAD_PLAN_ALL=1 the
 // suite measures the whole gallery, at the page's device pixel ratio (CMW_DPR) and at each CPU slowing in
 // CMW_AHEAD_PLAN_RATES (a list such as '1,4', by default 1; Emulation.setCPUThrottlingRate slows the page's thread, not the GPU
@@ -144,14 +146,14 @@ for (const rate of RATES) for (const what of list) {
   }
 }
 
-// ---- the fill times itself (the z^-2 scene, normal speed): its chain's cost is seeded far under what a frame costs, so the plan says
-// 'ahead' and the fill finds out; the draw wait is half the fill's real time ----
+// ---- the fill times itself (the z^-2 scene, normal speed): a fill is drawn first, whole, to see what it takes (the probe's fenced median says
+// what a frame costs with the GPU waited for, which a fill does not); then the chain's cost is seeded far under the fill's rate, so the
+// plan says 'ahead', and the draw wait is half the fill's time ----
 if (!ALL) {
   try {
     await open({ scene: SCENE });
     const m = await measure(1);
-    const c = m.plan.cost, N = 54, waitMs = Math.round(c * N / 2);
-    // (the cost at most which a motion plays live is 0, as in steps_ahead_cmd: the seeded cost is under the page's own)
+    const c = m.plan.cost, N = 54;
     const tune = (cost, wait) => ev(`__cmwSteps({ ahead: { ms: 0, cost: ${cost}, waitMs: ${wait} } }), 1`);
     const planOf = () => ev('(() => { const P = __cmwSteps().aheadPlan; return P && P.rows.find((r) => r.speed === "normal" && r.planes === 1).plan; })()');
     const press = async (to) => {
@@ -162,18 +164,7 @@ if (!ALL) {
       const said = (await ev('__live')).filter((t) => t.includes(SAID));
       return { ms: up.ms, said, fill: await ev('__cmwSteps().ahead'), cost: await ev('__cmwSteps().aheadCost') };
     };
-    await tune(c / 4, waitMs);
-    ok('cut: seeded under its real cost the chain plans ahead', (await planOf()) === 'ahead', { c, seeded: c / 4 });
-    const a = await press(0);
-    info.cut = { c, waitMs, a };
-    ok('cut: the fill is cut early: from the press to the glide under way is under 0.6 of the draw wait', a.ms < 0.6 * waitMs, { waitedMs: a.ms, waitMs });
-    ok('cut: it says why once', a.said.length === 1 && a.said[0].includes(TIME), a.said);
-    ok('cut: the chain\'s cost is raised to what the fill found (at least 0.7 of the probe\'s) and it plans live', a.cost >= 0.7 * c && (await planOf()) === 'time', { cost: a.cost, c });
-    const b = await press(1);
-    info.cut.b = b;
-    ok('cut: the next glide of the chain starts within 300 ms, with no wait', b.ms < 300, b.ms);
-    ok('cut: and says nothing more', b.said.length === 0, b.said);
-    // a draw wait that holds: the same seed, and the glide (its clock still) is drawn ahead and shown
+    // a draw wait that holds: the glide (its clock still) is drawn ahead whole and shown; its fill's time is read while it is under way
     await tune(c / 4, WAIT_MS);
     await rest(0);
     await ev(WATCH);
@@ -183,9 +174,21 @@ if (!ALL) {
     const d = { ms: under.ms, fill: await ev('__cmwSteps().ahead'), said: (await ev('__live')).filter((t) => t.includes(SAID)) };
     await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
     await settled({ only: true, max: WAIT_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 1' });
-    info.cut.d = d;
-    ok('cut: control: with a draw wait that holds, the fill is made whole and its frames are shown', !!d.fill && d.fill.state === 'done' && d.fill.n === d.fill.N && d.fill.shown > 0, d.fill);
+    ok('cut: control: with a draw wait that holds, the fill is made whole and its frames are shown', !!d.fill && d.fill.state === 'done' && d.fill.n === d.fill.N && d.fill.shown > 0 && d.fill.fillMs > 0, d.fill);
     ok('cut: control: it says nothing of the kind', d.said.length === 0, d.said);
+    // the fill's rate (its first frame's one-time costs left out) and the wait that is half its time
+    const rate = (d.fill.fillMs - d.fill.frameMs[0]) / (d.fill.N - 1), waitMs = Math.round(d.fill.fillMs / 2);
+    await tune(rate / 4, waitMs);
+    ok('cut: seeded under the fill\'s rate the chain plans ahead', (await planOf()) === 'ahead', { c, rate, seeded: rate / 4, waitMs });
+    const a = await press(0);
+    info.cut = { c, rate, waitMs, d, a };
+    ok('cut: the fill ends early: from the press to the glide under way is under 0.6 of the draw wait', a.ms < 0.6 * waitMs, { waitedMs: a.ms, waitMs });
+    ok('cut: it says why once', a.said.length === 1 && a.said[0].includes(TIME), a.said);
+    ok('cut: the chain\'s cost is raised to what the fill found (at least 0.7 of its rate) and it plans live', a.cost >= 0.7 * rate && (await planOf()) === 'time', { cost: a.cost, rate });
+    const b = await press(1);
+    info.cut.b = b;
+    ok('cut: the next glide of the chain starts within 300 ms, with no wait', b.ms < 300, b.ms);
+    ok('cut: and says nothing more', b.said.length === 0, b.said);
   } catch (e) {
     ok('cut: ran', false, String(e && e.message || e).slice(0, 400));
   }
