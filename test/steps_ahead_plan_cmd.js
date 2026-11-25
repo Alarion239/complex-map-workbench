@@ -8,8 +8,8 @@
 // - rule: every row's decision is the rule applied to the row's own inputs (cost, N, frame size, the three limits);
 // - said: a glide from rest at the page's speed says why it plays live, once (the live region's words), when its plan is 'time' or
 //   'memory'; with the plan 'live' it says nothing; with 'ahead' it says the draw wait's why exactly when its fill (which times
-//   itself) was cut for time, by the fill's own record; a second glide says nothing more;
-// - cut: such a fill ended within the draw wait and a frame of its start, and its glide started within that of the press.
+//   itself) ended cut for time, by the fill's own record; a second glide says nothing more;
+// - cut: such a fill ends within the draw wait and a frame of its start, and its glide started within that of the press.
 // info.glide has each map's estimate (cost times frames) beside the wait it made and its fill's record (each frame's ms).
 // - the fill times itself (z^-2 at normal speed, its chain's cost seeded far under its real one, so it plans 'ahead', and the draw wait
 //   half the real fill): the fill is cut within a fraction of the wait and says why once; its chain's cost is raised to what the fill found
@@ -124,15 +124,15 @@ for (const rate of RATES) for (const what of list) {
     const sayMemory = said1.some((t) => t.includes(MEMORY)), sayTime = said1.some((t) => t.includes(TIME));
     // the fill's own record (it times itself): cut because its frames would end past the draw wait
     const cut = !!A && A.state === 'live' && A.why === 'time', maxFrame = Math.max(0, ...((A && A.frameMs) || []));
-    // 'time' and 'memory' say why, once. A plan of 'ahead' says 'time' exactly when its fill was cut for time; 'live' and 'ahead' never say 'memory'.
+    // 'time' and 'memory' say why, once. A plan of 'ahead' says 'time' exactly when its fill ended cut for time; 'live' and 'ahead' never say 'memory'.
     const okSaid = row.plan === 'time' ? said1.length === 1 && sayTime
       : row.plan === 'memory' ? said1.length === 1 && sayMemory
       : !sayMemory && said1.length === (row.plan === 'ahead' && cut ? 1 : 0) && sayTime === (row.plan === 'ahead' && cut);
-    ok(`${tag}: said: at ${m.speed}, one plane, the plan is ${row.plan}: it says why once when that is 'time' or 'memory'; an 'ahead' says the draw wait's why exactly when its fill was cut for time; never the memory's why otherwise`, okSaid, { plan: row.plan, said1, fill: A && { state: A.state, why: A.why, n: A.n } });
+    ok(`${tag}: said: at ${m.speed}, one plane, the plan is ${row.plan}: it says why once when that is 'time' or 'memory'; an 'ahead' says the draw wait's why exactly when its fill ended cut for time; never the memory's why otherwise`, okSaid, { plan: row.plan, said1, fill: A && { state: A.state, why: A.why, n: A.n } });
     if (row.plan === 'ahead') {
       // (the fill's own clock: from its start to its end, the cap and a frame at most; the press to the glide under way, timed from outside the page
       // and counting the wait for the chain to be ready, a little looser)
-      ok(`${tag}: cut: an 'ahead' fill that was cut ended within the draw wait and a frame of its start, and the glide started within that and the test's slack of the press`,
+      ok(`${tag}: cut: an 'ahead' fill that ended cut did so within the draw wait and a frame of its start, and the glide started within that and the test's slack of the press`,
         !cut || (A.fillMs <= P.waitMs + maxFrame && up.ms <= P.waitMs + maxFrame + WAIT_SLACK_MS), { fillMs: A && A.fillMs, maxFrame, waitMs: P.waitMs, pressMs: up.ms });
     }
     await ev('__cmwSteps({ clock: 1000 / 60, go: 1 }), 1');
