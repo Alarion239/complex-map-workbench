@@ -631,17 +631,19 @@ void main() {
     const SCENES = [['gallery square x 20', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32)],
       ['bite x 2', 2, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(BOX, 22).concat(grid(VIEW, 23)).slice(0, 1024)],
       ['bite x 20', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32)],
-      // (the repeat's own plane in a longer chain, then x 2 (#2416): plane 1's plan is REPT, drawn by the program of its
-      // own options, GLChain.buildInverse(steps, built, plan.opts), beside the chain's)
-      ['bite x 20, then x 2, on plane 1', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), { after: [St('mul', { c: '2' })] }],
+      // (z^3 x 20 on a disc tangent to |z| = 1 from inside: E_r's radius bound, the walker's radius test)
+      ['tangent disc z^3 x 20', 20, { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3'],
+      // (the repeat's own plane in a longer chain, then x 2: plane 1's plan is REPT, drawn by the program of its own
+      // options, GLChain.buildInverse(steps, built, plan.opts), beside the chain's)
+      ['bite x 20, then x 2, on plane 1', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { after: [St('mul', { c: '2' })] }],
       // (the repeat second: x 2, then the repeat, on the stages (1, 2], the walker's ops active from the second step)
-      ['x 2, then bite x 20, on (1, 2]', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), { before: [St('mul', { c: '2' })] }]];
+      ['x 2, then bite x 20, on (1, 2]', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { before: [St('mul', { c: '2' })] }]];
     // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
     for (const fastN of [0, PASS_B_FAST]) {
       GLR.setReptFastNodes(fastN);
-      for (const [name0, nRep, shape, pts, { before = [], after = [] } = {}] of SCENES) {
+      for (const [name0, nRep, shape, pts, expr = NEWTON, { before = [], after = [] } = {}] of SCENES) {
         const name = name0 + (fastN ? ` (first pass ${fastN} solves)` : '');
-        const steps = [...before, Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } }), ...after];
+        const steps = [...before, Object.assign(St('custom', { expr, cut: 180 }), { repeat: { n: nRep, len: 1 } }), ...after];
         const a = before.length, b = a + 1;
         const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built, a, b);
         // (a plan whose options are not the chain's draws by the program of its own, as the app's invPlan pairs them)

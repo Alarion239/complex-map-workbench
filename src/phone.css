@@ -33,6 +33,14 @@ html:not(.ph) .ph-only { display: none !important; }
    layout under it; its slot still reserves the row) */
 :root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
 :root.ph .top > #hdrMoreBtn { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }
+/* a phone 768 to 1023 px wide (a landscape phone) shows the bar's Sound button while the sound is on, a 44 px target
+   like ⋯: src/page.html's rules for that width show it and fold the menu's own; below 768 px the bar is ⋯ alone */
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root.ph .top > #soundPh:not([hidden]) { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }
+  /* (the classic view's bar starts at the left: Sound after ⋯, so ⋯ stays where it is when the sound goes on; the steps
+     view's ends at the right, where Sound before ⋯ keeps it still) */
+  :root.ph:not(.sv) .top > #soundPh:not([hidden]) { order: 15; }
+}
 
 /* ---------- the stage: the plane (and the inset), the chain bar ---------- */
 :root.ph .layout { display: block; position: relative; height: 100%; min-height: 0; overflow: hidden; gap: 0; }
@@ -107,11 +115,17 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-col { display: none; }
 :root.ph .pane:not(.ph-inset) .ph-col { position: absolute; z-index: 13; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(64px + var(--ph-lift)); }
+/* on the Stack the column also holds the Tilt key (19-stack.js), first. On a landscape phone, where the column's two keys
+   already reach up to the head, it stands to the left of the column's second key (Display) instead of above them, so the
+   column is no taller; left of the first key is the folded colour key's place (the legend chip) */
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) { display: grid; grid-template-columns: 44px 44px; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) > :not(.ph-tilt) { grid-column: 2; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col > .ph-tilt { grid-column: 1; grid-row: 2; }
 .ph-key { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--overlay); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-1); }
 .ph-key[hidden] { display: none; }
 .ph-key svg { width: 18px; height: 18px; }
 .ph-key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-:root.ph .viewstack > .vgroup:first-child, :root.ph #leftSolo, :root.ph #rightSolo, :root.ph #leftSph, :root.ph #rightSph { display: none !important; }
+:root.ph .viewstack > .vgroup:first-child, :root.ph #leftSph, :root.ph #rightSph { display: none !important; }
 :root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
@@ -544,6 +558,11 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
+  /* (on the Stack the row has the Tilt key too, at its left: Fit view and the chip move 52 px further in) */
+  :root.ph.ph-land.sv-stack:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) { grid-template-columns: repeat(3, 44px); }
+  :root.ph.ph-land.sv-stack:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) > * { grid-column: auto; grid-row: 1; }
+  :root.ph.ph-land.sv-stack:has(.ph-ctx.in.tall:not(.under)):has(.ph-tilt:not([hidden])) .pane:not(.ph-inset) .viewstack { right: 164px; }
+  :root.ph.ph-land.sv-stack:has(.ph-ctx.in.tall:not(.under)):has(.ph-tilt:not([hidden])) .draft-chip.cm-on { max-width: calc(100% - 224px); }
 }
 /* (a landscape phone under 390 px tall: the classic view's plane is half the screen, and the chip's words lack room: 52 to 172 px wide beside the keys'
    row at 320 px tall, a letter or two a line; at 360 and 375 px, planes 276 to 326 px wide, two lines that lose the tool's name, their end. The context bar

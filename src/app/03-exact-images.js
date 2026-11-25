@@ -5,7 +5,7 @@
   // stage (role L, flat). Thumbnails (role null) draw like the right plane.
   const PHASE = { R: { flat: true, globe: true }, L: { flat: true, globe: true } };
   const forceFwd = new Set();          // shape ids drawn forward whatever their eligibility (tests: mixed paths)
-  let hideStrokes = false;             // tests (window.__cmwHideStrokes): the shapes' strokes left out, flat, on the globes and in the steps view, and the steps view's layer of later planes' regions over the colour (the crack test and sv_globe_mask read the fill under them, p3_review and steps_glide_outline the stroke's own pixels)
+  let hideStrokes = false;             // tests (window.__cmwHideStrokes): the shapes' strokes left out, flat, on the globes, on the Landscape's floor and in the steps view, and the steps view's layer of later planes' regions over the colour (the crack test and sv_globe_mask read the fill under them, p3_review and steps_glide_outline the stroke's own pixels)
   // the figure export's art layer (figure.js, artRender): fills only (no grid, axes, strokes, points, cuts, rulers,
   // chevrons, roots, field of view, deformation tint or outline, landscape labels); printInk: the print tones of
   // the fills; artLand: the landscape's camera, read back for the figure's vector floor labels
@@ -89,7 +89,7 @@
   // mask's pass leaves them uncovered and marks them (drawScene's opt.fills, GLR.drawInverse), so the picture painted
   // through the mask shows them here
   function reptHatch(pane, map) {
-    if (reptExact(map) && GLR.reptHatchFill) GLR.reptHatchFill(pane.dpr);
+    if (reptExact(map) && GLR.reptHatchFill && GLR.reptHatchFill(pane.dpr) === true) hatchNotes.set(pane, hatchedNote());
   }
   // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
   // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
@@ -99,21 +99,97 @@
     const plan = invPlan(m.a || 0, m.b || 0);
     return !plan.ok && !!plan.tooLong && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
   }
-  // the panes whose open frame holds a refused repeat's hatch: glStatusNote says why at the frame's end
-  const refusedPanes = new Set();
+  // what a pane's open frame says of the no-value hatch it drew (reptHatch, refusedHatch), by pane: glStatusNote says it at the
+  // frame's end
+  const hatchNotes = new Map();
+  // the two things a hatch says: a refused repeat's, and a REPT plan's own unresolved pixels (the Plane and the Landscape say them the same)
+  const refusedNote = () => $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.');
+  const hatchedNote = () => $t('Where the plane is hatched, the exact image could not be found.');
   // the no-value hatch over the whole plane drawn in pane for map when its repeat is refused (no image of the regions is known
   // anywhere), after the picture painted through the regions' mask
   function refusedHatch(pane, map) {
-    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) refusedPanes.add(pane);
+    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) hatchNotes.set(pane, refusedNote());
   }
-  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
-  // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;
-  // the exact fill's own edge is the outline (svOutlines, the colour plot's outlines)
+  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search)
   function reptExact(map) {
     const m = normalizeMap(map);
     if ((m.mode || 0) !== 0) return false;
     const plan = invPlan(m.a || 0, m.b || 0);
     return plan.ok && plan.ops.some((o) => o.kind === 'REPT');
+  }
+  // The pieces GLR.drawLines draws each segment of an outline in (its st.M); the most CSS px a piece may span on a
+  // pane under a REPT plan; the halvings a segment may take to get there; the vertices a refined outline may have
+  const OUTLINE_M = 8, REPT_PIECE_PX = 4, REPT_DEPTH = 10, REPT_VERTS = 65536;
+  // (for the test hook: the refinements outlineRes has run, a pan within a cell runs none, and the last one's
+  // vertices)
+  let reptOutlineRuns = 0, reptOutlineVerts = 0;
+  // The lines a shape's outline is drawn by on pane under map (r: its shapeGPU record; pane: {view, w, h}, a screen
+  // pane or the Landscape floor's stand-in, kept in its own slot of r.rept), with the record openDash reads
+  // for them: {res, rec}, or null for none. r's own lines, but under a REPT plan, whose copies' expansion can
+  // scatter the boundary carried forward: there the drawn polylines (r.lpolys) are refined for the view, each segment
+  // halved (at most REPT_DEPTH times) until every one of its pieces maps, on the CPU twin, to finite ends at most
+  // REPT_PIECE_PX px apart, or lies with both ends past the same side of a box around the pane, where it draws nothing
+  // on it. A segment that does not get there (the gallery's Repeat ×20), or more than REPT_VERTS vertices, and the
+  // shape has no outline: the exact fill's own edge is its only one. The rule is the resolution at the view, not the
+  // number of copies: the bite at ×2 keeps its outline, zoomed in as at rest. A Repeat no exact plan takes
+  // (repeatRefused) has no outline either: its boundary carried through every copy is as scattered, over the hatch.
+  // Cached on r per pane by its lines and map, the scale's half octave (refined for its largest scale, so the pieces
+  // stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a pane: the box is the view at the
+  // half octave's smallest scale about that place, widened by a pane on each side, so a pan refines again only once it
+  // crosses a pane
+  function outlineRes(map, r, pane, slot = pane === paneR ? 'R' : 'L') {
+    // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves REPT)
+    const had = r.rept && r.rept[slot];
+    if (!reptExact(map)) {
+      if (had) { GLR.destroy(had.res); r.rept[slot] = null; }
+      return r.lineRes && !repeatRefused(map) ? { res: r.lineRes, rec: r } : null;
+    }
+    const ps = r.lpolys, v = pane.view;
+    if (!ps || !ps.length) return null;
+    const oct = Math.floor(2 * Math.log2(v.s)), sHi = 2 ** ((oct + 1) / 2), sLo = 2 ** (oct / 2);
+    const hw = pane.w / 2 / sLo, hh = pane.h / 2 / sLo, gx = Math.round(v.cx / (2 * hw)), gy = Math.round(v.cy / (2 * hh));
+    const key = `${r.lineKey}|${r.refKey}|${mapKeyOf(map)}|${oct}|${pane.w}x${pane.h}|${gx},${gy}`;
+    if (had && had.key === key) return had.out;
+    reptOutlineRuns++;
+    if (had) GLR.destroy(had.res);
+    const F = cpuMap(map), lim = REPT_PIECE_PX / sHi, cx = 2 * gx * hw, cy = 2 * gy * hh;
+    const x0 = cx - 3 * hw, x1 = cx + 3 * hw, y0 = cy - 3 * hh, y1 = cy + 3 * hh;
+    // (the sides of the box a point lies past, one bit each)
+    const past = (w) => (w.re < x0 ? 1 : 0) | (w.re > x1 ? 2 : 0) | (w.im < y0 ? 4 : 0) | (w.im > y1 ? 8 : 0);
+    let verts = 0;
+    // the segment a-b (source points, ws their images) into out, halved until its pieces pass; false when it cannot
+    const refineSeg = (ax, ay, wa, bx, by, wb, depth, out) => {
+      const dx = bx - ax, dy = by - ay;
+      let ok = true, p = wa;
+      for (let k = 1; k <= OUTLINE_M && ok; k++) {
+        const q = k === OUTLINE_M ? wb : F(CX.C(ax + dx * k / OUTLINE_M, ay + dy * k / OUTLINE_M));
+        if (!Number.isFinite(p.re + p.im + q.re + q.im)) return false;
+        if (!(past(p) & past(q)) && Math.hypot(q.re - p.re, q.im - p.im) > lim) ok = false;
+        p = q;
+      }
+      if (ok) { out.push(bx, by); return ++verts <= REPT_VERTS; }
+      if (depth >= REPT_DEPTH) return false;
+      const mx = ax + dx / 2, my = ay + dy / 2, wm = F(CX.C(mx, my));
+      return refineSeg(ax, ay, wa, mx, my, wm, depth + 1, out) && refineSeg(mx, my, wm, bx, by, wb, depth + 1, out);
+    };
+    const polys = [];
+    let ok = true;
+    for (const p of ps) {
+      const out = [p[0], p[1]];
+      let wa = F(CX.C(p[0], p[1]));
+      for (let i = 2; i + 1 < p.length && ok; i += 2) {
+        const wb = F(CX.C(p[i], p[i + 1]));
+        ok = refineSeg(p[i - 2], p[i - 1], wa, p[i], p[i + 1], wb, 0, out);
+        wa = wb;
+      }
+      if (!ok) break;
+      polys.push(Float64Array.from(out));
+    }
+    reptOutlineVerts = verts;
+    const res = ok && polys.length && GLR.ok ? GLR.createLines(polys, r.lorigin) : null;
+    const rec = { open: r.open, lpolys: polys, lorigin: r.lorigin, lineKey: key, arcs: null };
+    (r.rept || (r.rept = {}))[slot] = { key, res, out: res ? { res, rec } : null };
+    return r.rept[slot].out;
   }
   // the shape-level preparation (SPEC 3.6) and the image box of the scissor (4.8), cached by plan, clipWin and shape;
   // prepMs: the preparation work of the current frame (SPEC 10.2: past 4 ms, an uncached bounded shape waits a frame)
@@ -640,16 +716,7 @@
     const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
     return invOwnPath(h, s, a, b, own);
   }
-  // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
-  function requestInverseFor(map) {
-    if (!GLR.inverseRequest || !GLR.packShapes || !PHASE.R.flat) return;
-    if (isIdentMap(map) || !invPlan(map.a || 0, map.b || 0).ok) return;
-    const list = S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area' && !s._err);
-    if (!list.length) return;
-    cmFormAnchor('X');
-    GLR.packShapes(S.shapes.filter((s) => s.visible !== false));
-    if (GLR.inverseRequest(S.alpha, 'flat') === 'pending') invWaiting.add('R');
-  }
+
   // the words of text in lines no wider than maxW as ctx sets them (its font), each word on the line until the next would
   // pass maxW (a word wider than maxW is a line of its own)
   function wrapWords(ctx, text, maxW) {
@@ -661,6 +728,18 @@
     }
     if (line) lines.push(line);
     return lines;
+  }
+  // wrapWords at the narrowest width that keeps the line count of the wrap at maxW: the lines come out of even length, no word alone
+  // on the last (the canvas's text-wrap: balance)
+  function balanceWords(ctx, text, maxW) {
+    const lines = wrapWords(ctx, text, maxW);
+    if (lines.length < 2) return lines;
+    let lo = 0, hi = maxW, best = lines;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) / 2, t = wrapWords(ctx, text, mid);
+      if (t.length === lines.length) { best = t; hi = mid; } else lo = mid;
+    }
+    return best;
   }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
@@ -694,7 +773,7 @@
     // standing over the plane (the note moves up only when it has to, and stays inside the pane); the 1 px below: the box is drawn on the
     // half pixel and its stroke is a pixel wide
     const lay = (left, right) => {
-      const room = right - left, lines = wrapWords(ctx, text, Math.max(80, Math.min(360, room - 48)));
+      const room = right - left, lines = balanceWords(ctx, text, Math.max(80, Math.min(360, room - 48)));
       const bw = Math.round(Math.min(room - 16, Math.max(...lines.map((t) => ctx.measureText(t).width))) + 24), bh = lines.length * 18 + 14;
       const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
       return { lines, bw, bh, y0, tx: (left + right) / 2, x0: Math.round((left + right) / 2 - bw / 2) + 0.5 };
@@ -712,7 +791,7 @@
       n = lay(left, right);
     }
     const { lines, bw, bh, y0, x0, tx } = n;
-    pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
+    pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx, lines: lines.slice() };   // (the box as drawn, where its words are centred, in the pane's CSS px, and its lines: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
     ctx.shadowColor = TH.dark ? '#00000066' : '#121A201A'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
@@ -805,20 +884,23 @@
   // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
   function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
-    const refused = refusedPanes.has(pane) ? $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.') : '';
-    if (!quiet) refusedPanes.delete(pane);
+    const hatched = hatchNotes.get(pane) || '';
+    if (!quiet) hatchNotes.delete(pane);
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
-    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || refused) : '';
+    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || hatched) : '';
     if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
     // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
     const rept = !!(GLR.reptPendingTake && GLR.reptPendingTake());
+    // (a note that comes or goes changes the LED's state and tip with it)
+    const noted = paneGl[role] && paneGl[role].note;
     paneGl[role] = { pending: !!(st && st.pending) || rept, rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
     invPendN = 0;
+    if ((noted || '') !== note) updateLeds();
     if (quiet) return;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
