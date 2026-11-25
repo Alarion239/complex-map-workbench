@@ -908,7 +908,8 @@ float invLeaf(Lf L, out bool cov) {
   const INV_GLOBE_PRE = '#define IX_ANISO 1\nvec2 ixAwX, ixAwY;\n';
   // B: compile-time buffer size; globe: Sphere view geometry (P3). A globe program's uOpaqueOnly = 1 discards a pixel the
   // composite does not cover opaquely, so the pass draws (and marks the stencil) only where it hides everything behind it
-  // (sphereRegions' sheet copies under the principal sheet)
+  // (sphereRegions' sheet copies under the principal sheet). Opaque: an alpha that rounds to 255 in the 8-bit target
+  // (a >= 1 - 0.5/255), so what a pass under it would add, at most 1 - a of full scale, is under half a level
   const INV_MAIN = (globe) => glsl`
 ${globe ? 'in vec3 vP; uniform vec3 uEye; uniform int uOpaqueOnly;' : ''}
 void main() {

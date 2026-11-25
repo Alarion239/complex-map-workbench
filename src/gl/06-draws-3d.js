@@ -1891,8 +1891,8 @@
     // the globe's depth again, which the passes below are tested against. st.carriedCopies, before it: [{carried,
     // around(draw)}], the other sheets' carried colour, each drawn inside its around (the chain on that copy's sheets,
     // svOnSheets), a later one over an earlier one and st.carried over them all (each draw clears the depth). With
-    // st.sheetCut, st.carried first, marking the stencil, and the copies after it where it is clear: the same picture,
-    // as the carried colour is opaque, with the copies drawn only where st.carried did not draw
+    // st.sheetCut, st.carried first, marking the stencil, and the copies after it where it is clear: the same picture
+    // within a few edge pixels, as the carried colour is opaque, with the copies drawn only where st.carried did not draw
     const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
     const copies = P && st.carried ? st.carriedCopies || [] : [], meshCut = !!st.sheetCut && copies.length > 0;
     const copy = (cp) => cp.around(() => drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, cp.carried), sph));
@@ -1975,13 +1975,16 @@
   // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written. A
   // region with around(draw) is drawn inside it (the steps view's sheet copies: the chain on that copy's sheets while
   // its pass draws, svOnSheets); a later region is drawn over an earlier one
-  // (cut: the records with around, the other sheets' copies, drawn only where the others (the principal sheet's) leave a
-  // pixel not opaque: those first with opaqueOnly, marking the stencil where they hide everything behind them, then the
-  // whole list in order where the stencil is clear. The same picture as the list in order: a copy shows only through the
-  // principal sheet's pixels that are not opaque. Returns whether the cut was taken)
+  // (cut: the records with around, the other sheets' copies, drawn only where the one other record (the principal
+  // sheet's) leaves a pixel not opaque: that record first with opaqueOnly, marking the stencil where it hides everything
+  // behind it, then the whole list in order where the stencil is clear. The same picture as the list in order within a
+  // few anti-aliased edge pixels: a copy shows only through the principal sheet's pixels that are not opaque. One
+  // principal record only: of two that overlap, the later one's anti-aliased rim over the earlier one's opaque pixels
+  // would be left out, those being marked. The steps view hands copies with one carry's regions only, Everywhere (no
+  // copies Inside regions). Returns whether the cut was taken)
   function sphereRegions(list, sph, MVP, eye, cut = false) {
     const own = cut ? list.filter((r) => !r.around && r.inv) : [];
-    if (own.length && own.length < list.length && list.every((r) => r.around || r.inv)) {
+    if (own.length === 1 && own.length < list.length && list.every((r) => r.around || r.inv)) {
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
       gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       sphereRegions(own.map((r) => Object.assign({}, r, { inv: Object.assign({}, r.inv, { opaqueOnly: true }), fwd: [], onResult: null, onError: null })), sph, MVP, eye);
