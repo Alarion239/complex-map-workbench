@@ -4,8 +4,8 @@
 /* ---------- the chain's row: 188 px ---------- */
 .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 188px); }
 /* (the classic view's chain box: its cards are drawn by the Inspector, so while #pipeline holds none the box and its gutter
-   take no room, as in the steps view, except while a tour's strip is on the stage: the Inspector step lights the box with
-   its anchor; the phone parks #pipeline in its sheet and keeps its box) */
+   take no room, as in the steps view, except while a tour's strip is on the stage: the Inspector step lights the box as
+   its extra area (also: chain); the phone parks #pipeline in its sheet and keeps its box) */
 :root.classic:not(.ph) .stage:not(:has(.tour-strip)):has(> .pipe-wrap > #pipeline:empty) { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
 :root.classic:not(.ph) .stage:not(:has(.tour-strip)):has(> .pipe-wrap > #pipeline:empty) > :is(.pipe-wrap, #gutterRow) { display: none; }
 
