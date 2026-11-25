@@ -86,6 +86,9 @@ await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })');
 await until('Math.abs(__cmwSteps().x - 5) < ' + END_EPS + ' && !__cmwSteps().moving', END_MS); await quiet();
 ok('the glide ends on the last plane (5)', Math.abs((await sv()).x - 5) < PLANE_EPS, await sv());
 await prepared(); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 0 })');
+// (read once the press has started: the gate holds it while what the glide needs is prepared, which can change after
+// prepared() reads it, as the arrival's warm-up queues the glides of the plane it reached)
+await until('!!__cmwSteps().span', GLIDE_MS);
 info.next = await ev('__cmwSteps().span');
 ok('the next glide runs the sub-steps (a span over [0, 5], no step times of its own)', !!info.next && info.next.x1 === 5 && !info.next.stepT, info.next);
 // two Splits in one glide, then an Undo and a Redo of the second: every frame is the picture before the first Split

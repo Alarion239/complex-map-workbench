@@ -461,7 +461,7 @@
     // drag runs the continuation alone, cutPull)
     const hnd = cutHandleNear(x, y, ptrTouch);
     if (hnd) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
-    if (pickDown(pane, z, x, y)) return;
+    if (pickDown(pane, z, x, y, ptrTouch)) return;
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
     setCursor(pane, side);
