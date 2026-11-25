@@ -18,7 +18,7 @@
 // annotations on the lines and the job summary. It reports and exits 0 unless --block is given, then exits 1 when
 // anything is found.
 const { execFileSync } = require('child_process');
-const { ROOT, summary, esc } = require('./lib');
+const { ROOT, summary, esc, reEscape } = require('./lib');
 
 // room for the diff of a large change (256 MiB); git's output is read whole
 const GIT_BUFFER = 1 << 28;
@@ -122,8 +122,8 @@ const LEDGER = 'ci/retired_suites.js';
 // the suites a parsed diff retires (a Set of test/ paths), and the findings of ledger entries for files it does not delete
 function retiredBy(files) {
   const byFile = (name) => files.find((f) => f.file === name) || { added: [], removed: [] };
-  const entry = (b) => new RegExp(`^\\s*'${b.replace(/[.]/g, '\\.')}':`);
-  const named = (b) => new RegExp(`'${b.replace(/[.]/g, '\\.')}[#']`);
+  const entry = (b) => new RegExp(`^\\s*'${reEscape(b)}':`);
+  const named = (b) => new RegExp(`'${reEscape(b)}[#']`);
   // dropped from a list: a removed line names it and no added line does
   const dropped = (name, re) => { const f = byFile(name); return f.removed.some((l) => re.test(l)) && !f.added.some((a) => re.test(a.text)); };
   const deleted = new Set(files.filter((f) => f.deleted && TEST_FILE.test(f.file)).map((f) => f.file));

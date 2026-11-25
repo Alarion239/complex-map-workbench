@@ -105,6 +105,14 @@ ok('asserts: a deleted test file', (() => {
   ok('retired: a ledger line with no reason does not retire it', why([...del('x_cmd.js'), ...ledger(["  'x_cmd.js': '',"]), ...views, ...shards]).length === 1);
   ok('retired: a ledger line for a file the change keeps is a finding', why([...ledger([REASON])]).join() === 'retired:names test/x_cmd.js, which this change does not delete');
   ok('retired: another deleted suite is still counted', why([...del('x_cmd.js'), ...del('w_cmd.js', 1), ...ledger([REASON]), ...views, ...shards]).join() === 'asserts:1 assertions removed, 0 added (file deleted)');
+  // (a suite name's "+" and "(" are literal in the patterns that look for its lines)
+  {
+    const N = 'a+b(c)_cmd.js', R = `  '${N}': 'the classic transport it drove is gone (#994); the steps view has y_cmd',`;
+    const v = edit('ci/suite_views.js', [`  '${N}': classic('why'),`], []);
+    const sh = edit('ci/browser_shards.js', [`  { id: 'a', suites: ['y_cmd.js', '${N}#part', 'z_cmd.js'] },`], ["  { id: 'a', suites: ['y_cmd.js', 'z_cmd.js'] },"]);
+    ok('retired: a name with "+" and "(" is matched literally in views and shards', why([...del(N), ...ledger([R]), ...v, ...sh]).length === 0, why([...del(N), ...ledger([R]), ...v, ...sh]));
+    ok('retired: a name with "+" and "(" still in a shard list is a finding', why([...del(N), ...ledger([R]), ...v]).length === 1);
+  }
 }
 // the ledger names no file that is still in test/
 {
