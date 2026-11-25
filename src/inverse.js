@@ -1332,13 +1332,13 @@ const Inverse = (() => {
     prep.rept = null;
     if (!reason && N === 1 && ops[0].kind === 'REPT') {
       const rp = ops[0].p, bb = shape.complement ? null : boundsOf(shape);
-      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb, rp.escR) : Array.from({ length: rp.n + 1 }, () => null);
+      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb, rp.escR, shape.kind === 'disc' ? { c: shape.c, r: shape.r } : null) : Array.from({ length: rp.n + 1 }, () => null);
       prep.rept = {
         E: E.map((e) => {
           if (!e) return null;
-          const empty = !(e.x0 <= e.x1 && e.y0 <= e.y1), esc = e.esc > 0 ? f32dn(e.esc) : 0;
+          const empty = !(e.x0 <= e.x1 && e.y0 <= e.y1), esc = e.esc > 0 ? f32dn(e.esc) : 0, rad = e.rad > 0 ? f32up(e.rad) : 0;
           if (!empty && ![e.x0, e.x1, e.y0, e.y1].every(Number.isFinite)) return null;
-          return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc };
+          return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc, rad } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc, rad };
         }),
       };
     }
@@ -1347,10 +1347,12 @@ const Inverse = (() => {
   }
   // a REPT prune (the GLSL walker's _out): no point within m of v lies in E_r, m the point's chain error dv and
   // REPT_AA_REACH pixels of size px (|dz/dw| pix); REPT_ROUND ulps cover the GPU's float32 steps (the subtraction from the
-  // box's bounds, |v| and the comparison with the escape bound)
+  // box's bounds, |v| and the comparisons with the escape bound and the radius bound)
   function reptPruned(e, v, dv, px) {
     if (!e) return false;
     const m = (dv + REPT_AA_REACH * px) * (1 + REPT_ROUND * REPT_U);
+    // (past E_r's radius bound, every point within m of v: pruned whatever the box and the escape bound say)
+    if (e.rad > 0 && abs(v) * (1 - REPT_ROUND * REPT_U) - m > e.rad * (1 + REPT_ROUND * REPT_U)) return true;
     if (!e.empty) {
       const mb = m + REPT_ROUND * REPT_U * Math.max(Math.abs(e.x0), Math.abs(e.x1), Math.abs(e.y0), Math.abs(e.y1));
       if (!(v.re < e.x0 - mb || v.re > e.x1 + mb || v.im < e.y0 - mb || v.im > e.y1 + mb)) return false;

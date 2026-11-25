@@ -16,6 +16,9 @@
 //     it does not (the control); |R(z)| >= REPT_ESC_GROW |z| at sampled |z| >= REPT_ESC_R (a test, never the
 //     certificate); Newton's step has none; z^3 x 20 on a disc off the unit circle is empty with no root solved at every
 //     pixel; at Repeat x 2 with escaped cells every pixel's verdict equals the brute force over its 9 chains;
+//  4c. the radius bound (a monomial step on a disc region): z^3 x 20 on a disc tangent to |z| = 1 from inside is empty
+//     with no root solved past |w| = 1, never empty inside it, E_r bounded by |z| <= ~1; a disc strictly inside and one
+//     across |z| = 1 as before; at Repeat x 2 every pixel's verdict equals the brute force;
 //  5. the search against brute force: at Repeat x 2 every pixel's verdict equals the one from all 9 chains, unpruned;
 //     at Repeat x 20 a box in the basin of 1 is empty outside E_20 with no root solved;
 //  6. the budget: REPEAT_NODES_MAX is at least NODES_MARGIN times the most solves a gallery pixel needs, and a starved
@@ -303,6 +306,46 @@ const brute2 = (o, L, w) => {
     }
     check(`${expr} x 2, ${shape.kind} with escaped cells: every pixel's verdict equals the brute force over its 9 chains`, same === scored && scored > 1000 && covered > 20 && covered < scored - 20 && pruned > 100 && pr2.rept.E[2].esc > 0, `${same}/${scored}, ${covered} covered, ${pruned} pruned, esc ${pr2.rept.E[2].esc}`);
   }
+}
+
+// ---- 4c. the radius bound (a monomial step on a disc region, #1485)
+{
+  const TANGENT = { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 };          // the disc tangent to |z| = 1 from inside
+  const INSIDE = { id: 'ti', kind: 'disc', c: [0, 0.5], r: 0.2 };            // strictly inside |z| < 1
+  const ACROSS = { id: 'ta', kind: 'disc', c: [1, 0], r: 0.12 };             // across |z| = 1
+  const RW = { x0: -1.6, x1: 1.6, y0: -1.2, y1: 1.2 }, RG = 25;            // the measured view and its grid
+  const NEAR = 0.02;                                                         // |w| within this of 1 is left out (the pixel's own reach)
+  const ACROSS_SOLVES = 20;                                                  // the most root solves an across pixel needs (measured)
+  const pts = gridOf(RW, RG);
+  const run = (shape, n) => {
+    const p = planOf(repOf('z^3', n)), pr = Inverse.prepare(p, { win: RW, shape }), t = { out: 0, outEmpty0: 0, inn: 0, innEmpty: 0, inside: { 1: 0, 0: 0, '-1': 0 }, solves: 0, max: 0 };
+    for (const w of pts) {
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, a = CX.abs(w);
+      t.solves += e.nodes; t.max = Math.max(t.max, e.nodes); t.inside[e.verdict]++;
+      if (a > 1 + NEAR) { t.out++; if (e.verdict === 0 && e.nodes === 0) t.outEmpty0++; }
+      else if (a < 1 - NEAR) { t.inn++; if (e.verdict === 0) t.innEmpty++; }
+    }
+    return { t, pr };
+  };
+  const tg = run(TANGENT, 20);
+  check('z^3 x 20 on the tangent disc: every pixel with |w| > 1 (past the pixel\'s reach) is empty with no root solved', tg.t.out > 300 && tg.t.outEmpty0 === tg.t.out, JSON.stringify(tg.t));
+  check('... and no pixel with |w| < 1 reads empty (each holds a chain into the disc)', tg.t.inn > 200 && tg.t.innEmpty === 0, JSON.stringify(tg.t));
+  check('... its E_r has a radius bound at every level, E_20\'s within 1e-4 of 1', tg.pr.rept.E.slice(1).every((e) => e && e.rad > 0) && tg.pr.rept.E[20].rad < 1 + 1e-4, JSON.stringify(tg.pr.rept.E[20]));
+  const ins = run(INSIDE, 20);
+  check('z^3 x 20 strictly inside |z| < 1: every pixel but the one at 0 empty with no root solved', ins.t.solves <= 1 && ins.t.inside[0] >= pts.length - 1, JSON.stringify(ins.t));
+  const acr = run(ACROSS, 20);
+  check(`z^3 x 20 across |z| = 1: every pixel but one covered, at most ${ACROSS_SOLVES} root solves a pixel`, acr.t.inside[1] >= pts.length - 1 && acr.t.max <= ACROSS_SOLVES, JSON.stringify(acr.t));
+  // (at x 2 every pixel's verdict equals the brute force over its 9 chains, the radius bound pruning)
+  const p2 = planOf(repOf('z^3', 2)), pr2 = Inverse.prepare(p2, { win: RW, shape: TANGENT }), L = Region.levelOf(TANGENT);
+  let same = 0, scored = 0, pruned = 0;
+  for (const w of pts) {
+    const e = Inverse.enumerate(p2, pr2, w, PIX, { leaves: false }).rept, b = brute2(p2.ops[0], L, w);
+    pruned += e.pruned;
+    if (b === null) continue;
+    scored++;
+    if (e.verdict === b) same++;
+  }
+  check('z^3 x 2 on the tangent disc: E_2 has a radius bound, and every pixel\'s verdict equals the brute force over its 9 chains', same === scored && scored > 500 && pr2.rept.E[2].rad > 0, `${same}/${scored}, pruned ${pruned}`);
 }
 
 // ---- 5. the search against brute force
