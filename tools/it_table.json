@@ -3431,6 +3431,7 @@
  "Disc added on {w}, about the image of the lit point": "Disco aggiunto su {w}, attorno all’immagine del punto illuminato",
  "The pieces of its preimage are not counted for these steps": "Per questi passi i pezzi della controimmagine non si contano",
  "The pieces of its preimage are not counted: step {k} ({f}) has no exact inverse": "I pezzi della controimmagine non si contano: il passo {k} ({f}) non ha un'inversa esatta",
+ "The pieces of its preimage are not counted: step {k} ({f}) has infinitely many preimages": "I pezzi della controimmagine non si contano: il passo {k} ({f}) ha infinite controimmagini",
  "{n} preimage\u0004{n} preimages": {
   "one": "{n} controimmagine",
   "other": "{n} controimmagini"

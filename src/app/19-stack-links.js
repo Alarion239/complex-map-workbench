@@ -215,12 +215,13 @@
   function linkCrosses(outer, curved, lm) {
     const out = [], first = (p, q) => { for (let J = 1; J < LINK_N; J++) if (linkMeet(p(J), q(J))) return J; return LINK_N; };
     const flat = (lev) => { const ws = lev[0].map((z) => lm.G.map((g) => g(z))); return (J) => lev[0].map((z, i) => stackLevelAt(lm, J / LINK_N, z, ws[i])); };
+    const flats = curved ? outer.map(flat) : null;   // (each piece's straight reference, made once)
     for (let a = 0; a < outer.length; a++) for (let b = a + 1; b < outer.length; b++) {
       const meet = [null];
       for (let J = 1; J < LINK_N; J++) meet.push(linkMeet(outer[a][J], outer[b][J]));
       const J0 = meet.findIndex(Boolean), J1 = J0 < 0 ? -1 : meet.findIndex((m, J) => J > J0 && !m);
       if (J0 > 0 && J1 > 0) out.push({ pieces: [a, b], kind: 'cross', s: J0 / LINK_N, s1: J1 / LINK_N, z: meet[J0] });
-      else if (J0 > 0 && curved && first(flat(outer[a]), flat(outer[b])) - J0 >= LINK_SOONER * LINK_N) out.push({ pieces: [a, b], kind: 'sooner', s: J0 / LINK_N, s1: 1, z: meet[J0] });
+      else if (J0 > 0 && curved && first(flats[a], flats[b]) - J0 >= LINK_SOONER * LINK_N) out.push({ pieces: [a, b], kind: 'sooner', s: J0 / LINK_N, s1: 1, z: meet[J0] });
     }
     return out.sort((x, y) => x.s - y.s);
   }

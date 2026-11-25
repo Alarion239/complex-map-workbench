@@ -60,9 +60,10 @@
     return d;
   }
   const roNum = (x) => I18N.num(CX.fmtNum(x, 3));
-  // the counts in words: "3 preimages · 2 pieces · one covers the disc twice"; not counted, the step with no exact inverse
-  // that stops the count (stuck: readoutData's) where there is one
+  // the counts in words: "3 preimages · 2 pieces · one covers the disc twice"; not counted, the step that stops the count
+  // and why, no exact inverse or infinitely many preimages (stuck: readoutData's), where there is one
   function readoutCounts(pc, stuck = null) {
+    if (!pc.counted && stuck && stuck.why === 'infinite') return $t('The pieces of its preimage are not counted: step {k} ({f}) has infinitely many preimages', { k: stuck.step, f: stuck.name || '?' });
     if (!pc.counted && stuck) return $t('The pieces of its preimage are not counted: step {k} ({f}) has no exact inverse', { k: stuck.step, f: stuck.name || '?' });
     if (!pc.counted) return $t('The pieces of its preimage are not counted for these steps');
     const n = pc.roots.reduce((a, q) => a + (q.z === null ? 0 : q.mult), 0), multi = pc.pieces.filter((q) => q.covers > 1);

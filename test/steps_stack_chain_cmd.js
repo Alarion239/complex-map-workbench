@@ -10,7 +10,8 @@
 //  - the straight connectors meet the middle level: half way up, each floor point of a tube is at its image on w₁, and a
 //    pick's strand from a floor point is at its image there; the level is named w₁ beside its frame;
 //  - All at once, the glide from z to w₂ passes no plane: two levels, no middle one, the 4 tubes straight to the glass;
-//  - [eᶻ, z²], whose first step has no exact inverse: no levels, no tubes, and the card says step 1 has no exact inverse;
+//  - [eᶻ, z²], whose first step has infinitely many preimages: no levels, no tubes, and the card says so of step 1;
+//    [z + eᶻ, z²], whose first step has no exact inverse: the card says that of step 1;
 //  - straight down no middle level is drawn, so the frame is Look down's.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -23,6 +24,7 @@ const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestA
 const DEG = Math.PI / 180;
 const M4 = [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'custom', params: { expr: 'z^2-1' }, on: true }];
 const EXPZ = [{ type: 'exp', params: {}, on: true }, { type: 'pown', params: { n: 2 }, on: true }];
+const ZEXPZ = [{ type: 'custom', params: { expr: 'z+exp(z)' }, on: true }, { type: 'pown', params: { n: 2 }, on: true }];
 const C0 = [0.5, 0.5], R = 0.2;
 const TOL = 1e-6;                  // plane units: a root's image on the next level's root, a loop on the rim
 const PX = 0.75;                   // css px: a point drawn where the level's map puts it
@@ -117,7 +119,11 @@ await open(EXPZ, { c: [1, 0.5] });
 const x = await drawn(), xCard = await card();
 info.exp = { levels: x && x.levels, why: x && x.why, tubes: x && x.tubes, card: xCard };
 ok('[eᶻ, z²]: no levels and no tubes, with the reason', !!x && Array.isArray(x.levels) && x.levels.length === 0 && typeof x.why === 'string' && x.tubes === null, info.exp);
-ok('[eᶻ, z²]: the card names step 1, which has no exact inverse', /step 1 \(f₁\) has no exact inverse/.test(xCard || ''), xCard);
+ok('[eᶻ, z²]: the card says step 1 has infinitely many preimages', /step 1 \(f₁\) has infinitely many preimages/.test(xCard || ''), xCard);
+await open(ZEXPZ, { c: [1, 0.5] });
+const yCard = await card();
+info.zexp = yCard;
+ok('[z + eᶻ, z²]: the card says step 1 has no exact inverse', /step 1 \(f₁\) has no exact inverse/.test(yCard || ''), yCard);
 
 const errs = (await logs()).filter((e) => (e.t === 'EXC' || e.t === 'error' || e.t === 'log-error') && !/Failed to load resource|favicon/.test(e.m || ''));
 ok('no errors in the console', errs.length === 0, errs.slice(0, 5));

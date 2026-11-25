@@ -6,13 +6,14 @@
   // the levels as the pieces nest (M4 z → z² → w₁² − 1: 4 pieces on z, 2 on w₁, each holding two of them, then the disc).
   // A glide between k and T that goes all at once passes no plane between, so its Stack has the floor and the glass
   // alone. Where a level's pieces are not counted (a step with no exact inverse, a rim through a critical value) there is
-  // no tree, and no tubes either; the card names a step with no exact inverse (readoutCounts).
+  // no tree, and no tubes either; the card names a step with no exact inverse or with infinitely many preimages
+  // (readoutCounts).
   // A middle level is drawn as the glass is without its tint, which would cover the tubes above it: its frame, dashed, its
   // plane's name, and the outlines of its pieces, in the ink of the first piece below that each holds, so a tube keeps its
   // colour into the piece it joins. It stands up out of the floor as the tubes do (tubeFade): straight down it is not
   // drawn, and the frame is Look down's.
   const LEVEL_RING_A = 0.85, LEVEL_FILL_A = 0.12, LEVEL_RING_W = 1.5;
-  const LEVEL_DASH = [4, 4], LEVEL_NAME_DX = 6;   // css px: the frame's dashes; the name's gap from the frame's corner
+  const LEVEL_DASH = [4, 4], LEVEL_NAME_DX = 6, LEVEL_NAME_IN = 8;   // css px: the frame's dashes; the name's gap from the frame's corner, and from the pane's edge at least
   const chainCache = new Map();
   // The levels of disc s's Stack, from the floor up: {levels: [{stage, up, pieces: [{parent (index into the next level's
   // pieces, -1 for the glass's), roots: C[] (the disc's centre's preimages in it; the centre itself on the glass), covers,
@@ -48,17 +49,17 @@
     return d;
   }
   // The step that stops the disc's count, from plane k down to plane T's disc |w − c| < r, through every live plane
-  // between (whether or not a glide between them goes all at once), where that step has no exact inverse: {step, name
-  // (its map, as the plane's title names it)}; null where the count goes through or stops for another reason (a rim
-  // through a critical value names no step)
+  // between (whether or not a glide between them goes all at once), where that step has no exact inverse or infinitely
+  // many preimages: {step, name (its map, as the plane's title names it), why: 'inverse' or 'infinite'}; null where the
+  // count goes through or stops for another reason (a rim through a critical value names no step)
   function chainStuck(k, T, c, r) {
     const P = svPlanes(), i0 = P.indexOf(k), i1 = P.indexOf(T);
     if (i0 < 0 || i1 <= i0) return null;
     let t;
     try { t = Pieces.tree(S.steps, built, P.slice(i0, i1 + 1), c, r); } catch (e) { return null; }
-    if (t.counted || !t.inverse || !(t.step > 0)) return null;
+    if (t.counted || !(t.inverse || t.infinite) || !(t.step > 0)) return null;
     const below = P.filter((q) => q < t.step).pop();
-    return { step: t.step, name: svMapName('text', below == null ? k : below, t.step) };
+    return { step: t.step, name: svMapName('text', below == null ? k : below, t.step), why: t.infinite ? 'infinite' : 'inverse' };
   }
   // The middle levels of chain d (stackChain's) on ctx (the pane's overlay, css px) for the flat view of pane, seen
   // through the levels' maps between the floor's Fm and the glass's Gm at the given tilt: each level's frame (the box's
@@ -92,11 +93,13 @@
         return { ink: P.ink, loops: P.loops.map(pts) };
       });
       ctx.restore();
-      // (the plane's name, on a halo plate, left of the frame's leftmost corner, or right of it inside the frame where the
-      // pane has no room on the left)
+      // (the plane's name, in the italic face the planes' points are named in, on a halo plate, left of the frame's
+      // leftmost corner, or right of it inside the frame where the pane has no room on the left; LEVEL_NAME_IN from the
+      // pane's edge at least)
       const c = frame.reduce((a, q) => (q[0] < a[0] ? q : a)), text = svName(lv.stage);
-      ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle';
-      const tw = ctx.measureText(text).width, left = c[0] - LEVEL_NAME_DX - tw, x0 = left - TUBE_PLATE >= 0 ? left : c[0] + LEVEL_NAME_DX;
+      ctx.font = `italic 500 ${TUBE_FONT}px ${TH.math}`; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(text).width, left = c[0] - LEVEL_NAME_DX - tw;
+      const x0 = left - TUBE_PLATE >= LEVEL_NAME_IN ? left : Math.max(c[0] + LEVEL_NAME_DX, LEVEL_NAME_IN + TUBE_PLATE);
       const box = [x0 - TUBE_PLATE, c[1] - TUBE_FONT / 2 - TUBE_PLATE, x0 + tw + TUBE_PLATE, c[1] + TUBE_FONT / 2 + TUBE_PLATE];
       ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(box[0], box[1], box[2] - box[0], box[3] - box[1]);
       ctx.globalAlpha = fade; ctx.fillStyle = TH.ink; ctx.fillText(text, x0, c[1]);
