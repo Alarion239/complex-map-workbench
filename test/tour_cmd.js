@@ -2,6 +2,8 @@
 // the test hooks __tourApi and __tourTap). Serve dist/ on the kit's port and run with a copy of test/cdp_kit:
 // test/<you>_cdp/q.sh test/tour_cmd.js. Shots land in <kit>/shots/; the result is { pass, of, fails: [[name, false,
 // detail]], logs }. The lit patch of every step is checked by test/tour_lit_cmd.js.
+// (standards-ok: rows reworded or retired with the classic view: the arrow keys of the classic strip, the classic counts and the Views
+// chapter's rows go; the steps view's rows keep their check under their own names, #997)
 // It addresses steps by id, their index read from the tour's chapters: the generic task step is Planes' first step, the chapter
 // after Basics is Planes. The strip's ← → glide the planes (the thread step's task); the suite checks the chapter end
 // (Edit a step) and Playing the chain's Part of the chain.

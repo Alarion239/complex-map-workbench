@@ -57,6 +57,9 @@ const CH = T.CHAPTERS;
 const CONTROL_ANCHORS = new Set(['tool:disc', 'tool:circle3', 'palette', 'paneL', 'paneR', 'panes', 'formula']);
 const steps = CH.flatMap((c) => c.steps.map((s) => Object.assign({ ch: c.id }, s)));
 // (an eighth chapter, Editing the chain: the cards, the Inspector, zeros and poles, the planes' menu, shared numbers)
+// (standards-ok: rows reworded or retired with the classic content: the chapter order and counts name the steps view's chapters, the
+// classic tour's rows on X, the chain step, Y's pane and the cards' pictures go with those steps, and the rest keep their check under the
+// new names: Planes and Playing's steps in the contract, the drag rows, the scene and totals, #997)
 // (a ninth chapter, Constructions, of 3 steps, SPEC 16: the budget grows by that chapter)
 // (a tenth chapter, Sound, of 4 steps)
 ok('5 to 10 chapters', CH.length >= 5 && CH.length <= 10, CH.length);
