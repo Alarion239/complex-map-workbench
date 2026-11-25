@@ -9,7 +9,10 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const ns = 'cd' + Date.now();
 const STATS = 'GLR.chainStats()';
 const press = (id) => ev(`(document.getElementById("${id}").click(), 1)`);
-const calm = () => settled({ max: 90000, only: true, until: '__cmwSteps().ready.ready && !__cmwSteps().moving' });
+// (the chain prepared and the thread at rest: the kit's one wait for a prepared chain, which names what is not done when
+// it runs out)
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const calm = () => kit.prepared('!__cmwSteps().moving', 90000, { only: true });
 
 await view(1440, 900, false);
 await load(ns, {});

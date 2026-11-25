@@ -84,7 +84,6 @@
   function sndMorphArrive(...args) { return SH.sndMorphArrive(...args); }
   function sndScrub(...args) { return SH.sndScrub(...args); }
   function sndScrubEnd(...args) { return SH.sndScrubEnd(...args); }
-  function sndMotion(...args) { return SH.sndMotion(...args); }
   function sndFAt(...args) { return SH.sndFAt(...args); }
   function sndMove(...args) { return SH.sndMove(...args); }
   function sndPickAt(...args) { return SH.sndPickAt(...args); }

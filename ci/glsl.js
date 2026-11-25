@@ -22,13 +22,15 @@
 // values fails (a chain the platform's renderer does not run, GLSLTiers.NOT_ON, compares none and would pass empty). The dh page
 // (outright) compares the Douady-Hubbard / Böttcher orbit's shader with another form of itself on the same GPU, bit for bit or
 // within its certificate, so it holds on any renderer: when it runs, it passes outright, and no reference is built or run for
-// it. With --ref it is skipped, as the others are, when its inputs are the same as the reference's (unless --force). Exit 0
-// pass, 1 a failure, 2 setup problem.
+// it. With --ref it is skipped, as the others are, when its inputs are the same as the reference's (unless --force). A page
+// that fails prints its failures as short text (ci/glsl_failures.js: the log, and a block of the job summary) and its whole
+// result as dist/glsl-result-<page>.json (in its own group of the log on a runner). Exit 0 pass, 1 a failure, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
+const { failureLines, fenced } = require('./glsl_failures');
 const { launch, sleep } = require('../test/regress/perf/cdp');
 const { parts: srcParts } = require('../test/src_text');
 
@@ -59,6 +61,8 @@ if (expectCompared != null && !(expectCompared >= 0)) { console.error('--expect-
 // every chain, and so does this change then (?legacy=1): both sides run the same chains
 const tier = ['core', 'deep', 'all'].includes(arg('--tier')) ? arg('--tier') : 'all';
 let legacy = false;
+// the rows of each kind of failure the log and the job summary list (ci/glsl_failures.js)
+const LOG_ROWS = 20, SUMMARY_ROWS = 10;
 const TIMEOUT = 240 * 60 * 1000;   // (the job's own timeout is the real limit)
 // a line every CMW_GLSL_PROGRESS_S seconds (default 60) while a page runs. The glsl and adv pages run in one
 // synchronous task, so the page cannot say how far it is; the browser can say how busy its processes were since the
@@ -150,7 +154,7 @@ async function runPage(base, p, side) {
       await B.ev(`(() => { window.__ci = undefined; Promise.resolve().then(() => __invTestRun({})).then((v) => { window.__ci = JSON.stringify(v); }, (e) => { window.__ci = JSON.stringify({ errors: [String(e && e.stack || e)] }); }); return 1; })()`);
       r = JSON.parse(await waitFor(B, 'window.__ci', TIMEOUT));
       ok = r.failCount === 0 && r.clip && r.clip.failCount === 0 && r.fs && r.fs.flat && r.fs.sphere && (!r.flip || r.flip.ok) && !(r.errors || []).length;
-      note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
+      note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed${r.clip && r.clip.illCond != null ? ` (${r.clip.illCond} lines float32 cannot place left out)` : ''}; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
     } else if (p.id === 'dh') {
       // (two checks, each in a WebGL2 context of its own: done once both are, or at a page exception, which fails it below)
       await B.nav(base + p.page);
@@ -169,9 +173,9 @@ async function runPage(base, p, side) {
       const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(legacy ? ['legacy=1'] : tier !== 'all' ? [`tier=${tier}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
-      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, notOn: R.notOn, ms: R.ms }; })()');
+      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, maxSlots: R.maxSlots, maxSlotsChain: R.maxSlotsChain, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, notOn: R.notOn, ms: R.ms }; })()');
       ok = r.failCount === 0 && !(r.errors || []).length && !(r.singular && r.singular.badCount);
-      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.singular ? `, ${r.singular.badCount} bad singular` : ''}${r.notOn && r.notOn.chains.length ? `; not run on ${r.notOn.renderer} (${r.notOn.issue}): ${r.notOn.chains.join('; ')}` : ''}`;
+      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.maxSlots != null ? `, max ${r.maxSlots} uniform slots (${r.maxSlotsChain})` : ''}${r.singular ? `, ${r.singular.badCount} bad singular` : ''}${r.notOn && r.notOn.chains.length ? `; not run on ${r.notOn.renderer} (${r.notOn.issue}): ${r.notOn.chains.join('; ')}` : ''}`;
       if (expectCompared != null && !(r.compared >= expectCompared)) { ok = false; note += `; ${r.compared} values compared, at least ${expectCompared} expected`; }
     }
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
@@ -268,7 +272,17 @@ async function main() {
       const s = (cur.ms / 1000).toFixed(0);
       console.log(`${pass ? 'pass' : 'FAIL'} ${p.page}${timeNote(cur)}: ${cur.note}${rf ? ` | reference${timeNote(rf)}: ${rf.note}` : ''}`);
       if (why.length) console.log('  worse than the reference:\n    ' + why.join('\n    '));
-      if (!pass || (rf && !cur.ok)) console.log(JSON.stringify(cur.r, null, 1).slice(0, 6000));
+      if (!pass || (rf && !cur.ok)) {
+        // (the failures as short text, in the log and in the job summary; the whole result in a file, and in the log's own group on a runner)
+        const fl = failureLines(p.id, cur.r, { rows: LOG_ROWS });
+        const file = path.join(ROOT, 'dist', `glsl-result-${p.id}.json`);
+        fs.writeFileSync(file, JSON.stringify(cur.r, null, 1));
+        if (fl.lines.length) console.log(fl.lines.join('\n') + (fl.left ? `\n(${fl.left} recorded rows not listed)` : ''));
+        if (process.env.GITHUB_ACTIONS) console.log(`::group::the whole result of ${p.page}\n${fs.readFileSync(file, 'utf8')}\n::endgroup::`);
+        else console.log(`the whole result of ${p.page}: ${file}`);
+        const sl = failureLines(p.id, cur.r, { rows: SUMMARY_ROWS });
+        if (sl.lines.length) details.push(`<details><summary>${label}: the failures${sl.left ? ` (${sl.left} recorded rows not listed; the whole result is in the log)` : ''}</summary>\n\n${fenced(sl.lines)}\n\n</details>`);
+      }
       rows.push(`| ${pass ? '✅' : '❌'} | ${label} | ${s} s | ${esc(cur.note)} | ${rf ? esc(rf.note) : ''} |`);
       if (why.length) details.push(`**${label}: worse than the reference**\n\n${why.slice(0, 30).map((w) => `- ${esc(w)}`).join('\n')}`);
       else if (rf && !cur.ok) details.push(`${label}: fails some outright checks on this machine, as the reference does (${esc(cur.note)}): not gated here`);

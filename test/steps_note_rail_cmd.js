@@ -1,8 +1,8 @@
 // The plane's note (the sentence a plane draws on paper, here the Cauchy style's "drawn on z, where its curve lies: colour from z"
 // with the colour plane T past z) stands clear of the plane's buttons on a phone: its box, as drawn, meets none of the
-// visible buttons of the pane (the rail of Sphere, Display options, Fit view and the globe key) and lies inside the pane, and its words
-// are centred in that box (the box is centred in the room left of the rail). At 360 x 640,
-// 320 x 568 and 640 x 360, in English, Russian and Italian, light and dark, touch.
+// visible buttons of the pane (the rail of Sphere, Display options, Fit view and the globe key), its readout and its colour key, and lies inside the pane, and its words
+// are centred in that box (the box is centred in the room left of the rail, or, where a pane too short for note and message has it meet the readout or the colour key, in the room between the chips it would meet). At 360 x 640,
+// 320 x 568, 568 x 320 and 640 x 360, in English, Russian and Italian, light and dark, touch.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -16,13 +16,12 @@ const measure = (src = '__cmwSteps().note') => ev(`(() => {
   const pane = document.getElementById('canvasL').getBoundingClientRect(), n = ${src};
   if (!n) return { note: null };
   const box = [pane.left + n.x, pane.top + n.y, pane.left + n.x + n.w, pane.top + n.y + n.h];
-  const btns = [...document.querySelectorAll('#paneL button, #plotL button, #toastHost .toast')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(); return { name: b.id || b.className, r: [r.left, r.top, r.right, r.bottom] }; })
+  const btns = [...document.querySelectorAll('#paneL button, #plotL button, #toastHost .toast, #leftReadout, #leftLegend')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(); return { name: b.id || b.className, r: [r.left, r.top, r.right, r.bottom] }; })
     .filter(({ r }) => r[2] > r[0] && r[3] > r[1]);
   const hit = btns.filter(({ r }) => box[0] < r[2] + ${GAP} && box[2] > r[0] - ${GAP} && box[1] < r[3] + ${GAP} && box[3] > r[1] - ${GAP}).map(({ name, r }) => name + ' ' + r.map(Math.round).join(','));
   return { note: box.map(Math.round), centred: typeof n.tx === 'number' && Math.abs(n.tx - (n.x + n.w / 2)) <= 1, tx: n.tx, pane: [pane.left, pane.top, pane.right, pane.bottom].map(Math.round), hit, inPane: box[0] >= pane.left && box[2] <= pane.right && box[1] >= pane.top && box[3] <= pane.bottom, n: btns.length };
 })()`);
-// (568 x 320 is left out: its plane has no room for a two-line note between the readout and a message over the plane, TODO(#2204))
-for (const [w, h] of [[360, 640], [320, 568], [640, 360]]) {
+for (const [w, h] of [[360, 640], [320, 568], [568, 320], [640, 360]]) {
   for (const lang of ['en', 'ru', 'it']) {
     for (const dark of [false, true]) {
       const tag = `${w} x ${h} ${lang}${dark ? ' dark' : ''}`;
@@ -57,6 +56,16 @@ for (const [w, h] of [[360, 640], [320, 568], [640, 360]]) {
         ok(`${tag}: the GPU note's words are centred in its box`, g.centred, g);
         ok(`${tag}: the GPU note is clear of the pane's buttons and the message (${g.n} on screen)`, g.hit.length === 0 && g.n >= 4, g);
       }
+      // and the readout showing its teaching hint (the phone's first idle readout of a session, for 8 s, as the page builds it), which is wider than the readout
+      const taught = await ev(`__cmwTeach()`);
+      ok(`${tag}: the readout shows the teaching hint`, taught, taught);
+      const hint = await measure(`__cmwPaneNote('Preparing the GPU… (first time only; shaders left: {n})', { n: 19 })`);
+      info[tag + ' hint'] = hint;
+      // (568 x 320 can have no room left between the wide readout, the colour key and the message, TODO(#2244): there the note stands in the pane and
+      // meets at most those three, which depends on the width the hint takes in the language and the fonts)
+      if (w === 568) {
+        ok(`${tag}: with the teaching hint in the readout, the GPU note stands in the pane and meets only the readout, the colour key and the message`, !!hint.note && hint.inPane && hint.hit.every((x) => /^(leftReadout|leftLegend|toast) /.test(x)), hint);
+      } else ok(`${tag}: with the teaching hint in the readout, the GPU note is clear of the pane's buttons, the readout, the colour key and the message`, !!hint.note && hint.hit.length === 0 && hint.inPane, hint);
     }
   }
 }

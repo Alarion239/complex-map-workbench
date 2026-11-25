@@ -42,6 +42,7 @@ const VIEWS = {
   'export_glide_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'layout_rows_cmd.js': steps({ pin: true }),
+  'layout_ground_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
   'phone_edit_head_cmd.js': steps({ pin: true }),
   'phone_fmap_cmd.js': steps(),
@@ -66,18 +67,28 @@ const VIEWS = {
   'steps_classic_fixture_cmd.js': steps({ pin: true }),
   'steps_seams_cmd.js': steps(),
   'gl_uniform_units_cmd.js': steps(),
+  'glchain_slot_cap_cmd.js': steps(),
+  'steps_refused_seam_cmd.js': steps(),   // (a refused chain's status card, the seam's handle and θ chip clear of it, #2330)
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_glide_negpow_cmd.js': steps(),
   'steps_glide_warm_cmd.js': steps(),
   'steps_judge_rational_cmd.js': steps(),
   'steps_glide_closed_cmd.js': steps(),
+  'steps_ahead_cmd.js': steps(),
+  'steps_stack_ahead_cmd.js': steps(),
+  'steps_ahead_ring_cmd.js': steps(),
+  'steps_wait_say_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
+  'steps_negpow_glide_cmd.js': steps({ pin: true }),
   'steps_land_glide_sheets_cmd.js': steps(),
+  'steps_land_sheets_prestart_cmd.js': steps(),
   'steps_land_cracks_cmd.js': steps(),
+  'steps_glide_tile_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
+  'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_glide_mesh_wait_cmd.js': steps(),
   'steps_glide_cut_dash_cmd.js': steps(),
   'steps_sheets_readback_cmd.js': steps(),
@@ -105,6 +116,8 @@ const VIEWS = {
   'steps_link_mesh_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'sum_budget_note_cmd.js': steps(),
+  'sum_runout_cmd.js': steps(),
+  'sum_terms_cmd.js': steps(),
   'steps_glide_linkhold_cmd.js': steps(),
   'steps_linkhold_chain_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
@@ -129,6 +142,7 @@ const VIEWS = {
   'steps_split_remap_cmd.js': steps({ pin: true }),
   'steps_split_all_cmd.js': steps({ pin: true }),
   'steps_all_exact_cmd.js': steps(),
+  'steps_glide_labels_cmd.js': steps(),
   'steps_all_regions_cmd.js': steps(),
   'steps_all_globe_cmd.js': steps(),
   'steps_all_key_cmd.js': steps(),
@@ -147,6 +161,12 @@ const VIEWS = {
   'steps_pull_off_cmd.js': steps(),
   'steps_readout_card_cmd.js': steps(),
   'steps_lookdown_cmd.js': steps(),
+  'steps_lookdown_phone_cmd.js': steps(),
+  'steps_stack_levels_cmd.js': steps(),
+  'steps_stack_tubes_cmd.js': steps(),
+  'steps_stack_pick_cmd.js': steps(),
+  'steps_stack_links_cmd.js': steps(),
+  'steps_stack_surface_cmd.js': steps(),
   'floor_pick_cmd.js': steps({ pin: true }),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
@@ -163,6 +183,7 @@ const VIEWS = {
   'steps_sheet_grid_cmd.js': steps({ pin: true }),
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
+  'steps_mesh_end_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
   'steps_mesh_tie_cmd.js': steps(),
   'steps_mesh_tie_newt_cmd.js': steps(),
   'steps_exact_saved_false_cmd.js': steps(),
@@ -179,9 +200,14 @@ const VIEWS = {
   'steps_glide_exterior_cmd.js': steps(),
   'steps_dh_stop_cmd.js': steps(),
   'steps_bottcher_axis_cmd.js': steps(),
+  'steps_parked_repeat_cmd.js': steps(),
+  'steps_parked_repeat_catalog_cmd.js': steps(),
+  'steps_parked_repeat_refusal_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
+  'newt_poly_order_cmd.js': steps({ pin: true }),
   'series_limit_cmd.js': steps({ pin: true }),
   'steps_zeta_member0_cmd.js': steps(),
+  'newt_ab_cmd.js': steps({ pin: true }),
   'steps_glide_label_cmd.js': steps(),
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
   'steps_late_links_cmd.js': steps({ pin: true }),
@@ -197,6 +223,7 @@ const VIEWS = {
   'phone_toast_sheet_cmd.js': steps(),
   'steps_toast_ctx_cmd.js': steps(),
   'phone_legend_clear_cmd.js': steps(),
+  'classic_chain_box_cmd.js': classic('the classic view\'s empty chain box under the plane (#2269), which goes with the classic view'),
   'phone_legend_said_cmd.js': steps(),
   'phone_legend_open_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
@@ -205,6 +232,7 @@ const VIEWS = {
   'steps_menu_expanded_cmd.js': steps(),
   'steps_note_rail_cmd.js': steps({ pin: true }),
   'example_integral_phone_cmd.js': steps({ pin: true }),
+  'int_pop_touch_cmd.js': steps({ pin: true }),
   'steps_ctx_keys_cmd.js': steps({ pin: true }),
   'menu_buttons_expanded_cmd.js': steps({ pin: true }),
   'menu_item_names_cmd.js': steps({ pin: true }),
@@ -244,8 +272,10 @@ const VIEWS = {
 
   // the classic views' own parts, pinned to the classic view
   'deform_range_cmd.js': steps({ pin: true }),
+  'export_stage_points_cmd.js': classic('the classic Image figure\'s two panels at a focused step: a point of w₁ carried from its own plane, and the caption that names its plane'),
   'figure_ticks_cmd.js': classic('the classic Image figure\'s two panels of points only, and the composer\'s tick labels'),
-  'figure_ticks_views_cmd.js': classic('the axes the video, the Landscape figure and the deformation filmstrip label themselves, over a zoomed window and a wide one'),
+  'export_arrow_clear_cmd.js': steps(),
+  'figure_ticks_views_cmd.js': steps(),   // (the video's axes on the steps view's glide; the classic Landscape figure's by ?view=classic)
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
   'phone_plane_cmd.js': steps({ pin: true }),
@@ -288,7 +318,7 @@ const VIEWS = {
   'v15_merge_cmd.js': steps({ pin: true }),
   'v15_params_cmd.js': steps({ pin: true }),
   'v15_planemenu_cmd.js': steps({ pin: true }),
-  'zp_classic_cmd.js': classic('the right pane\'s renderer paths by degree, the frame held mid-drag and the deformation: the steps view shows one plane, with no right pane and no deformation transport'),
+  'zp_classic_cmd.js': classic('the right pane\'s renderer paths by degree and the frame held mid-drag: the steps view shows one plane, with no right pane'),
   'zp_cmd.js': steps({ pin: true }),
   'zpfix_cmd.js': steps({ pin: true }),
   'deform_nat_cmd.js': steps({ pin: true }),
@@ -347,6 +377,7 @@ const VIEWS = {
   'steps_canvas_stack_cmd.js': steps({ pin: true }),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
+  'tour_words_390_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': steps({ pin: true }),
@@ -361,7 +392,6 @@ const VIEWS = {
   'complex_lang_export_cmd.js': steps({ pin: true }),
   'export_cmd.js': steps({ pin: true }),
   'export_deform_cmd.js': steps({ pin: true }),
-  'export_deform_classic_cmd.js': classic('the classic views\' deformation export: the X → Y, Phase, globe and Landscape figures and videos, the display-style F, their Russian captions and the dialog\'s classic Deformation row; the steps view\'s export is export_deform_cmd, export_steps_cmd and morphfig_cmd'),
   'export_fit_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
@@ -369,7 +399,6 @@ const VIEWS = {
   'morphfig_cmd.js': steps({ pin: true }),
   'steps_paths_sphere_cmd.js': steps({ pin: true }),
   'steps_paths_sphere_fig_cmd.js': steps({ pin: true }),
-  'morphfig_classic_cmd.js': classic('the classic view\'s deformation as one picture: pathsGen\'s selection on the Y pane, the transport and the 3 prototype cases; the steps view\'s paths figure is morphfig_cmd'),
 
   // to port: geometry
   'between_cmd.js': steps({ pin: true }),
@@ -386,8 +415,6 @@ const VIEWS = {
   'meetnear_coincide_cmd.js': steps({ pin: true }),
   'perp_cmd.js': steps({ pin: true }),
   'poly_verts_cmd.js': steps({ pin: true }),
-  'rel162_sheets_cmd.js': port('geometry', 'the release check of All sheets on a Landscape with a multivalued step, its sheets and their count, as the classic Landscape draws them: the steps view has the check in its plane options (sv_all_sheets_cmd), not this case'),
-  'sheets_deform_cmd.js': port('geometry', 'All sheets while a glide plays: the steps view has the check (sv_all_sheets_cmd) and its glide, and every sheet drawn over a 2D glide (steps_glide_sheets_cmd), but not yet over a Landscape or sphere glide (#1413)'),
   'touch_cmd.js': steps({ pin: true }),
   'ux165_rail_cmd.js': steps({ pin: true }),
 
@@ -419,7 +446,6 @@ const VIEWS = {
   'seasong_cmd.js': port('sound', 'the Mountain King example: its gallery entry, its circle menu with Listen along and the first samples it prepares, in English, Russian, desktop and phone; it waits on the sound checks in the steps view'),
   'sound_cmd.js': port('sound', 'the browser side of sound: consent, the tiers and their palette entries, the settings, the cues, the pointer voice, loops and the Landscape contours; it waits on the sound checks in the steps view'),
   'sound_v152_cmd.js': steps({ pin: true }),
-  'sound_v152_deform_classic_cmd.js': classic('the loop singing while the Deformation plays and Esc while it plays: the steps view has no open Deformation'),
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
@@ -447,11 +473,14 @@ const VIEWS = {
 };
 
 // the entries' faults against the runnable suites: a suite with no entry, an entry for no runnable suite, a bad entry,
-// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps),
-// so a steps() entry without it, or a port or classic one with it, is wrong (a ported suite, pin: true, needs no URL)
+// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps,
+// or opens its page through the chain kit), so a steps() entry without it, or a port or classic one with it, is wrong
+// (a ported suite, pin: true, needs no URL)
 function checkViews(runnable) {
   const fs = require('fs'), path = require('path'), bad = [];
-  const asksSteps = (f) => { try { return /view=steps/.test(fs.readFileSync(path.join(__dirname, '..', 'test', f), 'utf8')); } catch (e) { return false; } };
+  // (a suite asks the steps view by naming it in a URL, or by opening its page through test/lib/steps_chain_kit.js,
+  // whose openChain does)
+  const asksSteps = (f) => { try { const src = fs.readFileSync(path.join(__dirname, '..', 'test', f), 'utf8'); return /view=steps/.test(src) || /steps_chain_kit\.js/.test(src); } catch (e) { return false; } };
   for (const f of runnable) if (!VIEWS[f]) bad.push(`${f}: no view in ci/suite_views.js (steps, port or classic)`);
   for (const [f, tag] of Object.entries(VIEWS)) {
     if (!runnable.includes(f)) bad.push(`${f}: in ci/suite_views.js but not a runnable suite`);

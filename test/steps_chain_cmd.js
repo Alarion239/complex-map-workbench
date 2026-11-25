@@ -18,14 +18,9 @@ const axeRun = async (what) => {
   ok('axe: ' + what, r && r.length === 0, r);
 };
 const ns = 'svc' + Date.now();
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
-  steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
-const open = async (w, h, mobile) => {
-  await view(w, h, false, mobile);
-  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`); await sleep(3000); await settle(500);
-};
+const { MOB, CUBE, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
+// (the page opened on the chain `steps` under the namespace `name`, up with its strip's rail drawn; a page of the empty chain has the rail too)
+const open = async (w, h, mobile, steps = [MOB, CUBE], name = ns, lang = 'en') => { await openChain({ ns: name, steps, w, h, mobile, lang }); await settle(500); };
 const types = async () => ev(`__cmwP().steps.map((s) => s.type + (s.on === false ? '-' : ''))`);
 const sv = () => ev('__cmwSteps()');
 // where the keyboard is: 'chip2', 'more1', 'add', 'whole', or what else
@@ -206,8 +201,7 @@ await undo();
 // the thread fits its pane (+ Add function widens nothing), at 1024 and 1440, in English and Russian: the pane stays inside its
 // column, and the strip's and the plane's controls are what a pointer finds at their centres
 const fitCase = async (w, lang) => {
-  await view(w, 800, false, false);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}fit${w}${lang}&lang=${lang}&view=steps`); await sleep(3000); await settle(500);
+  await open(w, 800, false, [MOB, CUBE], `${ns}fit${w}${lang}`, lang);
   const r = await ev(`(() => {
     const L = document.getElementById('paneL').getBoundingClientRect(), st = document.getElementById('stage').getBoundingClientRect(), S = document.getElementById('svStrip'), sr = S.getBoundingClientRect();
     const hit = (sel) => { const e = document.querySelector(sel); if (!e) return sel + ': none'; const b = e.getBoundingClientRect(); if (!b.width) return sel + ': hidden'; const at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return e === at || e.contains(at) ? null : sel + ': covered by ' + (at && (at.id || at.className)); };
@@ -221,11 +215,7 @@ const fitCase = async (w, lang) => {
 // the empty chain's hint is whole: clear of the pane's head, the readout and the view tools (eyes: it was cut by the head's
 // segments at 1440 and in ru at 1024), and a pointer finds it nowhere it is not meant to be
 const hintCase = async (w, lang) => {
-  const es = Object.assign({}, st, { steps: [] });
-  await view(w, 800, false, false);
-  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}h${w}${lang}', ${JSON.stringify(JSON.stringify(es))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}h${w}${lang}&lang=${lang}&view=steps`); await sleep(3000); await settle(500);
+  await open(w, 800, false, [], `${ns}h${w}${lang}`, lang);
   const r = await ev(`(() => {
     const H = document.querySelector('.sv-empty'), hb = H.getBoundingClientRect(), P = document.getElementById('plotL').getBoundingClientRect();
     const X = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
@@ -235,18 +225,12 @@ const hintCase = async (w, lang) => {
   ok(`${w}, ${lang}: the empty chain's hint is whole, inside the plane and clear of its head, readout and tools`, r.shown && r.inPlot && r.hit.length === 0, r);
 };
 for (const w of [1440, 1024]) for (const lang of ['en', 'ru']) {
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}fit${w}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`).catch(() => {});
-  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}fit${w}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await fitCase(w, lang);
 }
 for (const [w, lang] of [[1440, 'en'], [1024, 'ru'], [1024, 'en']]) await hintCase(w, lang);
 // bypassing the only step during a glide: the glide stops, the chain has no plane after the source and the plane stays drawn
 {
-  const keep = st.steps;
-  st.steps = [keep[0]];
-  await open(1280, 800, false);
-  st.steps = keep;
+  await open(1280, 800, false, [MOB]);
   const g0 = await ev(`__cmwSteps({ go: 1 })`);
   await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settled({ only: true, until: `!!document.querySelector('#popHost .menu .mi')` });
   await pick('Bypass this step');
@@ -306,8 +290,7 @@ const end = await ev(`(() => { const ps = [...document.querySelectorAll('#svStri
 ok('360 px: the last plane is not covered, and "+" does not overlap it', end.ok && !end.overlap, end);
 // every step's chip and its ⋯ are 44 px targets on a phone from 320 to 390 px, in English, Russian and Italian (that they overlap nothing is steps_strip_layout's)
 for (const [w, lang] of [[320, 'en'], [360, 'en'], [360, 'ru'], [360, 'it'], [390, 'en']]) {
-  await view(w, 740, false, true);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}more${w}${lang}&lang=${lang}&view=steps`); await sleep(3000); await settle(500);
+  await open(w, 740, true, [MOB, CUBE], `${ns}more${w}${lang}`, lang);
   const t = await ev(`(() => { const R = (e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }, boxes = [];
     for (const wr of document.querySelectorAll('#svStrip .sv-fwrap')) boxes.push(['chip', R(wr.querySelector('.sv-fchip'))], ['more', R(wr.querySelector('.sv-more'))]);
     const small = boxes.filter(([, b]) => b[2] - b[0] < 44 - 0.5 || b[3] - b[1] < 44 - 0.5).map(([n, b]) => n + ' ' + Math.round(b[2] - b[0]) + 'x' + Math.round(b[3] - b[1]));

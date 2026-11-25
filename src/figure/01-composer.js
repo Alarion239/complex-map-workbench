@@ -371,6 +371,8 @@
   XD.mapArrow = (x0, x1, y, labelTex, pt = 9, lw = 0.5, color = '#000') => {
     const L = 4.2;
     let m = `<path d="M${f2(x0)} ${f2(y)}H${f2(x1 - L * 0.6)}" stroke="${color}" stroke-width="${lw}" fill="none"/>` + XD.arrowHead(x1, y, 0, L, color);
+    // (the shaft and the head in the layout's boxes, beside the label's: a check finds what they meet)
+    XD.boxes.push({ kind: 'arrow-line', tex: '', x0, y0: y - lw / 2, x1: x1 - L, y1: y + lw / 2 }, { kind: 'arrow-head', tex: '', x0: x1 - L, y0: y - L * 0.36, x1, y1: y + L * 0.36 });
     if (labelTex) m += XD.at(XD.tex(labelTex, pt, color), (x0 + x1) / 2, y - 2.6, 'middle', 'bottom', 'arrow');
     return m;
   };
@@ -505,10 +507,15 @@
         if (Math.abs(t) < 1e-12 || minor(t)) continue; const px = X(t); if (px > tipX - ah - 1 || px < x + 1) continue;
         const it = XD.tex(XD.tickTex(t, decX), tp, ink);
         const cands = /** @type {[number, number, string, string][]} */ ([[px, oy + L + 1.2, 'middle', 'top'], [px + 1.2, oy + L + 0.8, 'start', 'top'], [px - 1.2, oy + L + 0.8, 'end', 'top'], [px + 1.2, oy - L - 0.8, 'start', 'bottom']]);
-        // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines)
+        // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines; a place
+        // that starts left of the figure is none: a label centred there slides right just as far as the edge, still over
+        // its tick)
+        const inX = (q) => XD.boxOf(it, ...q).x0 >= 0;
+        const past = -XD.boxOf(it, ...cands[0]).x0;
+        if (past > 0 && past <= it.w / 2) cands[0] = [px + past, oy + L + 1.2, 'middle', 'top'];
         const sl = /** @type {[number, number, string, string][]} */ ([]);
         for (let d = -it.w / 2; d <= it.w / 2; d += 0.25) sl.push([px + d, oy + L + 1.2, 'middle', 'top']);
-        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => clean(it, q, 0.4)) || slide(it, sl) || cands[0]);
+        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => inX(q) && clean(it, q, 0.4)) || slide(it, sl.filter(inX)) || cands.find(inX) || cands[0]);
         out += XD.at(it, ...c, 'tick', under(XD.boxOf(it, ...c))[2] < 240 ? 0.4 : 0);
       }
       for (const t of yt) {

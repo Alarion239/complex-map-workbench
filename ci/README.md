@@ -42,7 +42,7 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 |---|---|---|
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
-| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `critical`, `pieces`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
+| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `critical`, `pieces`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl` and `glslroots`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
 | **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-params.js`, `20-init.js`, `22-start.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
@@ -255,6 +255,10 @@ artifact.
   listed with their numbers in the summary and a warning, and do not fail the job. Where one condition also asserts
   something else (the drag drew frames, the step did advance), the check counts as timing only when that part held.
   Every other check gates.
+- **Rows that made no check** (`noCheck` in a suite's result, `ci/browser_no_check.js`): a suite that cannot test a row when the
+  runner is late (tour_auto's 400 ms spike rows when the poll came too late for them) passes it and lists it in `noCheck`.
+  The log, the head line (`, N no check`) and the summary show those rows, and a warning names them; they do not fail the job.
+  (Not `skipped`: tour_phone and tour_audit return that for the tour's "step skipped" log lines, which a normal run has.)
 - **Software-renderer failures** (`SOFTWARE` in `ci/browser_suites.js`): a few correctness checks need several frames
   in a short window (a voice update in each of 60 frames, a Loop that moves t within 1 s, a ring drawn 450 ms after
   a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
@@ -342,7 +346,7 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 - **themes:** light and dark;
 - **views:** the classic view, and `?view=steps` where the build has it;
 - **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
-  sheets; and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
+  sheets; the Line integral popover on an open and on a closed curve (phone, #2191); and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
   `tour longest <chapter>`, #565).
 
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
@@ -391,6 +395,10 @@ item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whos
 `--block`, as the Plan job runs it, it exits 1 when it finds anything, so a finding fails the Gate. A version inside a path or a file name
 (`notes/constructions-v16/`) is a name, not a label. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
+A deleted suite carries no added line, so it is retired instead (`retired`): the change names it in the ledger
+`ci/retired_suites.js`, one line with the reason it goes and what covers it, and drops it from what runs (from
+`ci/suite_views.js` and `ci/browser_shards.js`, or from `ci/browser_suites.js`' EXCLUDED); its assertions then do not count
+as dropped. A ledger line for a file the change does not delete is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
 
 ### Perf on a loaded machine
@@ -457,6 +465,7 @@ node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired
 node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
 node ci/fxc_size.js --ref origin/main --json f.json   # each linked program's size with every call inlined, as Windows' FXC compiles it (#1545): fails on a new program over 100 KB, or +20 % on one over 40 KB
+node ci/newt_ab.js --base origin/claude/funny-darwin-l5uis3   # the NEWT ops' GPU output against the base's, bit for bit, with a negative control (#1365)
 node ci/browser.js --only '^steps_glide_look_cmd' # browser suites by file name; on the Mac's GPU: GPU gate by hand, mode suites, input suites (run it on two refs to compare)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
@@ -546,21 +555,25 @@ Settings (environment variables):
 | `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files and a fallback mirror (Browser suites); `test/t_lavapipe.js` tests it |
 | `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
+| `ci/retired_suites.js` | the ledger of test files deleted on purpose, each with its reason (Standards check) |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
+| `ci/glsl_failures.js` | a failing GLSL page's failures as short text (a few lines per row, the counts, the rows left out) for the log and the job summary; `test/t_glsl_failures.js` tests it |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/fxc_size.js` | every program the app links over a walk of it (the default example, each example's first frame, typed formulas; glides, the globe, Landscape), sized with every call inlined, as Windows' FXC compiles it (#1545): the largest, their top functions and flagged loops; `--ref` fails on a new program over 100 KB or +20 % on one over 40 KB; `test/t_fxc_size.js` tests it |
 | `ci/glsl_inline.js` | a GLSL stage as FXC sees it: its own `#if`s resolved, the inlined size of `main`, each function's copies, the constant-bound loops that call into the chain; for `ci/fxc_size.js` and unit tests; `test/t_fxc_size.js` tests it |
+| `ci/newt_ab.js` | the NEWT ops' GPU output, this build's against a base's bit for bit (#1365): both built in worktrees, `test/newt_ab_cmd.js` records every float target of its scenes (zeta, the series, the inverse Joukowski map, a polynomial, the Douady-Hubbard map under Everywhere) and the settled canvas as hashes; a third build with the Newton kit's forward-difference step moved to the next float32 must differ in at least a quarter of the targets |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
 | `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome (the test page in the steps view, its scenes from `ci/steps_scenes.js`, as `ci/glprof.js`'s walks), every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
+| `tools/part_move.js` | is a split of a file into parts a pure move? the joined file at two commits, tokenised: one run moved, the rest the same token for token, and the lines that differ as a multiset, and no top-level statement runs before a const, let, class or var it reads (`node tools/part_move.js <old> <new>`; Review checklist in `CONTRIBUTING.md`); `tools/part_move_order.js` reads that order; `test/t_part_move.js` tests both |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
 | `ci/RUNNERS.md` | setting up our Mac and, for runs on request, a Windows desktop (#169) as runners |

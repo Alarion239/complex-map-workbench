@@ -105,7 +105,9 @@ const DISC = { id: 's1', kind: 'disc', c: [0.3, 0.8], r: 0.3 };
 await load('p3sc' + Date.now(), Object.assign({ shapes: [DISC], steps: [ZI], srcView: { cx: 0.3, cy: 0.8, s: 200 } }, base));
 await ev('__cmwSetView("R", "sphere"); __cmwSetView("L", "sphere"); 1'); await settle();
 const DZI = `(w) => { const a = Math.hypot(w[0], w[1]), L = -Math.log(a); if (!(L > -Math.PI && L <= Math.PI)) return -1; const m = Math.exp(Math.atan2(w[1], w[0])), zx = m * Math.cos(-Math.log(a)), zy = m * Math.sin(-Math.log(a)); return Math.hypot(zx - 0.3, zy - 0.8) < 0.3 ? 1 : -1; }`;
-for (const [side, cam, cls, tag] of [['R', { pitch: -0.9, yaw: -1.2, dist: 3.2 }, DZI, 'sc_R'], ['L', { pitch: -0.5, yaw: -1.7, dist: 3.2 }, `(w) => (Math.hypot(w[0] - 0.3, w[1] - 0.8) < 0.3 ? 1 : -1)`, 'sc_L']]) {
+// (the Y camera faces the image, which lies near w = 0.3 e^{-0.16i} (|w| = e^{-Arg z}, arg w = ln|z| at the disc's centre),
+// below the equator: at yaw 0 it is in the pane's middle, at any height of the pane)
+for (const [side, cam, cls, tag] of [['R', { pitch: -0.9, yaw: 0, dist: 3.2 }, DZI, 'sc_R'], ['L', { pitch: -0.5, yaw: -1.7, dist: 3.2 }, `(w) => (Math.hypot(w[0] - 0.3, w[1] - 0.8) < 0.3 ? 1 : -1)`, 'sc_L']]) {
   await ev(`__cmwCam(${JSON.stringify(side)}, ${JSON.stringify(cam)}); 1`); await settle(900);
   R[tag] = await globeCheck(side, cls, 1);
   // the scissor the pass used (the same function, this camera): a real one, smaller than the pane

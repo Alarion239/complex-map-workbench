@@ -51,7 +51,7 @@ ok('integrateSelected: the touch toast (phone), the pick-a-curve guard and integ
 
 // ---- plane UX27 + learn UX103 in paneTitles
 const pt = fnBody(APP, 'paneTitles');
-ok('paneTitles: Deformation in words (learn) and the Y tag on the four other right titles (plane)', pt.includes("$t('Deformation'), $t('from {a} to {b}'") && count(pt, 'right = T(YT + ') === 4);
+ok('paneTitles: the Y tag on the four right titles (plane)', count(pt, 'right = T(YT + ') === 4);
 // ---- plane + learn: the tag gives way before the title (merge: with Add function in Y's head the title vanished)
 const ft = fnBody(APP, 'fitTitle');
 ok('fitTitle: the note, then the X / Y tag, give way before the title', ft.includes("t.classList.add('notag')") && ft.indexOf('fitTitle(side, true)') < ft.indexOf("add('notag')") && ft.indexOf("add('notag')") > ft.indexOf("querySelector('.ptag')") && PAGE.includes('.pane-title.notag .ptag { display: none; }'));

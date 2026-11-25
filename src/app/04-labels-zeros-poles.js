@@ -49,8 +49,9 @@
     pane.labels = null;
     if (!r.items.length) return;
     const v0 = pane.view; pane.view = r.view;
-    const t0 = labelProbe ? performance.now() : 0;
-    try { flushLabelsIn(pane, r); } finally { pane.view = v0; if (labelProbe) labelProbe(performance.now() - t0, r.curves.length); }
+    // (the probe times the screen's panes' passes: a frame drawn off-screen, the steps view's frames drawn ahead, is none of them)
+    const probe = labelProbe && (pane === paneL || pane === paneR) ? labelProbe : null, t0 = probe ? performance.now() : 0;
+    try { flushLabelsIn(pane, r); } finally { pane.view = v0; if (probe) probe(performance.now() - t0, r.curves.length); }
   }
   // (a probe for the time of a pass and the curves it keeps the labels off, set by the test page and the perf run: none in the
   // published page)
@@ -300,8 +301,11 @@
   }
   // branch cuts and poles of step k+1 live in the plane of stage k
   const offEdge = (pane, x, y, m) => x < m || y < m || x > pane.w - m || y > pane.h - m;
+  // a chain the GPU refuses draws no plane, and the status card is the plane's: its cuts, their handles and θ chips are not drawn over the card's words
+  const chainRefused = () => { const st = GLR.frameStatus ? GLR.frameStatus() : null; return !!(st && st.error); };
   function drawCuts(pane, k, editable, thin) {
     if (artMode) return [];
+    if (chainRefused()) { carriedCuts = []; return []; }
     const handles = [];
     if (editable && !thin && SV.on) drawCarriedCuts(pane, k, handles);
     const st = S.steps[k];
@@ -574,6 +578,7 @@
   function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1, look = null) {
     if (artMode) return;
     carriedCuts = [];
+    if (chainRefused()) return;
     pane.ctx.save();
     pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
     for (let j = 1; j <= S.steps.length; j++) {
