@@ -535,6 +535,61 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     return halfFbo;
   }
+  // Kept layers: a frame's picture copied out under a slot's name and drawn back into a later frame of the same size,
+  // texel for texel (the steps view's plots under a glide's carried colour, which are the same in every frame of the
+  // glide). slot -> { tex, fbo, w, h }; a lost context forgets them
+  const layers = new Map();
+  // the frame drawn so far (its fw x fh pixels at the viewport) into slot's texture -> true; false when it cannot be kept
+  function layerKeep(slot) {
+    if (!ok || lost || preActive) return false;
+    let L = layers.get(slot);
+    if (!L || L.w !== fw || L.h !== fh) {
+      if (L) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
+      L = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w: fw, h: fh };
+      gl.activeTexture(gl.TEXTURE5);
+      gl.bindTexture(gl.TEXTURE_2D, L.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fw, fh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST);
+      for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, p, gl.CLAMP_TO_EDGE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.tex, 0);
+      layers.set(slot, L);
+    }
+    // (a multisampled drawing buffer is resolved by the blit; the scissor would clip it)
+    const sc = gl.isEnabled(gl.SCISSOR_TEST);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
+    gl.blitFramebuffer(vpX, vpY, vpX + fw, vpY + fh, 0, 0, fw, fh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (sc) gl.enable(gl.SCISSOR_TEST);
+    return true;
+  }
+  // slot's picture drawn into the frame in place of what is there (invUp at the frame's own size: each pixel its texel)
+  // -> true; false when there is none of the frame's size or the program cannot draw
+  function layerDraw(slot) {
+    const L = layers.get(slot);
+    if (!ok || lost || preActive || !L || L.w !== fw || L.h !== fh) return false;
+    const Q = program('invUp');
+    if (!Q) return false;
+    use(Q);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, L.tex);
+    u1i(Q, 'uHalf', 5);
+    u4f(Q, 'uVp', vpX, vpY, fw, fh);
+    u2f(Q, 'uHalfSz', 1, 1);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.enable(gl.BLEND);
+    return true;
+  }
+  function layerDrop(slot) {
+    const L = layers.get(slot);
+    if (L && gl && !lost) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
+    layers.delete(slot);
+  }
   // K (SPEC 4.2): the front count for the early stop and admission: 1 when alpha >= 0.999, else
   // ceil(ln(1/255) / ln(1 - alpha))
   const invK = (alpha) => (alpha >= 0.999 ? 1 : Math.max(1, Math.ceil(Math.log(1 / 255) / Math.log(1 - Math.min(alpha, 0.999999)))));
@@ -1389,7 +1444,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
+    init, begin, viewport, blit, layerKeep, layerDraw, layerDrop, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     // whether a REPT draw answered 'pending' since the last call, reset by it (the pane's status, glStatusNote)
     reptPendingTake: () => { const r = reptPendFlag; reptPendFlag = false; return r; },
