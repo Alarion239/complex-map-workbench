@@ -704,7 +704,8 @@ const Inverse = (() => {
   // step of degree 3 to NEWT_POLY_MAX with no exact ops has its roots instead (homOps at t = 1: one NEWT op, every root
   // of f(u) = w by Aberth's iteration, a multiple root once with its multiplicity)
   function pointPlan(steps, built, a = 0, b = steps.length) {
-    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1)) : bb)), a, b);
+    const opts = chainOpts(steps, built);
+    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1, opts)) : bb)), a, b);
   }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
   // ops each have one branch or finitely many: each op's own (its critical(), e.g. IPOW 0 and infinity, JOUK ±1, QUAD
@@ -1833,11 +1834,12 @@ const Inverse = (() => {
   // 12. Homotopy end points for normalizeMap (SPEC 10.5; verified by test/t_inverse.js (k))
   // =====================================================================================================
 
-  // Inverse.homOps(b, t): the ops of step b's homotopy H_t (b: a Funcs.build() result), in forward order, so the
-  // inverse walk can end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and
-  // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
-  // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
-  // (newtOps). {ok, ops} | {ok: false, reason}
+  // Inverse.homOps(b, t, opts): the ops of step b's homotopy H_t (b: a Funcs.build() result; opts: its chain's stepOps
+  // options, Inverse.chainOpts, for the ops of a step or sub-step as at rest), in forward order, so the inverse walk can
+  // end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and the zoom paths
+  // H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's zoom, the generic
+  // zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton (newtOps).
+  // {ok, ops} | {ok: false, reason}
   // a polynomial step of degree 2 to NEWT_POLY_MAX, its degree known exactly: its roots are all of Newton's members
   const isNewtPoly = (P) => !!P.polynomial && !!P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX;
   // Inverse.polyHom(b): whether built step b is a polynomial step as isNewtPoly takes it, not a recognised chain (whose
@@ -1845,12 +1847,12 @@ const Inverse = (() => {
   // z^(1 + (n - 1) t), or its zoom about a point), a zoom of f (f conjugated by affine maps), or else the straight line
   // or the step's own homotopy, a polynomial in u, which newtOps inverts by every root (NEWT with deg)
   const polyHom = (b) => !!(b && !b.error && b.props && isNewtPoly(b.props)) && !(b.nat && b.nat.kind === 'chain' && b.rec);
-  function homOps(b, t) {
+  function homOps(b, t, opts = {}) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
     if (t >= 1) {
       // (a polynomial step with no exact ops is inverted at t = 1 by its roots, as at t < 1: the plane at rest and the glide's frames are one picture)
-      const r = stepOps(b), P = b.props;
+      const r = stepOps(b, opts), P = b.props;
       return r.ok || !(P && P.analytic && isNewtPoly(P)) ? r : newtOps(b, 1, r.reason);
     }
     const id = b.def.id, nat = b.nat || null, nd = b.natData || null;
@@ -1865,12 +1867,12 @@ const Inverse = (() => {
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
       const len = b.repeat ? b.repeat.block.length : 0, own = (i) => (!len ? i : i === 0 ? len - 1 : (i - 1) % len);
       const mark = (r, i) => { for (const o of r.ops) if (o.kind === 'NEWT') o.sub = own(i); return r.ops; };
-      for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1); if (!r.ok) return r; ops.push(...mark(r, i)); }
-      const r = homOps(sub[j], x - j);
+      for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1, opts); if (!r.ok) return r; ops.push(...mark(r, i)); }
+      const r = homOps(sub[j], x - j, opts);
       if (!r.ok) return r;
       return { ok: true, ops: ops.concat(mark(r, j)) };
     }
-    const own = stepOps(b);
+    const own = stepOps(b, opts);
     if (!own.ok) return newtOps(b, t, own.reason);
     const one = own.ops.length === 1 ? own.ops[0] : null;
     // the Möbius one-parameter group (CX.mobPath), the affine and Möbius steps' path

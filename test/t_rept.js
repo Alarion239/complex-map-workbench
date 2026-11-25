@@ -109,23 +109,32 @@ const NEXT_TO = [
 for (const [name, steps, want] of NEXT_TO) check(`${name}: ${want}`, planKinds(steps) === want, planKinds(steps));
 check('a rational step of degree 3 x 3, then x 2, has a plan with no REPT op', !/REPT|^X/.test(planKinds([St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 }), TIMES2])), planKinds([St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 }), TIMES2]));
 check('Integer power z^3 x 20 alone plans as REPT', planKinds([St('pown', { n: 3 }, { n: 20, len: 1 })]) === 'REPT', planKinds([St('pown', { n: 3 }, { n: 20, len: 1 })]));
+// (a point's plan, Inverse.pointPlan, decomposes each step as the chain's plans do; a step standing for its homotopy,
+// Inverse.homBuilt, with a REPT op next to another step's op is refused: the walkers' REPT search is the plan's only op)
+{
+  const c = chainOf([TIMES2, St('pown', { n: 3 }, { n: 3, len: 1 })]), pp = Inverse.pointPlan(c.steps, c.built, 0, 2);
+  check('x 2, then Integer power z^3 x 3: its point plan is AFF>IPOW>IPOW>IPOW, as its plan', pp.ok && pp.ops.map((o) => o.kind).join('>') === 'AFF>IPOW>IPOW>IPOW', pp.ok ? pp.ops.map((o) => o.kind).join('>') : pp.reason);
+  const solo = chainOf([St('pown', { n: 3 }, { n: 20, len: 1 })]), hk = InvOps.stepOps(solo.built[0]);
+  const hb = [c.built[0], Inverse.homBuilt(solo.built[0], hk)], hp = Inverse.planChain([c.steps[0], solo.steps[0]], hb, 0, 2);
+  check('a homotopy stand-in carrying a REPT op next to x 2 is refused, with its reason', hk.ok && hk.ops[0].kind === 'REPT' && !hp.ok && /only as the plane's one step/.test(hp.reason), hp.reason);
+}
 // (each plan's ops are ops of the chain's GLSL inverse program, by step, node and kind, as the GPU's pass data reads them:
 // a plane's plan and the program decompose a repeat the same way; a chain too long for a program has none to match)
 {
   const chains = NEXT_TO.map(([name, steps]) => [name, steps]).concat([['Integer power z^3 x 20 alone', [St('pown', { n: 3 }, { n: 20, len: 1 })]],
     ['Integer power z^3 x 3, then x 2, on plane 1', [St('pown', { n: 3 }, { n: 3, len: 1 }), TIMES2], 1]]);
   let plans = 0;
-  const bad = [];
+  const wrong = [];
   for (const [name, steps, top = steps.length] of chains) {
     const c = chainOf(steps), inv = GLChain.buildInverse(c.steps, c.built);
     for (let a = 0; a < top; a++) {
       const p = Inverse.planChain(c.steps, c.built, a, top);
       if (!p.ok) continue;
       plans++;
-      if (inv.ok && !p.ops.every((o) => inv.ops.some((q) => q.step === o.step && q.node === o.node && q.kind === o.kind))) bad.push(`${name} (${a}, ${top}]`);
+      if (inv.ok && !p.ops.every((o) => inv.ops.some((q) => q.step === o.step && q.node === o.node && q.kind === o.kind))) wrong.push(`${name} (${a}, ${top}]`);
     }
   }
-  check('every plan\'s ops are ops of its chain\'s GLSL inverse program (step, node, kind)', plans >= 6 && bad.length === 0, `${plans} plans, ${JSON.stringify(bad)}`);
+  check('every plan\'s ops are ops of its chain\'s GLSL inverse program (step, node, kind)', plans >= 6 && wrong.length === 0, `${plans} plans, ${JSON.stringify(wrong)}`);
 }
 const plan20 = Inverse.planChain(N20.steps, N20.built, 0, 1);
 check('the gallery plane has a plan', plan20.ok && plan20.ops.length === 1);
