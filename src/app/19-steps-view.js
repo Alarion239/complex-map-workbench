@@ -1449,9 +1449,11 @@
   // the glide frame between planes a and b at u (a = b - 1 unless given), as the carried colour draws it there
   // (svCarryExactHom): with that frame's look, whose opacity picks the program's B class (svCarryAlpha: sheets off before
   // the colour plane, opacity 1)
-  const svInvState = (h, i, b, u, a = b - 1) => {
+  const svInvState = (h, i, b, u, a = b - 1) => GLR.inverseState(svInvStateArg(h, i, b, u, a));
+  // (the state GLR.inverseState and GLR.inverseWarmup take for it)
+  const svInvStateArg = (h, i, b, u, a = b - 1) => {
     const p = h.paths[i];
-    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { a, b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { a, b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 };
   };
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
   // and the staged one of the later planes' shapes, svStagedOf and svStagedCurves, which draws their mask and strokes),
@@ -2407,9 +2409,10 @@
     // (a motion whose frames were drawn ahead shows them)
     if (svAheadShow(pane)) return;
     if (svHeldKept(hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
-    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !SV.play && !(SV.drag && SV.drag.moved);
     // (parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
-    // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
+    // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own. Not
+    // while a Play runs: V.left has not taken the camera yet, and would hand the camera back the view of plane z)
     if (rest) svKeepView();
     pane.setView(S.srcView);
     svPolesWatch();
@@ -2682,7 +2685,7 @@
           o.paint();
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
-          reptHatch(mp, map);
+          reptHatch(pane, map);
           refusedHatch(pane, map);
           if (o.after) o.after();
           onPage = true;
@@ -3701,19 +3704,26 @@
   // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
   // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
   let svInvJobs = [], svInvWarmKey = null, svInvFlushing = false, svInvQueuedAt = 0, svInvReadyAt = 0;
-  // (test hook: no jobs queued while set, and those left dropped)
+  // (test hook: no jobs queued while set, and those left dropped; svReady's inverse part, which counts the jobs' glides,
+  // built again)
   let svInvWarmOff = false;
-  const svInvWarmOffSet = (on) => { svInvWarmOff = !!on; if (on) svInvJobs = []; };
+  const svInvWarmOffSet = (on) => { svInvWarmOff = !!on; svInvStates = null; if (on) svInvJobs = []; };
   const svInvKey = () => `${chainSig[nSteps()]}|${SV.surf}|${SV.scope}|${svT()}|${S.dc}|${Math.round(SV.g.x)}`;
-  function svPrestartInv() {
-    const globe = SV.surf === 'sphere', key = svInvKey();
-    if (svInvWarmOff || (!globe && !svFlatSurf(true)) || !paneL || !GLR.inverseState || nSteps() < 1) return;
-    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), jobs = [];
+  // the glides the jobs make ready, [{b, u}]: each part of the glide on and of the glide back, at most SV_INV_WARM_MAX;
+  // [] where there are no jobs (the Landscape, which draws no frames between planes: a program linking there would
+  // redraw its pane after the pane settled; no inverse programs; the test hook's warmInv: false)
+  function svInvGlides() {
+    const globe = SV.surf === 'sphere', out = [];
+    if (svInvWarmOff || (!globe && !svFlatSurf(true)) || !paneL || !GLR.inverseState || nSteps() < 1) return out;
+    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x)));
     for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
-      if (b && !isDeriv(b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });
+      if (b && !isDeriv(b)) for (const u of svGlideParts(b)) out.push({ b, u });
     }
-    svInvWarmKey = key;
-    svInvJobs = jobs.slice(0, SV_INV_WARM_MAX);
+    return out.slice(0, SV_INV_WARM_MAX);
+  }
+  function svPrestartInv() {
+    svInvWarmKey = svInvKey();
+    svInvJobs = svInvGlides().map((g) => ({ b: g.b, u: g.u, asked: false }));
     svInvQueuedAt = performance.now();
     svInvReadyAt = 0;
     svInvWarmNext();
@@ -3724,7 +3734,33 @@
     const n = built[b - 1] && built[b - 1].rec ? built[b - 1].rec.built.length : 0;
     return n > 1 ? [...Array(n).keys()].map((i) => (i + 0.5) / n) : [0.25, 0.75];
   }
-  // the next job of svPrestartInv's in an idle moment: its programs asked for, or, once they are ready, its frame drawn
+  // the inverse programs the frame of step b's glide at u draws its carried colour with, on the globe or the plane: {h (its
+  // paths, svInvPaths), sts (GLR.inverseState's arguments, one a path)}, or null when the frame has no inverse pass
+  function svInvFrame(b, u, globe) {
+    const h = svInvPaths(b, u, globe ? 'globe' : 'flat', { r: null });
+    if (!h) return null;
+    const carry = svCarryStyle(svT());
+    return { h, sts: h.paths.map((p, i) => (globe ? Object.assign({ viewKind: 'globe' }, svInvArg(paneL, p, h.list[i], carry)) : svInvStateArg(h, i, b, u))) };
+  }
+  // Those of the jobs' glides (svInvGlides), the states svReady's inverse part counts: built once for what svInvListKey
+  // names (svPrestartSoon drops them after an edit). Besides what svInvKey names, a state's program depends on the
+  // opacity and the sheets (its B class, svCarryAlpha) and on the shapes (which, their kinds, formulas and stages, and
+  // whether they show): a list kept past a change of those would count programs no job asks for, and ready would never
+  // read true
+  let svInvStates = null, svInvStatesKey = null;
+  const svInvListKey = () => `${svInvKey()}|${svOpacity()}|${S.sheets ? 1 : 0}|${S.shapes.map((x) => `${x.id}:${x.kind}:${x.expr || ''}:${x.visible === false ? 0 : 1}:${shapeStage(x)}`).join(',')}`;
+  function svInvList() {
+    const key = svInvListKey();
+    if (svInvStates && svInvStatesKey === key) return svInvStates;
+    const globe = SV.surf === 'sphere', sts = [];
+    for (const g of svInvGlides()) { const f = svInvFrame(g.b, g.u, globe); if (f) sts.push(...f.sts); }
+    svInvStatesKey = key;
+    return (svInvStates = sts);
+  }
+  // the next job of svPrestartInv's in an idle moment: its programs asked for, or, once they are ready, its frame drawn.
+  // The jobs wait for the rest of svReady (svReady's rest: all but their own part, which waits for them), and while a
+  // glide waits for svReady (SV.gate) they take no idle wait: that press asked for the glide they prepare. A job whose
+  // programs still link is looked at again every SV_INV_WARM_AGAIN_MS for as long as they take
   const SV_INV_WARM_AGAIN_MS = 250;
   function svInvWarmNext() {
     if (!svInvJobs.length) return;
@@ -3734,18 +3770,17 @@
       if (key !== svInvKey()) { svInvJobs = []; return; }
       if (interacting() || svGliding()) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
       const now = performance.now();
-      if (!svReady().ready) { svInvReadyAt = 0; setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+      if (!svReady().rest) { svInvReadyAt = 0; setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
       if (!svInvReadyAt) svInvReadyAt = now;
-      const wait = Math.max(svInvQueuedAt, svInvReadyAt, lastInputT) + SV_WARM_IDLE_MS - now;
+      const wait = SV.gate ? 0 : Math.max(svInvQueuedAt, svInvReadyAt, lastInputT) + SV_WARM_IDLE_MS - now;
       if (wait > 0) { setTimeout(svInvWarmNext, Math.max(wait, SV_INV_WARM_AGAIN_MS)); return; }
-      const job = svInvJobs[0], globe = SV.surf === 'sphere', T = svT(), carry = svCarryStyle(T);
-      const h = svInvPaths(job.b, job.u, globe ? 'globe' : 'flat', { r: null });
-      const state = (i) => (globe ? GLR.inverseState(Object.assign({ viewKind: 'globe' }, svInvArg(paneL, h.paths[i], h.list[i], carry))) : svInvState(h, i, job.b, job.u));
+      const job = svInvJobs[0], globe = SV.surf === 'sphere', T = svT();
+      const f = svInvFrame(job.b, job.u, globe), h = f && f.h;
       let next = 0;
-      if (!h) svInvJobs.shift();
-      else if (!job.asked) { h.paths.forEach((q, i) => state(i)); job.asked = true; }
+      if (!f) svInvJobs.shift();
+      else if (!job.asked) { GLR.inverseWarmup(f.sts, { start: true }); job.asked = true; }
       else {
-        const st = h.paths.map((q, i) => state(i));
+        const st = f.sts.map((x) => GLR.inverseState(x));
         if (st.includes('pending')) next = SV_INV_WARM_AGAIN_MS;
         else {
           svInvJobs.shift();
@@ -3813,6 +3848,7 @@
   // idle moment: a drag or typing is never held back by it, and a run of edits starts it once
   let svPrestartTimer = 0;
   function svPrestartSoon(ms) {
+    svInvStates = null;
     clearTimeout(svPrestartTimer);
     svPrestartTimer = setTimeout(() => {
       svPrestartTimer = 0;
@@ -3826,14 +3862,19 @@
   // programs linked (both map modes, the carried colour and its cut fills, the glide's map mode of the programs the
   // panes draw, which the warm-up starts in the init part (WARM's first group, in the same modes), any inverse one
   // still compiling), the carried colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the
-  // meshes); while a pane's last frame had a REPT draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a
-  // part not done; while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
-  // programs of a view no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain
-  // is not up; ready is true only when done = total > 0
-  // (test hook: the idle jobs count as unfinished while set)
+  // meshes), with M (the motion the gate is about to start) the frames it may draw ahead (svAheadPart), and the inverse
+  // programs of the glides a press starts linked while the thread rests on a plane (inverse: svInvList, which
+  // svInvWarmNext's jobs ask for; their first draw is the jobs' own, and a cold program is drawn by the glide's frame,
+  // svLinkHold; no part while a frame is held between planes or a glide runs); while a pane's last frame had a REPT
+  // draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a part not done; while svRedrawDue, the left
+  // pane's frame that draws with the program that landed, a part not done. The programs of a view no pane shows are no
+  // part of it (GLR's offView). total is 0 only while the GPU layer or the chain is not up; ready is true only when
+  // done = total > 0; rest: the same without the inverse part. Programs counted that no job asks for any more (the jobs
+  // were dropped when what svInvKey names changed, or a program was evicted after its job) are queued again, unless peek
+  // (a read that starts no work: the test hook's) (test hook: the idle jobs count as unfinished while set)
   let svJobsHold = false;
   const svJobsHoldSet = (on) => { svJobsHold = !!on; };
-  function svReady(M) {
+  function svReady(M, peek = false) {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
     parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
@@ -3849,7 +3890,18 @@
     if (ahead) parts.ahead = ahead;
     let done = 0, total = 0;
     for (const k in parts) { done += parts[k].done; total += parts[k].total; }
-    return { done, total, parts, ready: total > 0 && done === total };
+    const rest = total > 0 && done === total;
+    // (the inverse part only while the thread rests on a plane: its glides are the ones a press starts from there. A frame
+    // held between planes, or a glide under way, is ready when its own programs are, which its frame asks for itself)
+    if (!svMoving()) {
+      let inv = { done: 0, total: 0 };
+      try { inv = GLR.inverseWarmup ? GLR.inverseWarmup(svInvList()) : inv; } catch (e) { svInvStates = []; }
+      parts.inverse = inv;
+      if (!peek && inv.done < inv.total && !svInvFlushing && (!svInvJobs.length || svInvWarmKey !== svInvKey())) svPrestartInv();
+      done += inv.done;
+      total += inv.total;
+    }
+    return { done, total, parts, ready: total > 0 && done === total, rest };
   }
   // The glide's carried colour drawn once on a speck (SV_WARM's mesh, at x = 1/2 of the first step) into the GL canvas,
   // which no pane shows until a frame copies it: a renderer that makes a program's machine code at its first draw
@@ -3857,23 +3909,40 @@
   // would run on past that stall and end it. The idle moment is SV_WARM_IDLE_MS after the chain changed and after the
   // last input (lastInputT): that machine code takes the main thread for a second or more on such a renderer, which
   // just after an edit holds back what the edit shows (the "Added" message). Tried again while the programs link
-  // (prestartCarry), at most 40 times; the programs themselves link without waiting (prestartCarry, the parallel compile)
+  // (prestartCarry), for as long as they take (svWarmWhenIdle); the programs themselves link without waiting
+  // (prestartCarry, the parallel compile)
   const SV_WARM = { id: '__svWarm', kind: 'disc', c: [0, 0], r: 0.01, visible: true }, SV_WARM_IDLE_MS = 2000;
   // f in an idle moment of the idle warm-ups (svWarmCarry, svInvWarmNext): run after SV_IDLE_CB_MS at the latest, or, with
   // no requestIdleCallback, SV_IDLE_FALLBACK_MS from now
   const SV_IDLE_CB_MS = 1000, SV_IDLE_FALLBACK_MS = 250;
   const svIdle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: SV_IDLE_CB_MS }) : setTimeout(f, SV_IDLE_FALLBACK_MS));
+  // svWarmWhenIdle's attempts: at most SV_WARM_TRIES unfinished ones made with no program linking, the next one
+  // SV_WARM_RETRY_MS after an unfinished one, and a wait for input to stop looked at again after at least SV_WARM_POLL_MS
+  const SV_WARM_TRIES = 40, SV_WARM_RETRY_MS = 500, SV_WARM_POLL_MS = 250;
+  // Runs step() in an idle moment (svIdle), SV_WARM_IDLE_MS after t0 and after the last input, if the chain is still the
+  // one it was asked for and nothing is being dragged or typed (looked at again when the idle callback runs); step() is
+  // true when its work is done. Else again runs SV_WARM_RETRY_MS later: again(n, t0) while a program links (GLR.pendingLinks:
+  // the work waits for it, however long the link takes, and a part of svReady that waits for the work cannot stay short
+  // after it lands), else again(n + 1, t0). A wait for input to stop calls again(n, t0) after at least SV_WARM_POLL_MS
+  function svWarmWhenIdle(again, n, t0, step) {
+    const sig = chainSig[nSteps()];
+    const wait = () => Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
+    const waitMore = () => { setTimeout(() => { if (chainSig[nSteps()] === sig) again(n, t0); }, Math.max(wait(), SV_WARM_POLL_MS)); };
+    if (wait() > 0 || interacting()) { waitMore(); return; }
+    svIdle(() => {
+      if (chainSig[nSteps()] !== sig) return;
+      if (wait() > 0 || interacting()) { waitMore(); return; }
+      if (step() !== true) { const linking = GLR.pendingLinks > 0; setTimeout(() => again(linking ? n : n + 1, t0), SV_WARM_RETRY_MS); }
+    });
+  }
   let svWarmSig = null, svWarmAt = 0;
   // (the chain whose warm draw waits for its fence: a second call meanwhile draws it no second time)
   let svWarmFlushing = null;
   // (t0: when the chain changed, as svPrestart saw it)
   function svWarmCarry(n, t0 = performance.now()) {
     const sig = chainSig[nSteps()];
-    if (svWarmSig === sig || svWarmFlushing === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
-    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
-    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, 250)); return; }
-    svIdle(() => {
-      if (chainSig[nSteps()] !== sig) return;
+    if (svWarmSig === sig || svWarmFlushing === sig || n > SV_WARM_TRIES || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
+    svWarmWhenIdle(svWarmCarry, n, t0, () => {
       const r = shapeGPU(SV_WARM, { base: 2 }), pane = paneL;
       let done = false;
       try {
@@ -3885,13 +3954,14 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (!done) { setTimeout(() => svWarmCarry(n + 1, t0), 500); return; }
+      if (!done) return false;
       // (made once the GPU has run the draw's commands (GLR.gpuDone's fence, polled, never waited on): left in the
       // queue of the GL canvas, which no pane shows, they would run in the next copy of that canvas to a pane, the
       // first glide frame's, and that frame would wait for the carried colour's machine code after all)
       const made = () => { svWarmFlushing = null; if (chainSig[nSteps()] === sig) { svWarmSig = sig; svWarmAt = performance.now(); } };
       svWarmFlushing = sig;
       if (GLR.gpuDone) GLR.gpuDone().then(made); else made();
+      return true;
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----

@@ -45,7 +45,6 @@ async function section(k, f) { try { await f(); } catch (e) { fails.push({ name:
 logs();
 
 // ---------------------------------------------------------------- L1 laptop, light, English
-// (Y's head with its "Y · " tag is the classic view's right pane; its check is in ux165_merge_classic_cmd.js)
 await section('L1', async () => {
   await laptop();
   await fresh(NS + 'a');
