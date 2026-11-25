@@ -7,6 +7,7 @@
 //   centred(scope)           the boxes declared centred are, within their tolerance (INTENT.centred, data-center)
 //   noClippedText(scope)     no text is cut by its box, except an ellipsis that is declared (INTENT.ellipsis, data-ellipsis)
 //   noCutControls(scope)     no control is drawn past a panel that clips it and cannot scroll to it
+//   wholeBoxes(scope)        the boxes declared whole (INTENT.whole) show all they hold, with no scroll to reach the rest
 //   noTextSpill(scope)       no control's text shows past the control's own box (a nowrap label wider than its pill, #498)
 //   toasts()                 a desktop toast covers no control; placed (data-placed), it is centred on its place, and in
 //                            the chain head it lies inside the head, with Clear chain stepped aside (ux on #499)
@@ -57,6 +58,10 @@
       { sel: ':root.ph .pal-desc', why: 'the palette\'s row descriptions on a phone: one line per row; the whole one in its tooltip' },
       { sel: '.sv-fchip .sv-fn', named: true, why: 'a steps-view chip\'s function name: one line, the whole name in the chip\'s label (ux on #499)' },
       { sel: '.ph-cn', named: true, why: 'the phone\'s chain name: one line, the whole name as its label or tooltip (ux on #499)' },
+    ],
+    // the boxes meant to show everything they hold at rest, with no scroll to reach the rest (the check's name: scroll-cut): sel, why
+    whole: [
+      { sel: ':root.ph .ld-key:not(.folded)', why: 'Look down\'s and the Stack\'s open key on a phone: its marks and the Stack\'s connector switch all show (#2418)' },
     ],
     // the rows meant to be evenly spaced: sel (the row; its visible children, at least three, are the row's members), tol
     // (px), why. A row of one line or one column only (a wrapped grid has no single gap)
@@ -528,13 +533,29 @@
     return out;
   }
 
+  // a box declared whole (INTENT.whole) that holds more than it shows: its content runs past its own box, so a scroll is
+  // the only way to the rest
+  function wholeBoxes(scope = document.body) {
+    const out = [];
+    for (const d of INTENT.whole) {
+      let els = [];
+      try { els = [...scope.querySelectorAll(d.sel)]; } catch (e) { /* a selector the page does not take */ }
+      for (const el of els) {
+        if (!vis(el)) continue;
+        const hidden = Math.max(el.scrollHeight - el.clientHeight, el.scrollWidth - el.clientWidth);
+        if (hidden > 1) out.push(V('scroll-cut', el, null, { hidden, why: d.why }));
+      }
+    }
+    return out;
+  }
+
   function all(opt = {}) {
     const scope = opt.scope || document.body;
     const touch = opt.touch != null ? opt.touch : matchMedia('(pointer: coarse)').matches;
     // (the focus rings last: they move the focus)
-    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), noTextSpill(scope), toasts(), onGround(scope), insideViewport(scope),
+    return [].concat(noOverlap(scope), notCovered(scope), centred(scope), noClippedText(scope), noCutControls(scope), wholeBoxes(scope), noTextSpill(scope), toasts(), onGround(scope), insideViewport(scope),
       targetSizes(touch ? 44 : 24, scope), evenSpacing(scope), opt.focus ? focusRings(scope) : []);
   }
 
-  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, noTextSpill, toasts, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
+  root.__layout = { INTENT, openLayers, under, vis, seen, clipOf, desc, key, layerOf, textBoxes, controls, noOverlap, notCovered, centred, centredOne, noClippedText, noCutControls, wholeBoxes, noTextSpill, toasts, onGround, insideViewport, targetSizes, focusRings, evenSpacing, all };
 })(typeof window !== 'undefined' ? window : globalThis);

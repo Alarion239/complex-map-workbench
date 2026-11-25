@@ -11,8 +11,9 @@
 //  - a second finger that lands while one is down turns the camera and leaves no pick behind: no lit twins, no pin;
 //  - at 360 × 640 (en), 390 × 844 (ru), 740 × 360 (it), 600 × 320 (en) and 568 × 320 (ru), in Tilt, the Tilt key, Look
 //    down's key and the plane's other keys meet neither each other nor the context bar; the Tilt key makes the column no
-//    taller where it would reach the head (on a landscape phone it stands left of the Display key); the box lies in the pane above the bar, and the
-//    tubes' labels clear of the keys.
+//    taller where it would reach the head (on a landscape phone it stands left of the Display key, the column's second;
+//    the row checks it against the Sphere key, the column's first); the box lies in the pane above the bar, and the tubes'
+//    labels clear of the keys.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};

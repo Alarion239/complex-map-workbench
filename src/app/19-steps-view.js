@@ -16,6 +16,7 @@
     poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
+    glideStencil: 0, // (a test hook's) 1: the sphere draws a glide's sheet copies only where the principal sheet is not opaque (drawSphere's sheetCut)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
     glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
     glideFade: null, // (a test hook's) the alpha of a Landscape glide's copies, fixed over the glide; null: their fade over u
@@ -483,16 +484,11 @@
     if (k <= T) return svPlain(k) ? svLandCarry(to, k, null, 0, k) : undefined;
     return svLandCarry(to, T, k, 1, k);
   }
-  // The value of the height map at the point w of a carried Landscape at rest (render3D's carry with rest set, a plain
-  // plane or one past T), what the probe picks on and reads: a point p of plane s carried to w (carry.map, Newton's
-  // method from the LAND_PICK_SEEDS points of the LAND_PICK_GRID x LAND_PICK_GRID grid over plane s's box src whose images
-  // are nearest w), and p's image in the height plane (carry.hmap). Where sheets cross over w, the one whose height is
-  // highest, the one a ray from above meets first; null where no point of the box is carried to w. The grid is made on
-  // the first call
   const LAND_PICK_GRID = 64, LAND_PICK_SEEDS = 4;
-  function svLandPickF(carry, src) {
-    const F = cpuMap(carry.map), H = cpuMap(carry.hmap), N = LAND_PICK_GRID;
-    if (!F || !H) return () => null;
+  // the seeds for Newton's method toward a point w of a carried Landscape: (w, n) -> the n points p of the LAND_PICK_GRID x
+  // LAND_PICK_GRID grid over plane s's box src whose images F(p) are nearest w (the grid is made on the first call)
+  function svLandSeeds(F, src) {
+    const N = LAND_PICK_GRID;
     let pts = null;
     const grid = () => {
       const out = [];
@@ -502,16 +498,28 @@
       }
       return out;
     };
-    const size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
-    return (w) => {
+    return (w, n) => {
       if (!pts) pts = grid();
       const near = [];
       for (const g of pts) {
         const d = Math.hypot(g.q.re - w.re, g.q.im - w.im);
-        if (near.length < LAND_PICK_SEEDS || d < near[near.length - 1].d) { near.push({ d, p: g.p }); near.sort((x, y) => x.d - y.d); if (near.length > LAND_PICK_SEEDS) near.pop(); }
+        if (near.length < n || d < near[near.length - 1].d) { near.push({ d, p: g.p }); near.sort((x, y) => x.d - y.d); if (near.length > n) near.pop(); }
       }
+      return near.map((g) => g.p);
+    };
+  }
+  // The value of the height map at the point w of a carried Landscape at rest (render3D's carry with rest set, a plain
+  // plane or one past T), what the probe picks on and reads: a point p of plane s carried to w (carry.map, Newton's
+  // method from svLandSeeds' LAND_PICK_SEEDS points), and p's image in the height plane (carry.hmap). Where sheets cross
+  // over w, the one whose height is highest, the one a ray from above meets first; null where no point of the box is
+  // carried to w
+  function svLandPickF(carry, src) {
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap);
+    if (!F || !H) return () => null;
+    const seeds = svLandSeeds(F, src), size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
+    return (w) => {
       let best = null, top = -Infinity;
-      for (const { p } of near) {
+      for (const p of seeds(w, LAND_PICK_SEEDS)) {
         const z = newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size);
         if (!z || z.re < src.x0 || z.re > src.x1 || z.im < src.y0 || z.im > src.y1) continue;
         const v = H(z), h = CX.isFin(v) ? landValue(v) : Infinity;
@@ -519,6 +527,27 @@
       }
       return best;
     };
+  }
+  // The sheets of a carried Landscape at rest on plane k past its source plane s (the pick on its sheets,
+  // pickLandSheet): fibre(w, seeds, grid) -> [{z, v}], every point z of plane s's box src that the carry takes to w,
+  // with its image v in the height plane (carry.hmap). They are the exact preimages where the steps (s, k] have them
+  // (exactPre), else Newton's method from seeds (the points of a nearby w, as a ray's march passes them on) and, unless
+  // grid is false, from the LAND_PICK_FIBRE grid points whose images are nearest w, one point for points within
+  // LAND_PICK_SAME of the box's size. fibre.H is the height map, fibre.s the plane s
+  const LAND_PICK_FIBRE = 16, LAND_PICK_SAME = 1e-7;
+  function svLandFibreF(carry, src, k) {
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap);
+    if (!F || !H) return null;
+    const grid = svLandSeeds(F, src), size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
+    const inBox = (z) => z && CX.isFin(z) && z.re >= src.x0 && z.re <= src.x1 && z.im >= src.y0 && z.im <= src.y1;
+    const fibre = (w, seeds, fromGrid = true) => {
+      const ex = exactPre(carry.s, k, [w.re, w.im]), zs = [];
+      const add = (z) => { if (inBox(z) && !zs.some((q) => CX.abs(CX.sub(q, z)) <= LAND_PICK_SAME * size)) zs.push(z); };
+      if (ex) ex.zs.forEach(add);
+      else for (const p of (seeds || []).concat(fromGrid || !seeds ? grid(w, LAND_PICK_FIBRE) : [])) add(newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size));
+      return zs.map((z) => ({ z, v: H(z) }));
+    };
+    return Object.assign(fibre, { H, s: carry.s });
   }
   // a Landscape glide's copies fade in from u = 0 and are whole from u = SV_FADE_END on
   const SV_FADE_END = 0.5;
@@ -2341,17 +2370,18 @@
       const p = reached && reached.get(s);
       // (an open region's outline dashed as at rest, OPEN_DASH along its arc at rest: GLR.drawInverse's st.edge.dash)
       if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => Object.assign(svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k), kindType(x) === 'area' && Region.isOpen(x) ? { dash: OPEN_DASH } : {})); continue; }
-      const map = svShapeMap(s, map0), r = map && !reptExact(map) && shapeGPU(s);
-      if (!r || !r.lineRes) continue;
-      const dash = openDash(r, map);
-      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
+      const map = svShapeMap(s, map0), r = map && shapeGPU(s), o = r && outlineRes(map, r, pane);
+      if (!o) continue;
+      const dash = openDash(o.rec, map);
+      GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: OUTLINE_M, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions: which points of plane k's box are in the carried region set, the set the
   // plane's 2D picture colours (svMask): {cv, key, box, unres}, a canvas over box (512 pixels on its longer side, row 0
   // at its top), opaque white inside the set, clear outside, where the surface is plain (the Plain material's colour),
-  // and opaque black at the pixels a REPT plan left unresolved (unres of them), where it draws the no-value hatch. One
+  // and opaque black at the pixels a REPT plan left unresolved (unres of them; all of them when the plane's repeat is
+  // refused, repeatRefused), where it draws the no-value hatch. One
   // per chain, plane, box and shapes; null with the colour everywhere (Everywhere)
   let svLandMaskC = null;
   // (the number of masks drawn while a program of the pass still linked: each one's key is its own, so the surface's
@@ -2382,11 +2412,15 @@
     svMask(over, stageMap(k), k, { cc });
     // (the pixels a REPT plan left unresolved: counted, and marked opaque black in the mask, where the surface draws
     // the no-value hatch (LAND_FS); never read as uncovered)
-    const unres = reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount(cc) : 0;
+    // (a refused repeat's plan has none to draw it: its mask is the no-value mark everywhere, the surface hatched all over,
+    // as the flat plane is)
+    const refused = repeatRefused(stageMap(k));
+    if (refused) { cc.fillStyle = '#000'; cc.fillRect(0, 0, pw, ph); }
+    const unres = refused ? pw * ph : reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount(cc) : 0;
     // (a pass that left a program linking drew its regions short: the mask is not kept under this key, so the frame
     // that follows the link draws it afresh)
     const linking = !!GLR.frameStatus().pending;
-    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres };
+    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres, refused };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
@@ -2481,6 +2515,9 @@
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
+  // the sheet combos the last globe glide frame drew, the principal one counted (svSphereMoving's; null when it carried no
+  // colour), read by the test hooks
+  let svGlobeSheetsRec = null;
   function svSphereMoving(pane, hold = null) {
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
@@ -2500,18 +2537,29 @@
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
     if (rest) { leftSphereInfo = rest; return; }
     // (all at once, the span's steps each at its own time: svSpanPaths)
-    const inv = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
+    const own = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
+    // (the other sheets' copies under it, svGlideSheets, as the plane draws them: each copy's regions made and drawn with
+    // the chain on that copy's sheets (svOnSheets), the farthest from the principal sheet first, so that a nearer sheet is
+    // drawn over a farther one and the principal one over them all)
+    const sheets = own && map.mode === 1 && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+    const copies = sheets.slice().reverse().flatMap((v) => (svOnSheets(v, () => svGlobeCarryInv(pane, b, u, T)) || []).map((r) => Object.assign(r, { around: (draw) => svOnSheets(v, draw) })));
+    const inv = own && copies.length ? copies.concat(own) : own;
     // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
+    // (and its other sheets' copies under it, as the inverse pass's: each copy's mesh made and drawn on its sheets)
+    const meshSheets = carried && !all && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+    const carriedCopies = meshSheets.slice().reverse().map((v) => ({ carried: svOnSheets(v, () => svGlobeMesh(a, T, svGlideMap(bt, src), a + u)), around: (draw) => svOnSheets(v, draw) })).filter((c) => !!c.carried);
+    svGlobeSheetsRec = inv ? sheets.length + 1 : carried ? meshSheets.length + 1 : null;
     // (under the carried colour, as the plane's frame paints it (svRenderMoving's colour): the arrival plane's own colour
     // when it is a coloured plane, so that a place no point of the glide reaches shows what plane b draws there at rest,
     // not the bare globe. SV.restPaint 0 leaves it out, as on the plane. The plane's second layer, plane a's no-value
     // hatch over it, has no pass on the globe)
     const under = inv && map.mode === 1 && SV.restPaint !== 0 && svColoured(b) && !svMaskOn() ? { colorMap: svColourMap(b), carryBase: true } : null;
-    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }, under))
-      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
+    const sheetCut = SV.glideStencil === 1;
+    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv, sheetCut }, under))
+      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried, carriedCopies, sheetCut } : { carried }));
     if (!inv && !(info && info.carried) && near === b && b !== a) info = sphereView(pane, camL, CAML, look(b));
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
@@ -3502,23 +3550,26 @@
   // svLinkHold; no part while a frame is held between planes or a glide runs); while a pane's last frame had a REPT
   // draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a part not done; while svRedrawDue, the left
   // pane's frame that draws with the program that landed, a part not done. The programs of a view no pane shows are no
-  // part of it (GLR's offView). total is 0 only while the GPU layer or the chain is not up; ready is true only when
-  // done = total > 0; rest: the same without the inverse part. Programs counted that no job asks for any more (the jobs
-  // were dropped when what svInvKey names changed, or a program was evicted after its job) are queued again, unless peek
-  // (a read that starts no work: the test hook's) (test hook: the idle jobs count as unfinished while set)
-  let svJobsHold = false;
+  // part of it (GLR's offView). The warm draw, the REPT draw and the redraw are parts with nothing counted inside them,
+  // one unit done or not, marked whole (the Play gate's ring shows them as unknown, svGateFill). total is 0 only while
+  // the GPU layer or the chain is not up; ready is true only when done = total > 0; rest: the same without the inverse
+  // part. Programs counted that no job asks for any more (the jobs were dropped when what svInvKey names changed, or a
+  // program was evicted after its job) are queued again, unless peek (a read that starts no work: the test hook's)
+  // (test hooks: the idle jobs count as unfinished while svJobsHold is set, the warm draw while svWarmHold is)
+  let svJobsHold = false, svWarmHold = false;
   const svJobsHoldSet = (on) => { svJobsHold = !!on; };
+  const svWarmHoldSet = (on) => { svWarmHold = !!on; };
   function svReady(M, peek = false) {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
     parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
-    parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
+    parts.warm = { done: !svWarmHold && svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1, whole: true };
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
     if (svJobsHold) jobs = 3;
     parts.jobs = { done: 3 - jobs, total: 3 };
-    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1 };
-    if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
+    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1, whole: true };
+    if (svRedrawDue) parts.redraw = { done: 0, total: 1, whole: true };
     // (M: the motion the gate is about to start, whose frames may be drawn ahead once all else is ready, svAheadPart)
     const ahead = M ? svAheadPart(M) : null;
     if (ahead) parts.ahead = ahead;

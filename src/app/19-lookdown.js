@@ -96,7 +96,8 @@
   // whether a press gap css px from a ring of drawn radius r (in: inside it) is on the ring: within LD_HIT / 2 for a
   // mouse; for a finger (finger) within LD_HIT_TOUCH / 2 outside it, and inside it within r / 3 clamped to
   // [LD_HIT / 2, LD_HIT_TOUCH / 2]
-  const ldRingNear = (gap, inside, r, finger) => gap <= (!finger ? LD_HIT / 2 : inside ? Math.min(LD_HIT_TOUCH / 2, Math.max(LD_HIT / 2, r / 3)) : LD_HIT_TOUCH / 2);
+  const ldRingNear = (gap, inside, r, finger) => gap <= (!finger ? LD_HIT / 2
+    : inside ? Math.min(LD_HIT_TOUCH / 2, Math.max(LD_HIT / 2, r / 3)) : LD_HIT_TOUCH / 2);
   // the half width of the lines to a press (finger: a finger's or a pen's)
   const ldLineReach = (finger) => (finger ? LD_HIT_TOUCH : LD_HIT) / 2;
   // the disc whose ring or (with lines) lines are near (x, y) in the left pane, for a press of a finger or not (ldRingNear,
