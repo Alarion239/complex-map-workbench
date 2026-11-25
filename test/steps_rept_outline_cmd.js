@@ -25,6 +25,8 @@
 // - the gallery (the same step repeated twenty times over the square [−2, 2]²): its image covers the plane, and its
 //   carried boundary is scattered by the copies' expansion. The frame with the strokes hidden differs from the frame
 //   with them in at most NOISE_MAX of the canvas's pixels in the shape's ink: no carried outline comes back as noise.
+// - the Landscape's floor, Inside regions (#2400): the bite's footprint is drawn (the strokes change at least FLOOR_MIN
+//   pixels), the gallery's scattered boundary is not (at most NOISE_MAX of the canvas);
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the steps view (ci/suite_views.js). Prints
 // {pass, fails, info}.
 const fails = [], info = {};
@@ -50,6 +52,7 @@ const PAN_STEPS = 10;      // the pan's steps
 const PAN_RUNS_MAX = 1;    // most refinements over the pan
 const REFUSED_N = 20, REFUSED_MAX = 5;   // the refused repeat's count, and the most pixels its strokes may ink
 const NOISE_MAX = 1e-4;    // most share of the gallery's canvas in its shape's ink where the strokes changed it
+const FLOOR_MIN = 200;     // least pixels the bite's floor outline changes
 const SETTLE = 120000;     // ms: the most a wait for the parked plane takes
 const { PARKED_DRAWN, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
@@ -88,7 +91,13 @@ const measure = (tag, id, body) => ev(`(() => {
     return { n, hit };
   };
   const inked = () => { let m = 0; for (let i = 0; i < W * H * 4; i += 4) if (stroke(i)) m++; return { m, of: W * H }; };
-  return (${body})(ring, inked);
+  // (the pixels the strokes changed, in any colour: a footprint on the Landscape's floor is grey, not the shape's ink)
+  const changed = () => {
+    let m = 0;
+    for (let i = 0; i < W * H * 4; i += 4) if (Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > ${DIFF_MIN}) m++;
+    return { m, of: W * H };
+  };
+  return (${body})(ring, inked, changed);
 })()`);
 
 // the point of the rectangle's boundary at arc length d from its corner a, carried by N twice
@@ -196,6 +205,24 @@ const gid = await ev('__cmwShapes().shapes.find((s) => s.visible !== false).id')
 const noise = await measure('G', gid, '(ring, inked) => inked()');
 info.gallery = noise;
 ok(`gallery ×20: the strokes ink at most ${NOISE_MAX} of the canvas in the shape's colour (no scattered outline)`, noise.m / noise.of <= NOISE_MAX, noise);
+
+// ---- the Landscape's floor (#2400): its carried outline by the same rule, the bite's kept and the gallery's dropped
+const floorOf = async (tag, st) => {
+  await view(DESK[0], DESK[1], false, false);
+  await loadView('steps', 'reptolf' + Date.now(), st);
+  if (!st.steps) await loadGallery(SETTLE);
+  await parkInside(SETTLE);
+  await ev("__cmwSteps({ surf: 'land' }), 1");
+  await grabBoth(tag);
+  const id = await ev('__cmwShapes().shapes.find((s) => s.visible !== false).id');
+  return measure(tag, id, '(ring, inked, changed) => changed()');
+};
+const fb = await floorOf('FB', BITE_STATE);
+info.floorBite = fb;
+ok(`bite ×${BITE_N}, Landscape: the floor keeps the shape's outline (at least ${FLOOR_MIN} px the strokes change)`, fb.m >= FLOOR_MIN, fb);
+const fg = await floorOf('FG', {});
+info.floorGallery = fg;
+ok(`gallery ×20, Landscape: the floor draws no scattered outline (the strokes change at most ${NOISE_MAX} of the canvas)`, fg.m / fg.of <= NOISE_MAX, fg);
 
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
