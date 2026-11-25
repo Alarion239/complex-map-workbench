@@ -55,6 +55,8 @@
   // the old layout's other pane for that picture (the shapes plane beside an old Phase or Landscape view): null when
   // the view is one merged panel here (the perf suite then measures X's plane in X → Y, the same picture)
   window.__cmwOtherPane = (mode, sphereMode) => (Views.merged(S.view) ? null : Views.paneOf(mode, sphereMode) === 'L' ? 'R' : 'L');
+  // (the z-plane's meshing window, the left pane's size and the source view it is the window of: tests compare them)
+  window.__cmwClipWin = () => ({ win: Object.assign({}, clipWin), pane: [paneL.w, paneL.h], srcView: Object.assign({}, S.srcView), pending: !!sourceViewChanged.pending, dflt: clipDefault });
   // exact images (SPEC 10.1): the path of every visible area shape in every visible view: [{id, role, viewKind, path, reason}]
   // (entries: each published mesh, its slot `<shape id>|<role>|<kind>` and what its job spent; end: why the job ended,
   // 'done', 'work' or 'nodes' (its deterministic budgets) or 'budgetMs' (the safety stop, cap ms of CPU: a partial mesh
@@ -78,12 +80,13 @@
   window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
   window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
-  // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn): the cell of its finest
-  // level done (css px; null before one; 0 on the globe and the Landscape, whose levels have no cell), whether it is the globe's or
-  // the Landscape's, and its
+  // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn, and landCarryStandIn for
+  // a carried frame at rest): the cell of its finest level done (css px; null before one; 0 on the globe and the Landscape, whose
+  // levels have no cell), whether it is the globe's or the Landscape's, whether it is a carried frame's (carry), and its
   // nodes, its evaluations, CPU ms, slices, the first slice and the longest after it (ms) and why it stopped (null while
   // it runs); null when none
-  /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, globe: !!j.globe, land: !!j.land, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
+  /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, globe: !!j.globe, land: !!j.land, carry: !!j.H, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
+  /** @type {any} */ (window).__cmwCarryStandIn = (n = 9) => { const j = standInJob, g = j && j.H ? j.grid : null; if (!g) return null; const out = []; for (let b = 0; b < n; b++) for (let a = 0; a < n; a++) { const i = 2 * (Math.round(b * (g.ny - 1) / (n - 1)) * g.nx + Math.round(a * (g.nx - 1) / (n - 1))); out.push({ fx: Math.round(a * (g.nx - 1) / (n - 1)) / (g.nx - 1), fy: Math.round(b * (g.ny - 1) / (n - 1)) / (g.ny - 1), w: [g.w[i], g.w[i + 1]], q: [g.q[i], g.q[i + 1]] }); } return { box: j.land, nx: g.nx, nodes: out }; };   // (tests) the finest level done of a carried Landscape's stand-in, n x n of its nodes: the box's fractions, the value w and the place q
   window.__cmwPaths = () => {
     const views = [], out = [];
     if (SV.on) views.push(['L', SV.surf === 'sphere' ? 'globe' : 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L, a globe on the Sphere surface)
@@ -313,6 +316,8 @@
   // o.fast its first pass's budget (GLR.setReptFastNodes; 0: its own), o.holdB its second pass held (GLR.holdReptB);
   // o.tileStats: the tile account since the last read (GLR.reptTiles); o.lose: the GL context lost, then restored at
   // the next task (WEBGL_lose_context); o.ci: the first shape's colour index (a look change, the cache's control);
+  // o.outline: the refinements of a REPT plan's outlines run so far, and the last one's vertices
+  // (outlineRes);
   // o.land: the Landscape mask's unresolved pixels (null: no mask) and the mask's pixels marked no-value (opaque and
   // dark, svLandMask); o.ws [[re, im]]: the CPU twin of the left plane's
   // REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the most and the total root
@@ -334,6 +339,7 @@
       if ('tiles' in o) GLR.setReptTileSolves(o.tiles);
       svLandMaskC = null; requestRender('L', 'R');
     }
+    if (o && o.outline) return { runs: reptOutlineRuns, verts: reptOutlineVerts };
     if (o && o.land) {
       if (!svLandMaskC) return { unresolved: null, marked: null };
       const cv = svLandMaskC.cv, d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
@@ -531,10 +537,12 @@
   // and where the point (re, im) of the glide's plane a is at the glide's u (H_u of svBetween; the point itself at
   // rest); H: that map ({re, im} -> {re, im}, the identity at rest); eye and key: the last frame's camera position and
   // key light direction (drawSphere's, world coordinates); meshWin: the window of the sheet key the last carried mesh
-  // was built with (svGlobeMesh), and clipWin, the tiling's
+  // was built with (svGlobeMesh), and clipWin, the tiling's; sheets: the sheet combos the last glide frame drew, the
+  // principal one counted (null: no carried colour); cut: the path whose copies the last frame drew only where the
+  // principal sheet is not opaque ('inverse' or 'mesh', SV.glideStencil), or null
   window.__cmwSvGlobe = (re, im) => {
     const g = svBetween(), z = C(re, im), w = g.H ? g.H(z) : z, si = leftSphereInfo;
-    return { carried: !!(si && si.carried), path: (si && si.carryPath) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null, H: g.H || ((q) => q), eye: si ? si.eye : null, key: si ? si.key : null, meshWin: svGlobeKeyRec ? Object.assign({}, svGlobeKeyRec.win) : null, clipWin: Object.assign({}, clipWin) };
+    return { carried: !!(si && si.carried), path: (si && si.carryPath) || null, cut: (si && si.cut) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null, H: g.H || ((q) => q), eye: si ? si.eye : null, key: si ? si.key : null, meshWin: svGlobeKeyRec ? Object.assign({}, svGlobeKeyRec.win) : null, clipWin: Object.assign({}, clipWin), sheets: svGlobeSheetsRec };
   };
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
   // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe; globeError: what
@@ -603,17 +611,18 @@
   };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone; clock: ms of glide time a frame, 0 the wall
-  // clock; holdJobs: the idle jobs of svReady count as unfinished; warmInv: false stops the warm-up of the glides at rest
+  // clock; holdJobs: the idle jobs of svReady count as unfinished; holdWarm: its warm draw does; warmInv: false stops the warm-up of the glides at rest
   // (svPrestartInv; true back on); gate: false switches the Play gate off (true back on); play: false
   // ends a wait of the gate too; moving counts a wait; poleFrameMs: a frame's pole search budget; dropTracks: every pole track forgotten; glideSheets: 1 draws a glide's chain as it is alone,
-  // without the other sheets' copies (SV.glideSheets); glideSeams: 0 draws a Landscape glide's copies without their
+  // without the other sheets' copies (SV.glideSheets); glideStencil: 1 draws the sphere's copies only where the
+  // principal sheet is not opaque (SV.glideStencil); glideSeams: 0 draws a Landscape glide's copies without their
   // seams (SV.glideSeams, svGlideSeams); glideFade: the copies' alpha, fixed over the glide (SV.glideFade; null:
   // the fade over u); restPaint: 0 leaves out the arrival plane's picture under a glide's carried colour (SV.restPaint);
   // landBranches: 0 draws the carried Landscape without its patches about the map's branch points (SV.landBranches,
-  // svLandPatches); ahead: { ms, waitMs, cap }, the render-ahead frames' cost at most which a motion plays live, their
-  // longest wait and their memory budget in bytes, each null for the app's own); glide: the last glide frame's record
-  // (svGlideRec), ahead: the render-ahead frames' state (svAheadHook), aheadCost: the chain's measured frame cost
-  // (svAheadCostNow), aheadProbe: how its last probe went (svAheadProbeLog), the three read only when asked (getters: the
+  // svLandPatches); ahead: { ms, waitMs, cap, cost }, the render-ahead frames' cost at most which a motion plays live, their
+  // longest wait and their memory budget in bytes, each null for the app's own, and the chain's frame cost, set once); glide: the last glide frame's record
+  // (svGlideRec), ahead: the render-ahead frames' state (svAheadHook), aheadCost: the chain's frame cost (its probe's, raised by a fill)
+  // (svAheadCostNow), aheadProbe: how its last probe went (svAheadProbeLog), aheadPlan: svAheadPlan's decision for the chain's glides at each speed with its inputs (svAheadPlanHook), the four read only when asked (getters: the
   // chain's key, svAheadKey, is long to make, and a suite may read the glide once a pixel), hold: the plane whose glide waits for its pole
   // tracks (svHoldB), rest: the last plane at rest's (svRestRec);
   // playRec: a play's schedule ({ from, to, ms, t0, el: its time since it started from from, at t0 }), null without a play or for a
@@ -624,10 +633,11 @@
   // svReady's inverse part asks each glide's programs, and a suite may read the glide once a pixel)
   // (x moves the thread's position and nothing else: SV.i stays, so a frame held between planes is drawn with the source view while the labels
   // read the plane's own view, V.left. To read the labels against the picture freeze a glide with clock, as steps_glide_labels does)
-  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'glideSheets' in o) { SV.glideSheets = o.glideSheets; requestRender('L'); } if (o && 'restPaint' in o) { SV.restPaint = o.restPaint; requestRender('L'); } if (o && 'glideSeams' in o) { SV.glideSeams = o.glideSeams; requestRender('L'); } if (o && 'landBranches' in o) { SV.landBranches = o.landBranches; requestRender('L'); } if (o && 'glideFade' in o) { SV.glideFade = o.glideFade; requestRender('L'); } if (o && 'tieBand' in o) { svTieBandSet = o.tieBand; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && 'holdJobs' in o) svJobsHoldSet(o.holdJobs); if (o && 'warmInv' in o) svInvWarmOffSet(!o.warmInv); if (o && 'ahead' in o) svAheadTune(o.ahead); if (o && 'gate' in o) svGateOffSet(!o.gate); if (o && o.play != null) { if (o.play) svPlay(); else { svGateEnd(); svPause(true); } } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { get ready() { return svReady(null, true); }, on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', playRec: SV.play && !SV.play.slide ? { from: SV.play.from, to: SV.play.to, ms: SV.play.ms, t0: SV.play.t0, el: svElapsed(SV.play) } : null, rebased: SV.rebased || null, rebaseMinSpan: SV_REBASE_MIN_SPAN, loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, fits: SV.fits, homAll: !!S.homAll, moving: svMoving() || svGateWaiting(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, note: paneL.noteBox || null, paths: svPathsHook(), glide: svGlideRec, get ahead() { return svAheadHook(); }, get aheadCost() { return svAheadCostNow(); }, get aheadProbe() { return svAheadProbeHook(); }, hold: svHoldB, rest: svRestRec, tieBand: svTieBand(), carryPre: svCarryPre, resolved: GLR.carryResolveFrames ? GLR.carryResolveFrames() : 0, invWarm: svInvWarmKey === svInvKey() && !svInvJobs.length && !svInvFlushing, get invGlides() { return svInvGlides().map((g) => [g.b, g.u]); }, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
-  // the description and ring a waiting control takes for a gauge of v (a share, or null: unknown), on a button apart from
-  // the page (svWaitLook): the wait's words for a screen reader at any gauge, the unknown one included
-  /** @type {any} */ (window).__cmwWaitSay = (v) => { const b = document.createElement('button'); svWaitLook({ btn: b, gauge: () => v, fill: 0 }); return { desc: b.getAttribute('aria-description'), fill: +b.style.getPropertyValue('--wait') }; };
+  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'glideSheets' in o) { SV.glideSheets = o.glideSheets; requestRender('L'); } if (o && 'glideStencil' in o) { SV.glideStencil = o.glideStencil; requestRender('L'); } if (o && 'restPaint' in o) { SV.restPaint = o.restPaint; requestRender('L'); } if (o && 'glideSeams' in o) { SV.glideSeams = o.glideSeams; requestRender('L'); } if (o && 'landBranches' in o) { SV.landBranches = o.landBranches; requestRender('L'); } if (o && 'glideFade' in o) { SV.glideFade = o.glideFade; requestRender('L'); } if (o && 'tieBand' in o) { svTieBandSet = o.tieBand; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && 'holdJobs' in o) svJobsHoldSet(o.holdJobs); if (o && 'holdWarm' in o) svWarmHoldSet(o.holdWarm); if (o && 'warmInv' in o) svInvWarmOffSet(!o.warmInv); if (o && 'ahead' in o) svAheadTune(o.ahead); if (o && 'gate' in o) svGateOffSet(!o.gate); if (o && o.play != null) { if (o.play) svPlay(); else { svGateEnd(); svPause(true); } } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { get ready() { return svReady(null, true); }, on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', playRec: SV.play && !SV.play.slide ? { from: SV.play.from, to: SV.play.to, ms: SV.play.ms, t0: SV.play.t0, el: svElapsed(SV.play) } : null, rebased: SV.rebased || null, rebaseMinSpan: SV_REBASE_MIN_SPAN, loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, fits: SV.fits, homAll: !!S.homAll, moving: svMoving() || svGateWaiting(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, note: paneL.noteBox || null, paths: svPathsHook(), glide: svGlideRec, get ahead() { return svAheadHook(); }, get aheadCost() { return svAheadCostNow(); }, get aheadPlan() { return svAheadPlanHook(); }, get aheadProbe() { return svAheadProbeHook(); }, hold: svHoldB, rest: svRestRec, tieBand: svTieBand(), carryPre: svCarryPre, resolved: GLR.carryResolveFrames ? GLR.carryResolveFrames() : 0, invWarm: svInvWarmKey === svInvKey() && !svInvJobs.length && !svInvFlushing, get invGlides() { return svInvGlides().map((g) => [g.b, g.u]); }, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
+  // the description, ring and state a waiting control takes for a gauge of v (a share, or null: unknown), or for gauges
+  // vs one after another ([v0, v1, ...], one look each), on a button apart from the page (svWaitLook): the wait's words
+  // for a screen reader at any gauge, the unknown one included -> the last look's { desc, fill, wait }
+  /** @type {any} */ (window).__cmwWaitSay = (v) => { const b = document.createElement('button'), vs = Array.isArray(v) ? v : [v], w = { btn: b, gauge: () => vs[0], fill: 0 }; for (const x of vs) { w.gauge = () => x; svWaitLook(w); } return { desc: b.getAttribute('aria-description'), fill: +b.style.getPropertyValue('--wait'), wait: b.dataset.wait }; };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   // the loaded settings and ids, read back plain (a getter: the suites that load a saved state with a key left out or set oddly read what the load made of it)
   /** @type {any} */ (window).__cmwKeys = () => ({ alpha: S.alpha, meshN: S.meshN, nextId: S.nextId, shapeIds: S.shapes.map((s) => s.id), targetIds: S.targets.map((t) => t.id), shapeCi: S.shapes.map((s) => s.ci), shapeColor: S.shapes.map((s) => s.color || null), v3: !!S.v3, v4: !!S.v4, v5: !!S.v5, v6: !!S.v6, focus: S.focus });
@@ -679,5 +689,20 @@ void main() {
         return { w: [w.re, w.im], gpu: Math.abs(buf[q]) < NONE_MIN ? [buf[q], buf[q + 1]] : null, cpu: m0 ? [m0.u.re, m0.u.im] : null, t: st.t };
       });
     };
+  }
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py): the hooks before the app has started. They are set as the
+  // bundle runs, but the page state S stays null until init(), which waits for DOMContentLoaded; a suite polls them right
+  // after a load. While S is null each answers not-ready instead of reading it: __cmwSteps() { ready: { ready: false } },
+  // the others null. Every __cmw* hook set by now is wrapped here: this file's and the files' before it, which the bundle
+  // has run by now
+  {
+    const W = /** @type {any} */ (window), notReady = { __cmwSteps: () => ({ ready: { ready: false } }) };
+    for (const k of Object.keys(W)) {
+      const f = W[k];
+      if (!k.startsWith('__cmw') || typeof f !== 'function') continue;
+      W[k] = Object.assign(function (...a) { return S ? f.apply(this, a) : notReady[k] ? notReady[k]() : null; }, f);
+    }
   }
   // TEST-HOOK
