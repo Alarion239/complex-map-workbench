@@ -88,10 +88,16 @@
   // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
   // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
   function repeatRefused(map) {
+    if (!repeatIn(map)) return false;
+    const m = normalizeMap(map), plan = invPlan(m.a || 0, m.b || 0);
+    return !plan.ok && !!plan.tooLong;
+  }
+  // whether map (the plain map, mode 0) carries through a live Repeat block of more than one copy in its range,
+  // whatever op its plan draws it with: a REPT op when the repeat is the chain's one live step, the copies' own ops
+  // beside another step (Inverse.chainOpts)
+  function repeatIn(map) {
     const m = normalizeMap(map);
-    if ((m.mode || 0) !== 0) return false;
-    const plan = invPlan(m.a || 0, m.b || 0);
-    return !plan.ok && !!plan.tooLong && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
+    return (m.mode || 0) === 0 && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
   }
   // what a pane's open frame says of the no-value hatch it drew (reptHatch, refusedHatch), by pane: glStatusNote says it at the
   // frame's end
@@ -112,31 +118,32 @@
     return plan.ok && plan.ops.some((o) => o.kind === 'REPT');
   }
   // The pieces GLR.drawLines draws each segment of an outline in (its st.M); the most CSS px a piece may span on a
-  // pane under a REPT plan; the halvings a segment may take to get there; the vertices a refined outline may have
+  // pane under a Repeat; the halvings a segment may take to get there; the vertices a refined outline may have
   const OUTLINE_M = 8, REPT_PIECE_PX = 4, REPT_DEPTH = 10, REPT_VERTS = 65536;
   // (for the test hook: the refinements outlineRes has run, a pan within a cell runs none, and the last one's
   // vertices)
   let reptOutlineRuns = 0, reptOutlineVerts = 0;
   // The lines a shape's outline is drawn by on pane under map (r: its shapeGPU record; pane: {view, w, h}, a screen
-  // pane or the Landscape floor's stand-in, kept in its own slot of r.rept), with the record openDash reads
-  // for them: {res, rec}, or null for none. r's own lines, but under a REPT plan, whose copies' expansion can
-  // scatter the boundary carried forward: there the drawn polylines (r.lpolys) are refined for the view, each segment
-  // halved (at most REPT_DEPTH times) until every one of its pieces maps, on the CPU twin, to finite ends at most
-  // REPT_PIECE_PX px apart, or lies with both ends past the same side of a box around the pane, where it draws nothing
-  // on it. A segment that does not get there (the gallery's Repeat ×20), or more than REPT_VERTS vertices, and the
-  // shape has no outline: the exact fill's own edge is its only one. The rule is the resolution at the view, not the
-  // number of copies: the bite at ×2 keeps its outline, zoomed in as at rest. A Repeat no exact plan takes
-  // (repeatRefused) has no outline either: its boundary carried through every copy is as scattered, over the hatch.
-  // Cached on r per pane by its lines and map, the scale's half octave (refined for its largest scale, so the pieces
-  // stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a pane: the box is the view at the
-  // half octave's smallest scale about that place, widened by a pane on each side, so a pan refines again only once it
-  // crosses a pane
+  // pane or the Landscape floor's stand-in, kept in its own slot of r.rept), with the record openDash reads for them:
+  // {res, rec}, or null for none. r's own lines, but under a Repeat (repeatIn: a REPT op or its copies' ops, beside
+  // another step), whose copies' expansion can scatter the boundary carried forward: there the drawn polylines
+  // (r.lpolys) are refined for the view, each segment halved (at most REPT_DEPTH times) until every one of its pieces
+  // maps, on the CPU twin, to finite ends at most REPT_PIECE_PX px apart, or lies with both ends past the same side of
+  // a box around the pane, where it draws nothing on it. A segment that does not get there (the gallery's Repeat ×20),
+  // or more than REPT_VERTS vertices, and the shape has no outline: the exact fill's own edge is its only one. The rule
+  // is the resolution at the view, not the number of copies: the bite at ×2 keeps its outline, zoomed in as at rest. A
+  // Repeat no exact plan takes (repeatRefused) has no outline either: its boundary carried through every copy is as
+  // scattered, over the hatch. Cached on r per pane by its lines and map, the scale's half octave (refined for its
+  // largest scale, so the pieces stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a
+  // pane: the box is the view at the half octave's smallest scale about that place, widened by a pane on each side, so
+  // a pan refines again only once it crosses a pane
   function outlineRes(map, r, pane, slot = pane === paneR ? 'R' : 'L') {
-    // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves REPT)
-    const had = r.rept && r.rept[slot];
-    if (!reptExact(map)) {
+    // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves the
+    // Repeat, or the Repeat is refused)
+    const had = r.rept && r.rept[slot], refused = repeatRefused(map);
+    if (!repeatIn(map) || refused) {
       if (had) { GLR.destroy(had.res); r.rept[slot] = null; }
-      return r.lineRes && !repeatRefused(map) ? { res: r.lineRes, rec: r } : null;
+      return r.lineRes && !refused ? { res: r.lineRes, rec: r } : null;
     }
     const ps = r.lpolys, v = pane.view;
     if (!ps || !ps.length) return null;

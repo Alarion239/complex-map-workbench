@@ -27,6 +27,12 @@
 //   with them in at most NOISE_MAX of the canvas's pixels in the shape's ink: no carried outline comes back as noise.
 // - the Landscape's floor, Inside regions (#2400): the bite's footprint is drawn (the strokes change at least FLOOR_MIN
 //   pixels), the gallery's scattered boundary is not (at most NOISE_MAX of the canvas);
+// - a Repeat beside another step (#2457): the gallery's square under [Newton's map ×MIXED_N, then ×2], parked on
+//   plane 1, where the chain plans the repeat's copies, not a REPT op. Plane 1's map is the same as under [Newton's
+//   map ×MIXED_N] alone, which a REPT op draws, so its outline is the same: refined for the view, not the copies'
+//   scatter. Each chain's strokes on plane 1 have at most MATCH_MAX of their pixels with none of the other's within
+//   MATCH_R px; on the Landscape's floor the lone chain's are all drawn (at most MATCH_MAX missing), and at most
+//   FLOOR_EXTRA of the mixed chain's lie off them (the two floors differ in a patch near the outline);
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the steps view (ci/suite_views.js). Prints
 // {pass, fails, info}.
 const fails = [], info = {};
@@ -50,6 +56,8 @@ const HIT_MIN = 0.9;       // least share of them with a stroke pixel in the sha
 const CTRL_MAX = 0.2;      // most share of them with a stroke pixel in the control's ink
 const PAN_STEPS = 10;      // the pan's steps
 const PAN_RUNS_MAX = 1;    // most refinements over the pan
+const MIXED_N = 10;        // the Repeat's count in the chain with a second step (its copies scatter)
+const MATCH_R = 2, MATCH_MAX = 0.02, FLOOR_EXTRA = 0.1;   // device px, and shares of a chain's stroke pixels
 const REFUSED_N = 20, REFUSED_MAX = 5;   // the refused repeat's count, and the most pixels its strokes may ink
 const NOISE_MAX = 1e-4;    // most share of the gallery's canvas in its shape's ink where the strokes changed it
 const FLOOR_MIN = 200;     // least pixels the bite's floor outline changes
@@ -223,6 +231,52 @@ ok(`bite ×${BITE_N}, Landscape: the floor keeps the shape's outline (at least $
 const fg = await floorOf('FG', {});
 info.floorGallery = fg;
 ok(`gallery ×20, Landscape: the floor draws no scattered outline (the strokes change at most ${NOISE_MAX} of the canvas)`, fg.m / fg.of <= NOISE_MAX, fg);
+
+// ---- a Repeat beside another step: the copies plan it, and its outline is the one a REPT op's plane draws
+const SQUARE = [{ id: 's1', kind: 'rect', a: [-2, -2], b: [2, 2], ci: 0, visible: true }, BITE_STATE.shapes[1]];
+const NEWTON = { type: 'custom', params: { expr: STEP_EXPR, cut: CUT_DEG }, on: true, repeat: { n: MIXED_N, len: 1 } };
+const TIMES2 = { type: 'mul', params: { c: '2' }, on: true };
+// the square under steps parked on plane 1 (on the Landscape when land): its stroke pixels, as indices into the
+// canvas's W columns (in the shape's ink on the plane; any change on the floor, whose footprint is grey)
+const strokes = async (tag, steps, land) => {
+  await view(DESK[0], DESK[1], false, false);
+  await loadView('steps', 'reptolm' + tag + Date.now(), Object.assign({}, BITE_STATE, { shapes: SQUARE, steps }));
+  await parkInside(SETTLE);
+  if (land) await ev("__cmwSteps({ surf: 'land' }), 1");
+  await grabBoth(tag);
+  return ev(`(() => {
+    const K = window.__heldPx, D = K[${JSON.stringify(tag)}], D0 = K[${JSON.stringify(tag + '0')}], c = document.getElementById('canvasL');
+    const W = c.width, H = c.height, idx = [];
+    const ink = [0, 2, 4].map((k) => parseInt(__cmwLook('s1', 'L').edge.replace('#', '').slice(k, k + 2), 16));
+    for (let i = 0; i < W * H * 4; i += 4) {
+      const d = Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > ${DIFF_MIN};
+      if (d && (${land} || [0, 1, 2].every((k) => Math.abs(D[i + k] - ink[k]) <= ${INK_TOL}))) idx.push(i / 4);
+    }
+    return { W, idx };
+  })()`);
+};
+// the share of a's stroke pixels with none of b's within MATCH_R px
+const offShare = (a, b) => {
+  const set = new Set(b.idx), R = MATCH_R;
+  let n = 0;
+  for (const j of a.idx) {
+    const x = j % a.W, y = (j - x) / a.W;
+    let f = false;
+    for (let dy = -R; dy <= R && !f; dy++) for (let dx = -R; dx <= R && !f; dx++) if (set.has((y + dy) * a.W + x + dx)) f = true;
+    if (!f) n++;
+  }
+  return a.idx.length ? n / a.idx.length : 1;
+};
+{
+  const lone = await strokes('ML', [NEWTON], false), mixed = await strokes('MM', [NEWTON, TIMES2], false);
+  info.mixed = { lone: lone.idx.length, mixed: mixed.idx.length, mixedOff: offShare(mixed, lone), loneOff: offShare(lone, mixed) };
+  ok(`Newton ×${MIXED_N}, then ×2, plane 1: the outline is the one Newton ×${MIXED_N} alone draws (at most ${MATCH_MAX} of either's strokes off the other's)`,
+    lone.idx.length >= MIN_EDGE && info.mixed.mixedOff <= MATCH_MAX && info.mixed.loneOff <= MATCH_MAX, info.mixed);
+  const fl = await strokes('FL', [NEWTON], true), fm = await strokes('FM', [NEWTON, TIMES2], true);
+  info.floorMixed = { lone: fl.idx.length, mixed: fm.idx.length, mixedOff: offShare(fm, fl), loneOff: offShare(fl, fm) };
+  ok(`Newton ×${MIXED_N}, then ×2, Landscape: the floor draws the outline Newton ×${MIXED_N} alone draws (at most ${MATCH_MAX} of it missing, ${FLOOR_EXTRA} of its own strokes off it)`,
+    fl.idx.length >= MIN_EDGE && info.floorMixed.loneOff <= MATCH_MAX && info.floorMixed.mixedOff <= FLOOR_EXTRA, info.floorMixed);
+}
 
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
