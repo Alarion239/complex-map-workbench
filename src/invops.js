@@ -1031,7 +1031,7 @@ const InvOps = (() => {
   // later level r' it lies in {|z| >= s REPT_ESC_GROW^(r' - r)} (each step rounded down, at most ENCL_R_MAX). E_r's box
   // holds every disc pushed to level r and its esc is the least escape bound at r (each cell's discs and escape sets
   // enclose its points' images, and the cells cover b).
-  // (cached by P, Q, n and the box, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
+  // (cached by P, Q, n, the box, escR and the disc, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
   // prepares the shape again)
   const ENCL_CACHE = 8, enclCache = new Map();
   function reptEnclose(P, Q, n, b, escR = null, disc = null) {

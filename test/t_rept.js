@@ -301,7 +301,7 @@ const brute2 = (o, L, w) => {
     scored++;
     if (e.verdict === b) same++;
   }
-  check('z^3 x 2 on the tangent disc: every pixel\'s verdict equals the brute force over its 9 chains', same === scored && scored > 500 && pr2.rept.E[2].rad > 0, `${same}/${scored}, pruned ${pruned}`);
+  check('z^3 x 2 on the tangent disc: E_2 has a radius bound, and every pixel\'s verdict equals the brute force over its 9 chains', same === scored && scored > 500 && pr2.rept.E[2].rad > 0, `${same}/${scored}, pruned ${pruned}`);
 }
 
 // ---- 4d. the closed form (a monomial step on a disc region, #2375)

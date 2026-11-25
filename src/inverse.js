@@ -83,7 +83,7 @@ const Inverse = (() => {
       if (!r.ok) return { ok: false, reason: `step ${k}: ${r.reason}`, ops: [], key, a, b, fams: [], injective: false };
       r.ops.forEach((o, i) => { ops.push(Object.assign(Object.create(Object.getPrototypeOf(o)), o, { step: k, node: i })); });
     }
-    if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', ops: [], key, a, b, fams: [], injective: false };
+    if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', tooLong: true, ops: [], key, a, b, fams: [], injective: false };
     // a Repeat chain's REPT op is exact as the plan's only op: its search starts from the pixel's own w (chain error 0)
     // and ends at the shape (Inverse.enumerate's REPT search, the GLSL walker's)
     if (ops.length > 1 && ops.some((o) => o.kind === 'REPT')) return { ok: false, reason: 'a repeated step inverts exactly only as the plane\'s one step', ops: [], key, a, b, fams: [], injective: false };
@@ -399,10 +399,11 @@ const Inverse = (() => {
     const R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
     return { R, rs: R / 8 };
   }
-  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of max(0, log2(rs/|z - p|_per)), c the centre
-  // of W (the point nearest the window's centre in front, continuous across W's edges: a distance to W itself would
-  // tie every point inside it and flip sheets along its sides; |z - c| >= dist(z, W), so every lower bound the walk
-  // takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
+  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of w_p max(0, log2(rs/|z - p|_per)), c the
+  // centre of W (the point nearest the window's centre in front, continuous across W's edges: a distance to W itself
+  // would tie every point inside it and flip sheets along its sides; |z - c| >= dist(z, W), so every lower bound the walk
+  // takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing), each with its weight
+  // w_p in [0, 1] (keyW: 1 unless keySing gave it another)
   // (per: the key's period, or null. A chain periodic in z, F(z + per) = F(z), has its points P in classes modulo per,
   // one listed for each; a point's distance to p is then its distance to the nearest point of p's class, so every copy
   // z + k per of a point beside a pole takes the same penalty and the copies rank by their distance to c alone)
@@ -412,8 +413,8 @@ const Inverse = (() => {
     if (!isFin(z)) return Infinity;
     let D = Math.log2(1 + Math.hypot(z.re - (win.x0 + win.x1) / 2, z.im - (win.y0 + win.y1) / 2) / R);
     if (sing) for (const p of sing) {
-      if (lam && lam.re < -LAM_CUT && p.re === 0 && p.im === 0) D += Math.max(0, Math.log2(rs) - lam.re / LN2);
-      else D += Math.max(0, Math.log2(rs / abs(perReduce(sub(z, p), per))));
+      if (lam && lam.re < -LAM_CUT && p.re === 0 && p.im === 0) D += keyW(p) * Math.max(0, Math.log2(rs) - lam.re / LN2);
+      else D += keyW(p) * Math.max(0, Math.log2(rs / abs(perReduce(sub(z, p), per))));
     }
     return D;
   }
@@ -441,11 +442,18 @@ const Inverse = (() => {
     }
     return null;
   }
-  // Inverse.keyClasses(sing, per) -> sing with one point of each class modulo per (the first, in sing's order)
+  // Inverse.keyW(p) -> the weight of the key's point p: p.w, or 1 when it has none
+  const keyW = (p) => (p.w === undefined ? 1 : p.w);
+  // Inverse.keyClasses(sing, per) -> sing with one point of each class modulo per (the first, in sing's order, with the
+  // largest weight of its class)
   function keyClasses(sing, per) {
     if (!per) return sing.slice();
     const out = [];
-    for (const p of sing) if (!out.some((q) => abs(perReduce(sub(p, q), per)) < 1e-9 * (1 + abs(p)))) out.push(p);
+    for (const p of sing) {
+      const j = out.findIndex((q) => abs(perReduce(sub(p, q), per)) < 1e-9 * (1 + abs(p)));
+      if (j < 0) out.push(p);
+      else if (keyW(p) > keyW(out[j])) out[j] = Object.assign(C(out[j].re, out[j].im), { w: keyW(p) });
+    }
     return out;
   }
   // The sheet order. Keys are compared in octaves of the sheet key D. Two keys tie when they differ by at most the tie
@@ -723,17 +731,25 @@ const Inverse = (() => {
   // Inverse.keySing(plan, win, per) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
   // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
   // pole within 1e-9 (1 + |p|) of an accumulation point is that point, the tolerance dedupe uses for pulled-back points.
-  // per (default keyPeriod(plan)): the key's period, one point of each class modulo it (keyClasses)
-  function keySing(plan, win, per = keyPeriod(plan)) {
+  // per (default keyPeriod(plan)): the key's period, one point of each class modulo it (keyClasses).
+  // wOf(op), when given: the weight in [0, 1] of the poles pulled back from op (its point's w, keyW; a point of weight 0
+  // is left out), for a plan whose ops stand for homotopies at their own times: an All-at-once span's, whose points a
+  // homotopy brings in from infinity weigh its time, so the key goes from the span's first plane's to its last's with no
+  // jump (invSpanPath). Its poles are taken KEY_W_CAP nearest first, so that points left out leave room for the others
+  function keySing(plan, win, per = keyPeriod(plan), wOf = null) {
     let acc = [], poles = [];
     try { acc = accumulation(plan, win); } catch (e) { acc = []; }
-    try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
+    try { poles = singular(plan, win, ['pole'], wOf ? KEY_W_CAP : 4).map((e) => e.z); } catch (e) { poles = []; }
+    if (wOf) poles = poles.map((p) => { const w = wOf(plan.ops[p.op]); return w >= 1 ? p : Object.assign(C(p.re, p.im), { w: Math.max(0, w) }); }).filter((p) => keyW(p) > 0);
     return keyClasses(acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))), per).slice(0, 4);
   }
+  // the poles a weighted keySing takes before it leaves out those of weight 0 (twice the key's 4)
+  const KEY_W_CAP = 8;
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole' | 'crit'}]: the chain's singular
   // points pulled back to the z-plane, finite only, at most cap per kind, nearest win first; 'crit': the ops' critical
   // points (their critical(); an op whose are not known adds none). Lattices (tan, tanh poles; sin, cos, sinh, cosh
-  // critical points) are enumerated only inside expandBox(win, 3).
+  // critical points) are enumerated only inside expandBox(win, 3). Each point's op: the index of the op whose
+  // singular point it was pulled back from
   function singular(plan, win, kinds = ['undef', 'branch', 'pole'], cap = 16) {
     if (!plan || !plan.ok || !plan.ops.length) return [];
     const ops = plan.ops, { refs } = refsOf(plan, win), zb = expandBox(win, 3);
@@ -751,7 +767,7 @@ const Inverse = (() => {
         else src = o.poles.slice();
         if (lat) { if (!bt.has(i)) bt.set(i, boxThrough(ops, i, zb)); src.push(...latticeIn(lat, bt.get(i), refs[i], cap)); }
         if (!src.length) continue;
-        for (const z of pullBack(ops, refs, i, src, zb, cap, bt)) if (z && isFin(z)) pts.push(z);
+        for (const z of pullBack(ops, refs, i, src, zb, cap, bt)) if (z && isFin(z)) pts.push(Object.assign(C(z.re, z.im), { op: i }));
       }
       pts = dedupe(pts);
       pts.sort((a, b) => (boxDist(win, a) - boxDist(win, b)) || (abs(sub(a, cz)) - abs(sub(b, cz))));
@@ -1270,7 +1286,9 @@ const Inverse = (() => {
         if (!isZero(T[2])) {
           const pAcc = div(T[0], T[2]);
           prep.stopOp = inner;
-          prep.stopMob = { T, uPole: neg(div(T[3], T[2])), pAcc, pInP: prep.sing.some((p) => abs(sub(p, pAcc)) < 1e-9 * (1 + abs(p))) };
+          // (pInP: the weight of pAcc in the key's points P, keyW; 0 when it is not one of them)
+          const inP = prep.sing.find((p) => abs(sub(p, pAcc)) < 1e-9 * (1 + abs(p)));
+          prep.stopMob = { T, uPole: neg(div(T[3], T[2])), pAcc, pInP: inP ? keyW(inP) : 0 };
         }
       }
     }
@@ -1652,10 +1670,7 @@ const Inverse = (() => {
             } else if (isFin(lf.z)) {
               const sm = prep.stopMob, du = sub(mem.u, sm.uPole), dir = goUp ? 1 : -1;
               if ((du.re * F.p.re + du.im * F.p.im) * dir >= 0) {
-                const r = abs(sub(lf.z, sm.pAcc)), p = sm.pAcc, W = prep.win;
-                const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
-                const LB = Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + (sm.pInP ? Math.max(0, Math.log2(prep.rs / r)) : 0);
-                stop = LB > DK() + stopBand(DK());
+                stop = mobStopLB(prep, sm, lf.z) > DK() + stopBand(DK());
               }
             }
             if (stop) { if (goUp) aU = false; else aD = false; }
@@ -1718,6 +1733,14 @@ const Inverse = (() => {
   // the same bound (gl.js, P2). (13.14) The members still to come start at the NEXT member, z_m + dir q (additive) or
   // za + (z_m - za) e^(dir Re S) (ROOTPOW), so the rays and the segment start there: a side stops as soon as the member
   // after the one just visited is provably behind the front, not after visiting it.
+  // The Möbius stop's bound (3.6): the members still to come lie within r = |z - pAcc| of the accumulation point pAcc,
+  // so their key is at least log2(1 + max(0, dist(pAcc, W) - r) / R) plus, when pAcc is one of the key's points P, its
+  // weight times max(0, log2(rs / r)) (sm.pInP). The GPU's ixStop implements the same bound
+  function mobStopLB(prep, sm, z) {
+    const r = abs(sub(z, sm.pAcc)), p = sm.pAcc, W = prep.win;
+    const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
+    return Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + sm.pInP * Math.max(0, Math.log2(prep.rs / r));
+  }
   function affStopLB(prep, F, sp, lf, goUp) {
     if (!sp || sp.kind !== 'clip') return -Infinity;
     const zm = lf.z, dir = goUp ? 1 : -1, W = prep.win;
@@ -1733,7 +1756,7 @@ const Inverse = (() => {
     let lb = Math.log2(1 + rayBoxDist(z, sub(za, z), 1, W) / prep.R);
     for (const p of prep.sing || []) {
       const far = Math.max(abs(sub(z, p)), abs(sub(za, p)));
-      if (far < prep.rs) lb += Math.log2(prep.rs / far);
+      if (far < prep.rs) lb += keyW(p) * Math.log2(prep.rs / far);
     }
     return lb;
   }
@@ -2111,7 +2134,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH, REPT_CF_TAYLOR,
-    stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
+    stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

@@ -1,6 +1,6 @@
   // ---------- landscape (spec 6.9) ----------
   const HEIGHT = glsl`
-uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip;
+uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip; uniform float uHComp;
 // (height, valid) of a value w; the same formulas as the JS heightOf
 vec2 heightW(vec2 w) {
   bool nanx = isnan(w.x) || !(w.x < 0.0 || w.x >= 0.0), nany = isnan(w.y) || !(w.y < 0.0 || w.y >= 0.0);
@@ -8,12 +8,14 @@ vec2 heightW(vec2 w) {
   float mu = uMu > 0.0 ? uMu : 1.0;
   // linear Re / Im (modes 4, 5): the stacked sheets of a covering surface keep their true pitch (atan made plateaus).
   // The block ends at 1.25 H; the landscape's mesh (uHClip > 0) keeps heights up to uHClip H and is clipped at the
-  // block exactly (LAND_SHEET_VS), everything else (the probe) stops at the block
+  // block exactly (LAND_SHEET_VS), everything else (the probe) stops at the block. uHComp: the share of the compressed
+  // height (modes 2, 3) in it, on a carried glide between a plane drawn linear and one drawn compressed
   if (uHMode == 4 || uHMode == 5) {
     float x = uHMode == 4 ? w.x : w.y;
     bool bad = uHMode == 4 ? nanx : nany;
-    float lim = uHClip > 0.0 ? uHClip : 1.25;
-    return vec2(uH * clamp(x / mu, -lim, lim), bad ? 0.0 : 1.0);
+    float lim = uHClip > 0.0 ? uHClip : 1.25, l = clamp(x / mu, -lim, lim);
+    if (uHComp > 0.0) l = mix(l, (2.0 / PI) * atan(clamp(x / mu, -1e30, 1e30)), uHComp);
+    return vec2(uH * l, bad ? 0.0 : 1.0);
   }
   // linear with a soft knee (modes 6, 7: All sheets while deforming): linear up to mu, then levelling off to 1.25 mu
   if (uHMode == 6 || uHMode == 7) {
@@ -593,6 +595,29 @@ void main() {
   tfOut = cfin(q) ? vec4(q, 0.0, 1.0) : vec4(0.0);
 }
 `;
+  // the carried All sheets' places sheet by sheet: each sheet's cells' corners (LAND_SHEET_TF_VS's tiles: 2M x 2M
+  // texels a combo, uTileC tiles a row, M = uN - 1 cells a side, over the box uBox or a pole's patch, CARRY_ZIN) moved
+  // by the glide's map on that sheet (mapSheet, the map's uniforms: its steps applied from the stage uBase, with the
+  // digits of the sheets' heights, (uSheetA, uSheetB]), so each sheet stands over its own image: (place x, y, 0,
+  // finite). LAND_SHEET_VS reads them with uCPS 1
+  const LAND_CARRY_PLACE_S_TF_VS = () => SHEET_MAP + `
+uniform int uN; uniform vec4 uBox; uniform int uSheetK; uniform int uTileC; uniform int uTexW;
+out vec4 tfOut;
+` + CARRY_ZIN + `
+void main() {
+  int T = 2 * (uN - 1);
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  tfOut = vec4(0.0);
+  ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
+  ivec2 tile = p / T, qq = p - tile * T;
+  int combo = tile.y * uTileC + tile.x;
+  if (combo >= uSheetK) return;
+  ivec2 cell = qq / 2, cor = qq - cell * 2;
+  vec2 q = mapSheet(carryZIn(uBox, vec2(cell) + 0.5), carryZIn(uBox, vec2(cell + cor)), combo);
+  tfOut = cfin(q) ? vec4(q, 0.0, 1.0) : vec4(0.0);
+}
+`;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
   // across a tear (a step over uLim on the plane) or a height step over uStep), and the occlusion of the heights over
   // the grid (LAND_AO, as at rest)
@@ -989,12 +1014,19 @@ ${ref ? `  if (uPass == 1) { tfOut = lv; return; }
 uniform highp sampler2D uT1; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
 uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; uniform int uRefT; uniform int uRefOn; uniform float uZBias;
-// the carried sheets (uCarry 1, the steps view's glide): the grid corners' places under the glide's map (uCP, over the grid
-// of the cells, uN x uN; LAND_CARRY_PLACE_TF_VS) in the block over uCBox; a triangle with a corner not finite or an edge over
-// uCLim on the plane (torn across a cut or a pole of the map) is left out
+// the carried sheets (uCarry 1, the steps view's glide): the cells' corners' places under the glide's map (uCP) in the
+// block over uCBox, each sheet's own on it (uCPS 1, LAND_CARRY_PLACE_S_TF_VS, in uT1's tiles) or, until that program
+// has run, the principal sheet's grid's for every sheet (uN x uN, LAND_CARRY_PLACE_TF_VS); a triangle with a corner not
+// finite or an edge over uCLim on the plane (torn across a cut or a pole of the map) is left out
 // A pole's patch (uPatch 1): the same, over the grid of the patch (CARRY_Z, uPolar), whose cells carry their own heights
 // uCP and uT1 are the patch's too
 uniform highp sampler2D uCP; uniform int uCarry; uniform vec4 uCBox; uniform float uCLim; uniform int uPatch;
+uniform int uCPS;
+// a corner's place: its sheet's own (uCPS 1, LAND_CARRY_PLACE_S_TF_VS: uT1's tiles) or the grid's, every sheet's
+vec4 cpAt(int combo, ivec2 c, ivec2 cor) {
+  if (uCPS == 1) return texelFetch(uCP, ivec2(combo % uTileC, combo / uTileC) * (2 * (uN - 1)) + 2 * c + cor, 0);
+  return texelFetch(uCP, c + cor, 0);
+}
 ` + CARRY_ZIN + glsl`
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc; flat out int vCombo;
@@ -1018,7 +1050,7 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     // the vertex's place: the cell's four corners' places by bilinear weights, the tangents of the moved sheet from
     // their differences (the slopes of the height at rest, nrm, carried over) in the block over uCBox
     vec2 f = q.xy / 16.0 - vec2(c);
-    vec4 p00 = texelFetch(uCP, c, 0), p10 = texelFetch(uCP, c + ivec2(1, 0), 0), p01 = texelFetch(uCP, c + ivec2(0, 1), 0), p11 = texelFetch(uCP, c + ivec2(1, 1), 0);
+    vec4 p00 = cpAt(combo, c, ivec2(0, 0)), p10 = cpAt(combo, c, ivec2(1, 0)), p01 = cpAt(combo, c, ivec2(0, 1)), p11 = cpAt(combo, c, ivec2(1, 1));
     vec2 pl = mix(mix(p00.xy, p10.xy, f.x), mix(p01.xy, p11.xy, f.x), f.y);
     vec2 toW = 2.0 * uAspect / uCBox.zw;
     vPos = vec3(((pl - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, q.z);
@@ -1026,14 +1058,17 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     vec2 rest = 2.0 * uAspect / float(M);
     float nz = max(nrm.z, 1e-6);
     vec3 tx = vec3(dx, -nrm.x / nz * rest.x), ty = vec3(dy, -nrm.y / nz * rest.y);
-    if (uPatch == 1) {
-      // (a patch's cells are not the plane's grid: the slopes come from the cell's four corners, each at its place)
+    if (uPatch == 1 || uCPS == 1) {
+      // (a patch's cells are not the plane's grid, and a sheet on its own places is moved by its own map: the slopes
+      // come from the cell's four corners, each at its place and height)
       ivec2 o = ivec2(combo % uTileC, combo / uTileC) * (2 * M) + 2 * c;
       vec3 P00 = vec3(((p00.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o, 0).x);
       vec3 P10 = vec3(((p10.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 0), 0).x);
       vec3 P01 = vec3(((p01.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(0, 1), 0).x);
       vec3 P11 = vec3(((p11.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 1), 0).x);
       tx = mix(P10 - P00, P11 - P01, f.y); ty = mix(P01 - P00, P11 - P10, f.x);
+    }
+    if (uPatch == 1) {
       vZ = carryZIn(vec4(0.0), vec2(c) + f);
       vZc = carryZIn(vec4(0.0), vec2(c) + 0.5);
     }
@@ -1086,7 +1121,7 @@ void main() {
   }
   if (!(ta.y > 0.5 && tb.y > 0.5 && tc.y > 0.5)) return;
   if (uCarry == 1) {
-    vec4 ca = texelFetch(uCP, c + A, 0), cb = texelFetch(uCP, c + B, 0), cc = texelFetch(uCP, c + C, 0);
+    vec4 ca = cpAt(combo, c, A), cb = cpAt(combo, c, B), cc = cpAt(combo, c, C);
     if (ca.w < 0.5 || cb.w < 0.5 || cc.w < 0.5) return;
     if (length(ca.xy - cb.xy) > uCLim || length(cb.xy - cc.xy) > uCLim || length(cc.xy - ca.xy) > uCLim) return;
   }
@@ -1152,13 +1187,20 @@ uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
 // mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster; with uMaskCut 1,
-// the Landscape's Inside regions, the surface is not drawn there at all)
+// the Landscape's Inside regions, the surface is not drawn there at all. A pixel opaque and black in the mask is one a
+// REPT plan left unresolved (svLandMask): noValueAt is 1 there, and the surface draws the no-value hatch)
 uniform sampler2D uMask; uniform float uMaskOn; uniform float uMaskCut; uniform vec4 uMaskBox;
 const float CUT_EDGE_INK = 0.85;     // the outline along the edge of a cut surface: its share of the colour
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
   return texture(uMask, vec2(uv.x, 1.0 - uv.y)).a;
+}
+float noValueAt(vec2 z) {
+  if (uMaskOn < 0.5) return 0.0;
+  vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
+  vec4 m = texture(uMask, vec2(uv.x, 1.0 - uv.y));
+  return clamp(m.a - m.r, 0.0, 1.0);
 }
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
@@ -1208,16 +1250,28 @@ vec3 cueTint(vec3 c, float s) {
 // 1 (45 degrees) keep F as it is: there the step along the gradient is not small. (Not in the base cells' program, land:
 // its fragment stage stays the base's, r3 cold opens: with this in it, a heavy formula's first Landscape held the GPU
 // process 0.7 to 0.8 s where the base did not stall; the base cells are the flat ones, a wall is refined)
-${lite ? '' : glsl`vec2 facetW(vec2 w) {
+${lite ? '' : glsl`// the inverse of the linear height (modes 4, 5) with its compressed share uHComp: h = (1 - c) x + c (2/pi) atan x, by
+// Newton's method from the blend of the two inverses (the function rises everywhere, so it settles in a few steps:
+// LIN_INV_STEPS; LIN_INV_EDGE keeps the compressed inverse's tan finite)
+const int LIN_INV_STEPS = 6;
+const float LIN_INV_EDGE = 0.999;
+float linInv(float h) {
+  float c = clamp(uHComp, 0.0, 1.0);
+  if (c <= 0.0) return h;
+  float x = mix(h, tan(0.5 * PI * clamp(h, -LIN_INV_EDGE, LIN_INV_EDGE)), c);
+  for (int i = 0; i < LIN_INV_STEPS; i++) x -= ((1.0 - c) * x + c * (2.0 / PI) * atan(x) - h) / ((1.0 - c) + c * (2.0 / PI) / (1.0 + x * x));
+  return x;
+}
+vec2 facetW(vec2 w) {
   vec3 nf = normalize(vNor);
   float wt = smoothstep(1.0, 2.0, length(nf.xy) / max(abs(nf.z), 1e-4));
   vec2 ht = heightW(w);
   if (!(wt > 0.0) || ht.y < 0.5) return w;
   float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
   if (uHMode >= 2) {
-    // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
+    // (the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
-    float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * h : mu * tan(0.5 * PI * hc);
+    float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * linInv(h) : mu * tan(0.5 * PI * hc);
     if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
     return w;
   }
@@ -1275,9 +1329,12 @@ ${sheet ? glsl`  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): 
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
   // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile. The carried
-  // surface goes on past its box's edge (the patches of CARRY_Z), so its rim is where the block's sides clip it
+  // surface, and the carried sheets, go on past their box's edge (the patches of CARRY_Z), so their rim is where the
+  // block's sides clip them
 ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
-  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}
+  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}${sheet ? glsl`
+  // (carried sheets: the block's sides, as the carried surface's; their patches' z lies outside the box)
+  if (uCarry == 1) er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : ''}
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
   // where the block's top or bottom clips the surface: the same rim as the domain's edges
   rim = max(rim, max(max(vBoxE.x * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.x)),
@@ -1298,6 +1355,8 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
   }
   // (a carried copy fading in: uFade its transparency, premultiplied; 0 everywhere else)
   o = ${carry ? 'vec4(toSrgb(fogged(c, vPos)) * (1.0 - uFade), 1.0 - uFade)' : 'vec4(toSrgb(fogged(c, vPos)), 1.0)'};
+  // (a point the region mask marks unresolved: the flat planes' no-value hatch, opaque and unlit)
+  o.rgb = mix(o.rgb, nanHatch(gl_FragCoord.xy, uDpr) * o.a, noValueAt(vZ));
 ${carry ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
 `;
   const FLOOR_VS = `
