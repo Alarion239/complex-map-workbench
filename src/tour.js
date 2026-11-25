@@ -224,7 +224,7 @@ const Tour = (() => {
       id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 4, scene: 'strip',
       steps: [
         // (pictures: the chain shows its cards' pictures for this step, Pictures rather than Names and tall enough;
-        // the user's setting comes back when the tour leaves the step, and a note says so when it was changed)
+        // the tour leaves the step by putting the user's setting back, and a note says so when the step had changed it)
         { id: 'cards', anchor: 'chain', also: ['viewSwitch'], pictures: true, title: 'Cards follow the view', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
           touch: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.', deskTouch: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.', phoneFine: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.',
@@ -2539,8 +2539,7 @@ const Tour = (() => {
     const tr = tryOf(step);
     const end = (t) => (/[.!?…]\s*$/.test(t) ? t.trim() : t.trim() + '.');
     const line = tr ? plainCopy(tryFor(tr), modKey()) : step.lead ? plainCopy($t(leadFor(step)), modKey()) : '';
-    // (what the tour changed in the user's settings for this step, and that they come back, is said to a screen reader: the
-    // Details panel that showed it as text is gone)
+    // (what the tour changed in the user's settings for this step, and that they come back, is said to a screen reader)
     const notes = (r.picNote && step.pictures ? ' ' + $t('The tour turns the cards\' pictures on for this step; your setting comes back after it.') : '')
       + (r.sndNote && step.hear ? ' ' + $t('The tour turns Hear the function on for this step; your setting comes back after it.') : '');
     r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k: r.countText, title: stepTitle(step) }) + (line ? end(line) : '') + notes;
