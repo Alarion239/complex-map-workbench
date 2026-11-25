@@ -83,7 +83,8 @@
   // Look down's), counted on a grid of TUBE_CELL px. It first tries the place it had at the last frame (tubeKept), sliding
   // within TUBE_NUDGE steps of it where that is blocked; failing that it takes the first of TUBE_SPOTS beside its dot (the dot
   // at the plate's end or corner) that is clear, on one line and then on two (broken at the space nearest the middle); where
-  // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate;
+  // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate when
+  // the plate is a plate height or more away (nearer, a leader would read as a dash after the words);
   // where there is none, the spot beside the dot over the fewest marks. Each label's box [x0, y0, x1, y1] (css px, the
   // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it
   const TUBE_SPOTS = ['right', 'left', 'above right', 'above left', 'below right', 'below left'];
@@ -122,7 +123,7 @@
         for (let k = 0; k <= TUBE_NUDGE && !best; k++) for (let a = 0; a < (k ? TUBE_NUDGE_DIRS : 1) && !best; a++) {
           const x0 = x + kept.off[0] + k * TUBE_STEP * Math.cos(a * TAU / TUBE_NUDGE_DIRS), y0 = y + kept.off[1] + k * TUBE_STEP * Math.sin(a * TAU / TUBE_NUDGE_DIRS), b = [x0, y0, x0 + w, y0 + h];
           const cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
-          if (inRoom(b) && dd <= TUBE_NEAR * h && over(b) === 0) best = { b, lines: held, hits: 0, leader: dd > TUBE_DOT + g ? [cx, cy] : null };
+          if (inRoom(b) && dd <= TUBE_NEAR * h && over(b) === 0) best = { b, lines: held, hits: 0, leader: dd >= h ? [cx, cy] : null };
         }
       }
       for (const lines of best ? [] : options) {
@@ -143,7 +144,7 @@
         const [w, h] = size(lines);
         for (let y0 = R[1]; y0 + h <= R[3]; y0 += TUBE_STEP) for (let x0 = R[0]; x0 + w <= R[2]; x0 += TUBE_STEP) {
           const b = [x0, y0, x0 + w, y0 + h], cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
-          if ((!best || dd < best.dd) && over(b) === 0) best = { b, lines, hits: 0, leader: [cx, cy], dd };
+          if ((!best || dd < best.dd) && over(b) === 0) best = { b, lines, hits: 0, leader: dd >= h ? [cx, cy] : null, dd };
         }
       }
       if (!best) best = near || (() => { const [w, h] = size([L.text]), x0 = Math.max(R[0], Math.min(R[2] - w, x + g - P)), b = [x0, y - h / 2, x0 + w, y + h / 2]; return { b, lines: [L.text], hits: over(b), leader: null }; })();

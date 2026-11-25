@@ -322,7 +322,8 @@
   // floor {p, z}, glass {p, w}, each with on) and the level a hover, a click and a held press there pick; o.same: {yaw, pitch}
   // draws the Stack's frame at that camera for the left pane as it is now, the floor on its main canvas and the rest on
   // a canvas of the overlay's size, and counts the device px where each differs from the pane's own frame before it
-  // ({main, over, px}); the pane is drawn again after
+  // ({main, over, px}); the pane is drawn again after; o.forget: the places the labels kept are cleared (tubeKept), so the next
+  // frame places each from its spots alone
   window.__cmwStack = (o) => {
     const cx = (q) => q && [q.re, q.im];
     if (o && o.forget) { tubeKept.clear(); return true; }   // (tests) no label keeps a place: the next frame places each from its spots alone

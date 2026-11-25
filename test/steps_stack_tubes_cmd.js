@@ -245,16 +245,21 @@ for (const P of platePlaces) {
 const TURN_HOP = 10, TURN_HOPS = 2;
 for (const [name, w, h, phone] of [['phone 360 × 640', 360, 640, true], ['desk 1440 × 900', 1440, 900, false]]) {
   await open('M1', { w, h, phone });
-  const rel = [];
+  const rel = [], leads = [];
   if (await hooked()) for (let k = 0; k <= 30; k++) {
     await ev(`__cmwCam('L', { yaw: ${-30 * DEG} + ${k} * ${3 * DEG}, pitch: ${40 * DEG} }); 1`);
     await frames();
     const d = await drawn(), L = d && d.tubes && d.tubes.labels[0];
     if (L && L.box) rel.push([L.box[0] - L.at[0], L.box[1] - L.at[1]]);
+    if (L && L.leader) leads.push({ len: Math.hypot(L.leader[0] - L.at[0], L.leader[1] - L.at[1]), h: L.box[3] - L.box[1] });
   }
   const hops = rel.slice(1).map((q, i) => Math.hypot(q[0] - rel[i][0], q[1] - rel[i][1])).filter((x) => x > TURN_HOP);
   info['turn ' + name] = { frames: rel.length, hops: hops.map((x) => +x.toFixed(0)) };
   ok(`narrowing label, a 90° turn at Tilt, ${name}: it moves against its dot at most ${TURN_HOPS} times by more than ${TURN_HOP} px`, rel.length === 31 && hops.length <= TURN_HOPS, info['turn ' + name]);
+  // (a leader shorter than a plate height reads as a dash after the words: the plate lies nearer than that with none)
+  const short = leads.filter((q) => q.len < q.h);
+  info['turn ' + name].leaders = { n: leads.length, short: short.slice(0, 4).map((q) => +q.len.toFixed(1)) };
+  ok(`narrowing label, a 90° turn at Tilt, ${name}: no leader line is shorter than the plate is high`, rel.length === 31 && short.length === 0, info['turn ' + name]);
 }
 
 // the tubes' cost a frame while a phone's Tilt turns (M3, the CPU slowed 4×, as the perf suite's phone): reported, not
