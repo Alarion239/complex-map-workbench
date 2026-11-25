@@ -1,23 +1,26 @@
-  // ---------------- the Stack's tubes: each piece of the preimage carried up the straight strands to the disc ----------------
-  // A strand joins a floor point z to F(z) on the glass (F: the map from the plane shown to the disc's plane) in a
-  // straight line: at height s, 0 the floor and 1 the glass, it is at (1 − s)·z + s·F(z) in the floor's own coordinates,
-  // so the box's slice at s is the graph of F turned in C². A piece of the disc's preimage (Pieces.count, the readout
-  // card's) is bounded by loops of preimages of the disc's rim, so the strands from its loops make a tube from its lit
-  // patch on the floor up to the rim on the glass. A tube is drawn as its slices, bottom to top, with the strands between
-  // two slices drawn before the upper one: the camera is above the floor, so along any line of sight a higher slice is
-  // nearer, and that order is the order in depth. The critical strands and the lines from the floor to the glass (the
-  // 'lines' layer) span every height and are drawn over all the slices, which are nearly clear. Each piece takes
-  // one colour (TUBE_INKS: the shapes' theme colours, the violet first), filled even-odd so a piece's holes stay open.
-  // Every TUBE_RULE_EVERY-th strand of a loop is drawn, and each critical point's strand rises, dotted in the cut's red
-  // (the join ring is dashed), to its critical value. Near a preimage z₀ of the centre, the slice at s is the loop scaled by (1 − s) + s·F′(z₀):
-  // where F′(z₀) is a negative real number that is 0 at s = 1 / (1 − F′(z₀)), so the tube narrows to a point there,
-  // which is not a join, and a label says so, drawn last, over the glass.
+  // ---------------- the Stack's tubes: each piece of the preimage carried up its connectors to the disc ----------------
+  // A connector (19-stack-links.js) carries a floor point z up to F(z) on the glass (F: the map from the plane shown to
+  // the disc's plane): straight, at height s, 0 the floor and 1 the glass, it is at (1 − s)·z + s·F(z) in the floor's own
+  // coordinates, so the box's slice at s is the graph of F turned in C²; curved, it follows the glide's own path. A piece
+  // of the disc's preimage (Pieces.count, the readout card's) is bounded by loops of preimages of the disc's rim, so the
+  // connectors from its loops make a tube from its lit patch on the floor up to the rim on the glass. A tube is drawn as
+  // its slices, bottom to top, with the strands between two slices drawn before the upper one: the camera is above the
+  // floor, so along any line of sight a higher slice is nearer, and that order is the order in depth. The critical
+  // strands and the lines from the floor to the glass (the 'lines' layer) span every height and are drawn over all the
+  // slices, which are nearly clear. Each piece takes one colour (TUBE_INKS: the shapes' theme colours, the violet
+  // first), filled even-odd so a piece's holes stay open. Every TUBE_RULE_EVERY-th strand of a loop is drawn, and each
+  // critical point's strand rises, dotted in the cut's red (the join ring is dashed), to its critical value. Straight,
+  // near a preimage z₀ of the centre the slice at s is the loop scaled by (1 − s) + s·F′(z₀): where F′(z₀) is a negative
+  // real number that is 0 at s = 1 / (1 − F′(z₀)), so the tube narrows to a point there, which is not a join, and a label
+  // says so, drawn last, over the glass; curved, a slice torn by a glide's cut is labelled the same way.
   // The tubes, the critical strands and the labels stand up out of the floor: they fade in with the tilt (stackTilt), at
   // full strength from TUBE_FULL_TILT, and straight down they are not drawn, so that frame is Look down's.
   const TUBE_PTS = 64, TUBE_LEVELS = 10, TUBE_RULE_EVERY = 8;
   const TUBE_INKS = [5, 0, 2, 3, 1, 4, 6, 7];   // TH.c's colours in the pieces' order
   const TUBE_FILL_A = 0.08, TUBE_RING_A = 0.4, TUBE_RULE_A = 0.6;
   const TUBE_FULL_TILT = 0.5;                  // cos(pitch) at 60°
+  // how far the tubes stand up at a tilt: 0 straight down, 1 from TUBE_FULL_TILT
+  const tubeFade = (tilt) => Math.min(1, tilt / TUBE_FULL_TILT);
   const NARROW_TOL = 1e-6;                     // F′ counts as real when |Im F′| ≤ NARROW_TOL·|F′|
   const TUBE_CRIT_DOTS = [0, 4];               // css px: a critical strand's dots (round caps make each dash of length 0 a dot)
   const TUBE_DOT = 2.5, TUBE_LABEL_DX = 7, TUBE_FONT = 12, TUBE_PLATE = 3;   // css px: a narrowing's dot, its words' gap from it, their size, their plate's margin
@@ -63,8 +66,9 @@
     while (tubeCache.size > 16) tubeCache.delete(tubeCache.keys().next().value);
     return d;
   }
-  // a number or a complex number as the labels write it: the language's decimal mark and a true minus sign
-  const tubeNum = (z) => I18N.num(CX.fmt(z, 3)).replace(/-/g, '−');
+  // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
+  // one number) and a true minus sign
+  const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
   // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map named as the plane's title names it)
   function tubeNarrowText(n) {
     const name = svMapName('text', leftStage(), shapeStage(findShape(selected))) || 'f', f = name.includes('∘') ? `(${name})` : name;
@@ -90,10 +94,11 @@
     ctx.restore();
   }
   // The tubes of disc s on ctx (the pane's overlay, css px) for the flat view of pane, seen through the floor's and the
-  // glass's level maps Fm and Gm at the given tilt; the critical points crit (plane points) get their dashed strands.
+  // glass's level maps Fm and Gm at the given tilt, along the connectors ln (stackLinks': the tubes' loops, and the
+  // critical points' strands, dotted). Straight, a narrowing is labelled; curved, a slice the glide's cut tears is.
   // Returns what was drawn, in the plane's coordinates and the pane's css px (stackDrawn's tubes), or null
-  function drawStackTubes(pane, ctx, s, Fm, Gm, tilt, crit) {
-    const d = tubeData(s), fade = Math.min(1, tilt / TUBE_FULL_TILT);
+  function drawStackTubes(pane, ctx, s, Fm, Gm, tilt, ln) {
+    const d = tubeData(s), fade = tubeFade(tilt);
     if (!d || fade <= 0) return null;
     // a plane point at height t, through the level map at t (the levels' maps are affine in the height)
     const at = (p, t) => {
@@ -101,41 +106,46 @@
       return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
     };
     const mix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
-    const ink = (P) => TH.c[P.ink];
+    const ink = (P) => TH.c[P.ink], per = LINK_N / TUBE_LEVELS;
+    // (a point's path through the heights J0..J1 of the connectors' samples)
+    const path = (get, J0, J1) => { for (let J = J0; J <= J1; J++) { const q = at(get(J), J / LINK_N); if (J === J0) ctx.moveTo(...q); else ctx.lineTo(...q); } };
     ctx.save();
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     for (let j = 0; j <= TUBE_LEVELS; j++) {
-      const t0 = (j - 1) / TUBE_LEVELS, t = j / TUBE_LEVELS;
       // every piece's strands between the slice below and this one, then every piece's slice here (its fill, and its ring)
       if (j > 0) {
-        for (const P of d.pieces) {
+        d.pieces.forEach((P, n) => {
           ctx.globalAlpha = TUBE_RULE_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.beginPath();
-          for (const L of P.loops) for (let i = 0; i < L.z.length; i += TUBE_RULE_EVERY) { ctx.moveTo(...at(mix(L.z[i], L.w[i], t0), t0)); ctx.lineTo(...at(mix(L.z[i], L.w[i], t), t)); }
+          for (const lev of ln.pieces[n].loops) for (let i = 0; i < lev[0].length; i += TUBE_RULE_EVERY) path((J) => lev[J][i], (j - 1) * per, j * per);
           ctx.stroke();
-        }
+        });
       }
       if (j === 0 || j === TUBE_LEVELS) continue;
-      for (const P of d.pieces) {
+      d.pieces.forEach((P, n) => {
         ctx.beginPath();
-        for (const L of P.loops) { L.z.forEach((z, i) => { const [x, y] = at(mix(z, L.w[i], t), t); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); }
+        for (const lev of ln.pieces[n].loops) { lev[j * per].forEach((z, i) => { const [x, y] = at(z, j / TUBE_LEVELS); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); }
         ctx.globalAlpha = TUBE_FILL_A * fade; ctx.fillStyle = ink(P).c0; ctx.fill('evenodd');
         ctx.globalAlpha = TUBE_RING_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.stroke();
-      }
+      });
     }
     // the critical points' strands, dotted, to their values
-    const F = rangeF(leftStage(), shapeStage(s)), strands = [];
+    const strands = [];
     ctx.globalAlpha = fade; ctx.strokeStyle = TH.cut; ctx.lineWidth = 2; ctx.setLineDash(TUBE_CRIT_DOTS);
-    for (const z of crit) {
-      const w = F(z);
+    for (const lev of ln.crit) {
+      const z = lev[0], w = lev[LINK_N];
       if (!CX.isFin(w)) continue;
-      const a = at(z, 0), b = at(w, 1);
-      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
-      strands.push({ z: [z.re, z.im], w: [w.re, w.im], from: a, to: b });
+      ctx.beginPath(); path((J) => lev[J], 0, LINK_N); ctx.stroke();
+      strands.push({ z: [z.re, z.im], w: [w.re, w.im], from: at(z, 0), to: at(w, 1), pts: lev.filter((_, J) => J % per === 0).map((p, J) => at(p, J / TUBE_LEVELS)) });
     }
     ctx.restore();
-    // the narrowings, where their labels go (drawStackLabels)
+    // the labels (drawStackLabels): straight, the narrowings; curved, the tears
     const c = C(s.c[0], s.c[1]);
-    const labels = d.narrows.map((n) => ({ text: tubeNarrowText(n), z: [n.z.re, n.z.im], s: n.s, at: at(mix(n.z, c, n.s), n.s) }));
-    const pts = (L, key, t) => L[key].filter((_, i) => i % TUBE_RULE_EVERY === 0).map((p) => ({ p: [p.re, p.im], px: at(p, t) }));
-    return { fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, pieces: d.pieces.map((P) => ({ ink: P.ink, colour: ink(P).edge, loops: P.loops.map((L) => ({ floor: pts(L, 'z', 0), glass: pts(L, 'w', 1) })) })), strands, labels };
+    const labels = ln.mode === 'curved'
+      ? ln.tears.map((r) => ({ text: linkTearText(), kind: 'tear', piece: r.piece, z: [r.z.re, r.z.im], s: r.s, at: at(r.z, r.s) }))
+      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(mix(n.z, c, n.s), n.s) }));
+    const pts = (lev, J) => lev[J].map((p, i) => [p, i]).filter(([, i]) => i % TUBE_RULE_EVERY === 0).map(([p]) => ({ p: [p.re, p.im], px: at(p, J / LINK_N) }));
+    return {
+      fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, mode: ln.mode, strands, labels,
+      pieces: d.pieces.map((P, n) => ({ ink: P.ink, colour: ink(P).edge, loops: ln.pieces[n].loops.map((lev) => ({ floor: pts(lev, 0), glass: pts(lev, LINK_N) })) })),
+    };
   }

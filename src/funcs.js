@@ -534,11 +534,14 @@ const Funcs = (() => {
       if (n === 0) P = CONSTANT;
       else if (n > 0) P = props({ analytic: true, entire: true, rational: true, polynomial: true, proper: true, injective: n === 1, mobius: n === 1, deg: n, degExact: true });
       else P = props({ analytic: true, rational: true, injective: n === -1, mobius: n === -1, deg: an, degExact: true });
-      let hom, homTex;
-      if (n >= 0) { hom = powHom(C(n, 0), PI, 0); homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (principal branch)', { v, e: expoTex(n) }) }); }
+      // homCut(theta): the same homotopy with its cut on the ray at angle theta, for a set of points that cut misses (the
+      // Stack's curved tubes); every branch ends at the one z^n
+      let hom, homTex, homCut;
+      if (n >= 0) { hom = powHom(C(n, 0), PI, 0); homCut = (theta) => powHom(C(n, 0), theta, 0); homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (principal branch)', { v, e: expoTex(n) }) }); }
       else {
         const h1 = powHom(C(an, 0), PI, 0), inv = mobHom([C(0, 0), C(1, 0), C(1, 0), C(0, 0)]);
         homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$', { v, e: expoTex(1 + 2 * (an - 1)) }) });
+        homCut = (theta) => { const hc = powHom(C(an, 0), theta, 0); return (t) => (t < 0.5 ? hc(2 * t) : hom(t)); };
         hom = (t) => {
           if (t < 0.5) return h1(2 * t);
           const g = inv(2 * t - 1);
@@ -552,7 +555,7 @@ const Funcs = (() => {
       return {
         inverseNote: n === 0 ? $t('z⁰ = 1 is constant, so it has no inverse') : null,
         f: (z) => CX.ipow(z, n),
-        hom, homTex, props: P,
+        hom, homTex, homCut: n >= 2 || n <= -2 ? homCut : null, props: P,
         tex: (a) => (n === 1 ? a : n === 0 ? { s: '1', p: 4 } : n < 0 ? { s: `\\frac{1}{${an === 1 ? a.s : atom(a) + '^{' + an + '}'}}`, p: 4 } : powTex(a, n)),
         poles: n < 0 ? [C(0, 0)] : [],
         domain: n < 0 ? (v) => `${v}\\neq 0` : null,

@@ -58,8 +58,8 @@ const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'u
 ok('make_ru_table.py reads the table after every v16.4 one', /V165_HERE = \{[^}]*'v165-ux-learn\.json'[^}]*\}/.test(MK) && MK.indexOf("glob('v165-*.json')") > MK.lastIndexOf("glob('v164-*.json')"));
 const TABLE = (() => { const s = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const m = /I18N\.define\('ru', (".*")\);\s*$/ms.exec(s); return JSON.parse(JSON.parse(m[1])); })();
 const keyOf = (v) => (v.ctx ? v.ctx + '\u0004' : '') + v.en;
-// (the old Help "Deformation" paragraph has no stopgap Russian any more: the app calls the release's paragraph, whose
-// Russian comes from v164-help.json)
+// (the old Help "Deformation" paragraph has no stopgap Russian any more: the app calls the guide's Deformation paragraph,
+// the steps view's glide, whose Russian comes from tools/ru_extra.json)
 const missing = ents.filter(([, v]) => !(keyOf(v) in TABLE));
 ok('every string of the piece is in the shipped table', missing.length === 0, missing.map(([k]) => k));
 // (the two Help texts of the chapters menu and its button, and the sound step's task, are kept in tools/ru_extra.json, not in this table: the generator rejects a key in both)
@@ -67,7 +67,7 @@ const EXTRA_RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../tools/ru_ex
 for (const k of ["This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.", "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.", "Click ▶ to turn sound on and listen."]) ok(`ru_extra.json holds the Russian of "${k.slice(0, 30)}…", and it is in the shipped table`, typeof EXTRA_RU[k] === 'string' && TABLE[k] === EXTRA_RU[k], k);
 ok('no stopgap entry is left for the older Help "Deformation" paragraph, and the release\'s paragraph is in the table',
   !ents.some(([, v]) => /^Stopgap/.test(v.note || '')) && !ents.some(([k]) => /^help\.deformation\./.test(k))
-  && Object.keys(TABLE).some((k) => k.startsWith('<b>Deformation</b> in the top bar') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)));
+  && Object.keys(TABLE).some((k) => k.startsWith('A glide shows the homotopy') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)));
 ok('UX78: «Дальше автоматически»', TABLE['Move on by itself'] === 'Дальше автоматически', TABLE['Move on by itself']);
 ok('UX93: the tour is «Обучение»', TABLE['Guided tour'] === 'Обучение' && TABLE['⋯ › Guided tour'] === '⋯ › Обучение');
 const obzor = Object.entries(TABLE).filter(([k, v]) => /tour|Tour/.test(k) && (typeof v === 'string' ? [v] : Object.values(v)).some((x) => /[Оо]бзор/.test(x)));
