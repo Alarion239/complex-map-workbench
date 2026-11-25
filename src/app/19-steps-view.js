@@ -2158,7 +2158,7 @@
           SV.restHeld = at;
           const key = ['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
           if (svRestFell !== key || !GLR.pendingLinks) {
-            SV.core = 'still';
+            SV.core = 'still'; svPlotsDrop();
             if (svHeldKept(key, asks)) return;
             const n0 = colourAsks;
             svRestAt(at, pane, still);
@@ -2177,7 +2177,7 @@
     svCheck(); svPolesWatch();
     // (a press waits behind the gate on plane z, the colour plane: the plane is drawn as the first frame of the glide it waits to start)
     if (svGateDraws() || (svPaint() === 'push' && svFlatSurf() && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
-    svHeldOn = null;
+    svHeldOn = null; svPlotsDrop();
     SV.core = 'still'; still(pane);
   }
   // Sheets over a glide: a glide frame onto a plane b coloured by its own variable (at or before the colour plane) is
