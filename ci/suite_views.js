@@ -108,6 +108,7 @@ const VIEWS = {
   'steps_land_poles_cmd.js': steps(),
   'steps_land_sing_cmd.js': steps(),
   'steps_land_far_cmd.js': steps(),
+  'steps_land_chord_cmd.js': steps(),
   'steps_land_box_cmd.js': steps({ pin: true }),
   'steps_land_cover_cmd.js': steps(),
   'steps_land_sheets_h_cmd.js': steps(),
