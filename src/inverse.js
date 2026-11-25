@@ -49,14 +49,25 @@ const Inverse = (() => {
   // 3. Plans (SPEC 3.4) and the program key (4.4)
   // =====================================================================================================
   const isLive = (st, b) => !!st && st.on !== false && !!b && !b.error && !!b.def;
+  // Inverse.chainOpts(steps, built) -> the stepOps options for every step of the chain, the same for its plans, its key
+  // and its GLSL inverse program (whose ops a plan's must match): {rept}, a repeat's one REPT op only when it is the
+  // chain's one live step. The REPT search starts from the pixel's own w (chain error 0) and ends at the shape
+  // (Inverse.enumerate's, the GLSL walker's), so it stands for no repeat with another step's op before or after it; there
+  // the repeat's copies make the plan, as any other repeat's
+  function chainOpts(steps, built) {
+    let live = 0;
+    for (let k = 0; k < steps.length; k++) if (isLive(steps[k], built[k])) live++;
+    return { rept: live === 1 };
+  }
   // Inverse.inverseKey(steps, built): structure of every step (op kinds, or 'X' when it has no enumerator); parameter
   // values are uniforms, so a parameter change keeps the key unless it flips a step's decomposition or eligibility.
   function inverseKey(steps, built) {
+    const opts = chainOpts(steps, built);
     const sigs = steps.map((st, k) => {
       const b = built[k];
       if (!st || st.on === false) return 'off';
       if (!b || b.error || !b.def) return 'err';
-      const r = stepOps(b);
+      const r = stepOps(b, opts);
       return r.ok ? r.ops.map(opSig) : 'X';
     });
     return JSON.stringify(['inv2', sigs]);
@@ -75,17 +86,17 @@ const Inverse = (() => {
   // their own places
   function planChain(steps, built, a = 0, b = steps.length) {
     const key = inverseKey(steps, built);
-    const ops = [];
+    const ops = [], opts = chainOpts(steps, built);
     for (let k = a + 1; k <= b; k++) {
       const st = steps[k - 1], bb = built[k - 1];
       if (!isLive(st, bb)) continue;
-      const r = stepOps(bb);
+      const r = stepOps(bb, opts);
       if (!r.ok) return { ok: false, reason: `step ${k}: ${r.reason}`, ops: [], key, a, b, fams: [], injective: false };
       r.ops.forEach((o, i) => { ops.push(Object.assign(Object.create(Object.getPrototypeOf(o)), o, { step: k, node: i })); });
     }
     if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', tooLong: true, ops: [], key, a, b, fams: [], injective: false };
-    // a Repeat chain's REPT op is exact as the plan's only op: its search starts from the pixel's own w (chain error 0)
-    // and ends at the shape (Inverse.enumerate's REPT search, the GLSL walker's)
+    // (the walkers' REPT search is the plan's only op: a step that stands for its homotopy, Inverse.homBuilt, carries the ops
+    // it was given, so its REPT next to another step's op is refused here)
     if (ops.length > 1 && ops.some((o) => o.kind === 'REPT')) return { ok: false, reason: 'a repeated step inverts exactly only as the plane\'s one step', ops: [], key, a, b, fams: [], injective: false };
     ops.forEach((o, j) => { o.j = j; });
     const fams = [];
@@ -693,7 +704,8 @@ const Inverse = (() => {
   // step of degree 3 to NEWT_POLY_MAX with no exact ops has its roots instead (homOps at t = 1: one NEWT op, every root
   // of f(u) = w by Aberth's iteration, a multiple root once with its multiplicity)
   function pointPlan(steps, built, a = 0, b = steps.length) {
-    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1)) : bb)), a, b);
+    const opts = chainOpts(steps, built);
+    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1, opts)) : bb)), a, b);
   }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
   // ops each have one branch or finitely many: each op's own (its critical(), e.g. IPOW 0 and infinity, JOUK ±1, QUAD
@@ -1320,13 +1332,13 @@ const Inverse = (() => {
     prep.rept = null;
     if (!reason && N === 1 && ops[0].kind === 'REPT') {
       const rp = ops[0].p, bb = shape.complement ? null : boundsOf(shape);
-      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb, rp.escR) : Array.from({ length: rp.n + 1 }, () => null);
+      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb, rp.escR, shape.kind === 'disc' ? { c: shape.c, r: shape.r } : null) : Array.from({ length: rp.n + 1 }, () => null);
       prep.rept = {
         E: E.map((e) => {
           if (!e) return null;
-          const empty = !(e.x0 <= e.x1 && e.y0 <= e.y1), esc = e.esc > 0 ? f32dn(e.esc) : 0;
+          const empty = !(e.x0 <= e.x1 && e.y0 <= e.y1), esc = e.esc > 0 ? f32dn(e.esc) : 0, rad = e.rad > 0 ? f32up(e.rad) : 0;
           if (!empty && ![e.x0, e.x1, e.y0, e.y1].every(Number.isFinite)) return null;
-          return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc };
+          return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc, rad } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc, rad };
         }),
       };
     }
@@ -1335,10 +1347,12 @@ const Inverse = (() => {
   }
   // a REPT prune (the GLSL walker's _out): no point within m of v lies in E_r, m the point's chain error dv and
   // REPT_AA_REACH pixels of size px (|dz/dw| pix); REPT_ROUND ulps cover the GPU's float32 steps (the subtraction from the
-  // box's bounds, |v| and the comparison with the escape bound)
+  // box's bounds, |v| and the comparisons with the escape bound and the radius bound)
   function reptPruned(e, v, dv, px) {
     if (!e) return false;
     const m = (dv + REPT_AA_REACH * px) * (1 + REPT_ROUND * REPT_U);
+    // (past E_r's radius bound, every point within m of v: pruned whatever the box and the escape bound say)
+    if (e.rad > 0 && abs(v) * (1 - REPT_ROUND * REPT_U) - m > e.rad * (1 + REPT_ROUND * REPT_U)) return true;
     if (!e.empty) {
       const mb = m + REPT_ROUND * REPT_U * Math.max(Math.abs(e.x0), Math.abs(e.x1), Math.abs(e.y0), Math.abs(e.y1));
       if (!(v.re < e.x0 - mb || v.re > e.x1 + mb || v.im < e.y0 - mb || v.im > e.y1 + mb)) return false;
@@ -1822,11 +1836,12 @@ const Inverse = (() => {
   // 12. Homotopy end points for normalizeMap (SPEC 10.5; verified by test/t_inverse.js (k))
   // =====================================================================================================
 
-  // Inverse.homOps(b, t): the ops of step b's homotopy H_t (b: a Funcs.build() result), in forward order, so the
-  // inverse walk can end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and
-  // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
-  // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
-  // (newtOps). {ok, ops} | {ok: false, reason}
+  // Inverse.homOps(b, t, opts): the ops of step b's homotopy H_t (b: a Funcs.build() result; opts: its chain's stepOps
+  // options, Inverse.chainOpts, for the ops of a step or sub-step as at rest), in forward order, so the inverse walk can
+  // end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and the zoom paths
+  // H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's zoom, the generic
+  // zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton (newtOps).
+  // {ok, ops} | {ok: false, reason}
   // a polynomial step of degree 2 to NEWT_POLY_MAX, its degree known exactly: its roots are all of Newton's members
   const isNewtPoly = (P) => !!P.polynomial && !!P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX;
   // Inverse.polyHom(b): whether built step b is a polynomial step as isNewtPoly takes it, not a recognised chain (whose
@@ -1834,12 +1849,12 @@ const Inverse = (() => {
   // z^(1 + (n - 1) t), or its zoom about a point), a zoom of f (f conjugated by affine maps), or else the straight line
   // or the step's own homotopy, a polynomial in u, which newtOps inverts by every root (NEWT with deg)
   const polyHom = (b) => !!(b && !b.error && b.props && isNewtPoly(b.props)) && !(b.nat && b.nat.kind === 'chain' && b.rec);
-  function homOps(b, t) {
+  function homOps(b, t, opts = {}) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
     if (t >= 1) {
       // (a polynomial step with no exact ops is inverted at t = 1 by its roots, as at t < 1: the plane at rest and the glide's frames are one picture)
-      const r = stepOps(b), P = b.props;
+      const r = stepOps(b, opts), P = b.props;
       return r.ok || !(P && P.analytic && isNewtPoly(P)) ? r : newtOps(b, 1, r.reason);
     }
     const id = b.def.id, nat = b.nat || null, nd = b.natData || null;
@@ -1854,12 +1869,12 @@ const Inverse = (() => {
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
       const len = b.repeat ? b.repeat.block.length : 0, own = (i) => (!len ? i : i === 0 ? len - 1 : (i - 1) % len);
       const mark = (r, i) => { for (const o of r.ops) if (o.kind === 'NEWT') o.sub = own(i); return r.ops; };
-      for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1); if (!r.ok) return r; ops.push(...mark(r, i)); }
-      const r = homOps(sub[j], x - j);
+      for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1, opts); if (!r.ok) return r; ops.push(...mark(r, i)); }
+      const r = homOps(sub[j], x - j, opts);
       if (!r.ok) return r;
       return { ok: true, ops: ops.concat(mark(r, j)) };
     }
-    const own = stepOps(b);
+    const own = stepOps(b, opts);
     if (!own.ok) return newtOps(b, t, own.reason);
     const one = own.ops.length === 1 ? own.ops[0] : null;
     // the Möbius one-parameter group (CX.mobPath), the affine and Möbius steps' path
@@ -2078,7 +2093,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
+    stepOps, chainOpts, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

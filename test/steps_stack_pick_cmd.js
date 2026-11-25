@@ -269,9 +269,10 @@ if (pk && pk.click === 'floor' && pk.hold === 'floor') {
   await settled({ until: `(() => { const s = __cmwP().shapes.find((q) => q.id === 'd'); return !!s && s.c[0] === ${c0[0]} && s.c[1] === ${c0[1]}; })()` });
 } else ok('the target\'s patch on the floor is picked as the floor (a floor mark)', false, info.patch);
 
-// ---- a drag on the target's ring on the glass moves it with the pointer
+// ---- a drag on the target's ring on the glass moves it with the pointer (pressed at its top, c + ir: its east point,
+// c + r, is the target's square, which resizes it, steps_stack_edit_cmd)
 {
-  const d = await disc(), rp = await onLevel(1, [d.c[0] + d.r, d.c[1]]), rk = await pickAt(...rp);
+  const d = await disc(), rp = await onLevel(1, [d.c[0], d.c[1] + d.r]), rk = await pickAt(...rp);
   const q1 = [rp[0] + 20, rp[1] + 12], k1 = await pickAt(...q1);
   info.ring = { rk, k1 };
   if (rk && rk.click === 'glass' && rk.hold === 'glass') {
