@@ -20,12 +20,12 @@
   // motion of the chain then decides at once (svAheadPlan): at most AHEAD_MS it plays live; past AHEAD_WAIT_MAX_MS to draw
   // its frames, or past the memory budget to keep them, it plays live and says why once a chain and reason, with the next
   // words the view says (svAheadTail); else the gate waits while its frames are drawn. The fill times itself against the
-  // same wall clock, from its start: from its AHEAD_EARLY-th frame on it projects its end at the rate it has kept so far
-  // (the first frame's one-time costs and the redraws of rejected frames counted as they fall) and plays the motion live at
-  // once when the projection ends past AHEAD_WAIT_MAX_MS; no frame is started that would end past it. A fill that kept
-  // AHEAD_EARLY frames, cut or done, raises its chain's cost to its rate (svAheadFeed), so the chain's next motion plans
-  // from what a frame costs the page while it fills. Only on the flat plane (the Stack's
-  // floor included: its frames are drawn flat, and the Stack's camera maps the one shown, stackFloor), without
+  // same wall clock, from its start: from its AHEAD_EARLY-th frame on it projects its end as the time so far with the rest of
+  // its frames at the rate it has kept since its first (the redraws of rejected frames counted as they fall) and plays the
+  // motion live at once when the projection ends past AHEAD_WAIT_MAX_MS; no frame is started that would end past it. A fill
+  // that kept AHEAD_EARLY frames raises its chain's cost to its rate, and one that ends cut to at least its projected time over
+  // its frames (svAheadFeed), so the chain's next motion plans from what a frame costs the page while it fills. Only on the
+  // flat plane (the Stack's floor included: its frames are drawn flat, and the Stack's camera maps the one shown, stackFloor), without
   // reduced motion, and only for a motion started from rest (svGo, svPlay): a press during a motion, a scrub, a speed
   // change, a Split and an edit play live
   const AHEAD_DT = 1000 / 60, AHEAD_MS = 14, AHEAD_PROBE = 3, AHEAD_TRIES = 3, AHEAD_WAIT_MAX_MS = 3000, AHEAD_EARLY = 6;
@@ -114,11 +114,14 @@
   // are left out), the redraws of rejected frames between them counted; 0 before
   const svAheadRate = (R) => (R.n >= 2 ? (R.ends[R.n - 1] - R.ends[0]) / (R.n - 1) : 0);
   // a fill that kept AHEAD_EARLY frames says what a frame costs the page while it fills: its chain's cost is raised to its
-  // rate, never lowered
-  function svAheadFeed(R) {
+  // rate, never lowered. A fill that ends cut (cut: true) feeds at least the projected time of all its frames over their number
+  // (the first frame costs more than the rate, so the rate alone may leave the chain's plan at 'ahead'), so the chain then
+  // plans 'time' at once
+  function svAheadFeed(R, cut) {
     if (R.n < AHEAD_EARLY) return;
     const c = svAheadCost.get(R.ckey), rate = svAheadRate(R);
-    if (c != null && rate > c) svAheadCost.set(R.ckey, +rate.toFixed(2));
+    const f = cut ? Math.max(rate, (performance.now() - R.t0 + rate * (R.N - R.n)) / R.N) : rate;
+    if (c != null && f > c) svAheadCost.set(R.ckey, +f.toFixed(2));
   }
   // -> whether another frame is to be drawn. The fill is cut (the motion plays live, why 'time') before a frame that would end
   // past the draw wait at the rate so far, and after a kept frame from which the rest of the frames would end past it
@@ -127,7 +130,7 @@
     // (cancelled, or the gate waits on another motion or an edited chain: svGateTick starts that one's)
     if (!g || !g.M || R.state === 'done' || R.state === 'live' || svAheadKey(paneL, g.M) !== R.key) return false;
     const wait = aheadWaitMs();
-    if (performance.now() - R.t0 + svAheadRate(R) > wait) { svAheadFeed(R); svAheadLive(R, 'time'); return false; }
+    if (performance.now() - R.t0 + svAheadRate(R) > wait) { svAheadFeed(R, true); svAheadLive(R, 'time'); return false; }
     const k = R.n, s = svAheadDraw(R, k);
     if (!s) {
       R.rejects++;
@@ -135,7 +138,7 @@
       return true;
     }
     R.tries = 0; R.slots[k] = s; R.n++; R.ends.push(performance.now()); R.kept.push(s.rec ? s.rec.path : null);
-    if (R.ends[k] - R.t0 + (R.n >= AHEAD_EARLY ? svAheadRate(R) * (R.N - R.n) : 0) > wait) { svAheadFeed(R); svAheadLive(R, 'time'); }
+    if (R.ends[k] - R.t0 + (R.n >= AHEAD_EARLY ? svAheadRate(R) * (R.N - R.n) : 0) > wait) { svAheadFeed(R, true); svAheadLive(R, 'time'); }
     else if (R.n >= R.N) { R.state = 'done'; R.t1 = performance.now(); R.cv = null; svAheadFeed(R); }
     return R.state === 'fill';
   }

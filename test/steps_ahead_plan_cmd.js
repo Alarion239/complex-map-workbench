@@ -15,7 +15,7 @@
 //   are not fenced to the GPU as the probe's are, so it may be far faster than the probe's cost says); then the chain's cost is seeded
 //   far under the fill's rate, so it plans 'ahead', and the draw wait is half the fill's time. The fill, which projects its end at the rate
 //   so far, ends early and says why once; its chain's cost is raised to its rate and the chain then plans live; the next glide starts at
-//   once and says nothing more.
+//   once and says nothing more. A fill made whole feeds as well: a cost of twice its rate stays, one of a quarter of it comes to about the rate.
 // It asserts nothing about which side of a limit a map lands on: that depends on the machine. Run with CMW_AHEAD_PLAN_ALL=1 the
 // suite measures the whole gallery, at the page's device pixel ratio (CMW_DPR) and at each CPU slowing in
 // CMW_AHEAD_PLAN_RATES (a list such as '1,4', by default 1; Emulation.setCPUThrottlingRate slows the page's thread, not the GPU
@@ -186,11 +186,20 @@ if (!ALL) {
     ok('cut: the fill ends early: cut for time, its time under 0.6 of the draw wait and its frames under half of them', !!a.fill && a.fill.state === 'live' && a.fill.why === 'time' && a.fill.fillMs < 0.6 * waitMs && a.fill.n < a.fill.N / 2, { fill: a.fill && { state: a.fill.state, why: a.fill.why, n: a.fill.n, N: a.fill.N, fillMs: a.fill.fillMs }, waitMs });
     ok('cut: the glide is under way within the draw wait and the test\'s slack of the press', a.ms < waitMs + WAIT_SLACK_MS, { pressMs: a.ms, waitMs });
     ok('cut: it says why once', a.said.length === 1 && a.said[0].includes(TIME), a.said);
-    ok('cut: the chain\'s cost is raised to what the fill found (at least 0.7 of its rate) and it plans live', a.cost >= 0.7 * rate && (await planOf()) === 'time', { cost: a.cost, rate });
+    ok('cut: a fill cut at its 6th to 11th frame feeds: the chain\'s cost is raised to what the fill found (at least 0.7 of its rate) and it plans live', a.fill.n >= 6 && a.fill.n < 12 && a.cost >= 0.7 * rate && (await planOf()) === 'time', { n: a.fill.n, cost: a.cost, rate });
     const b = await press(1);
     info.cut.b = b;
     ok('cut: the next glide of the chain starts within 300 ms, with no wait', b.ms < 300, b.ms);
     ok('cut: and says nothing more', b.said.length === 0, b.said);
+    // a fill that is made whole feeds too, by what it found: it never lowers the chain's cost (seeded at twice the rate, it stays) and raises it to
+    // the fill's rate (seeded at a quarter of it, it comes to the rate, not to the probe's cost)
+    await tune(2 * rate, WAIT_MS);
+    const e = await press(0);
+    ok('cut: a fill made whole leaves a cost of twice its rate unchanged', Math.abs(e.cost - 2 * rate) < 0.01, { cost: e.cost, seeded: 2 * rate });
+    await tune(rate / 4, WAIT_MS);
+    const g = await press(1);
+    info.cut.e = e; info.cut.g = g;
+    ok('cut: a fill made whole raises a cost of a quarter of its rate to about its rate (0.7 to 1.5 of it)', g.cost >= 0.7 * rate && g.cost <= 1.5 * rate, { cost: g.cost, rate });
   } catch (e) {
     ok('cut: ran', false, String(e && e.message || e).slice(0, 400));
   }
