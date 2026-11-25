@@ -85,7 +85,7 @@ for (const m of ['M1', 'M2', 'M3']) {
   ok(`${m}: every tube's glass end lies on the disc's rim, at F of its floor end`, n > 0 && onRim === n && atF === n, { n, onRim, atF });
   ok(`${m}: the ends are drawn where the floor's and the glass's maps put them`, n > 0 && floorPx === n && glassPx === n, { n, floorPx, glassPx });
   ok(`${m}: a dotted strand from each critical point to its value (${M.crit})`, T.strands.length === M.crit && !!T.dots && T.dots[0] === 0, { strands: T.strands, dots: T.dots });
-  if (M.label) ok(`${m}: the narrowing is labelled "${M.label}", a third of the way up`, T.labels.length === 1 && T.labels[0].text === M.label && Math.abs(T.labels[0].s - M.s) < 1e-4, T.labels);
+  if (M.label) ok(`${m}: the narrowing is labelled "${M.label}", a third of the way up`, T.labels.length === 1 && T.labels[0].text.replace(/\u00a0/g, ' ') === M.label && Math.abs(T.labels[0].s - M.s) < 1e-4, T.labels);
   else ok(`${m}: no narrowing`, T.labels.length === 0, T.labels);
   // the join ring, dashed in the cut's red, on the glass: red-dominant ink at a majority of points round it
   const red = await ev(`(() => {

@@ -132,7 +132,7 @@
     morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     setState(st);
-    if (typeof svRestored === 'function') svRestored();   // (the steps view takes its place, scope and surface from S.sv again)
+    if (typeof svRestored === 'function') svRestored();   // (the steps view takes its place, scope, surface, connectors and speed from S.sv again; a step shown alone goes back into the chain)
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
     if (m) { setHidden('L', !!m.hideLeft); setHidden('R', !!m.hideRight); } else { if (isDrawer('R')) setHidden('R', true); if (isDrawer('L')) setHidden('L', true); }
     if (m && m.viewMem) Object.assign(viewMem, m.viewMem);

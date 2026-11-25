@@ -315,7 +315,7 @@
       cauchyShow: 'both', cauchyPlus: false,
       // the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
       params: [],
-      // (S.sv, the steps view's {at, T, scope, surf, speed}: absent until ?view=steps writes it, so the default
+      // (S.sv, the steps view's {at, T, scope, surf, links, speed, alone}: absent until ?view=steps writes it, so the default
       // view's saves are free of it; sanitizeState repairs it, Views.cleanSv)
     };
   }
