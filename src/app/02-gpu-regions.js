@@ -790,7 +790,7 @@
   function smFor(s, r, role, kind, map, pane, R, allowJob) {
     const m = normalizeMap(map);
     const why = smNeed(s, r, role, m);
-    if (!why) { if (smPaired(`${s.id}|${role}|${kind}`)) smUnwant(`${s.id}|${role}|${kind}`); return null; }
+    if (!why) return null;
     const v = smView(kind, pane, R);
     if (!v) return null;
     const lk = why === 'linking' ? '|link' : '';
@@ -825,6 +825,8 @@
     if (interacting() || fixBusy()) { smKick(); return; }
     const key = ck + '|' + smViewKey(v);
     if (sm.capped.has(key)) return;
+    // (the ring's shape id carries its index: another plane's ring is another slot, which nothing asks for now)
+    if (smPaired(slot)) for (const other of [...sm.want.keys()]) if (other !== slot && smPairKind(other) === smPairKind(slot)) smUnwant(other);
     const prev = sm.want.get(slot);
     if (prev === key && (sm.jobs.has(key) || (sm.held.get(slot) || {}).key === key)) return;
     if (prev && prev !== key) { const j = sm.jobs.get(prev); if (j) smCancel(j); }
@@ -909,11 +911,6 @@
     }
     if (sm.want.get(job.slot) === job.key) sm.want.delete(job.slot);
     smPublish(job, data, stats);
-  }
-  // the pair's jobs (and a finished mesh waiting for its partner) of the slots a frame does not draw: the thread left
-  // the plane or the carried colour, so nothing is built for them in the background
-  function smKeepPaired(slots) {
-    for (const slot of [...sm.want.keys()]) if (smPaired(slot) && !slots.includes(slot)) smUnwant(slot);
   }
   // a slot no frame asks a mesh for: its job (or its finished mesh that waits for its partner) goes
   function smUnwant(slot) {
