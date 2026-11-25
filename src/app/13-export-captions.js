@@ -307,8 +307,8 @@
   // glides across as one homotopy when the order is All at once (the screen's own span when it is that one, which keeps its
   // steps' times), else null, whatever span the screen still holds
   function svVideoRange() {
-    const R = svRange(), lo = R ? R.lo : 0, hi = R ? R.hi : svPlanes().length - 1, sp = SV.span, own = svSpanOf(lo, hi);
-    return { lo, hi, span: own && sp && sp.x0 === lo && sp.x1 === hi ? sp : own };
+    const R = svRange(), first = R ? R.lo : 0, last = R ? R.hi : svPlanes().length - 1, sp = SV.span, own = svSpanOf(first, last);
+    return { lo: first, hi: last, span: own && sp && sp.x0 === first && sp.x1 === last ? sp : own };
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
@@ -337,8 +337,8 @@
     svGlide: () => {
       const P = svPlanes();
       if (!SV.on || P.length < 2 || (SV.surf === 'sphere' ? !lGlobe() : SV.surf === 'land' ? !lLand() : SV.surf !== 'plane')) return null;
-      const { lo, hi } = svVideoRange();
-      return { surf: SV.surf, at: SV.g.x, lo, hi, from: svName(P[lo]), to: svName(P[hi]) };
+      const vr = svVideoRange();
+      return { surf: SV.surf, at: SV.g.x, lo: vr.lo, hi: vr.hi, from: svName(P[vr.lo]), to: svName(P[vr.hi]) };
     },
     svGlideArt: async (x, o) => {
       // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
