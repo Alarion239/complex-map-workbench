@@ -194,8 +194,7 @@ const Axes = (() => {
 //                the images and the targets)
 //   main 'phase' one wide panel: the phase portrait of F over X, on the Plane or the Sphere (the phase sphere)
 //   main 'land'  one wide panel: the landscape of F over X, coloured by the phase (D.phase) or plaster
-// The Deformation toggle (runtime state, app.js morph.open) modifies the active view; in X → Y it merges the panes
-// into one plane (the right pane, Y's surface). The state:
+// The state:
 //   view = { main, L: {surf, eq}, R: {surf, eq}, P: {surf, eq}, D: {phase} }   (surf: 'plane' | 'sphere'; eq: the
 //          Sphere's equatorial plane)
 // migrate(o) turns the fields of earlier builds into o.view: the single right-pane view (rightMode, sphereMode,
@@ -229,9 +228,8 @@ const Views = (() => {
     if (v.main === 'land') return { surf: 'land', phase: !!v.D.phase, eq: false };
     return { surf: v.L.surf, phase: false, eq: v.L.eq };
   }
-  // the one pane a merged view shows ('L': Phase and Landscape, X's plots; 'R': X → Y with the deformation, one plane in
-  // Y's coordinates), null for the split view
-  const merged = (v, deform) => (v.main !== 'xy' ? 'L' : deform ? 'R' : null);
+  // the one pane a merged view shows ('L': Phase and Landscape, X's plots), null for the split view
+  const merged = (v) => (v.main !== 'xy' ? 'L' : null);
   // the view an old state names (panels.md 10), as a U-b view (cleaned to a merged view by clean). dc: the state's
   // phase style, changed only as the table says (material tiles with the Plain style: Tiles). The old default material
   // 'phase' painted the relief Plain: that look is kept by landPlain (a landscape-only paint, never by rewriting dc).
@@ -255,13 +253,13 @@ const Views = (() => {
     const view = clean({ L: Lx, R: R6 });
     // X → Y keeps the old left plane's surface when the picture moved to a wide panel
     if (Lx !== L6) view.L = sv(L6);
-    // 'image', and the Morph, Preimage and Integral views of older builds, open in X → Y ('morph' with the deformation)
+    // 'image', and the Morph, Preimage and Integral views of older builds, open in X → Y
     let solo = o.solo;
     if (('rightMode' in o) && paneOf(m, o.sphereMode) === 'L') solo = solo === 'R' || solo === 'L' ? null : solo;
-    return { view, dc, landPlain, solo, deform: m === 'morph' };
+    return { view, dc, landPlain, solo };
   }
   // in place: o.view from o's legacy fields when it still carries rightMode (or has no view at all); the legacy
-  // fields are removed. An old Morph view sets o.deform (the app opens the deformation). Returns o.
+  // fields are removed. Returns o.
   function migrate(o) {
     if (!o || typeof o !== 'object') return o;
     if ('rightMode' in o || !o.view) {
@@ -270,7 +268,6 @@ const Views = (() => {
       if (r.dc !== undefined) o.dc = r.dc;
       o.landPlain = r.landPlain;
       if (r.solo !== undefined) o.solo = r.solo;
-      if (r.deform) o.deform = true;
     } else { o.view = clean(o.view); o.landPlain = !!o.landPlain; }
     for (const k of LEGACY) delete o[k];
     return o;
@@ -293,15 +290,18 @@ const Views = (() => {
     if (mode === 'sphere') return sphereMode === 'color' ? 'L' : 'R';
     return 'R';
   }
-  // The steps view's state (behind ?view=steps): S.sv = {at, T, scope, surf, speed, alone}. at: the shown position in
+  // The steps view's state (behind ?view=steps): S.sv = {at, T, scope, surf, links, cam, speed, alone}. at: the shown position in
   // planes, fractional when the view is parked between two; T: the colour plane's stage (-1: the last plane); scope:
-  // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land'; speed: the glide's setting, one of the four, kept per state so a shared link plays at
+  // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land' | 'stack'; links: the Stack's connectors, 'straight' |
+  // 'curved'; speed: the glide's setting, one of the four, kept per state so a shared link plays at
   // its own speed (a state without one takes the device's). alone: the step shown alone, an active step's index, a key only
   // while one is shown; at and T are then the whole chain's place (what leaving it goes back to). planes: the stages of
   // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state holds
   // no steps view): a fractional or far `at` is clamped to the planes, a T the chain does not have
-  // is -1, an unknown scope or surface is the default, an unknown speed is dropped.
-  const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
+  // is -1, an unknown scope or surface is the default, an unknown kind of connector or speed is dropped. cam: the Stack's
+  // camera, [yaw, pitch] in degrees, yaw taken into [−180, 180) and pitch into [10, 90] (STACK_PITCH_MIN up to straight
+  // down); anything else is dropped (the Stack then opens on its own camera, 19-stack.js).
+  const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land', 'stack'], SV_LINKS = ['straight', 'curved'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
   function cleanSv(v, planes) {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
     const n = Math.max(1, planes ? planes.length : 1), num = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -311,7 +311,9 @@ const Views = (() => {
       scope: SV_SCOPES.includes(v.scope) ? v.scope : 'all',
       surf: SV_SURFS.includes(v.surf) ? v.surf : 'plane',
     };
+    if (SV_LINKS.includes(v.links)) o.links = v.links;
     if (SV_SPEEDS.includes(v.speed)) o.speed = v.speed;
+    if (Array.isArray(v.cam) && v.cam.length === 2 && v.cam.every(num)) o.cam = [((v.cam[0] % 360) + 540) % 360 - 180, Math.max(10, Math.min(90, v.cam[1]))];
     if (Number.isInteger(v.alone) && v.alone > 0 && planes && planes.includes(v.alone)) o.alone = v.alone;   // (a step the chain lacks or bypasses is not shown alone)
     return o;
   }

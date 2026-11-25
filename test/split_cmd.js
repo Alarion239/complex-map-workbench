@@ -31,7 +31,7 @@ const SHAPES = [{ id: 's1', kind: 'rect', a: [-1.2, -1.2], b: [1.2, 1.2] }];
 const F1 = (expr, cut = 180) => ({ type: 'custom', params: { expr, cut }, on: true });
 async function open(ns, st, q = '') {
   // (a page without the app first: the app saves its state when it unloads, which would overwrite this one)
-  await send('Page.navigate', { url: `http://localhost:${PORT}/blank-${ns}.html` }); await sleep(400);
+  await go(`http://localhost:${PORT}/blank-${ns}.html`); await sleep(400);
   const o = Object.assign({ v3: true, v4: true, shapes: SHAPES, steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await go(U(ns, q)); await settle(2200);

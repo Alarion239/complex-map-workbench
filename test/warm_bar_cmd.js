@@ -53,7 +53,7 @@ await send('Page.addScriptToEvaluateOnNewDocument', { source: SAMPLER });
 const cold = async (w, h, phone, lang, reduced, delay, input) => {
   await view(w, h, false, phone);
   if (reduced) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'reduce' }] });
-  await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
+  await go(`${U}/gl-helpers.html`); await sleep(350);
   await ev(`localStorage.clear(); window.name = 'pc${delay || 120}${input ? ' in' + input : ''}'; 1`);
   await logs();
   await nav(`${U}/test.html?ns=warm-${w}-${lang}-${Date.now()}&lang=${lang}`);

@@ -12,7 +12,7 @@ const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout }
 vm.createContext(ctx);
 const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does)
 const { inline } = require('../ci/glsl_inline.js');
-const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', recognize: 'Recognize', calc: 'Calc', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', constrpoc: 'ConstrPoc', constrortho: 'ConstrOrtho', constr: 'Constr', curves: 'Curves', palette: 'Palette', gl: 'GLR' };
+const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', recognize: 'Recognize', calc: 'Calc', glslroots: 'GLSLRoots', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', constrpoc: 'ConstrPoc', constrortho: 'ConstrOrtho', constr: 'Constr', curves: 'Curves', palette: 'Palette', gl: 'GLR' };
 for (const f of Object.keys(NAMES)) vm.runInContext(source(f + '.js', path.join(root, 'src'), { esm: 'strip' }) + `\n;globalThis.${NAMES[f]} = ${NAMES[f]};`, ctx, { filename: f + '.js' });
 const { Funcs, Inverse, GLChain, GLR } = ctx;
 let bad = 0, n = 0;
@@ -348,6 +348,11 @@ for (const t of TYPES) {
     const c = copies(src);
     for (const [f, k] of Object.entries(want)) check(`${name} holds ${k} cop${k > 1 ? 'ies' : 'y'} of ${f}`, c.get(f) === k, `${c.get(f)} copies`);
   }
+  // (the carried variant holds no pattern code: every draw of it sets uPattern 9, the carried colour; on the plane, on the
+  // globe, staged, and the Cauchy style's variant)
+  const carried = [['plane', prog(5, false, CARRY)], ['globe', prog(5, true, CARRY)], ['staged', prog(5, false, STAGED)], ['Cauchy', prog(5, false, Object.assign({ cz: true }, CARRY))]];
+  check('the carried programs hold no copy of ixPattern, the plain one one', carried.every(([, src]) => !copies(src).has('ixPattern')) && copies(prog(5, false)).get('ixPattern') === 1,
+    carried.map(([k, src]) => `${k} ${copies(src).get('ixPattern') || 0}`).join(', ') + `; plain ${copies(prog(5, false)).get('ixPattern')}`);
   // (SwiftShader's programs, IX_CHAIN3_CALLS: ixChain3 is three calls, the chain three times, six with a staged shape)
   const sw = (src) => copies('#define IX_CHAIN3_CALLS 1\n' + src).get('chainRange');
   check('IX_CHAIN3_CALLS: the carried program holds 3 copies of chainRange', sw(prog(5, false, CARRY)) === 3, sw(prog(5, false, CARRY)));
@@ -379,7 +384,8 @@ for (const t of TYPES) {
 // off wherever that rounding is not 0. The rule on (z - 1)^2 (z + 2) and (z - 1)^2 (z + 2)(z - 3) at w = 0 from a root
 // 1e-5 off, p(u) carrying float32 rounding of its terms (2^-24 T, T the terms' size at u = 1, 6 and 24, at a fixed
 // phase): with the guard the root stays within 1e-4 of 1, without it the first step throws it past 1e-3 (the control).
-// And the RAT3 op's source and the RAT4 op's ixQuartic carry the guard
+// And the RAT3 op's source, the RAT4 op's ixQuartic and the RAT<n> ops' roots (GLSLRoots.ratAberthFns, which polish
+// each of Aberth's roots the same way) carry the guard
 {
   const C = (re, im = 0) => ({ re, im }), add = (a, b) => C(a.re + b.re, a.im + b.im), sub = (a, b) => C(a.re - b.re, a.im - b.im);
   const mul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re), cabs = (a) => Math.hypot(a.re, a.im);
@@ -411,6 +417,19 @@ for (const t of TYPES) {
   const q4 = [St('custom', { expr: 'z^4-3z^3-3z^2+11z-6', cut: 180 })], inv4 = GLChain.build(q4, q4.map(Funcs.build)).inverse;
   const src4 = inv4 && inv4.ok ? inv4.lib : '', at4 = src4.indexOf('vec2 ixQuartic('), body4 = at4 >= 0 ? src4.slice(at4, src4.indexOf('\n}\n', at4)) : '';
   check('the RAT4 op\'s ixQuartic polish carries the guard', body4.includes('!(cx_abs(fv) < cx_abs(f))'), src4.length);
+  // (RAT5: its _roots' polish of Aberth's roots)
+  const q5 = [St('custom', { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 })], inv5 = GLChain.build(q5, q5.map(Funcs.build)).inverse;
+  const src5 = inv5 && inv5.ok ? inv5.lib + inv5.walker : '', at5 = src5.search(/void ix\d+_roots\(/), body5 = at5 >= 0 ? src5.slice(at5, src5.indexOf('\n}\n', at5)) : '';
+  check('the RAT5 op\'s root polish carries the guard', at5 >= 0 && body5.includes('!(cx_abs(fv) < cx_abs(f))'), { len: src5.length, at: at5 });
+}
+// QUAD and RAT2 (z^2 + z + 1, and (z^2 + 2z + 3)/(z^2 - z + 2)) take their roots from ixQuadratic, the one stable
+// quadratic in the program: their sources hold one discriminant, ixQuadratic's, and call it, and carry no ixRoots (no
+// Cardano)
+for (const [name, expr] of [['QUAD', 'z^2+z+1'], ['RAT2', '\\frac{z^2+2z+3}{z^2-z+2}']]) {
+  const s = [St('custom', { expr, cut: 180 })], inv = GLChain.build(s, s.map(Funcs.build)).inverse;
+  const src = inv && inv.ok ? inv.lib + inv.walker : '', ops = inv && inv.ops ? inv.ops.map((o) => o.kind) : [];
+  const info = { ops, disc: (src.match(/disc = csqrtp/g) || []).length, calls: (src.match(/ixQuadratic\(/g) || []).length, cardano: src.includes('ixCardano') };
+  check(`${name}: its roots come from ixQuadratic, the program's one quadratic, without ixRoots`, ops.includes(name) && info.disc === 1 && info.calls >= 2 && !info.cardano, JSON.stringify(info));
 }
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);

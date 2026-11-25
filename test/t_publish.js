@@ -1,7 +1,8 @@
 'use strict';
 // The published page (dist/complex-map-workbench.html, what pages.yml deploys) is the test page without its test hooks:
 // the build drops every block from the opening marker line to the next marker (tools/hook_marker.js), then the script's
-// comments and indentation (tools/strip_js.js, test/t_strip_js.js).
+// comments and indentation (tools/strip_js.js, test/t_strip_js.js), and the stylesheet's comments and spare whitespace
+// (tools/strip_css.js, test/t_strip_css.js).
 // A start marker without its end marker (a block moved out of app.js with the end left behind) drops everything
 // up to the next end marker, thousands of lines, and the published script does not parse, while every other test
 // runs the test page and passes. A marker outside a block (a plain pair, or a lone marker) drops nothing and the hook
@@ -16,6 +17,7 @@ let fails = 0;
 const ok = (name, pass, detail) => { if (!pass) { fails++; console.log('FAIL ' + name, detail === undefined ? '' : JSON.stringify(detail).slice(0, 400)); } };
 // the hook blocks as build.py finds them, per source file (a block never spans two files)
 const { BLOCK: RE, BLOCK_SRC, ANY, OPENER } = require('../tools/hook_marker');
+const OTHER_SPELLING = 'TEMP-DEBUG' + '-HOOK';   // (kept out of this file's own text so that a search for it finds no use)
 const HOOK_MAX = 300;   // lines: the longest hook block is about 240 (app.js's test helpers at the end of init)
 const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => /\.[jt]s$/.test(n) && !/^i18n_|^seasong/.test(n));
 for (const f of new Set([...files, 'app.js', 'gl.js'])) {
@@ -29,26 +31,27 @@ for (const f of new Set([...files, 'app.js', 'gl.js'])) {
     ok(`${f}:${from}: a hook block of ${lines} lines (at most ${HOOK_MAX})`, lines <= HOOK_MAX, m[0].slice(0, 200));
     ok(`${f}:${from}: one start marker per block`, (m[0].match(OPENER) || []).length === 1, m[0].slice(0, 200));
   }
+  // build.py drops blocks in the one spelling above: a block in any other would ship its hook
+  ok(`${f}: no marker in another spelling`, !text.includes(OTHER_SPELLING), null);
   const starts = (text.match(OPENER) || []).length;
   ok(`${f}: every start marker has its end (${starts} start markers, ${n} blocks)`, starts === n, { starts, n });
   // every marker is one end of a block: a plain pair or a lone marker would leave its code in the page
   const markers = (text.match(ANY) || []).length;
   ok(`${f}: every hook marker belongs to a block (${markers} markers, ${n} blocks)`, markers === 2 * n, { markers, blocks: n });
 }
-// a pair in either spelling is one block, and a plain pair is none
+// a marked pair is one block, and a plain pair is none
 {
   const strip = (t) => t.replace(RE, '\n');
   const code = (a, b) => `a;\n  ${a}\n  hook();\n  ${b}\nb;\n`;
   ok('a TEST-HOOK pair is dropped', strip(code('// TEST-HOOK (dropped from the published page by build.py)', '// TEST-HOOK')) === 'a;\nb;\n', strip(code('// TEST-HOOK (dropped from the published page by build.py)', '// TEST-HOOK')));
-  ok('a TEMP-DEBUG-HOOK pair is dropped too', strip(code('// TEMP-DEBUG-HOOK (removed before publishing)', '// TEMP-DEBUG-HOOK')) === 'a;\nb;\n', strip(code('// TEMP-DEBUG-HOOK (removed before publishing)', '// TEMP-DEBUG-HOOK')));
-  ok('a plain pair is dropped by neither', strip(code('// TEST-HOOK', '// TEST-HOOK')).includes('hook();') && strip(code('// TEMP-DEBUG-HOOK', '// TEMP-DEBUG-HOOK')).includes('hook();'), null);
+  ok('a plain pair is not dropped', strip(code('// TEST-HOOK', '// TEST-HOOK')).includes('hook();'), null);
   ok('a plain pair counts as two markers and no block', (code('// TEST-HOOK', '// TEST-HOOK').match(ANY) || []).length === 2 && (code('// TEST-HOOK', '// TEST-HOOK').match(RE) || []).length === 0, null);
 }
 // the pages themselves
 execFileSync(process.env.PYTHON || 'python3', [path.join(ROOT, 'build.py')], { cwd: ROOT, stdio: 'pipe' });
 const py = fs.readFileSync(path.join(ROOT, 'build.py'), 'utf8');
 ok('build.py drops the blocks by the same expression', py.includes(`re.sub(r'${BLOCK_SRC}'`), null);
-ok('build.py checks that no hook marker is left in the published script, in either spelling', /assert 'TEST-HOOK' not in pub_js and 'TEMP-DEBUG-HOOK' not in pub_js/.test(py), null);
+ok('build.py checks that no hook marker is left in the published script', /assert 'TEST-HOOK' not in pub_js,/.test(py), null);
 const pub = fs.readFileSync(path.join(ROOT, 'dist', 'complex-map-workbench.html'), 'utf8');
 const scripts = [...pub.matchAll(/<script>\n?([\s\S]*?)<\/script>/g)].map((x) => x[1]);
 ok('the published page has its scripts', scripts.length >= 2, scripts.length);
@@ -89,6 +92,15 @@ ok('no hook marker left in the published page', !scripts.some((x) => (x.match(AN
   ok('… and their strings hold no `//` comment but one that runs on into a value', tpl.glsl > 0 && tpl.glslComments === 0, tpl);
   ok(`the published app script's template strings hold at most ${TEMPLATE_COMMENT_MAX} bytes of \`//\` to a line's end`, tpl.commentBytes <= TEMPLATE_COMMENT_MAX, tpl);
 }
+// the stylesheet ships without its comments and spare whitespace (tools/strip_css.js, test/t_strip_css.js): no comment
+// but an empty one that parts two names, and no gap but one line break or one space; the offline page has the same
+const sheetOf = (page) => { const m = page.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '').match(/<style>[\s\S]*?<\/style>/g) || []; return m.length === 1 ? m[0].slice('<style>'.length, -'</style>'.length) : null; };
+{
+  const css = sheetOf(pub), gaps = css == null ? [] : require('../tools/strip_css').lex(css).filter((x) => x.gap);
+  ok('the published page has its one stylesheet (outside its scripts)', css != null && css.length > 0, css && css.length);
+  ok('the published stylesheet has no comment (tools/strip_css.js)', gaps.every((x) => !x.text.replace(/\/\*\*\//g, '').includes('/*')), gaps.filter((x) => x.text.includes('/*')).length);
+  ok('… and no spare whitespace: each gap between two tokens is one line break or one space', gaps.every((x) => x.text === ' ' || x.text === '\n' || x.text === '/**/'), gaps.filter((x) => x.text !== ' ' && x.text !== '\n' && x.text !== '/**/').length);
+}
 const test = fs.readFileSync(path.join(ROOT, 'dist', 'test.html'), 'utf8');
 ok('the published script is the test script less its hooks (smaller, by less than a fifth)', pub.length < test.length && pub.length > 0.8 * test.length, { pub: pub.length, test: test.length });
 // the offline page (issue #21, option b): the published page with MathJax and the faces inline, and nothing from a CDN;
@@ -102,17 +114,21 @@ ok('the offline page has the PDF library inline, under the ids figure.js looks f
 // (its tags: the scripts keep the live page's CDN URLs as strings, used only where the inline faces are missing;
 // test/offline_cmd.js opens it with the network off and counts the requests)
 ok('the offline page has no CDN tag', !/<(?:link|script)\b[^>]*(?:fonts\.googleapis\.com|fonts\.gstatic\.com|ajax\/libs\/mathjax|npm\/mathjax@|mathjax-stix2-font)/.test(off), (off.match(/<(?:link|script)\b[^>]*(?:fonts\.g|mathjax)[^>]*>/g) || []).slice(0, 5));
+ok('the offline page has the published page\'s stylesheet', sheetOf(off) != null && sheetOf(off) === sheetOf(pub), [sheetOf(off) && sheetOf(off).length, sheetOf(pub) && sheetOf(pub).length]);
 ok('the offline page offers no download of itself', !/<meta name="cmw-offline"/.test(off), null);
 const named = /<meta name="cmw-offline" content="(\d+)">/.exec(pub);
 ok('the published page names the offline page\'s size', named && Number(named[1]) === Buffer.byteLength(off), { named: named && named[1], bytes: Buffer.byteLength(off) });
 // the built pages' size budget (bytes), raised only on purpose: the published page is what every visit loads; the
 // offline page is it plus MathJax (MathJax 4 and its STIX2 font, every range of it, which the live page loads on demand,
 // #288: 4.1 MB of JSON, gzipped in base64 as 1.75 MB, #491), the faces (0.7 MB as base64) and the PDF library (jsPDF and
-// svg2pdf.js, 0.47 MB, #393), about 2.78 MB more. Each budget leaves about 0.14 MB above its page as built (4.46 and
-// 7.23 MB, with the app's script stripped of its comments and indentation, #2012, and its GLSL templates of their
-// comments, #2037), all of it for the app's own code, none of it test code or a second copy. What still ships that the
-// page does not run: the language tables' repeated English keys
-const BUDGET = { 'complex-map-workbench.html': 4.6e6, 'complex-map-workbench-offline.html': 7.4e6, offlineExtra: 3.1e6 };
+// svg2pdf.js, 0.47 MB, #393), about 2.78 MB more. The pages as built are 4.53 and 7.30 MB: the app's script without its
+// comments and indentation and its GLSL templates without their comments (tools/strip_js.js), and the stylesheet
+// without its comments and spare whitespace (tools/strip_css.js). The budgets leave about 0.17 and 0.2 MB above them, all
+// of it for the app's own code (about 0.04 MB of it for the certified Repeat-chain coverage renderer, #1478), none of it
+// test code or a second copy: the app code that grows the page most is the steps view (app.js) and the GL renderer
+// with its shaders and inverse pass (gl.js, glsl.js, invops.js, inverse.js). What still ships that the page does not
+// run: the language tables' repeated English keys
+const BUDGET = { 'complex-map-workbench.html': 4.7e6, 'complex-map-workbench-offline.html': 7.5e6, offlineExtra: 3.1e6 };
 const bytes = { 'complex-map-workbench.html': Buffer.byteLength(pub), 'complex-map-workbench-offline.html': Buffer.byteLength(off) };
 for (const f of Object.keys(bytes)) ok(`dist/${f}: ${(bytes[f] / 1e6).toFixed(2)} MB, within its budget of ${BUDGET[f] / 1e6} MB`, bytes[f] <= BUDGET[f], bytes[f]);
 const extra = bytes['complex-map-workbench-offline.html'] - bytes['complex-map-workbench.html'];

@@ -19,8 +19,6 @@ for (const w of [1440, 390]) {
     await ev(`__cmwSetMain('xy'), 1`); await settle(800);
     await ev(`__cmwSetView('L', 'sphere'), __cmwSetView('R', 'sphere'), 1`); await settle(2000); await snap('04-spheres');
     await ev(`__cmwSetView('L', 'plane'), __cmwSetView('R', 'plane'), 1`); await settle(800);
-    await ev(`__cmwMorph({ open: true }), 1`); await settle(800); await ev(`__cmwMorph({ T: 0.6 }), 1`); await settle(1500); await snap('05-deformation');
-    await ev(`__cmwMorph({ open: false }), 1`); await settle(500);
     // a chain with zeros and poles, its card focused (the guarantees and the zero-pole fields)
     await ev(`__cmwExample(3), 1`); await settle(2500);
     await ev(`(() => { const c = document.querySelectorAll('#pipeline .card'); c.length && c[c.length - 1].click(); })()`); await settle(1200); await snap('06-example-card');

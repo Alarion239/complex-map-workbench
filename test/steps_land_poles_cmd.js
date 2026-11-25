@@ -9,7 +9,13 @@
 // - no point of the block is bare;
 // - with the box grid alone (the hook without the patches), points are bare: the check reads something;
 // - with the pole patch but not the far patch, points are bare too: the far patch covers what it alone can;
-// - mid-glide, held at u = 0.85 and 0.95 of the glide w₁ → w₂: the pole patch, no bare point, and bare points with the box grid alone.
+// - mid-glide, held at u = 0.85 and 0.95 of the glide w₁ → w₂: the pole patch, no bare point, and bare points with the box grid alone;
+// - the patches about the map's branch points (svLandBranches) are in the carry's own plane s: Möbius then √ with T = w₁,
+//   plane w₂ at rest is carried from w₁, and its patch is at √'s branch point w₁ = 0 (not at z = i, the point of plane z
+//   that the Möbius step takes there);
+// - and they move with an All-at-once glide: z → z − 1 then √ in one span from z to w₂, the input of √ is 0 at a point
+//   that moves from z = 0 to z = 1 along the real axis; held at u = 0.25, 0.4 and 0.75 (x = 1 is plane w₁ at rest) the
+//   frame has a patch on the real axis strictly between 0 and 1, further along at each u.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -63,4 +69,34 @@ for (const u of [0.85, 0.95]) {
   await ev('window.__svScrubUp(), 1');
   await settled({ max: 60000 });
 }
+// the branch patch's plane: Möbius then √, T = w₁, plane w₂ at rest (its carry from w₁, mode 0 { a: 1, b: 2 }; sheets
+// off, as All sheets carries from z past √)
+const near = (polar, x, y) => (polar || []).some((p) => Math.hypot(p[0] - x, p[1] - y) < 1e-6);
+const page = async (tag, steps) => {
+  const ns = 'landpoles' + tag + Date.now();
+  await loadView('steps', ns, { shapes: [], steps, sheets: false, height: 'im' });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+};
+const polarOf = async () => await evJson('JSON.stringify((({ s, u, polar, map }) => ({ s, u, polar, map }))(__cmwLandCarry() || {}))');
+await page('br', [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }]);
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 2, now: true, clock: 0 }); 1`);
+await settled({ max: 60000 }); await ev(rAF2);
+info.branchRest = await polarOf();
+ok('Möbius then √, T = w₁: plane w₂ at rest (carried from w₁) has its branch patch at √\'s branch point w₁ = 0, not at z = i', info.branchRest.s === 1 && near(info.branchRest.polar, 0, 0) && !near(info.branchRest.polar, 0, 1), info.branchRest);
+// an All-at-once span from z to w₂: z − 1 then √
+await page('span', [{ type: 'mobius', params: { a: '1', b: '-1', c: '0', d: '1' }, on: true }, { type: 'root', params: { n: 2 }, on: true }]);
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0, order: 'all', span: [0, 2] }); 1`);
+await settled({ max: 60000 });
+info.span = { span: await ev('__cmwSteps().span') };
+const along = [];
+for (const u of [0.25, 0.4, 0.75]) {
+  await ev(`__cmwSteps({ x: ${2 * u} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+  const c = info.span[u] = await polarOf();
+  const p = (c.polar || []).find((q) => Math.abs(q[1]) < 1e-6 && q[0] > 1e-3 && q[0] < 1 - 1e-3);
+  along.push(p ? p[0] : null);
+  ok(`All-at-once z − 1 then √, held at u = ${u}: a carried frame (mode 3) with a branch patch on the real axis strictly between the ends' points 0 and 1`, !!c.map && c.map.mode === 3 && !!p, c);
+}
+info.span.along = along;
+ok('and the patch moves on along the glide (u = 0.25, 0.4, 0.75)', along.every((v) => v != null) && along[0] < along[1] && along[1] < along[2], along);
 return { pass: fails.length === 0, fails, info };
