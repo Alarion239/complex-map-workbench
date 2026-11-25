@@ -2690,7 +2690,8 @@
   // The Landscape with Inside regions: which points of plane k's box are in the carried region set, the set the
   // plane's 2D picture colours (svMask): {cv, key, box, unres}, a canvas over box (512 pixels on its longer side, row 0
   // at its top), opaque white inside the set, clear outside, where the surface is plain (the Plain material's colour),
-  // and opaque black at the pixels a REPT plan left unresolved (unres of them), where it draws the no-value hatch. One
+  // and opaque black at the pixels a REPT plan left unresolved (unres of them; all of them when the plane's repeat is
+  // refused, repeatRefused), where it draws the no-value hatch. One
   // per chain, plane, box and shapes; null with the colour everywhere (Everywhere)
   let svLandMaskC = null;
   // (the number of masks drawn while a program of the pass still linked: each one's key is its own, so the surface's
@@ -2721,11 +2722,15 @@
     svMask(over, stageMap(k), k, { cc });
     // (the pixels a REPT plan left unresolved: counted, and marked opaque black in the mask, where the surface draws
     // the no-value hatch (LAND_FS); never read as uncovered)
-    const unres = reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount(cc) : 0;
+    // (a refused repeat's plan has none to draw it: its mask is the no-value mark everywhere, the surface hatched all over,
+    // as the flat plane is)
+    const refused = repeatRefused(stageMap(k));
+    if (refused) { cc.fillStyle = '#000'; cc.fillRect(0, 0, pw, ph); }
+    const unres = refused ? pw * ph : reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount(cc) : 0;
     // (a pass that left a program linking drew its regions short: the mask is not kept under this key, so the frame
     // that follows the link draws it afresh)
     const linking = !!GLR.frameStatus().pending;
-    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres };
+    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres, refused };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
