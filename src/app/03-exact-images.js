@@ -657,6 +657,18 @@
     if (line) lines.push(line);
     return lines;
   }
+  // wrapWords at the narrowest width that keeps the line count of the wrap at maxW: the lines come out of even length, no word alone
+  // on the last (the canvas's text-wrap: balance)
+  function balanceWords(ctx, text, maxW) {
+    const lines = wrapWords(ctx, text, maxW);
+    if (lines.length < 2) return lines;
+    let lo = 0, hi = maxW, best = lines;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) / 2, t = wrapWords(ctx, text, mid);
+      if (t.length === lines.length) { best = t; hi = mid; } else lo = mid;
+    }
+    return best;
+  }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   const NOTE_GAP = 4;   // the room a note keeps from a message above which it stands
@@ -689,7 +701,7 @@
     // standing over the plane (the note moves up only when it has to, and stays inside the pane); the 1 px below: the box is drawn on the
     // half pixel and its stroke is a pixel wide
     const lay = (left, right) => {
-      const room = right - left, lines = wrapWords(ctx, text, Math.max(80, Math.min(360, room - 48)));
+      const room = right - left, lines = balanceWords(ctx, text, Math.max(80, Math.min(360, room - 48)));
       const bw = Math.round(Math.min(room - 16, Math.max(...lines.map((t) => ctx.measureText(t).width))) + 24), bh = lines.length * 18 + 14;
       const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
       return { lines, bw, bh, y0, tx: (left + right) / 2, x0: Math.round((left + right) / 2 - bw / 2) + 0.5 };
@@ -707,7 +719,7 @@
       n = lay(left, right);
     }
     const { lines, bw, bh, y0, x0, tx } = n;
-    pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
+    pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx, lines: lines.slice() };   // (the box as drawn, where its words are centred, in the pane's CSS px, and its lines: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
     ctx.shadowColor = TH.dark ? '#00000066' : '#121A201A'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;

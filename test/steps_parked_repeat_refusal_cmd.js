@@ -65,4 +65,14 @@ for (const sc of SCENES) {
   info[sc.name + ' everywhere'] = c;
   ok(`${sc.name} ×${COPIES}, Everywhere: the colour needs no regions: no hatch, no note (control)`, c.share <= HATCH_MAX_SHARE && !c.note && c.tip !== NOTE, { share: c.share, note: c.note, tip: c.tip });
 }
+// the refused note's words are laid out in balanced lines, in English and in Russian: none ends in a single word alone, and the
+// last line is at least half as long as the longest
+for (const lang of ['en', 'ru']) {
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=pr-lines&lang=${lang}`); await ready();
+  const nb = await ev(`__cmwPaneNote(${JSON.stringify(NOTE)})`), ls = (nb && nb.lines) || [];
+  info['lines ' + lang] = ls;
+  ok(`the refused note (${lang}) wraps to more than one line (control)`, ls.length > 1, ls);
+  ok(`the refused note (${lang}): its last line is not a single word`, ls.length > 1 && ls[ls.length - 1].includes(' '), ls);
+  ok(`the refused note (${lang}): its last line is at least half as long as its longest`, ls.length > 1 && ls[ls.length - 1].length >= Math.max(...ls.map((t) => t.length)) / 2, ls);
+}
 return { pass: fails.length === 0, fails, info };
