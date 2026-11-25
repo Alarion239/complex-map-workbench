@@ -242,8 +242,9 @@
       // (a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
       else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
-      // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
-      if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
+      // (not over a zero or pole under the pointer, or one being dragged, nor while the pointer lights Look down's square:
+      // the handle is what the pointer holds)
+      if (probe && !zpHover && !lookSquareCursor() && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
       if (SV.on) drawFloorPick(paneL);
     } else if (!stackDrawOverlay(paneL)) syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
