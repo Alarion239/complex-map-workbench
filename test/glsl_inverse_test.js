@@ -21,7 +21,7 @@
 //         eligible and compiled, else the forward mesh)
 window.__invTestRun = async (opts = {}) => {
   const R = window.__invTest = { done: false, cases: 0, eligibleCases: 0, programs: new Set(), waitMs: 0, points: 0, compared: 0, leaves: 0, skipped: { discontinuous: 0, ramp: 0, nonfinite: 0, ineligible: 0 },
-    failCount: 0, fails: [], byChain: {}, clip: null, fs: null, flip: null, ms: 0, errors: [],
+    failCount: 0, fails: [], byChain: {}, lvlRel: {}, clip: null, fs: null, flip: null, ms: 0, errors: [],
     rational: { chains: 0, cases: 0, eligibleCases: 0, compared: 0, leaves: 0, failCount: 0, kinds: {} } };   // the rational custom chains alone
   const t0 = performance.now();
   const C = CX.C;
@@ -295,7 +295,15 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   // gave gaps of 0.43 and 0.44 px at levels of 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): about 85 ulps of
   // w, where SwiftShader's gap is one ulp of the level (6e-5 px)
   const F32_ULP = 2 ** -23;
-  const lvlTol = (cl, w, pix, cond) => 0.05 + 1e-4 * Math.abs(cl) + (cond - 1) * F32_ULP * cabs(w) / pix;
+  const condTol = (w, pix, cond) => (cond - 1) * F32_ULP * cabs(w) / pix;
+  const lvlTol = (cl, w, pix, cond) => 0.05 + 1e-4 * Math.abs(cl) + condTol(w, pix, cond);
+  // The coverage's tolerance: 0.03, and the same float32 term of the chain's conditioning: a coverage is 0.5 + s, s the signed distance
+  // in px (clamped to a ramp of one px), so a point that power moves by that many px moves its coverage by as much. WARP gave a
+  // coverage of 0.144 where the CPU's is 0 (s -0.356 and -0.626 px) on the chain with alpha 0.008 (cond 125, pix 3.8e-5, |w| 1.0):
+  // 0.27 px, inside the 0.39 px that term allows there
+  const cvTol = (w, pix, cond) => 0.03 + condTol(w, pix, cond);
+  // (levels from LVL_REL_MIN px are listed by their relative gap, per chain; the result keeps the twelve worst chains, R.lvlRelTop)
+  const LVL_REL_MIN = 50;
   const condOf = (steps, built) => steps.reduce((c, st, i) => (st.type === 'powa' && st.on !== false && built[i] && built[i].vals && built[i].vals.alpha ? c * Math.max(1, 1 / cabs(built[i].vals.alpha)) : c), 1);
   // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
   // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
@@ -447,6 +455,11 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
           const dz = Math.hypot(q[0] - c.z.re, q[1] - c.z.im);
           if (!(dz <= 2e-3 * (1 + cabs(c.z)))) bad.push(`leaf ${r} z gpu ${q[0]},${q[1]} cpu ${c.z.re},${c.z.im} (${c.path})`);
           const cl = Number.isFinite(c.lvl) ? c.lvl : 1e38;
+          if (cl < 1e30 && Math.abs(cl) >= LVL_REL_MIN && Number.isFinite(q[2])) {
+            const rel = Math.abs(q[2] - cl) / Math.abs(cl), t = R.lvlRel[ch.name] || (R.lvlRel[ch.name] = { n: 0, max: 0, cond });
+            t.n++;
+            if (rel > t.max) Object.assign(t, { max: rel, gap: Math.abs(q[2] - cl), cl, w: [w.re, w.im], pix });
+          }
           if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= lvlTol(cl, w, pix, cond))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl} (allowed ${lvlTol(cl, w, pix, cond).toFixed(3)}, cond ${cond.toFixed(1)})`);
           // |J| and D only where float32 resolves them: keys D <= 16 (deeper sheets lie 2^16 window radii away or within
           // ~1e-6 rs of an accumulation point, and are never visible) and 1e-15 < |dz/dw| < 1e15
@@ -462,7 +475,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
           // radii from the view, where float32 holds the leaf's own position only to 6e-8 * 2^D radii: from D = 12 on that
           // is 0.03 px and more, so those leaves are compared on the CPU's side only; GDEEP counts them)
           if (shape._g && !(c.D <= 12)) { R.skipped.gDeep = (R.skipped.gDeep || 0) + 1; continue; }
-          if (Math.abs(q[1] - c.cv) > 0.03) bad.push(`leaf ${r} cv gpu ${q[1].toFixed(3)} (s ${q[0].toFixed(3)}) cpu ${c.cv.toFixed(3)} (s ${Number.isFinite(c.s) ? c.s.toFixed(3) : c.s}, lvl ${c.lvl})`);
+          if (Math.abs(q[1] - c.cv) > cvTol(w, pix, cond)) bad.push(`leaf ${r} cv gpu ${q[1].toFixed(3)} (s ${q[0].toFixed(3)}) cpu ${c.cv.toFixed(3)} (s ${Number.isFinite(c.s) ? c.s.toFixed(3) : c.s}, lvl ${c.lvl})`);
           if (c.cov && c.D <= 16 && !(Math.abs(q[2] - c.D) <= 2e-3 * (1 + Math.abs(c.D)))) bad.push(`leaf ${r} D gpu ${q[2]} cpu ${c.D}`);   // (g-shapes: D <= 12 here, above)
         }
         // front keys
@@ -854,7 +867,18 @@ void main() {
       if (plain !== 0.05 + 1e-4 * x.cl) T.bad.push('the plain rule is not 0.05 px + 1e-4 |lvl|');
     }
     if (T.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the level tolerance', bad: T.bad }); }
+    // the coverage: WARP's gap of 0.144 (rand#172: powa alpha 0.008, cut 90, k 2, w 1.00916 + 0.104549i, pix 3.8105e-5) is inside its chain's
+    // rule, the plain 0.03 would have rejected it (control), and a chain with no Complex power step keeps 0.03
+    const CV = { w: C(1.0091607570648193, 0.10454882681369781), pix: 0.0000381050351823579, gpu: 0.144, cpu: 0 };
+    const cvGap = Math.abs(CV.gpu - CV.cpu), cvRule = cvTol(CV.w, CV.pix, T.cond), cvPlain = cvTol(CV.w, CV.pix, 1);
+    const C2 = R.cvCheck = { gap: cvGap, tol: cvRule, plain: cvPlain, bad: [] };
+    if (!(cvGap <= cvRule)) C2.bad.push(`coverage gap ${cvGap} is over the allowed ${cvRule.toFixed(3)}`);
+    if (!(cvGap > cvPlain)) C2.bad.push(`coverage gap ${cvGap} is inside the plain ${cvPlain}: the control is not one`);
+    if (cvPlain !== 0.03) C2.bad.push('the plain coverage rule is not 0.03');
+    if (C2.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the coverage tolerance', bad: C2.bad }); }
   }
+  R.lvlRelTop = Object.entries(R.lvlRel).sort((a, b) => b[1].max - a[1].max).slice(0, 12).map(([chain, t]) => Object.assign({ chain }, t));
+  delete R.lvlRel;
   R.programs = R.programs.size;
   R.ms = Math.round(performance.now() - t0);
   R.done = true;
