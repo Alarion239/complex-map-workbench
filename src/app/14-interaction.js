@@ -289,15 +289,13 @@
   // a drag) it waits for pointer-up (onUp calls sourceViewChanged.flush); a wheel or a key zoom applies it after 200 ms
   // without view changes. The meshes rebuilt for the new window keep their old (mesh, fix-up) pair on screen until
   // their own fix-ups land (shapeGPU's hold), so no unfixed intermediate is ever drawn.
-  // (resize: the pane's box changed and nothing moved the source view)
-  function sourceViewChanged(resize) {
+  function sourceViewChanged() {
     if ((leftStage() !== 0 && !clipDefault) || solo() === 'R') return;
     clearTimeout(sourceViewChanged.t);
     sourceViewChanged.pending = true;
-    if (!resize) sourceViewChanged.moved = true;
     sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200);
   }
-  sourceViewChanged.t = undefined; sourceViewChanged.pending = false; sourceViewChanged.moved = false;
+  sourceViewChanged.t = undefined; sourceViewChanged.pending = false;
   sourceViewChanged.flush = () => {
     if (!sourceViewChanged.pending) return;
     clearTimeout(sourceViewChanged.t);
@@ -307,24 +305,20 @@
       // the press is still held: onUp flushes it (checked again later in case the press ends without an onUp)
       if (drag) { sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200); return; }
       sourceViewChanged.pending = false;
-      const moved = sourceViewChanged.moved;
-      sourceViewChanged.moved = false;
-      recentreClip(moved);
+      recentreClip();
   };
   // clipWin to the left pane's box, as a pan or zoom leaves it (sourceViewChanged.apply, and __cmwSet('srcView', …)):
   // replaced only when the box moved or resized enough, so a small pan keeps the meshes. clipDefault: init made the
-  // window from the pane's box before the layout had its final one (a saved state without a window). Until the source
-  // view moves, every re-centre the layout asks for (its resizes, however far apart) puts the source view's window at
-  // the pane's size in its place, exactly and whichever plane X shows (the source view is the z-plane's, the pane's size
-  // is the same), so a mesh's window does not depend on when the layout settled or when the thread left plane 0
-  // (moved: the source view moved; false for a resize)
+  // window from the pane's box before the layout had its final one (a saved state without a window); the first re-centre,
+  // which the settled layout asks for, puts the source view's window at the pane's size in its place, whichever plane
+  // X shows (the source view is the z-plane's, the pane's size is the same), so a mesh's window does not depend on
+  // when the thread left plane 0
   let clipDefault = false;
-  function recentreClip(moved = true) {
+  function recentreClip() {
     if (solo() === 'R') return;
     const staged = leftStage() !== 0;
     if (staged && !clipDefault) return;
-    const exact = clipDefault;
-    if (moved) clipDefault = false;
+    clipDefault = false;
     // (while X is a phone's inset, its window at its large size)
     const b = staged ? viewBox(S.srcView) : (Phone.largeBox && Phone.largeBox()) || paneL.box();
     // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
@@ -336,7 +330,7 @@
     const ow = clipWin.x1 - clipWin.x0, nw = nb.x1 - nb.x0;
     const shift = Math.max(Math.abs((nb.x0 + nb.x1 - clipWin.x0 - clipWin.x1) / 2), Math.abs((nb.y0 + nb.y1 - clipWin.y0 - clipWin.y1) / 2));
     const aspect = Math.abs((nb.y1 - nb.y0) / nw - (clipWin.y1 - clipWin.y0) / ow);
-    if (!goodWin(clipWin) || (exact && (nb.x0 !== clipWin.x0 || nb.x1 !== clipWin.x1 || nb.y0 !== clipWin.y0 || nb.y1 !== clipWin.y1)) || nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw) || aspect > 0.15) {
+    if (!goodWin(clipWin) || nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw) || aspect > 0.15) {
       clipWin = nb;
       setOpt('clipWin', clipWin);
       if (rightAuto && rImage()) fitRight(true);

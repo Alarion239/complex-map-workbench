@@ -1,25 +1,21 @@
 // The window the steps view meshes its z-plane in (clipWin: the whole-plane meshes' key includes it, so the same scene
 // has to give the same window and so the same meshes on every load, #2399). A saved state with no window gets one
 // from the pane's size at init, which is before the layout has its final box (a phone: 342 x 310 then, 376 x 656 once
-// settled); until the source view moves, every re-centre the layout asks for puts the source view's window at the pane's
-// size in its place, whichever plane the thread is on. z³ then cos, Everywhere, a 390 x 844 phone, each opened LOADS
-// times:
+// settled); the first re-centre, which the settled layout asks for, puts the source view's window at the pane's size in
+// its place, whichever plane the thread is on. z³ then cos, Everywhere, a 390 x 844 phone, each opened LOADS times:
 // - saved on plane w₂ (sv.at 2): the window is the source view's at the pane's size, the pane's own box, not the
 //   one the first, unsettled layout gave, and the same on every load;
 // - on plane z, the thread sent to plane w₂ as soon as the steps view is up (before the settled layout's re-centre ran):
 //   the same window, and the whole-plane meshes (__svAll, __svRing) built in it are the same on every load (the window
-//   they are meshed in, their evaluations, nodes and triangles);
-// - saved on plane w₂, then the viewport resized twice, the resizes further apart than the re-centre's 200 ms debounce
-//   (a slow phone's layout): the window is the source view's at the last size, not the first resize's.
+//   they are meshed in, their evaluations, nodes and triangles).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
-const fails = [], info = { saved: [], sent: [], split: [] };
+const fails = [], info = { saved: [], sent: [] };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return !!cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 const LOADS = 3;
 const WIN_MAX_MS = 30000;         // the window reaches the settled layout's within this
-const RESIZE_GAP_MS = 600;       // between two resizes: more than the re-centre's debounce (200 ms) and the frame that runs it
 const WIN_EPS = 2e-3;            // the window is rounded outward to 1e-4 of its size
 const BUILT_MAX_MS = 120000;
 const CHAIN = [K.CUBE, { type: 'cos', params: {}, on: true }];
@@ -62,23 +58,4 @@ for (const [tag, re] of Object.entries(MESHES)) {
   const at = info.sent.map((c) => c.meshes.find((m) => re.test(m.slot)));
   ok(`sent to plane w₂ at once: the ${tag} mesh is the same on every load (its key, which holds the window, evaluations, nodes, triangles)`, at.every((m) => m && m.key === at[0].key && m.work === at[0].work && m.nodes === at[0].nodes && m.n === at[0].n), at);
 }
-// the resizes apart: the viewport first resized, its re-centre applied, then resized again (a slow phone's layout)
-for (let i = 0; i < LOADS; i++) {
-  await open('c', { sv: { at: 2 } });
-  const up = await settled({ max: WIN_MAX_MS, until: SETTLED, only: true });
-  await view(390, 790, false, true);
-  const sized = await settled({ max: WIN_MAX_MS, until: '__cmwClipWin().pane[1] < 800', only: true });
-  const midOk = await settled({ max: WIN_MAX_MS, until: SETTLED, only: true });
-  const mid = await ev('__cmwClipWin()');
-  await sleep(RESIZE_GAP_MS);
-  await view(390, 844, false, true);
-  info.split.push(Object.assign({ mid, steady: !!(up.ok && sized.ok), midReached: !!midOk.ok }, await read()));
-}
-const s0 = info.split[0];
-ok('resized twice, the resizes apart: the page was up at the first size and took the second', info.split.every((c) => c.steady), info.split.map((c) => c.steady));
-ok('resized twice, the resizes apart: the window reaches the source view\'s at the first resize\'s size', info.split.every((c) => c.midReached), info.split.map((c) => c.midReached));
-ok('resized twice, the resizes apart: the first resize\'s window was the source view\'s at its size', info.split.every((c) => near(c.mid.win, expected(c.mid))), info.split.map((c) => ({ win: c.mid.win, expected: expected(c.mid), pane: c.mid.pane })));
-ok('resized twice, the resizes apart: the window reaches the source view\'s at the last size', info.split.every((c) => c.reached), info.split.map((c) => c.reached));
-ok('resized twice, the resizes apart: the window is the source view\'s at the last size, not the first resize\'s', info.split.every((c) => near(c.win, expected(c))), info.split.map((c) => ({ win: c.win, expected: expected(c), pane: c.pane })));
-ok('resized twice, the resizes apart: the same window on every load', info.split.every((c) => near(c.win, s0.win)), info.split.map((c) => c.win));
 return { pass: fails.length === 0, fails, info };
