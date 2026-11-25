@@ -2928,7 +2928,8 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
   // budget, a leaf unresolved by its chain error, the full covers), the leaf's chain error (-1: not a REPT leaf) and
   // the pixel's w (the carried colour's point, 07-inverse-api.js ixCarryCol);
   // uIxRepE, uIxRepS: the forward enclosures E_r of the shape's box (Inverse.prepare's rept.E): the box (x0, y0, x1, y1)
-  // and (the escape bound, -1 for none; 1 when E_r has no box). x0 > x1 with no escape bound and a box: the whole plane
+  // and (the escape bound, -1 for none; 1 when E_r has no box; the radius bound, -1 for none). x0 > x1 with no escape
+  // bound and a box: the whole plane
   const reptGlobals = () => {
     const RS = Inverse.REPEAT_COPIES_MAX;
     return glsl`#define IX_REPT 1
@@ -2940,7 +2941,7 @@ const float IX_REP_FIN = ${glf(Inverse.REPT_FIN)};
 bool ixRepOk(vec2 z) { return max(abs(z.x), abs(z.y)) < IX_REP_FIN; }
 vec2 ixRZ[${3 * RS}]; float ixRR[${3 * RS}]; vec2 ixRJ[${RS}]; int ixRI[${RS}];
 bool ixRepFail; bool ixRepCap; bool ixRepUnres; int ixRepFull; float ixRepDel; vec2 ixRepW;
-uniform vec4 uIxRepE[${RS + 1}]; uniform vec2 uIxRepS[${RS + 1}];
+uniform vec4 uIxRepE[${RS + 1}]; uniform vec3 uIxRepS[${RS + 1}];
 uniform int uIxRepNodes;   // the node budget, at most REPEAT_NODES_MAX (a test may lower it: GLR.setReptNodes)
 // uIxRepPoison 1: a test's control (GLR.setReptPoison) puts uIxRepBad (a NaN or an infinity) in place of root 1 of every
 // level-0 node; 0 otherwise
@@ -3059,10 +3060,11 @@ vec2 ${P}_dudv(vec2 z) {
   return cdiv(cmul(q, q), cmul(dp, q) - cmul(p, dq));
 }
 bool ${P}_out(vec2 v, float dv, int r, float js) {
-  vec4 e = uIxRepE[r]; vec2 es = uIxRepS[r];
+  vec4 e = uIxRepE[r]; vec3 es = uIxRepS[r];
   bool box = es.y < 0.5;
-  if (box && !(e.x <= e.z)) return false;
   float m = (dv + ${R(Inverse.REPT_AA_REACH)} * ixPix * js) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
+  if (es.z > 0.0 && cx_abs(v) * (1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U) - m > es.z * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U)) return true;
+  if (box && !(e.x <= e.z)) return false;
   if (box) {
     float mb = m + ${R(Inverse.REPT_ROUND)} * IX_REP_U * max(max(abs(e.x), abs(e.z)), max(abs(e.y), abs(e.w)));
     if (!(v.x < e.x - mb || v.x > e.z + mb || v.y < e.y - mb || v.y > e.w + mb)) return false;
@@ -3248,17 +3250,19 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       }
     }
   }
-  // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
+  // generated text by source key (srcKey: the inverse key, which the op structure gives, and the external ray's
+  // constants, Inverse.NEWT_RAY, which a NEWT op's ray stages bake in): parameter edits rebuild no GLSL
   const invTextCache = new Map();
   function buildInverse(steps, built) {
     if (!IX_FIN.RAT5) ixRatTables();
-    // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
-    const ops = [], sigs = [];
+    // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step with the
+    // chain's options, Inverse.chainOpts, as the chain's plans take them)
+    const ops = [], sigs = [], opts = Inverse.chainOpts(steps, built);
     steps.forEach((st, i) => {
       const b = built[i];
       if (!st || st.on === false) { sigs.push('off'); return; }
       if (!b || b.error || !b.def) { sigs.push('err'); return; }
-      const r = Inverse.stepOps(b);
+      const r = Inverse.stepOps(b, opts);
       if (!r.ok) { sigs.push('X'); ops.push({ kind: 'X', step: i + 1, node: 0, op: null }); return; }
       sigs.push(r.ops.map(Inverse.opSig));
       r.ops.forEach((o, n) => ops.push({ kind: o.kind, step: i + 1, node: n, op: o }));
@@ -3290,7 +3294,8 @@ uniform vec4 uIxBox[${N}];   // box: (e, lo, hi), +-1e30 unbounded
 uniform int uIxStopOp; uniform vec4 uIxStopMob; uniform vec4 uIxStopT[2];
 uniform bool uIxStopMobOn; uniform float uIxPAccInP;
 `;
-    let txt = invTextCache.get(key);
+    const srcKey = key + '|' + JSON.stringify(Inverse.NEWT_RAY);
+    let txt = invTextCache.get(srcKey);
     if (!txt) {
       // (the NEWT roots pass of the last NEWT op, 07-inverse-api.js draws it: a polynomial one's roots, ceil(D / 2)
       // targets; another's member 0 on the grid and member 1, two)
@@ -3299,13 +3304,13 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
         : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
       const has = (kinds) => ops.some((o) => kinds.has(o.kind) || (newtBack(o) && newtBack(o).ops.some((q) => kinds.has(q.kind))));
       txt = { lib: head + INV_LIB + (has(GLSLRoots.QUAD_N) ? GLSLRoots.ixQuad() : '') + (has(GLSLRoots.RAT_N) ? GLSLRoots.ixRoots() : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
-      invTextCache.set(key, txt);
+      invTextCache.set(srcKey, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }
     const { lib, walker, nr } = txt;
     let vals = null;
     return {
-      ok: true, key, lib, walker, nr, nOps: ops.length, slots: S,
+      ok: true, key, srcKey, lib, walker, nr, nOps: ops.length, slots: S,
       ops: ops.map((o) => ({ kind: o.kind, step: o.step, node: o.node, j: o.j, cell: o.cell })),
       fill(out) {
         if (!vals) {

@@ -256,7 +256,7 @@
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); if (side === 'L' && stackOn()) stackHoverOff(); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); if (side === 'L' && stackOn()) stackHoverOff(); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click on an edge of a closed polygon adds a vertex there
@@ -290,7 +290,7 @@
   // without view changes. The meshes rebuilt for the new window keep their old (mesh, fix-up) pair on screen until
   // their own fix-ups land (shapeGPU's hold), so no unfixed intermediate is ever drawn.
   function sourceViewChanged() {
-    if (leftStage() !== 0 || solo() === 'R') return;
+    if (leftStage() !== 0) return;
     clearTimeout(sourceViewChanged.t);
     sourceViewChanged.pending = true;
     sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200);
@@ -310,7 +310,7 @@
   // clipWin to the left pane's box, as a pan or zoom leaves it (sourceViewChanged.apply, and __cmwSet('srcView', …)):
   // replaced only when the box moved or resized enough, so a small pan keeps the meshes
   function recentreClip() {
-    if (leftStage() !== 0 || solo() === 'R') return;
+    if (leftStage() !== 0) return;
     // (while X is a phone's inset, its window at its large size)
     const b = (Phone.largeBox && Phone.largeBox()) || paneL.box();
     // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
@@ -413,6 +413,7 @@
     if (stackOn() && !panBtn && !e.shiftKey && stackPickDown(pane, x, y, ptrTouch)) { setCursor(pane, side); return; }
     if (!lFlat()) {
       const c = camOf('L');
+      if (c && stackOn()) stackMarkOff();
       if (c) { c.vyaw = 0; c.vpitch = 0; drag = { mode: (panBtn || e.shiftKey) && !stackOn() ? 'pan3' : 'orbit', cam: c, side: 'L', x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty }; }
       setCursor(pane, side);
       return;
@@ -461,7 +462,7 @@
     // drag runs the continuation alone, cutPull)
     const hnd = cutHandleNear(x, y, ptrTouch);
     if (hnd) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
-    if (pickDown(pane, z, x, y)) return;
+    if (pickDown(pane, z, x, y, ptrTouch)) return;
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
     setCursor(pane, side);
@@ -563,7 +564,7 @@
   // build caps (stored as disc, complement of a disc or half-plane; circle or line); Annulus, Sector and Polar grid
   // are off on the globes (the user's decision, panels.md 9.2).
   const GL3 = Region.Globe;
-  const globeEdit = (side) => (side === 'L' ? lGlobe() && solo() !== 'R' : rGlobe() && solo() !== 'L');
+  const globeEdit = (side) => side === 'L' && lGlobe();
   const GLOBE_OFF = new Set(['annulus', 'sector', 'pgrid']);
   // the snap net of a tool (panels.md 9.5): round kinds snap to the polar net, Cartesian kinds to the lifted lattice;
   // the globe's graticule draws the net of the active tool (the polar net with Select)
@@ -877,9 +878,8 @@
   // moves away; the next hover after release probes again
   function gestureProbeOff() {
     if (!drag || !/^g(draw|handle|move)$/.test(drag.mode)) return;
-    const had = !!probe || !!rHover;
+    const had = !!probe;
     probe = null;
-    if (rHover) { rHover = null; setHoverW(null); }
     if (had) { setReadouts(null); requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null); }
   }
   // a pointer move of a globe gesture (draw, handle, move)
@@ -1269,21 +1269,6 @@
       sndMove(x, y, probe, 'pointer');
       // the w-globe's probe ring and projection ray are drawn by GL with the globe
       requestRender('OL', 'OR', rGlobe() ? 'R' : null);
-    } else {
-      // a point w of the image plane (or of the w-globe): its preimages show in X
-      let w;
-      if (rImage()) { pane.setView(V.right); w = pane.s2w(x, y); } else w = pickSphere(pane, camS, x, y);
-      if (probe) { probe = null; setReadouts(null); }
-      rHover = w;
-      const ro = $('rightReadout');
-      const vout = yHtml();
-      if (w && ro && !ro.classList.contains('copied')) ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`|${vout}|`, fmtR(CX.abs(w)));
-      if (!w && ro && !ro.classList.contains('copied')) ro.innerHTML = idleRight();
-      copyValue.R = w ? CX.fmt(w, 6).replace(/\s/g, '') : '';
-      // (not during Y's step transition: its points are no values of F)
-      setHoverW(w && !trans.k ? w : null);
-      if (w && tourL.probe) tourEmit('probe', { pane: 'R', w: [w.re, w.im] });
-      requestRender('OL', 'OR');
     }
   }
   // number formatting for readouts: 4 decimals in [1e-3, 1e4), otherwise a ×10ⁿ form; real minus signs
@@ -1310,7 +1295,6 @@
     return `${fmtR(re, dp)} ${im < 0 ? '−' : '+'} ${fmtR(Math.abs(im), dp)}${unit}`;
   }
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
-  let rHover = null; // a point hovered in the right (image) plane
   const copyValue = { L: '', R: '' };
   // While the steps view's thread moves (a glide, a scrub, a play, held between two planes), the left probe shows
   // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
@@ -1457,7 +1441,7 @@
     const lr = $('leftReadout'), ro = $('rightReadout');
     const a = idleLeft(), b = idleRight();
     if (!hov.w && !stackKeeps() && !lr.classList.contains('copied') && lr.innerHTML !== a) lr.innerHTML = a;
-    if (!rHover && !ro.classList.contains('copied') && ro.innerHTML !== b) ro.innerHTML = b;
+    if (!ro.classList.contains('copied') && ro.innerHTML !== b) ro.innerHTML = b;
   }
   function copyReadout(side) {
     const el = $(side === 'L' ? 'leftReadout' : 'rightReadout');
@@ -1516,7 +1500,7 @@
       globeUp(pane, d.side || side, d);
       return;
     }
-    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; probeHover = null; probeHeld = false; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; probeHover = null; probeHeld = false; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
     // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
     // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
     if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || d.mode === 'panR' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }

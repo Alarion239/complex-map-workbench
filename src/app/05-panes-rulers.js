@@ -172,7 +172,7 @@
     // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane')
     const sc = $('sphereChipL');
     if (sc) {
-      const drawing = tool !== 'select' && solo() !== 'R';
+      const drawing = tool !== 'select';
       const where = lLand() ? $t('the landscape') : $t('the Riemann sphere');
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
       let msg = '';
@@ -197,14 +197,6 @@
       } else if (!act && ab) ab.remove();
       sc.classList.toggle('has-act', !!act);
       if (sc.hidden === on) sc.hidden = !on;
-    }
-    const sr = $('sphereChipR');
-    if (sr) {
-      const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
-      const on = tool !== 'select' && solo() !== 'L' && rGlobe() && GLOBE_OFF.has(tool);
-      const msg = on ? $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName }) : '';
-      if (sr.firstChild.textContent !== msg) sr.firstChild.textContent = msg;
-      if (sr.hidden === on) sr.hidden = !on;
     }
     syncGlobeTools();
   }
@@ -232,19 +224,14 @@
     if (!pick && tool === 'pick') setTool('select');
   }
   function renderOverlays() {
-    const showL = solo() !== 'R', showR = solo() !== 'L';
     updateDraftChips();
     updateUndo();
     ctxChanged();
-    if (showL) { paneL.setView(leftView()); paneL.beginOverlay(); }
-    if (showR) {
-      paneR.setView(V.right);
-      paneR.beginOverlay();
-    }
+    paneL.setView(leftView()); paneL.beginOverlay();
     const sphL = !lFlat(); // the sphere, landscape and Stack views of X have no flat overlays
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
     zpHandlesL = [];
-    if (showL && !sphL) {
+    if (!sphL) {
       // (Look down's marks under the handles and the probe)
       drawLookDown(paneL);
       drawCutHandles(paneL, cutHandlesL);
@@ -257,36 +244,14 @@
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
       if (SV.on) drawFloorPick(paneL);
-    } else if (!(showL && stackDrawOverlay(paneL))) syncLookKey(false);
+    } else if (!stackDrawOverlay(paneL)) syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
-    if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
-    if (intPop && showR && rImage() && !trans.k) { paneR.setView(V.right); drawIntHighlight(paneR, null, rangeF(leftStage(), rightStage())); }
-    // the preimages of the hovered point of the right plane
-    if (showL && hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
-    // Image: the w-plane targets are drawn and edited in the right plane like shapes in the domain
-    // the globes' handles, polygon vertices and snap ring (P3b)
-    if (showL && lGlobe() && globeEdit('L')) drawGlobeEdit('L');
-    if (showR && rGlobe() && globeEdit('R')) drawGlobeEdit('R');
-    if (showR && rImage() && targetsEditable()) {
-      paneR.setView(V.right);
-      drawHandles(paneR, S.targets);
-      if (draft && draft.target) drawDraft(paneR);
-      Construct.drawOverlay(paneR, 'R');
-      if (tool !== 'select' && rHover) drawCrosshair(paneR, rHover);
-    }
-    if (showR && rHover && !drag && rImage()) { paneR.setView(V.right); drawProbe(paneR, rHover, TH.probe); }
-    if (showR && rHover && !drag && rGlobe()) drawSphereMark(paneR, rHover);
-    if (showR) sndOverlay();
-    if (probe && showR) {
-      if (rImage() && !trans.k) {
-        paneR.setView(V.right);
-        const F = focusF();
-        if (showL && !sphL && tool === 'select') drawGauge(paneL, paneR, probe, F);
-        drawProbe(paneR, F(probe), TH.probe);
-      }
-    }
-    if (showL && !sphL) drawRulers(paneL, 'L', true);
-    if (showR && rImage()) drawRulers(paneR, 'R', true);
+    if (intPop && !lLand()) drawIntHighlight(paneL, projL);
+    // the preimages of the hovered point w
+    if (hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
+    // the globe's handles, polygon vertices and snap ring (P3b)
+    if (lGlobe() && globeEdit('L')) drawGlobeEdit('L');
+    if (!sphL) drawRulers(paneL, 'L', true);
   }
   // ---- rulers: ticks and labels along the bottom and left edges, plus cursor markers ----
   // Ruler sizes come from a ResizeObserver, never from a layout read per frame, and the static layer (ticks and
@@ -515,7 +480,8 @@
     // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
     const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
-    if (note('L')) setLed('L', 'err', note('L'));
+    // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
+    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
     else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
     setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
@@ -564,11 +530,11 @@
       for (const s of S.shapes) {
         if (!outlineShown(s)) continue;
         const map = shapeMap(s, map0);
-        if (!map || reptExact(map)) continue;
-        const r = shapeGPU(s);
-        if (!r.lineRes) continue;
-        const dash = openDash(r, map);
-        GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${r.lineKey}|${mapKeyOf(map)}` }, dash));
+        if (!map) continue;
+        const o = outlineRes(map, shapeGPU(s), pane);
+        if (!o) continue;
+        const dash = openDash(o.rec, map);
+        GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: OUTLINE_M, cpu: () => cpuMap(map) }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${o.rec.lineKey}|${mapKeyOf(map)}` }, dash));
       }
     }
     GLR.blit(pane.ctx);
@@ -661,6 +627,7 @@
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
   }
   function render3D(pane, carry) {
+    pane.noteBox = null;   // (no note drawn yet in this frame, as renderColor's)
     pane.begin(artRelief ? 'rgba(255,255,255,0)' : TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     backdrop(pane);
@@ -754,26 +721,31 @@
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
     const mask = SV.on ? (carry ? (carry.plain ? svLandPlainMask() : svLandMask(carry.s, src)) : svLandMask(svStage(), box)) : null;
+    // (a hatched surface says why, as the plane does: glStatusNote)
+    if (mask && mask.unres > 0) hatchNotes.set(pane, mask.refused ? refusedNote() : hatchedNote());
     GLR.begin(pane.pw, pane.ph);
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];
     const omap0 = carry && carry.zmap ? carry.zmap : stageMap(leftStage());
     // (the steps view's Inside regions: a region's outline is thin and grey, on the floor under its surface's edge)
     const footprint = mask && mask.cut && !(carry && carry.plain) ? new Set(visibleAreas()) : null;
+    // (the floor as a pane for outlineRes: its box across the pane's width, so a Repeat chain's carried outline is
+    // drawn on the floor by the flat plane's rule, in a slot of its own)
+    const floorPane = { view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pane.w / (box.x1 - box.x0) }, w: pane.w, h: pane.h };
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
       const omap = SV.on ? svShapeMap(s, omap0) : shapeMap(s, omap0);
       if (!omap) continue;
-      const r = shapeGPU(s);
-      if (!r.lineRes) continue;
-      const cacheKey = `${r.lineKey}|${mapKeyOf(omap)}`;
-      outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
-        : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
+      const o = outlineRes(omap, shapeGPU(s), floorPane, 'F');
+      if (!o) continue;
+      const cacheKey = `${o.rec.lineKey}|${mapKeyOf(omap)}`;
+      outlines.push(footprint && footprint.has(s) ? { res: o.res, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
+        : { res: o.res, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const landMap = carry ? carry.hmap : focusMap();
     const info = GLR.drawLandscape({
-      map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
+      map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null, standIn: landCarryStandIn(pane, carry, src) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      cells, sheets, mask, outlines: artMode || hideStrokes ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
       colors: {
@@ -1040,21 +1012,7 @@
     for (const [a, d, gap] of tries) { const r = label(tl, a, d, gap, math12, null, TH.ink2, below); if (r) { names.push(r); break; } }
     ctx.restore();
   }
-  // Y Sphere: the images on the w-globe (the phase globe is X Sphere + Phase, renderSphereLeft)
-  function renderSphere(pane) {
-    // the w-plane targets on the globe (P3b): fills and outlines exactly per pixel (the preimage pass through the identity
-    // map, as in Y Plane), points as marks; a target draft over them
-    const edit = globeEdit('R');
-    const post = [];
-    if (edit && hasTargets()) post.push({ map: IDENT, targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) });
-    const dp = edit ? globeDraftPass('R') : null;
-    if (dp) post.push(dp);
-    sphereView(pane, camS, CAMS, {
-      imageMode: true, stage: rightStage(), plane: !!S.view.R.eq, role: 'R',
-      probeW: probe ? focusF()(probe) : null,
-      post, net: edit ? globeNet() : 'plain', targetPts: edit,
-    });
-  }
+
   // the conjugate lift of z = x + iy onto the Riemann sphere (panels.md 9.0; the GLSL lift in gl.js): 0 at the south
   // pole, infinity at the north pole, and seen from outside the globe keeps the plane's orientation
   function liftC(x, y) {
@@ -1088,7 +1046,7 @@
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map and the shapes are outlined. o.hom: the steps view's glide, its map and F (below). o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried), o.carriedCopies the other sheets' under it (its st.carriedCopies); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry), or with o.carryBase the colour globe of
   // o.colorMap under it (the arrival plane's rest colour under a glide). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
@@ -1228,7 +1186,7 @@
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
-      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
+      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null, carriedCopies: o.carried && o.carriedCopies ? o.carriedCopies : null,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
     // inverse on the next frame
@@ -1442,7 +1400,7 @@
   let leftSphereInfo = null;   // the left globe's last frame {MVP, eye}: overlays lift their marks onto it
   // (v: a view of the left plane, default its own)
   function leftPaneBox(v = leftView()) {
-    const P = solo() === 'R' ? paneR : paneL;
+    const P = paneL;
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
@@ -1551,7 +1509,6 @@
       $(side + 'ZoomIn').innerHTML = ICONS.plus;
       $(side + 'ZoomOut').innerHTML = ICONS.minus;
       $(side + 'Fit').innerHTML = ICONS.fit;
-      $(side + 'Solo').innerHTML = ICONS.expand;
       $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
       const zb = (f) => () => {
         const sd = side === 'left' ? 'L' : 'R';

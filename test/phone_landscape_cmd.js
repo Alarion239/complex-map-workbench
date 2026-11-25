@@ -19,9 +19,10 @@ for (const [w, h] of [[740, 360], [667, 375], [736, 414], [568, 320], [812, 375]
   await open(w, h);
   const p = await probe(); info[`${w}x${h}`] = p;
   ok(`${w}×${h}: a landscape phone gets ph-land`, p.ph && p.land, p);
-  // the planes side by side, each most of the height under the top bar
-  ok(`${w}×${h}: the planes sit side by side`, p.L && p.R && p.R.l >= p.L.r - 2 && Math.abs(p.L.t - p.R.t) <= 2, p);
-  ok(`${w}×${h}: the planes have at least 60 % of the height`, p.L && (p.L.b - p.L.t) >= 0.6 * h, p);
+  // X's plane alone (the classic view draws X alone, #994), most of the width beside the tool column and most of the height
+  // under the top bar
+  ok(`${w}×${h}: X's plane alone has at least 80 % of the width`, p.L && !p.R && (p.L.r - p.L.l) >= 0.8 * w, p);
+  ok(`${w}×${h}: the plane has at least 60 % of the height`, p.L && (p.L.b - p.L.t) >= 0.6 * h, p);
   // a sheet opens beside them, with its content on screen
   await ev(`Phone.open('tools')`); await settle(800);
   const sh = await ev(`(() => { const e = document.querySelector('.ph-sheet .ph-sb:not([hidden])'); const b = e && e.getBoundingClientRect(); return b && { t: Math.round(b.top), b: Math.round(b.bottom), l: Math.round(b.left), r: Math.round(b.right), h: Math.round(b.height) }; })()`);
