@@ -760,20 +760,23 @@
     const omap0 = carry && carry.zmap ? carry.zmap : stageMap(leftStage());
     // (the steps view's Inside regions: a region's outline is thin and grey, on the floor under its surface's edge)
     const footprint = mask && mask.cut && !(carry && carry.plain) ? new Set(visibleAreas()) : null;
+    // (the floor as a pane for outlineRes: its box across the pane's width, so a Repeat chain's carried outline is
+    // drawn on the floor by the flat plane's rule, in a slot of its own)
+    const floorPane = { view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pane.w / (box.x1 - box.x0) }, w: pane.w, h: pane.h };
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
       const omap = SV.on ? svShapeMap(s, omap0) : shapeMap(s, omap0);
       if (!omap) continue;
-      const r = shapeGPU(s);
-      if (!r.lineRes) continue;
-      const cacheKey = `${r.lineKey}|${mapKeyOf(omap)}`;
-      outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
-        : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
+      const o = outlineRes(omap, shapeGPU(s), floorPane, 'F');
+      if (!o) continue;
+      const cacheKey = `${o.rec.lineKey}|${mapKeyOf(omap)}`;
+      outlines.push(footprint && footprint.has(s) ? { res: o.res, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
+        : { res: o.res, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const landMap = carry ? carry.hmap : focusMap();
     const info = GLR.drawLandscape({
       map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
+      cells, sheets, mask, outlines: artMode || hideStrokes ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
       colors: {

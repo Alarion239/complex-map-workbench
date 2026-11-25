@@ -5,7 +5,7 @@
   // stage (role L, flat). Thumbnails (role null) draw like the right plane.
   const PHASE = { R: { flat: true, globe: true }, L: { flat: true, globe: true } };
   const forceFwd = new Set();          // shape ids drawn forward whatever their eligibility (tests: mixed paths)
-  let hideStrokes = false;             // tests (window.__cmwHideStrokes): the shapes' strokes left out, flat, on the globes and in the steps view, and the steps view's layer of later planes' regions over the colour (the crack test and sv_globe_mask read the fill under them, p3_review and steps_glide_outline the stroke's own pixels)
+  let hideStrokes = false;             // tests (window.__cmwHideStrokes): the shapes' strokes left out, flat, on the globes, on the Landscape's floor and in the steps view, and the steps view's layer of later planes' regions over the colour (the crack test and sv_globe_mask read the fill under them, p3_review and steps_glide_outline the stroke's own pixels)
   // the figure export's art layer (figure.js, artRender): fills only (no grid, axes, strokes, points, cuts, rulers,
   // chevrons, roots, field of view, deformation tint or outline, landscape labels); printInk: the print tones of
   // the fills; artLand: the landscape's camera, read back for the figure's vector floor labels
@@ -113,7 +113,8 @@
   // (for the test hook: the refinements outlineRes has run, a pan within a cell runs none, and the last one's
   // vertices)
   let reptOutlineRuns = 0, reptOutlineVerts = 0;
-  // The lines a shape's outline is drawn by on pane under map (r: its shapeGPU record), with the record openDash reads
+  // The lines a shape's outline is drawn by on pane under map (r: its shapeGPU record; pane: {view, w, h}, a screen
+  // pane or the Landscape floor's stand-in, kept in its own slot of r.rept), with the record openDash reads
   // for them: {res, rec}, or null for none. r's own lines, but under a REPT plan, whose copies' expansion can
   // scatter the boundary carried forward: there the drawn polylines (r.lpolys) are refined for the view, each segment
   // halved (at most REPT_DEPTH times) until every one of its pieces maps, on the CPU twin, to finite ends at most
@@ -126,9 +127,9 @@
   // stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a pane: the box is the view at the
   // half octave's smallest scale about that place, widened by a pane on each side, so a pan refines again only once it
   // crosses a pane
-  function outlineRes(map, r, pane) {
+  function outlineRes(map, r, pane, slot = pane === paneR ? 'R' : 'L') {
     // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves REPT)
-    const slot = pane === paneR ? 'R' : 'L', had = r.rept && r.rept[slot];
+    const had = r.rept && r.rept[slot];
     if (!reptExact(map)) {
       if (had) { GLR.destroy(had.res); r.rept[slot] = null; }
       return r.lineRes && !repeatRefused(map) ? { res: r.lineRes, rec: r } : null;
