@@ -229,8 +229,8 @@ ok('the folded key on the phone has a name', leg.role !== 'img' || !!leg.name, l
 
 // ---- with ?view=classic: the classic view ----
 await open(1280, 800, false, false);
-const cl = await ev(`({ sv: document.documentElement.classList.contains('sv'), strip: !!document.getElementById('svStrip'), on: __cmwSteps().on, R: document.getElementById('paneR').getBoundingClientRect().width > 0 })`);
-ok('with ?view=classic the app is the classic view', !cl.sv && !cl.strip && !cl.on && cl.R, cl);
+const cl = await ev(`({ sv: document.documentElement.classList.contains('sv'), strip: !!document.getElementById('svStrip'), on: __cmwSteps().on, X: document.getElementById('paneL').getBoundingClientRect().width > 0 })`);
+ok('with ?view=classic the app is the classic view, X\'s plane shown', !cl.sv && !cl.strip && !cl.on && cl.X, cl);
 
 info.checks = 'steps view: desktop, parking, one GL copy (Everywhere, Inside regions), colour plane, Inside regions, reduced motion, phone swipe, classic';
 return { pass: fails.length === 0, fails, info };

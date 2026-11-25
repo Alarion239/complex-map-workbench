@@ -18,11 +18,12 @@ const OV = `(a, b) => { const A = a.getBoundingClientRect(), B = b.getBoundingCl
 // (how far a focused element's ring lies outside the boxes that clip it, px)
 const RING = `(el) => { el.focus({ focusVisible: true }); const cs = getComputedStyle(el); if (cs.outlineStyle === 'none') return { none: true }; const off = parseFloat(cs.outlineOffset) || 0, w = parseFloat(cs.outlineWidth) || 0; const r = el.getBoundingClientRect(), g = off + w; const ring = { l: r.left - g, t: r.top - g, r: r.right + g, b: r.bottom + g }; let clip = { l: 0, t: 0, r: innerWidth, b: innerHeight }; for (let a = el.parentElement; a; a = a.parentElement) { const s = getComputedStyle(a), bx = /(hidden|auto|scroll|clip)/.test(s.overflowX), by = /(hidden|auto|scroll|clip)/.test(s.overflowY); if (!bx && !by) continue; const c = a.getBoundingClientRect(); if (bx) { clip.l = Math.max(clip.l, c.left); clip.r = Math.min(clip.r, c.right); } if (by) { clip.t = Math.max(clip.t, c.top); clip.b = Math.min(clip.b, c.bottom); } } return { off, w, cut: +Math.max(0, clip.l - ring.l, clip.t - ring.t, ring.r - clip.r, ring.b - clip.b).toFixed(1) }; }`;
 
-// 1. the panes' Plane | Sphere tabs: the buttons are inside their strip (the report: 4 px of their bottom cut) and 24 px tall at least
+// 1. X's Plane | Sphere tabs: the buttons are inside their strip (the report: 4 px of their bottom cut) and 24 px tall at least
+// (Y's pane, with its own tabs, is not drawn since #994)
 for (const w of [1024, 1440]) {
   await open(w, 800);
-  const t = await ev(`[...document.querySelectorAll('#leftTabs, #rightTabs')].map((seg) => { const s = seg.getBoundingClientRect(); return [...seg.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(); return { id: seg.id, h: r.height, cutBottom: +(r.bottom - (s.bottom - 1)).toFixed(1), cutTop: +((s.top + 1) - r.top).toFixed(1) }; }); }).flat()`);
-  ok(`${w}: the tabs' buttons lie inside their strip and are 28 px tall`, t.length === 4 && t.every((b) => b.cutBottom <= 0.5 && b.cutTop <= 0.5 && b.h >= 28), t);
+  const t = await ev(`[...document.querySelectorAll('#leftTabs')].map((seg) => { const s = seg.getBoundingClientRect(); return [...seg.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(); return { id: seg.id, h: r.height, cutBottom: +(r.bottom - (s.bottom - 1)).toFixed(1), cutTop: +((s.top + 1) - r.top).toFixed(1) }; }); }).flat()`);
+  ok(`${w}: the tabs' buttons lie inside their strip and are 28 px tall`, t.length === 2 && t.every((b) => b.cutBottom <= 0.5 && b.cutTop <= 0.5 && b.h >= 28), t);
   info[`tabs ${w}`] = t[0];
 }
 // 5. Settings > Mesh quality: the slider and the presets are 24 px at least (the slider's 20 px put the stops within its reach) and the presets start where the slider ends (en and ru)
@@ -63,11 +64,11 @@ await settle(300);
 await key('Tab'); await sleep(100);
 const rows = await ev(`(() => { const f = ${RING}; return [...document.querySelectorAll('.ph-sheet[data-k="more"] button.ph-row')].filter((e) => e.getClientRects().length).map((e) => f(e)); })()`);
 ok('740x360: the menu rows have a ring that no panel cuts, drawn inside the row', rows.length > 3 && rows.every((r) => !r.none && r.cut === 0 && r.off < 0), rows.slice(0, 3));
-// 7. the sphere's hint in the right readout wraps: nothing cut at 740 x 360, in en and ru
+// 7. the sphere's hint in X's readout wraps: nothing cut at 740 x 360, in en and ru
 for (const lang of ['en', 'ru']) {
   await open(740, 360, lang, true);
-  await ev(`__cmwSetView('R', 'sphere'); 1`); await settle(1800);
-  const h = await ev(`(() => { const c = document.getElementById('rightReadout'); if (!c || !c.getClientRects().length) return null; const r = c.querySelector('.rhint'); return { text: c.textContent.length, sw: c.scrollWidth, cw: c.clientWidth, sh: c.scrollHeight, ch: c.clientHeight, ws: getComputedStyle(c).whiteSpace, hint: !!r }; })()`);
+  await ev(`__cmwSetView('L', 'sphere'); 1`); await settle(1800);
+  const h = await ev(`(() => { const c = document.getElementById('leftReadout'); if (!c || !c.getClientRects().length) return null; const r = c.querySelector('.rhint'); return { text: c.textContent.length, sw: c.scrollWidth, cw: c.clientWidth, sh: c.scrollHeight, ch: c.clientHeight, ws: getComputedStyle(c).whiteSpace, hint: !!r }; })()`);
   ok(`740x360 ${lang}: the sphere's hint is whole (wrapped, not cut)`, !!h && h.hint && h.sw <= h.cw + 1 && h.sh <= h.ch + 1, h);
 }
 // 8b. the export dialog's caption: its focus ring is inside the box
