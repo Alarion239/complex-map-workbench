@@ -429,6 +429,7 @@ const VIEWS = {
   'land_standin_cmd.js': steps({ pin: true }),
   'land_sheets_standin_cmd.js': steps({ pin: true }),
   'svready_cmd.js': steps({ pin: true }),
+  'svready_inverse_cmd.js': steps({ pin: true }),
   'svplay_gate_cmd.js': steps({ pin: true }),
   'chain_discard_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
