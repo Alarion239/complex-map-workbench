@@ -260,5 +260,19 @@
   const svAheadCostNow = () => { const c = svAheadCost.get(svAheadKey(paneL, null)); return c == null ? null : +c.toFixed(2); };
   const svAheadHook = () => { const R = svAhead; return R && { state: R.state, why: R.why, n: R.n, N: R.N, shown: R.shown, rejects: R.rejects, live: R.live, recs: R.kept.slice(), slots: R.slots.filter(Boolean).length }; };
   const svAheadProbeHook = () => svAheadProbeLog && Object.assign({}, svAheadProbeLog, { rejects: svAheadProbeLog.rejects.slice() });
+  // what svAheadPlan says of the chain's glides at each speed over one and over two planes (svGo's time: the speed's a plane times the planes), with the inputs
+  // it reads: the chain's cost, the pane's frame size, the three limits; null while the cost is not measured
+  const svAheadPlanHook = () => {
+    const c = svAheadCost.get(svAheadKey(paneL, null));
+    if (c == null) return null;
+    const rows = [];
+    for (const speed of Object.keys(SV_SPEEDS)) {
+      for (const planes of [1, 2]) {
+        const ms = SV_SPEEDS[speed] * planes, N = Math.max(1, Math.ceil(ms / AHEAD_DT));
+        rows.push({ speed, planes, ms, N, plan: svAheadPlan({ ms }), fillMs: +(c * N).toFixed(1), bytes: N * paneL.pw * paneL.ph * 4 });
+      }
+    }
+    return { cost: +c.toFixed(2), pw: paneL.pw, ph: paneL.ph, dpr: paneL.dpr, liveMs: aheadMs(), waitMs: aheadWaitMs(), budget: aheadBudget(), rows };
+  };
   const svAheadTune = (o) => { svAheadTest = Object.assign(svAheadTest || {}, o); };
   // TEST-HOOK
