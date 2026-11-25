@@ -1224,16 +1224,21 @@
   function drawHandles(pane, list) {
     const s = (list || S.shapes).find((x) => x.id === selected);
     if (!s) return;
-    const ctx = pane.octx;
-    const k = shapeInk(s).edge, hr = fingerNow() ? 6 : 3.5;
+    const k = shapeInk(s).edge;
     for (const [key, z] of Region.handlesOf(s)) {
       if (s.def || s.fixed || (s.at && s.at[key])) continue;   // (a fixed unit circle or axis)
       const [x, y] = pane.w2s(z);
-      ctx.fillStyle = TH.surface; ctx.strokeStyle = k; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      if (key === 'c' || key === 'm') ctx.arc(x, y, hr, 0, TAU); else ctx.rect(x - hr, y - hr, 2 * hr, 2 * hr);
-      ctx.fill(); ctx.stroke();
+      drawHandleMark(pane.octx, x, y, key === 'c' || key === 'm', k);
     }
+  }
+  // a shape's handle at (x, y) on ctx (css px): a disc (round, a centre's) or a square, filled with the surface and stroked
+  // in ink, its half size larger for a finger (fingerNow); the Stack's glass draws the target's square with it
+  function drawHandleMark(ctx, x, y, round, ink, lw = 1.5) {
+    const hr = fingerNow() ? 6 : 3.5;
+    ctx.fillStyle = TH.surface; ctx.strokeStyle = ink; ctx.lineWidth = lw;
+    ctx.beginPath();
+    if (round) ctx.arc(x, y, hr, 0, TAU); else ctx.rect(x - hr, y - hr, 2 * hr, 2 * hr);
+    ctx.fill(); ctx.stroke();
   }
   function drawProbe(pane, z, color, casing) {
     if (!z || !CX.isFin(z)) return;

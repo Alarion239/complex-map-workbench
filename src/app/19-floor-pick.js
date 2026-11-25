@@ -95,7 +95,11 @@
     pane.setView(leftView());
     const p = d.level ? stackPickAt(pane, d.level, x, y) : pane.s2w(x, y), w = p && d.F(p);
     if (!w || !CX.isFin(w)) return;
-    if (d.mode === 'pickMove') { Region.translate(d.shape, CX.sub(w, d.w)); d.w = w; }
+    if (d.mode === 'pickMove') {
+      // (d.size: the target's square on the Stack's glass, whose point w sets its radius)
+      if (d.size) Region.setHandle(d.shape, 'r', w); else Region.translate(d.shape, CX.sub(w, d.w));
+      d.w = w;
+    }
     else if (!d.disc) {
       // (the disc is in the chain's shapes while it is drawn, so its patches show; it is added as one edit on release)
       d.disc = newShape('disc', { c: [d.w0.re, d.w0.im], r: CX.abs(CX.sub(w, d.w0)), stage: d.T });
