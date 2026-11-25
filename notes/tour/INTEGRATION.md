@@ -489,12 +489,6 @@ first, so it lit nothing while the Draw panel was open.
   dashed ring inside a lit area), brought into view with the step, reachable with Tab during the Try it.
 - `live: true`: the step's anchor is looked up again whenever the layout changes, so a phone's tool tile in the More
   tools sheet is lit while the sheet is open and the More key once the tool is picked.
-- `pictures: true`: the step is about the cards' pictures. `show()` calls the app's `chainPictures(on)` for every step
-  (on only for such a step) and `stop()` calls `chainPictures(false)` before the work comes back.
-- `chainPictures(on)` (app adapter, optional): on, the chain shows its cards' pictures (Pictures rather than Names, at
-  the 188 px height when it is shorter), remembering the user's setting; off, that setting comes back unless the user
-  changed it meanwhile. Returns true while the tour holds the pictures on (the step then says it will give the setting
-  back). Nothing on a phone, whose chain bar always shows its pictures.
 - `['panel', 'sheet', 'tools']` is now used by Circle through three points and Intersections: a phone's More tools
   sheet opens with the tool's tile (nothing on a wider screen, where the tool shows in the Draw panel or the rail).
   `['panel', 'sheet', 'display']` is used by All sheets: on a phone the check is in the Display sheet.
@@ -646,4 +640,4 @@ calls a borrowed canvas needs: a tour that cannot put the user's work back skips
 | `probe` | `{ pane: 'L', stage, past, z, w, mod }` | (the steps view's own, besides Y's) the pointer reads a point of the shown plane; `w` and `mod` are the map into the colour plane there, undefined past it (`past`: the plane is after the colour plane) |
 
 `sheet-changed` is also sent when a sheet is typed into a step's field (the Inspector's or a card's), not only through ‹ ›.
-The steps view's Try lines (`trySv`, `tryDoneSv`, `tourSv` on an example) use these events; a chip's click sends `step-selected`.
+An example's Try lines (`try`, `tryDone`, `tour`) use these events; a chip's click sends `step-selected`.

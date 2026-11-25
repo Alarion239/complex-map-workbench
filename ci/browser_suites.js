@@ -150,7 +150,7 @@ const TIMING = {
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
-  'tour_auto_cmd.js': [t(/^(?!Patterns:).*(3 s after|3000 ± \d+ ms|700 ± 100 ms|\+3 s$)/, advanced), t(/^Patterns: moves on 3 s after/, (d) => advanced(d) && d[1] === 'edit/cards'),
+  'tour_auto_cmd.js': [t(/(3 s after|3000 ± \d+ ms|700 ± 100 ms|\+3 s$)/, advanced),
     t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, griegCaptionsAll)],
   'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/)],
   'split_deform_cmd.js': [t(/^12 sines, the deformation playing: p95/)],

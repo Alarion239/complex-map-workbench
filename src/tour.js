@@ -2417,7 +2417,7 @@ const Tour = (() => {
     ui.l2.classList.toggle('caption', cap);
     paintNext(ui);
   }
-  // The polite live region (SPEC 1.3): "Basics, step 5 of 10. Draw a shape. Choose Disc, then drag in X." (the lead on a
+  // The polite live region (SPEC 1.3): "Basics, step 2 of 6. Draw a shape. Choose Disc, then drag in the plane." (the lead on a
   // read step)
   function announce(r, ch, step) {
     const tr = tryOf(step);
