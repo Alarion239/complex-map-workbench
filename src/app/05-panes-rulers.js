@@ -530,11 +530,11 @@
       for (const s of S.shapes) {
         if (!outlineShown(s)) continue;
         const map = shapeMap(s, map0);
-        if (!map || reptExact(map)) continue;
-        const r = shapeGPU(s);
-        if (!r.lineRes) continue;
-        const dash = openDash(r, map);
-        GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${r.lineKey}|${mapKeyOf(map)}` }, dash));
+        if (!map) continue;
+        const o = outlineRes(map, shapeGPU(s), pane);
+        if (!o) continue;
+        const dash = openDash(o.rec, map);
+        GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: OUTLINE_M, cpu: () => cpuMap(map) }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${o.rec.lineKey}|${mapKeyOf(map)}` }, dash));
       }
     }
     GLR.blit(pane.ctx);
@@ -627,6 +627,7 @@
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
   }
   function render3D(pane, carry) {
+    pane.noteBox = null;   // (no note drawn yet in this frame, as renderColor's)
     pane.begin(artRelief ? 'rgba(255,255,255,0)' : TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     backdrop(pane);
@@ -720,26 +721,31 @@
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
     const mask = SV.on ? (carry ? (carry.plain ? svLandPlainMask() : svLandMask(carry.s, src)) : svLandMask(svStage(), box)) : null;
+    // (a hatched surface says why, as the plane does: glStatusNote)
+    if (mask && mask.unres > 0) hatchNotes.set(pane, mask.refused ? refusedNote() : hatchedNote());
     GLR.begin(pane.pw, pane.ph);
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];
     const omap0 = carry && carry.zmap ? carry.zmap : stageMap(leftStage());
     // (the steps view's Inside regions: a region's outline is thin and grey, on the floor under its surface's edge)
     const footprint = mask && mask.cut && !(carry && carry.plain) ? new Set(visibleAreas()) : null;
+    // (the floor as a pane for outlineRes: its box across the pane's width, so a Repeat chain's carried outline is
+    // drawn on the floor by the flat plane's rule, in a slot of its own)
+    const floorPane = { view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pane.w / (box.x1 - box.x0) }, w: pane.w, h: pane.h };
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
       const omap = SV.on ? svShapeMap(s, omap0) : shapeMap(s, omap0);
       if (!omap) continue;
-      const r = shapeGPU(s);
-      if (!r.lineRes) continue;
-      const cacheKey = `${r.lineKey}|${mapKeyOf(omap)}`;
-      outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
-        : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
+      const o = outlineRes(omap, shapeGPU(s), floorPane, 'F');
+      if (!o) continue;
+      const cacheKey = `${o.rec.lineKey}|${mapKeyOf(omap)}`;
+      outlines.push(footprint && footprint.has(s) ? { res: o.res, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
+        : { res: o.res, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const landMap = carry ? carry.hmap : focusMap();
     const info = GLR.drawLandscape({
-      map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
+      map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null, standIn: landCarryStandIn(pane, carry, src) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      cells, sheets, mask, outlines: artMode || hideStrokes ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
       colors: {
@@ -1040,7 +1046,7 @@
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map and the shapes are outlined. o.hom: the steps view's glide, its map and F (below). o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried), o.carriedCopies the other sheets' under it (its st.carriedCopies); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry), or with o.carryBase the colour globe of
   // o.colorMap under it (the arrival plane's rest colour under a glide). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
@@ -1180,7 +1186,7 @@
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
-      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
+      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null, carriedCopies: o.carried && o.carriedCopies ? o.carriedCopies : null,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
     // inverse on the next frame

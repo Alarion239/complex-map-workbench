@@ -378,6 +378,7 @@
     if (stackOn() && !panBtn && !e.shiftKey && stackPickDown(pane, x, y, ptrTouch)) { setCursor(pane, side); return; }
     if (!lFlat()) {
       const c = camOf('L');
+      if (c && stackOn()) stackMarkOff();
       if (c) { c.vyaw = 0; c.vpitch = 0; drag = { mode: (panBtn || e.shiftKey) && !stackOn() ? 'pan3' : 'orbit', cam: c, side: 'L', x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty }; }
       setCursor(pane, side);
       return;
