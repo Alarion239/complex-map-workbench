@@ -8,7 +8,7 @@
 // - rule: every row's decision is the rule applied to the row's own inputs (cost, N, frame size, the three limits);
 // - said: a glide from rest at the page's speed says why it plays live, once (the live region's words), when its plan is 'time' or
 //   'memory'; with the plan 'live' it says nothing; with 'ahead' it says the draw wait's why exactly when its fill (which times
-//   itself) ended cut for time, by the fill's own record; a second glide says nothing more;
+//   itself) ended cut for time, by the fill's own record; a second glide repeats nothing (it says the draw wait's why for the first time only after a first glide that was silent);
 // - cut: such a fill ends within the draw wait and a frame of its start, and its glide started within that of the press.
 // info.glide has each map's estimate (cost times frames) beside the wait it made and its fill's record (each frame's ms).
 // - the fill times itself (z^-2 at normal speed): a fill is drawn whole first, with a draw wait that holds, to see what it takes (its frames
@@ -142,7 +142,10 @@ for (const rate of RATES) for (const what of list) {
     await ev('__cmwSteps({ clock: 1000 / 60, go: 1 }), 1');
     await settled({ only: true, max: WAIT_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 1' });
     const said2 = (await ev('__live')).filter((t) => t.includes(SAID));
-    ok(`${tag}: said: a second glide says nothing more`, said2.length === said1.length, { said1: said1.length, said2: said2.length });
+    // (a reason is said once for a chain: a first glide that said it leaves the second silent; one that was silent, an 'ahead' whose fill ran
+    // whole, may leave a second whose own fill is cut, or whose plan the first fill's cost made 'time', to say it for the first time)
+    const second = said2.slice(said1.length);
+    ok(`${tag}: said: a second glide repeats nothing: it says the draw wait's why only when the first was silent, once, and never the memory's`, (second.length === 0 || (said1.length === 0 && row.plan === 'ahead' && second.length === 1 && second[0].includes(TIME))), { said1: said1.length, said2: said2.length, second });
   } catch (e) {
     ok(`${what.name}: ran`, false, String(e && e.message || e).slice(0, 400));
   }
