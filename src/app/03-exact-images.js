@@ -140,8 +140,8 @@
   function outlineRes(map, r, pane, slot = pane === paneR ? 'R' : 'L') {
     // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves the
     // Repeat, or the Repeat is refused)
-    const had = r.rept && r.rept[slot], refused = repeatRefused(map);
-    if (!repeatIn(map) || refused) {
+    const had = r.rept && r.rept[slot], inRep = repeatIn(map), refused = inRep && repeatRefused(map);
+    if (!inRep || refused) {
       if (had) { GLR.destroy(had.res); r.rept[slot] = null; }
       return r.lineRes && !refused ? { res: r.lineRes, rec: r } : null;
     }

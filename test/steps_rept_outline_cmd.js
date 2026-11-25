@@ -31,8 +31,10 @@
 //   plane 1, where the chain plans the repeat's copies, not a REPT op. Plane 1's map is the same as under [Newton's
 //   map ×MIXED_N] alone, which a REPT op draws, so its outline is the same: refined for the view, not the copies'
 //   scatter. Each chain's strokes on plane 1 have at most MATCH_MAX of their pixels with none of the other's within
-//   MATCH_R px; on the Landscape's floor the lone chain's are all drawn (at most MATCH_MAX missing), and at most
-//   FLOOR_EXTRA of the mixed chain's lie off them (the two floors differ in a patch near the outline);
+//   MATCH_R px. On the Landscape's floor both chains refine their outline to the same vertices (__cmwRept({ outline }),
+//   with at least one refinement run for the mixed chain), and the lone chain's floor strokes are all drawn on the
+//   mixed floor (at most MATCH_MAX missing). The mixed floor shows more of that outline than the lone one: the ×2
+//   changes the Landscape over the floor, so it hides other parts of it, and its extra strokes are no measure;
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the steps view (ci/suite_views.js). Prints
 // {pass, fails, info}.
 const fails = [], info = {};
@@ -57,7 +59,7 @@ const CTRL_MAX = 0.2;      // most share of them with a stroke pixel in the cont
 const PAN_STEPS = 10;      // the pan's steps
 const PAN_RUNS_MAX = 1;    // most refinements over the pan
 const MIXED_N = 10;        // the Repeat's count in the chain with a second step (its copies scatter)
-const MATCH_R = 2, MATCH_MAX = 0.02, FLOOR_EXTRA = 0.1;   // device px, and shares of a chain's stroke pixels
+const MATCH_R = 2, MATCH_MAX = 0.02;   // device px, and a share of a chain's stroke pixels
 const REFUSED_N = 20, REFUSED_MAX = 5;   // the refused repeat's count, and the most pixels its strokes may ink
 const NOISE_MAX = 1e-4;    // most share of the gallery's canvas in its shape's ink where the strokes changed it
 const FLOOR_MIN = 200;     // least pixels the bite's floor outline changes
@@ -272,10 +274,11 @@ const offShare = (a, b) => {
   info.mixed = { lone: lone.idx.length, mixed: mixed.idx.length, mixedOff: offShare(mixed, lone), loneOff: offShare(lone, mixed) };
   ok(`Newton ×${MIXED_N}, then ×2, plane 1: the outline is the one Newton ×${MIXED_N} alone draws (at most ${MATCH_MAX} of either's strokes off the other's)`,
     lone.idx.length >= MIN_EDGE && info.mixed.mixedOff <= MATCH_MAX && info.mixed.loneOff <= MATCH_MAX, info.mixed);
-  const fl = await strokes('FL', [NEWTON], true), fm = await strokes('FM', [NEWTON, TIMES2], true);
-  info.floorMixed = { lone: fl.idx.length, mixed: fm.idx.length, mixedOff: offShare(fm, fl), loneOff: offShare(fl, fm) };
-  ok(`Newton ×${MIXED_N}, then ×2, Landscape: the floor draws the outline Newton ×${MIXED_N} alone draws (at most ${MATCH_MAX} of it missing, ${FLOOR_EXTRA} of its own strokes off it)`,
-    fl.idx.length >= MIN_EDGE && info.floorMixed.loneOff <= MATCH_MAX && info.floorMixed.mixedOff <= FLOOR_EXTRA, info.floorMixed);
+  const fl = await strokes('FL', [NEWTON], true), rl = await ev('__cmwRept({ outline: true })');
+  const fm = await strokes('FM', [NEWTON, TIMES2], true), rm = await ev('__cmwRept({ outline: true })');
+  info.floorMixed = { lone: fl.idx.length, mixed: fm.idx.length, loneOff: offShare(fl, fm), refined: { lone: rl, mixed: rm } };
+  ok(`Newton ×${MIXED_N}, then ×2, Landscape: the floor refines the outline Newton ×${MIXED_N} alone refines (the same vertices), and draws all of it (at most ${MATCH_MAX} missing)`,
+    fl.idx.length >= MIN_EDGE && rm.runs > 0 && rm.verts === rl.verts && info.floorMixed.loneOff <= MATCH_MAX, info.floorMixed);
 }
 
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
