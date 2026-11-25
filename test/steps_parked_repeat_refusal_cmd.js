@@ -1,7 +1,7 @@
 // A repeated step that no exact plan takes, parked, Inside regions (#2364): the plane says so instead of staying empty.
 // A Repeat of twenty copies of Integer power n = 4, or of the sine, is twenty ops, more than a plan holds (Inverse.OPS_MAX), so
 // the plane's regions have no inverse path, and drawn forward through every copy they leave nothing to see. The disc of the
-// scene (c = 1, r = 0.12) is parked on plane 1, Inside regions:
+// scene (c = 1, r = 0.12, unless the scene names another) is parked on plane 1, Inside regions:
 // - the control: each scene's path is `forward`, its reason `chain too long` (the plan's own: __cmwPaths);
 // - the plane is covered by the grey no-value hatch (#1444's measure: the share of the plane's pixels in the hatch's grey), and
 //   says why in a note on the pane, in its LED's tip (red) and in the pane's description for a screen reader;
@@ -24,15 +24,18 @@ const { PARKED_DRAWN, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', '
 await view(VIEW_W, VIEW_H, false, false);
 // (each scene: its repeated step, and the steps before and after it; parked on the plane past all of them)
 const TIMES2 = { type: 'mul', params: { c: '2' }, on: true };
+// (the scene's disc: DISC, or one whose image under the few copies is in view: ×2, then z^3 twice, takes 2z to its ninth
+// power, and DISC's image lies far off the view, where no frame draws it)
+const DISC = { c: [1, 0], r: 0.12 }, NEAR_DISC = { c: [0.5, 0], r: 0.06 };
 const SCENES = [{ name: 'Integer power n = 4', step: { type: 'pown', params: { n: 4 } } }, { name: 'sine', step: { type: 'sin', params: {} } },
   { name: 'Integer power n = 3, then ×2', step: { type: 'pown', params: { n: 3 } }, after: [TIMES2] },
   { name: 'the formula z^3, then ×2', step: { type: 'custom', params: { expr: 'z^3', cut: 180 } }, after: [TIMES2] },
-  { name: '×2, then Integer power n = 3', step: { type: 'pown', params: { n: 3 } }, before: [TIMES2] }];
+  { name: '×2, then Integer power n = 3', step: { type: 'pown', params: { n: 3 } }, before: [TIMES2], disc: NEAR_DISC }];
 const open = async (sc, n, everywhere) => {
   const ns = 'pr' + Date.now();
   const steps = [...(sc.before || []), Object.assign({ on: true, repeat: { n, len: 1 } }, sc.step), ...(sc.after || [])];
   const st = { v3: true, v4: true, v5: true, v6: true, exactImages: true, nextId: NEXT_ID, focus: 0, srcView: { cx: 0, cy: 0, s: VIEW_SCALE },
-    shapes: [{ id: 'd1', kind: 'disc', c: [1, 0], r: 0.12, ci: 0, visible: true }], steps };
+    shapes: [Object.assign({ id: 'd1', kind: 'disc', ci: 0, visible: true }, sc.disc || DISC)], steps };
   await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}&lang=en`);
@@ -61,7 +64,7 @@ for (const sc of SCENES) {
   await open(sc, FEW, false);
   const b = await look();
   info[sc.name + ' few'] = b;
-  ok(`${sc.name} ×${FEW}: a plan takes it (the regions' path is not forward): no hatch, no note`, b.paths.length === 1 && b.paths[0].path !== 'forward' && b.share <= HATCH_MAX_SHARE && !b.note && b.tip !== NOTE && b.said !== NOTE, { share: b.share, note: b.note, tip: b.tip, said: b.said, paths: b.paths });
+  ok(`${sc.name} ×${FEW}: a plan takes it (the regions' path is the inverse pass): no hatch, no note`, b.paths.length === 1 && b.paths[0].path === 'inverse' && b.share <= HATCH_MAX_SHARE && !b.note && b.tip !== NOTE && b.said !== NOTE, { share: b.share, note: b.note, tip: b.tip, said: b.said, paths: b.paths });
   await open(sc, COPIES, true);
   const c = await look();
   info[sc.name + ' everywhere'] = c;
