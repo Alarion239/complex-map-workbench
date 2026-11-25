@@ -21,8 +21,8 @@
   const PICK_SEARCH_MAX = 40;          // the most twins the search lists
   let floorPick = null;                // the lit twins: {sig, k, T, z0, w, zs: [{z, mult}], more}
   // whether the Pick tool picks here: the steps view's flat plane or the Stack (19-stack-pick.js), with the target's plane
-  // past it
-  const pickAvail = () => !!(SV.on && (lFlat() || stackOn()) && svT() > leftStage());
+  // past it, or the Landscape's sheets on a plane past their source plane (19-land-pick.js)
+  const pickAvail = () => !!(SV.on && (((lFlat() || stackOn()) && svT() > leftStage()) || landPickOn()));
   const pickSig = () => `${leftStage()}|${svT()}|${chainSig[nSteps()]}`;
   // the preimages of w on plane k over plane T: {w, zs: [{z, mult}], more} (more: the search may have missed some); exact
   // where the steps have finitely many inverse branches, else a search of the view of at most ms; null where w is not
@@ -133,6 +133,7 @@
   // then the disc about their image; true when it acted
   function pickKey() {
     if (tool !== 'pick' || !pickAvail()) return false;
+    if (landPickOn()) return landPickKey();
     const k = leftStage(), T = svT(), sel = findShape(selected);
     paneL.setView(leftView());
     const b = paneL.box(), z0 = sel && sel.kind === 'point' && shapeStage(sel) === k ? C(sel.p[0], sel.p[1]) : C((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
@@ -149,6 +150,19 @@
     if (floorPick && (floorPick.sig !== pickSig() || tool !== 'pick')) floorPick = null;
     return floorPick;
   }
+  // a picked point's mark on ctx at (x, y), css px: the pressed point a dot (own), a twin a ring, both on a halo; o.r its
+  // radius (PICK_DOT, PICK_RING), o.colour its colour (TH.probe), o.dash the ring's dashes (none). The floor picker's,
+  // the Stack's (19-stack-pick.js) and the Landscape's sheets' (19-land-pick.js)
+  function pickMark(ctx, x, y, own, o = {}) {
+    const r = o.r || (own ? PICK_DOT : PICK_RING), colour = o.colour || TH.probe;
+    ctx.setLineDash(o.dash || []);
+    ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    ctx.lineWidth = 1.75; ctx.strokeStyle = colour; ctx.fillStyle = colour;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
+    if (own) ctx.fill(); else ctx.stroke();
+    ctx.setLineDash([]);
+  }
   // the lit twins over the floor: the pressed point a dot, its twins rings (an overlay of the steps view's plane)
   function drawFloorPick(pane) {
     if (!floorPickNow()) return;
@@ -156,12 +170,8 @@
     ctx.save();
     for (const { z } of floorPick.zs) {
       if (!inBoxZ(z, b, 0)) continue;
-      const [x, y] = pane.w2s(z), own = CX.abs(CX.sub(z, z0)) <= 1e-6 * (1 + CX.abs(z0));
-      ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo;
-      ctx.beginPath(); ctx.arc(x, y, own ? PICK_DOT : PICK_RING, 0, TAU); ctx.stroke();
-      ctx.lineWidth = 1.75; ctx.strokeStyle = TH.probe; ctx.fillStyle = TH.probe;
-      ctx.beginPath(); ctx.arc(x, y, own ? PICK_DOT : PICK_RING, 0, TAU);
-      if (own) ctx.fill(); else ctx.stroke();
+      const [x, y] = pane.w2s(z);
+      pickMark(ctx, x, y, CX.abs(CX.sub(z, z0)) <= 1e-6 * (1 + CX.abs(z0)));
     }
     ctx.restore();
   }
