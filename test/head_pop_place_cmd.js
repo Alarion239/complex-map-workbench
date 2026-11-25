@@ -1,12 +1,15 @@
 // A pane head's open pop-up follows its button when the head lays its row out again (#2454): the pop-up hangs under the head with its
 // right edge on the head's (the Regions button's, or ⋯'s, when that lies further right), as the opening rule places it, and does not
-// reach the Inspector's column. Classic X → Y, the Regions pop-up open at 1440 × 900, the window then narrowed to 1380 and widened
+// reach the Inspector's column. Classic X → Y, the Regions pop-up open at 1440 × 900, the window then narrowed to 1425 and 1380 and widened
 // again; and the steps view's ⋯ pop-up over the same change.
+// The window is resized as a window is (no emulation reset), so the head's row may not change at all.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ST = { shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'phase' } };
 const TOL = 1.5;   // px
+// the window's own resize (Playwright's setViewportSize): the page's size alone, with no media or touch emulation set again, which would lay the head out again by itself
+const resize = (w, h) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
 const frames = (n) => ev(`new Promise((r) => { let k = ${n}; const t = () => (--k > 0 ? requestAnimationFrame(t) : r(1)); requestAnimationFrame(t); })`);
 // the open pop-up's place against its button, the head and the Inspector
 const BOXES = (btnSel, popSel) => `(() => {
@@ -33,9 +36,10 @@ await settled({ max: 8000, until: `!!document.querySelector('.pat-pop')`, only: 
 await frames(10);
 stands('classic X → Y, 1440', await ev(BOXES(BTN, '.pat-pop')));
 const HEADW = `document.querySelector('#paneL .pane-head').getBoundingClientRect().width`;
-for (const w of [1380, 1440]) {
+// (a series of narrowings and the way back: the head lays its row out again at some of these widths and keeps it at others, by what it counts)
+for (const w of [1425, 1380, 1440]) {
   const w0 = await ev(HEADW);
-  await view(w, 900, false, false);
+  await resize(w, 900);
   const g = await settled({ max: 8000, until: `Math.abs(${HEADW} - ${w0}) > 1`, only: true });
   ok(`the head's width changed for ${w}`, g.ok, g);
   await frames(20);
@@ -53,10 +57,10 @@ await frames(10);
 stands('steps view ⋯, 1440', await ev(BOXES(OPT, '.disp-pop')));
 {
   const w0 = await ev(`document.querySelector('${OPT}').closest('.pane-head').getBoundingClientRect().width`);
-  await view(1380, 900, false, false);
+  await resize(1425, 900);
   const g = await settled({ max: 8000, until: `Math.abs(document.querySelector('${OPT}').closest('.pane-head').getBoundingClientRect().width - ${w0}) > 1`, only: true });
-  ok('the steps view head\'s width changed for 1380', g.ok, g);
+  ok('the steps view head\'s width changed for 1425', g.ok, g);
   await frames(20);
-  stands('steps view ⋯, 1380', await ev(BOXES(OPT, '.disp-pop')));
+  stands('steps view ⋯, 1425', await ev(BOXES(OPT, '.disp-pop')));
 }
 return { pass: fails.length === 0, fails, info };

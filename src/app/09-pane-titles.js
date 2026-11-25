@@ -385,6 +385,9 @@
   function layoutFootNow(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
     layoutFootRun(side, force);
+    // (an open Regions pop-up follows the head's button whether or not the row changed: the head's right edge moves with the window, and a layout that finds the same controls returns before it)
+    const pat = f && f.querySelector(':scope > .pat-btn'), pop = foot[side].pop;
+    if (pat && pop && pop.isConnected && pop.dataset.of === 'pattern') placeFootPop(pop, pat);
     if (f && a && a !== document.body && a.isConnected && document.activeElement !== a && f.contains(a)) /** @type {HTMLElement} */ (a).focus({ preventScroll: true });
   }
   function layoutFootRun(side, force) {
@@ -527,7 +530,7 @@
       // (the open pop-up follows its controls: the Regions pop-up while they are merged into it, else the ⋯'s)
       if (ft.pop.dataset.of === 'pattern' && merged) openFootPop(pat, true, side, true);
       else if (b) openFootPop(b, true, side); else closePalette();
-    } else if (pat && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === 'pattern') placeFootPop(ft.pop, pat);   // (an open Regions pop-up follows its button)
+    }
   }
   // (in the X → Y view the Regions button in the pane head, a swatch of the regions' fill (the
   // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
