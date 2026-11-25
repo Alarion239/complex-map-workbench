@@ -22,6 +22,8 @@ const goOk = async (url) => { if (!(await go(url))) throw new Error('no load eve
 const ALL = !!process.env.CMW_AHEAD_PLAN_ALL, RANGE = (process.env.CMW_AHEAD_PLAN_RANGE || '0-99').split('-').map(Number), RATES = ALL ? (process.env.CMW_AHEAD_PLAN_RATES || '1').split(',').map(Number) : [1];
 // (a window in which the steps view lays the pane out at about 870 x 560; a window of 900 x 600 leaves a strip 36 px high)
 const VIEW_W = 1200, VIEW_H = 800, WAIT_MS = 120000, PROBE_WAIT_MS = 30000, NEAR = 0.2;
+// the wait a glide made is timed from outside the page, after the press, so it reads a few ms short of the page's own (its fill's cap)
+const WAIT_SLACK_MS = 250;
 // the gallery maps the gated rows read (by name): one of the dearest frames and two of the cheapest, which a machine
 // with another speed puts at the other side of the draw wait's limit
 const GATED = ['Strip to disk', 'Cauchy: an essential singularity', 'A disc map moved by a point'];
@@ -112,7 +114,7 @@ for (const rate of RATES) for (const what of list) {
     // estimate (the cost times the frames) may fall short of; then the glide waited at least that long. 'live' and 'ahead' never say 'memory'.
     const okSaid = row.plan === 'time' ? said1.length === 1 && sayTime
       : row.plan === 'memory' ? said1.length === 1 && sayMemory
-      : !sayMemory && (said1.length === 0 || (said1.length === 1 && sayTime && row.plan === 'ahead' && up.ms >= P.waitMs));
+      : !sayMemory && (said1.length === 0 || (said1.length === 1 && sayTime && row.plan === 'ahead' && up.ms + WAIT_SLACK_MS >= P.waitMs));
     ok(`${tag}: said: at ${m.speed}, one plane, the plan is ${row.plan}: it says why once when that is 'time' or 'memory', never the memory's why otherwise, and the draw wait's why only after waiting for it`, okSaid, { plan: row.plan, said1, waitedMs: up.ms, waitMs: P.waitMs });
     await ev('__cmwSteps({ clock: 1000 / 60, go: 1 }), 1');
     await settled({ only: true, max: WAIT_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 1' });
