@@ -2707,17 +2707,18 @@
       const p = reached && reached.get(s);
       // (an open region's outline dashed as at rest, OPEN_DASH along its arc at rest: GLR.drawInverse's st.edge.dash)
       if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => Object.assign(svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k), kindType(x) === 'area' && Region.isOpen(x) ? { dash: OPEN_DASH } : {})); continue; }
-      const map = svShapeMap(s, map0), r = map && !reptExact(map) && shapeGPU(s);
-      if (!r || !r.lineRes) continue;
-      const dash = openDash(r, map);
-      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
+      const map = svShapeMap(s, map0), r = map && shapeGPU(s), o = r && outlineRes(map, r, pane);
+      if (!o) continue;
+      const dash = openDash(o.rec, map);
+      GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: OUTLINE_M, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions: which points of plane k's box are in the carried region set, the set the
   // plane's 2D picture colours (svMask): {cv, key, box, unres}, a canvas over box (512 pixels on its longer side, row 0
   // at its top), opaque white inside the set, clear outside, where the surface is plain (the Plain material's colour),
-  // and opaque black at the pixels a REPT plan left unresolved (unres of them), where it draws the no-value hatch. One
+  // and opaque black at the pixels a REPT plan left unresolved (unres of them; all of them when the plane's repeat is
+  // refused, repeatRefused), where it draws the no-value hatch. One
   // per chain, plane, box and shapes; null with the colour everywhere (Everywhere)
   let svLandMaskC = null;
   // (the number of masks drawn while a program of the pass still linked: each one's key is its own, so the surface's
@@ -2748,11 +2749,15 @@
     svMask(over, stageMap(k), k, { cc });
     // (the pixels a REPT plan left unresolved: counted, and marked opaque black in the mask, where the surface draws
     // the no-value hatch (LAND_FS); never read as uncovered)
-    const unres = reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount(cc) : 0;
+    // (a refused repeat's plan has none to draw it: its mask is the no-value mark everywhere, the surface hatched all over,
+    // as the flat plane is)
+    const refused = repeatRefused(stageMap(k));
+    if (refused) { cc.fillStyle = '#000'; cc.fillRect(0, 0, pw, ph); }
+    const unres = refused ? pw * ph : reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount(cc) : 0;
     // (a pass that left a program linking drew its regions short: the mask is not kept under this key, so the frame
     // that follows the link draws it afresh)
     const linking = !!GLR.frameStatus().pending;
-    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres };
+    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres, refused };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
@@ -2847,6 +2852,9 @@
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
+  // the sheet combos the last globe glide frame drew, the principal one counted (svSphereMoving's; null when it carried no
+  // colour), read by the test hooks
+  let svGlobeSheetsRec = null;
   function svSphereMoving(pane, hold = null) {
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
@@ -2866,18 +2874,28 @@
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
     if (rest) { leftSphereInfo = rest; return; }
     // (all at once, the span's steps each at its own time: svSpanPaths)
-    const inv = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
+    const own = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
+    // (the other sheets' copies under it, svGlideSheets, as the plane draws them: each copy's regions made and drawn with
+    // the chain on that copy's sheets (svOnSheets), the farthest from the principal sheet first, so that a nearer sheet is
+    // drawn over a farther one and the principal one over them all)
+    const sheets = own && map.mode === 1 && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+    const copies = sheets.slice().reverse().flatMap((v) => (svOnSheets(v, () => svGlobeCarryInv(pane, b, u, T)) || []).map((r) => Object.assign(r, { around: (draw) => svOnSheets(v, draw) })));
+    const inv = own && copies.length ? copies.concat(own) : own;
     // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
+    // (and its other sheets' copies under it, as the inverse pass's: each copy's mesh made and drawn on its sheets)
+    const meshSheets = carried && !all && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+    const carriedCopies = meshSheets.slice().reverse().map((v) => ({ carried: svOnSheets(v, () => svGlobeMesh(a, T, svGlideMap(bt, src), a + u)), around: (draw) => svOnSheets(v, draw) })).filter((c) => !!c.carried);
+    svGlobeSheetsRec = inv ? sheets.length + 1 : carried ? meshSheets.length + 1 : null;
     // (under the carried colour, as the plane's frame paints it (svRenderMoving's colour): the arrival plane's own colour
     // when it is a coloured plane, so that a place no point of the glide reaches shows what plane b draws there at rest,
     // not the bare globe. SV.restPaint 0 leaves it out, as on the plane. The plane's second layer, plane a's no-value
     // hatch over it, has no pass on the globe)
     const under = inv && map.mode === 1 && SV.restPaint !== 0 && svColoured(b) && !svMaskOn() ? { colorMap: svColourMap(b), carryBase: true } : null;
     let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }, under))
-      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
+      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried, carriedCopies } : { carried }));
     if (!inv && !(info && info.carried) && near === b && b !== a) info = sphereView(pane, camL, CAML, look(b));
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in

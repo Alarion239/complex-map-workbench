@@ -102,7 +102,13 @@ const SoundHooks = (() => {
       const hv = on && s.sonify ? 'on' : 'off';
       if (b.dataset.hear !== hv) { b.dataset.hear = hv; if (hv === 'on') b.setAttribute('aria-description', $t('Hear the function is on')); else b.removeAttribute('aria-description'); }
     }
-    const ph = $('soundPh'); if (ph && ph.hidden === on) ph.hidden = !on;
+    const ph = $('soundPh');
+    if (ph && ph.hidden === on) {
+      // (the bar's button goes while it holds the focus, from a key or a tap: the focus goes to ⋯ beside it, not to the page)
+      const held = !on && document.activeElement === ph;
+      ph.hidden = !on;
+      if (held) { const more = $('hdrMoreBtn'); if (more) more.focus({ preventScroll: true }); }
+    }
     const top = $('top'); if (top) top.dataset.snd = on ? 'on' : 'off';
     const set = (id, k, v) => { const e = $(id); if (e && e[k] !== v) e[k] = v; };
     set('sndOn', 'checked', on); set('sndVol', 'value', String(Math.round(s.vol * 100)));
