@@ -192,8 +192,6 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 | `zpCard` | the card of a zeros-and-poles step | the `.card` around `.params.zp` |
 | `invBtn` | the f⁻¹ button of the first card that has one | the `.card button` whose label is f<sup>−1</sup> |
 | `sheets` | the All sheets check of the Landscape options | the label around `#sheetsChk` |
-| `phaseKey` | the Phase key check of Y's options (X → Y, Y on its plane) | the label around `#wKeyChkR` |
-| `rightOpts` | Y's Display options button, where the Phase key goes when Y's options strip has no room (the fallback of `phaseKey`; v16.5 UX20: on a desktop always, in Y's pane head) | `#rightFoot .opts-btn` |
 | `leftOpts` | (v16.5 UX20) X's Display options button in its pane head on a desktop: the Phase style and Landscape's options (the fallback of `phaseStyle`) | `#leftFoot .opts-btn` |
 | `soundBtn`, `soundBar` | the Sound control of the top bar (the sound round); on a phone with sound on, its button left in the bar | `#soundBtn`, `#soundPh` |
 | `phaseStyle` | the Phase style control of the Phase view's options (Tiles … Cauchy) | `#dcSeg` |
@@ -549,7 +547,6 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 |---|---|---|
 | `view-moved` | `{ pane: 'L' \| 'R' \| 'P', how: 'pan' \| 'zoom' \| 'orbit' }` | the end of the user's pan, zoom (a wheel: 250 ms after its last tick; a pinch: on lift) or orbit (Landscape, sphere); `'P'` is the one wide panel |
 | `layer-opened` | `{ kind: 'catalog' }` | the step catalog opens (the add card, {+}, the palette's Add a step: `openPalette` with `fnOnly`) |
-| `phase-key` | `{ on }` | Phase key is toggled (Y's check, the legend's key check) |
 | `step-replaced` | `{ k, type }` | a step is replaced by its inverse (`invertStep`); `type` is the new step's type |
 | `tex-copied` | `{ what: 'F' }` | F's LaTeX is copied (the Inspector's copy button with the F tile selected) |
 | `listen-ended` | `{ piece, fn, closed, W, heard, full }` | a Listen along ends (v16.5: `fn` true when it played the function, `piece` true for the composition): played out (`full: true`), stopped, or cut by a scene change; `heard` in seconds; `W` the rounded winding number of a closed curve with no cut, else null |
@@ -571,7 +568,7 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 - `try.then` (at most 60): the result line once the task is done. `try.after`: an earlier step of the chapter whose
   task must have been done in this run (else the step is read).
 - `act: 'listen' | 'sound'`, `hear: true`, `captions: [[seconds, text], …]` (ascending, within the piece's length; v16.5: with `capFrac: true`, fractions of the playback in [0, 1), scaled by `listen-started`'s `dur`, for the function's Listen along, whose length is the curve's at the zoom).
-- Look keys `phaseKey` (Y's Phase key) and `sectors` (8, 12, 16 or 24; the phase sectors of Tiles).
+- Look key `sectors` (8, 12, 16 or 24; the phase sectors of Tiles).
 - A scene with `app: name` is loaded from `api.sceneSpec(name)`; with no answer it is absent and its steps are left out.
 - `Tour.auto(on?)`: Move on by itself, read or set. `Tour.lit()` adds `strip: { l, t, r, b }`, `mode` (`desk`, `port`,
   `head`, `row`), `why`, `done` and `countdown: { left, held: [kinds], state: 'idle' | 'running' | 'held' | 'cancelled' |

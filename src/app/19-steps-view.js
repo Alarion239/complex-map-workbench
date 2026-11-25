@@ -2658,7 +2658,7 @@
           o.paint();
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
-          reptHatch(mp, map);
+          reptHatch(pane, map);
           refusedHatch(pane, map);
           if (o.after) o.after();
           onPage = true;

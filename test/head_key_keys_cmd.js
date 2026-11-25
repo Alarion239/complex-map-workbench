@@ -1,4 +1,4 @@
-// The key in a pane's head (the classic view's Regions key #rightLegend, the steps view's Height key #leftLegend) is operated from the keyboard: it is in the focus order, a
+// The key in a pane's head (the steps view's Height key #leftLegend) is operated from the keyboard: it is in the focus order, a
 // button with aria-expanded, its panel (the key's picture) opens when it takes keyboard focus, Enter or Space keeps it open and a second
 // press closes it, Escape closes it with the focus staying on the key, and the mouse's way (hover opens it, a click keeps it open) is as
 // it was. With real key events and a real pointer, at 1280 x 800 and 900 x 700. A command file for a CDP daemon (test/cdp_kit README);
@@ -7,7 +7,7 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const TABS = 80, SETTLE_MAX = 4000;
-let ID = 'rightLegend';   // (the key under test: the classic view's Regions key, the steps view's Height key)
+let ID = 'leftLegend';   // (the key under test: the steps view's Height key)
 // the key, as the page and a person see it: its role, its place in the focus order, aria-expanded, whether it has the focus and whether its panel (the
 // canvas under it) is shown
 const state = () => ev(`(() => { const k = document.getElementById('${ID}'), c = k.querySelector('canvas');
@@ -20,14 +20,16 @@ const reach = async () => {
 // (focus events, and so :focus-visible, reach a page only while it has focus: a headless page is made to, until the rows end)
 await send('Emulation.setFocusEmulationEnabled', { enabled: true });
 const SEED = { steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1' }], sv: { at: 0, T: 1, scope: 'all', surf: 'land' } };
-const CASES = [{ w: 1280, h: 800, id: 'rightLegend' }, { w: 900, h: 700, id: 'rightLegend' }, { w: 1280, h: 800, id: 'leftLegend', steps: true }];
+// (standards-ok: the classic view's Regions key, in Y's head, goes with Y's pane, which the classic view does not draw, #994;
+// the Height key is read at both sizes the Regions key was)
+const CASES = [{ w: 1280, h: 800, id: 'leftLegend', steps: true }, { w: 900, h: 700, id: 'leftLegend', steps: true }];
 for (const { w, h, id, steps } of CASES) {
   ID = id;
   const tag = `${steps ? 'steps ' : ''}${w}×${h}`;
   await view(w, h, false, false);
   const ns = `hkk${w}${Date.now() % 100000}`;
   if (steps) await seed(ns, SEED);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${steps ? 'steps' : 'classic'}`);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await settled({ max: 30000, until: `!!document.getElementById('${ID}') && !document.getElementById('${ID}').hidden && !!document.getElementById('${ID}').closest('.pane-head') && document.getElementById('${ID}').getClientRects().length > 0` });
   const rest = await state();
   ok(`${tag}: the key in the head is a button in the focus order, closed (aria-expanded false)`, rest.role === 'button' && rest.tab === 0 && rest.expanded === 'false' && !rest.shown, rest);
