@@ -305,10 +305,10 @@
   }
   // the thread's range a glide video records, the Play range else all of it: its first and last planes, and the span it
   // glides across as one homotopy when the order is All at once (the screen's own span when it is that one, which keeps its
-  // steps' times), else null
+  // steps' times), else null, whatever span the screen still holds
   function svVideoRange() {
-    const R = svRange(), lo = R ? R.lo : 0, hi = R ? R.hi : svPlanes().length - 1, sp = SV.span;
-    return { lo, hi, span: sp && sp.x0 === lo && sp.x1 === hi ? sp : svSpanOf(lo, hi) };
+    const R = svRange(), lo = R ? R.lo : 0, hi = R ? R.hi : svPlanes().length - 1, sp = SV.span, own = svSpanOf(lo, hi);
+    return { lo, hi, span: own && sp && sp.x0 === lo && sp.x1 === hi ? sp : own };
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
