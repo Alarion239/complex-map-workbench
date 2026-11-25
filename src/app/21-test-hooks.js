@@ -690,3 +690,18 @@ void main() {
     };
   }
   // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py): the hooks before the app has started. They are set as the
+  // bundle runs, but the page state S stays null until init(), which waits for DOMContentLoaded; a suite polls them right
+  // after a load. While S is null each answers not-ready instead of reading it: __cmwSteps() { ready: { ready: false } },
+  // the others null. Every __cmw* hook set by now is wrapped here: this file's and the files' before it, which the bundle
+  // has run by now
+  {
+    const W = /** @type {any} */ (window), notReady = { __cmwSteps: () => ({ ready: { ready: false } }) };
+    for (const k of Object.keys(W)) {
+      const f = W[k];
+      if (!k.startsWith('__cmw') || typeof f !== 'function') continue;
+      W[k] = Object.assign(function (...a) { return S ? f.apply(this, a) : notReady[k] ? notReady[k]() : null; }, f);
+    }
+  }
+  // TEST-HOOK

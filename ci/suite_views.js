@@ -471,6 +471,7 @@ const VIEWS = {
   'kit_nav_cause_cmd.js': steps({ pin: true }),
   'kit_reloaded_cmd.js': steps({ pin: true }),
   'kit_load_cmd.js': steps({ pin: true }),
+  'hooks_before_init_cmd.js': steps({ pin: true }),   // (the test hooks answer not-ready before the app has started, #2444)
   'kit_fault_cmd.js': steps({ pin: true }),
   'line_slice_cmd.js': steps({ pin: true }),
   'mj_ranges_cmd.js': steps({ pin: true }),
