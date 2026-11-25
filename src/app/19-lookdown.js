@@ -160,6 +160,7 @@
     const rc = document.documentElement.classList;
     if (!lookKey.hidden && lookKeyOpen && rc.contains('ph') && rc.contains('ph-land') && lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('over-readout');
     stackMeasureRooms();
+    svTileRefresh();   // (the glide's formula tile keeps clear of the key: the plane's contain: strict keeps its size from telling it)
   }
   // TEST-HOOK (dropped from the published page by build.py): the marks as drawn, the key's words (its marks after its
   // title, "; " between them), and how many times the key's room was measured (fits)
