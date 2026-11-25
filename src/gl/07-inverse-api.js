@@ -425,13 +425,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       d.stopT.set([T[0].re, T[0].im, T[1].re, T[1].im, T[2].re, T[2].im, T[3].re, T[3].im]);
     }
     // a REPT plan's forward enclosures E_r (already rounded to float32 by Inverse.prepare): the box (x0, y0, x1, y1) and
-    // (the escape bound or -1, 1 when there is no box); the whole plane as x0 > x1 with no escape bound
+    // (the escape bound or -1, 1 when there is no box, the radius bound or -1); the whole plane as x0 > x1 with no
+    // escape bound
     const nE = GLChain.reptLevels();
-    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(2 * nE);
+    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(3 * nE);
     for (let r = 0; r < nE; r++) {
       const e = prep.rept && prep.rept.E[r];
       d.repE.set(e && !e.empty ? [e.x0, e.y0, e.x1, e.y1] : [1, 0, -1, 0], 4 * r);
-      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0] : [-1, 0], 2 * r);
+      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0, e.rad > 0 ? e.rad : -1] : [-1, 0, -1], 3 * r);
     }
     const sing = (prep.sing || []).slice(0, 4);
     // (each point's re, im and weight w, 1 when it has none, as Inverse.keyW reads it: uSing's vec3)
@@ -744,7 +745,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxAB) gl.uniform4fv(P.loc.uIxAB, d.AB);
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
     if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
-    if (P.loc.uIxRepS) gl.uniform2fv(P.loc.uIxRepS, d.repS);
+    if (P.loc.uIxRepS) gl.uniform3fv(P.loc.uIxRepS, d.repS);
     u1i(P, 'uIxRepNodes', reptNodes);
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
@@ -853,6 +854,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         invGlobeSc++; invGlobeScPx += (x1 - x0) * (y1 - y0);
       }
       uM4(P, 'uMVP', st.sphere.MVP); u3(P, 'uEye', st.sphere.eye);
+      // (st.opaqueOnly: only the pixels the composite covers opaquely; the stencil the caller set marks them)
+      u1i(P, 'uOpaqueOnly', st.opaqueOnly ? 1 : 0);
       globeLight(P, st.sphere);
       const g = sphere();
       const dt = gl.isEnabled(gl.DEPTH_TEST);
@@ -1017,6 +1020,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function reptAccFree(E) {
     for (const T of [E.A, E.B]) if (T) { gl.deleteTexture(T.tex); gl.deleteFramebuffer(T.fbo); }
     for (const q of E.q || []) gl.deleteQuery(q);
+    if (E.hq) gl.deleteQuery(E.hq);
   }
   // the tiles of a w x h rect of at most px pixels each: [x, y, w, h]
   function reptTiles(w, h, px) {
@@ -1166,6 +1170,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(Q, 'uAccMode', mark ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (mark) {
+      reptMarked = sig === null ? null : E;
       if (repMarkFrame !== invFrame) { repMarkFrame = invFrame; gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); }
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       gl.colorMask(false, false, false, false);
@@ -1202,13 +1207,28 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     hatchPass(Q, dpr, false);
     return true;
   }
+  // the accumulation entry whose picture the frame's mark pass composited (a cacheable draw's), for reptHatchFill
+  let reptMarked = null;
+  // The hatch over the marked pixels, then the marks cleared. -> whether the picture's hatch covers any pixel: an occlusion
+  // query over the hatch's draw, asked once for a picture (its accumulation entry) and answered, as WebGL answers, by a later
+  // frame, which is asked for (reptKick) until it finds the entry's answer; true or false once it is known, else undefined, as for
+  // an uncacheable picture. null when the frame has no mark pass to hatch or the program is not ready
   function reptHatchFill(dpr) {
     const Q = ok && program('reptHatch');
-    if (!Q || repMarkFrame !== invFrame) return false;
+    if (!Q || repMarkFrame !== invFrame) return null;
+    const E = reptMarked;
+    reptMarked = null;
+    const q = E && E.hatched === undefined && !E.hq ? gl.createQuery() : null;
+    if (q) gl.beginQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE, q);
     hatchPass(Q, dpr, true);
+    if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); E.hq = q; reptKick(); }
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     repMarkFrame = -1;
-    return true;
+    if (E && E.hq) {
+      // (a result not there yet asks for another frame, until it is)
+      if (gl.getQueryParameter(E.hq, gl.QUERY_RESULT_AVAILABLE)) { E.hatched = !!gl.getQueryParameter(E.hq, gl.QUERY_RESULT); gl.deleteQuery(E.hq); E.hq = null; } else reptKick();
+    }
+    return E ? E.hatched : undefined;
   }
   // the pixels the frame's stencil marks unresolved (a REPT plan's region-mask pass, drawInverse), counted by a read-back
   // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks. cc: a

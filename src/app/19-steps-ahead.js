@@ -15,20 +15,25 @@
   // motion then shows frame floor(elapsed / AHEAD_DT) (HomRange.aheadIndex), one drawImage a frame (svAheadShow). A frame
   // is kept only when it is the exact frame at its own place: no hold, and between two planes the inverse pass's at its u.
   // One that is not is drawn again, at most AHEAD_TRIES times. What a motion does is decided from its chain's frame cost,
-  // measured once (svAheadProbe): the first motion of a chain plays live at once, as it would without frames ahead, and
+  // measured (svAheadProbe): the first motion of a chain plays live at once, as it would without frames ahead, and
   // AHEAD_PROBE of its frames are drawn off-screen in idle moments after it ends, their median kept (svAheadCost). A later
   // motion of the chain then decides at once (svAheadPlan): at most AHEAD_MS it plays live; past AHEAD_WAIT_MAX_MS to draw
   // its frames, or past the memory budget to keep them, it plays live and says why once a chain and reason, with the next
-  // words the view says (svAheadTail); else the gate waits while its frames are drawn. Only on the flat plane (the Stack's
-  // floor included: its frames are drawn flat, and the Stack's camera maps the one shown, stackFloor), without
+  // words the view says (svAheadTail); else the gate waits while its frames are drawn. The fill times itself against the
+  // same wall clock, from its start: from its AHEAD_EARLY-th frame on it projects its end as the time so far with the rest of
+  // its frames at the rate it has kept since its first (the redraws of rejected frames counted as they fall) and plays the
+  // motion live at once when the projection ends past AHEAD_WAIT_MAX_MS; no frame is started that would end past it. A fill
+  // that kept AHEAD_EARLY frames raises its chain's cost to its rate, and one that ends cut to at least its projected time over
+  // its frames (svAheadFeed), so the chain's next motion plans from what a frame costs the page while it fills. Only on the
+  // flat plane (the Stack's floor included: its frames are drawn flat, and the Stack's camera maps the one shown, stackFloor), without
   // reduced motion, and only for a motion started from rest (svGo, svPlay): a press during a motion, a scrub, a speed
   // change, a Split and an edit play live
-  const AHEAD_DT = 1000 / 60, AHEAD_MS = 14, AHEAD_PROBE = 3, AHEAD_TRIES = 3, AHEAD_WAIT_MAX_MS = 3000;
+  const AHEAD_DT = 1000 / 60, AHEAD_MS = 14, AHEAD_PROBE = 3, AHEAD_TRIES = 3, AHEAD_WAIT_MAX_MS = 3000, AHEAD_EARLY = 6;
   // the gate's ahead part short of done until the last frame is made (svAheadPart); the longest a probe frame's GPU fence is
   // polled (ms); an idle moment's wait at most, and a timer's delay where the browser has no idle callback (ms)
   const AHEAD_PART_MAX = 0.99, AHEAD_FENCE_MAX_MS = 1000, AHEAD_IDLE_TIMEOUT_MS = 2000, AHEAD_IDLE_FALLBACK_MS = 50;
   // (a test hook's { ms, waitMs, cap }, each in place of AHEAD_MS, AHEAD_WAIT_MAX_MS and aheadBudget's when not null; null
-  // in the app: svAheadTune)
+  // in the app: svAheadTune. Its cost is set once, as the chain's: svAheadCost)
   let svAheadTest = null;
   const aheadTest = (k) => (svAheadTest && svAheadTest[k] != null ? svAheadTest[k] : null);
   const aheadMs = () => (aheadTest('ms') != null ? aheadTest('ms') : AHEAD_MS);
@@ -39,11 +44,13 @@
   // N (the frames shown, 0..N−1: the motion ends at N), slots (by k: { bm, mf, cm, rec }), n (slots made), kept (each
   // slot made's glide path, kept when the slots go), tries (of the frame drawn next), state ('fill', 'done' or
   // 'live'), why (the reason it plays live: 'time', 'memory' or 'exact'; none when its frames
-  // are cheap), t0 (the fill's start), cv (the scratch canvas), busy (a slice is posted), A (the motion record it shows,
+  // are cheap), t0 (the fill's start), t1 (its end, once 'done' or 'live'), ends (when each slot made was done), ckey (the chain's key, svAheadKey with no
+  // motion), cv (the scratch canvas), busy (a slice is posted), A (the motion record it shows,
   // once it shows one), paused ({el, x}: the play paused on it), shown, rejects, live (frames the screen drew while it
   // filled) }; or null
   let svAhead = null;
-  // a chain's frame cost as its probe measured it (ms, by svAheadKey with no motion), and the reasons to play live said
+  // a chain's frame cost (ms, by svAheadKey with no motion): its probe's median, raised by a fill that kept more of its
+  // frames at a higher rate (svAheadFeed); and the reasons to play live said
   const svAheadCost = new Map(), svAheadSaid = new Set();
   // what the measured cost of M's chain says of motion M: null (not measured), 'live' (cheap: it plays live, as without
   // frames ahead), 'ahead' (its frames are drawn ahead), or the reason it plays live ('time', 'memory'). So a chain is
@@ -78,7 +85,7 @@
     if (!svAhead || svAhead.key !== key) {
       svAheadDrop();
       const xs = HomRange.aheadPlaces(M.from, M.to, M.ms, M.eased, AHEAD_DT);
-      svAhead = { M, key, xs, N: xs.length - 1, slots: [], kept: [], n: 0, tries: 0, state: 'fill', why: null, t0: performance.now(), cv: null, busy: false, A: null, paused: null, shown: 0, rejects: 0, live: 0 };
+      svAhead = { M, key, ckey: svAheadKey(paneL, null), xs, N: xs.length - 1, slots: [], kept: [], ends: [], t1: null, n: 0, tries: 0, state: 'fill', why: null, t0: performance.now(), cv: null, busy: false, A: null, paused: null, shown: 0, rejects: 0, live: 0 };
     }
     const R = svAhead;
     if (R.state === 'fill' && !R.busy) {
@@ -89,7 +96,7 @@
   }
   // the frames given up: the motion plays live (why: the reason said, none when its frames are cheap)
   function svAheadLive(R, why) {
-    R.state = 'live'; R.why = why;
+    R.state = 'live'; R.why = why; R.t1 = performance.now();
     for (const s of R.slots) if (s && s.bm) s.bm.close();
     R.slots = []; R.cv = null;
   }
@@ -103,20 +110,36 @@
     if (next) svAheadRun(R.M);
     else if (R.state === 'done' || R.state === 'live') svGateTick();
   }
-  // -> whether another frame is to be drawn
+  // the fill's rate: ms a kept frame, from its second kept frame on (the first one's one-time costs, the scratch canvas's,
+  // are left out), the redraws of rejected frames between them counted; 0 before
+  const svAheadRate = (R) => (R.n >= 2 ? (R.ends[R.n - 1] - R.ends[0]) / (R.n - 1) : 0);
+  // a fill that kept AHEAD_EARLY frames says what a frame costs the page while it fills: its chain's cost is raised to its
+  // rate, never lowered. A fill that ends cut (cut: true) feeds at least the projected time of all its frames over their number
+  // (the first frame costs more than the rate, so the rate alone may leave the chain's plan at 'ahead'), so the chain then
+  // plans 'time' at once
+  function svAheadFeed(R, cut) {
+    if (R.n < AHEAD_EARLY) return;
+    const c = svAheadCost.get(R.ckey), rate = svAheadRate(R);
+    const f = cut ? Math.max(rate, (performance.now() - R.t0 + rate * (R.N - R.n)) / R.N) : rate;
+    if (c != null && f > c) svAheadCost.set(R.ckey, Math.ceil(f * 100) / 100);
+  }
+  // -> whether another frame is to be drawn. The fill is cut (the motion plays live, why 'time') before a frame that would end
+  // past the draw wait at the rate so far, and after a kept frame from which the rest of the frames would end past it
   function svAheadFrame(R) {
     const g = SV.gate;
     // (cancelled, or the gate waits on another motion or an edited chain: svGateTick starts that one's)
     if (!g || !g.M || R.state === 'done' || R.state === 'live' || svAheadKey(paneL, g.M) !== R.key) return false;
+    const wait = aheadWaitMs();
+    if (performance.now() - R.t0 + svAheadRate(R) > wait) { svAheadFeed(R, true); svAheadLive(R, 'time'); return false; }
     const k = R.n, s = svAheadDraw(R, k);
     if (!s) {
       R.rejects++;
       if (++R.tries >= AHEAD_TRIES) { svAheadLive(R, 'exact'); return false; }
       return true;
     }
-    R.tries = 0; R.slots[k] = s; R.n++; R.kept.push(s.rec ? s.rec.path : null);
-    if (performance.now() - R.t0 > aheadWaitMs()) svAheadLive(R, 'time');
-    else if (R.n >= R.N) { R.state = 'done'; R.cv = null; }
+    R.tries = 0; R.slots[k] = s; R.n++; R.ends.push(performance.now()); R.kept.push(s.rec ? s.rec.path : null);
+    if (R.ends[k] - R.t0 + (R.n >= AHEAD_EARLY ? svAheadRate(R) * (R.N - R.n) : 0) > wait) { svAheadFeed(R, true); svAheadLive(R, 'time'); }
+    else if (R.n >= R.N) { R.state = 'done'; R.t1 = performance.now(); R.cv = null; svAheadFeed(R); }
     return R.state === 'fill';
   }
   // draw() run as the screen draws motion M at k·AHEAD_DT ms, at place x: a copy of the motion record at that time is the
@@ -255,10 +278,31 @@
   }
   // TEST-HOOK (dropped from the published page by build.py)
   // the frames' state: null, or { state, why, n, N, shown, rejects, live, recs: each slot made's glide path, slots: how many
-  // are held }; the chain's measured frame cost (ms), null while it is not measured; the last probe's log (svAheadProbeLog);
-  // and svAheadTest set ({ ms, waitMs, cap }, a key's null the app's own)
+  // are held, fillMs: the fill's time from its start to its end (null while it fills), rate: its rate so far (svAheadRate),
+  // frameMs: the ms each slot made took, from the one before it, the first from the fill's start }; the chain's
+  // frame cost (ms), null while it is not measured; the last probe's log (svAheadProbeLog); and svAheadTest set ({ ms,
+  // waitMs, cap }, a key's null the app's own; cost: the chain's cost, set once)
   const svAheadCostNow = () => { const c = svAheadCost.get(svAheadKey(paneL, null)); return c == null ? null : +c.toFixed(2); };
-  const svAheadHook = () => { const R = svAhead; return R && { state: R.state, why: R.why, n: R.n, N: R.N, shown: R.shown, rejects: R.rejects, live: R.live, recs: R.kept.slice(), slots: R.slots.filter(Boolean).length }; };
+  const svAheadHook = () => { const R = svAhead; return R && { state: R.state, why: R.why, n: R.n, N: R.N, shown: R.shown, rejects: R.rejects, live: R.live, recs: R.kept.slice(), slots: R.slots.filter(Boolean).length, fillMs: R.t1 == null ? null : +(R.t1 - R.t0).toFixed(1), rate: svAheadRate(R), frameMs: R.ends.map((t, i) => +(t - (i ? R.ends[i - 1] : R.t0)).toFixed(1)) }; };
   const svAheadProbeHook = () => svAheadProbeLog && Object.assign({}, svAheadProbeLog, { rejects: svAheadProbeLog.rejects.slice() });
-  const svAheadTune = (o) => { svAheadTest = Object.assign(svAheadTest || {}, o); };
+  // what svAheadPlan says of the chain's glides at each speed over one and over two planes (svGo's time: the speed's a plane times the planes), with the inputs
+  // it reads: the chain's cost, the pane's frame size, the three limits; null while the cost is not measured
+  const svAheadPlanHook = () => {
+    const c = svAheadCost.get(svAheadKey(paneL, null));
+    if (c == null) return null;
+    const rows = [];
+    for (const speed of Object.keys(SV_SPEEDS)) {
+      for (const planes of [1, 2]) {
+        const ms = SV_SPEEDS[speed] * planes, N = Math.max(1, Math.ceil(ms / AHEAD_DT));
+        rows.push({ speed, planes, ms, N, plan: svAheadPlan({ ms }), fillMs: +(c * N).toFixed(1), bytes: N * paneL.pw * paneL.ph * 4 });
+      }
+    }
+    return { cost: c, pw: paneL.pw, ph: paneL.ph, dpr: paneL.dpr, liveMs: aheadMs(), waitMs: aheadWaitMs(), budget: aheadBudget(), rows };
+  };
+  const svAheadTune = (o) => {
+    // (a cost is the chain's, set once: it is no lasting override)
+    const { cost, ...rest } = o;
+    svAheadTest = Object.assign(svAheadTest || {}, rest);
+    if (cost != null) svAheadCost.set(svAheadKey(paneL, null), cost);
+  };
   // TEST-HOOK

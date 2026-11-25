@@ -63,11 +63,12 @@
     if (layer === 'floor') {
       for (const [x, y] of m.crit.map((p) => lv.floor.at(...p))) stroke(1.75, TH.cut, null, () => { ctx.moveTo(x - LD_CROSS, y - LD_CROSS); ctx.lineTo(x + LD_CROSS, y + LD_CROSS); ctx.moveTo(x - LD_CROSS, y + LD_CROSS); ctx.lineTo(x + LD_CROSS, y - LD_CROSS); });
     } else if (layer === 'lines') {
-      // (straight from the floor to the glass, or along lv.link(i), line i's points in canvas px, where the levels have it)
+      // (straight from the floor to the glass, or along lv.link(i), line i's runs of points in canvas px, where the levels
+      // have it)
       const [cx, cy] = lv.glass.at(...m.c);
       m.zs.forEach((p, i) => {
-        const pts = lv.link && lv.link(i);
-        if (pts) stroke(1.25, TH.ink, null, () => pts.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y))));
+        const runs = lv.link && lv.link(i);
+        if (runs) stroke(1.25, TH.ink, null, () => runs.forEach((r) => r.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))));
         else { const [x0, y0] = lv.floor.at(...p); stroke(1.25, TH.ink, null, () => { ctx.moveTo(x0, y0); ctx.lineTo(cx, cy); }); }
       });
     } else {
@@ -95,7 +96,8 @@
   // whether a press gap css px from a ring of drawn radius r (in: inside it) is on the ring: within LD_HIT / 2 for a
   // mouse; for a finger (finger) within LD_HIT_TOUCH / 2 outside it, and inside it within r / 3 clamped to
   // [LD_HIT / 2, LD_HIT_TOUCH / 2]
-  const ldRingNear = (gap, inside, r, finger) => gap <= (!finger ? LD_HIT / 2 : inside ? Math.min(LD_HIT_TOUCH / 2, Math.max(LD_HIT / 2, r / 3)) : LD_HIT_TOUCH / 2);
+  const ldRingNear = (gap, inside, r, finger) => gap <= (!finger ? LD_HIT / 2
+    : inside ? Math.min(LD_HIT_TOUCH / 2, Math.max(LD_HIT / 2, r / 3)) : LD_HIT_TOUCH / 2);
   // the half width of the lines to a press (finger: a finger's or a pen's)
   const ldLineReach = (finger) => (finger ? LD_HIT_TOUCH : LD_HIT) / 2;
   // the disc whose ring or (with lines) lines are near (x, y) in the left pane, for a press of a finger or not (ldRingNear,
@@ -141,7 +143,7 @@
     if (!on) { fitLookKey(); return; }
     const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
     const title = stack ? $t('Stack') : $t('Look down');
-    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, title) : h('span', { class: 'ld-ttl' }, title);
+    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': stack && tubes ? 'ldList ldLinks' : 'ldList', onclick: () => fold(!lookKeyOpen) }, title) : h('span', { class: 'ld-ttl' }, title);
     // (the marks are a list, so a screen reader says them one by one)
     lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.concat(tubes ? LD_TUBE_KEY : []).map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
     // (with the tubes, the switch between the Stack's two kinds of connector, after the marks)

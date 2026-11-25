@@ -348,14 +348,9 @@
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
     return {
-      C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, classicSource, cmFormAnchor,
-      compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback,
-      drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
-      lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
-      morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
-      patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
-      resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-      sub, trans, transState, tweens, updateCalcChip,
+      C, MF, PATHS, SegGrid, activeSteps, allAtOnce, cap1, capT, captionLatex, classicSource, compositeTexShort,
+      isDeriv, joinList, kindType, lenPx, mDist, mfCache, morph, morphLen, morphOutline, morphRange, morphState,
+      morphX, patternSegs, rangeParts, requestRender, resamplePx, segD, shapePhrase, sheetsShown,
       get S() { return S; },
       get TH() { return TH; },
       get artMode() { return artMode; },
@@ -390,7 +385,4 @@
   function morphCaption(...args) { return MP.morphCaption(...args); }
   function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
-  function wKeyAvail(...args) { return MP.wKeyAvail(...args); }
-  function wKeyOn(...args) { return MP.wKeyOn(...args); }
-  function renderRight(...args) { return MP.renderRight(...args); }
 
