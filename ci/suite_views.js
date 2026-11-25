@@ -191,6 +191,7 @@ const VIEWS = {
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_clip_window_cmd.js': steps(),
   'steps_mesh_end_cmd.js': steps(),
+  'steps_mesh_adopt_cmd.js': steps(),
   'steps_mesh_tie_cmd.js': steps(),
   'steps_mesh_tie_newt_cmd.js': steps(),
   'steps_exact_saved_false_cmd.js': steps(),
