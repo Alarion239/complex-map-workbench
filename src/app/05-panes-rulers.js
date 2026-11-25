@@ -1498,21 +1498,19 @@
       });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
-    for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
-      $(side + 'ZoomIn').innerHTML = ICONS.plus;
-      $(side + 'ZoomOut').innerHTML = ICONS.minus;
-      $(side + 'Fit').innerHTML = ICONS.fit;
-      $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
-      const zb = (f) => () => {
-        const sd = side === 'left' ? 'L' : 'R';
-        if (is3DSide(sd)) { zoomPane(pane, sd, pane.w / 2, pane.h / 2, f); return; }
-        const v = sd === 'L' ? leftView() : V.right;
-        pane.setView({ cx: v.cx, cy: v.cy, s: v.s });
-        const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
-        if (sd === 'L' && leftStage() > 0) leftAuto = false;
-        tweenView(v, target, 180, () => sourceViewChanged());
-      };
-      $(side + 'ZoomIn').addEventListener('click', zb(1.6));
-      $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
-    }
+    // (X's buttons: Y's pane is not drawn)
+    $('leftZoomIn').innerHTML = ICONS.plus;
+    $('leftZoomOut').innerHTML = ICONS.minus;
+    $('leftFit').innerHTML = ICONS.fit;
+    $('leftSph').addEventListener('click', () => stackSphere('L'));
+    const zb = (f) => () => {
+      if (is3DSide('L')) { zoomPane(paneL, 'L', paneL.w / 2, paneL.h / 2, f); return; }
+      const v = leftView();
+      paneL.setView({ cx: v.cx, cy: v.cy, s: v.s });
+      const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
+      if (leftStage() > 0) leftAuto = false;
+      tweenView(v, target, 180, () => sourceViewChanged());
+    };
+    $('leftZoomIn').addEventListener('click', zb(1.6));
+    $('leftZoomOut').addEventListener('click', zb(1 / 1.6));
   }

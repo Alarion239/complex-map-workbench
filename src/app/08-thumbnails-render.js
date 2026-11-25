@@ -132,17 +132,15 @@
       dirty[camSide(tw.c)] = true;
       again = true;
     }
-    // (the landscape and the z-globe orbit in X, the w-globe in Y)
-    const c3 = rGlobe() ? camS : null;
-    const cL = lLand() ? cam : lGlobe() ? leftCam() : null;
-    for (const [cc, side] of /** @type {[any, string][]} */ ([[c3, 'R'], [cL, 'L']])) {
-      if (!cc || drag || !(Math.abs(cc.vyaw) > 1e-4 || Math.abs(cc.vpitch) > 1e-4)) continue;
+    // (the landscape and the z-globe orbit in X)
+    const cc = lLand() ? cam : lGlobe() ? leftCam() : null;
+    if (cc && !drag && (Math.abs(cc.vyaw) > 1e-4 || Math.abs(cc.vpitch) > 1e-4)) {
       cc.yaw += cc.vyaw;
       cc.pitch = Math.max(pitchMin(cc), Math.min(88 * DEG, cc.pitch + cc.vpitch));
       cc.vyaw *= 0.9; cc.vpitch *= 0.9;
       // (the turn has died away: one rest frame once nothing else moves, camSpin)
-      if (!(Math.abs(cc.vyaw) > 1e-4 || Math.abs(cc.vpitch) > 1e-4)) { cc.vyaw = cc.vpitch = 0; setTimeout(() => { if (!interacting()) requestRender(side); }, 170); }
-      dirty[side] = true;
+      if (!(Math.abs(cc.vyaw) > 1e-4 || Math.abs(cc.vpitch) > 1e-4)) { cc.vyaw = cc.vpitch = 0; setTimeout(() => { if (!interacting()) requestRender('L'); }, 170); }
+      dirty.L = true;
       again = true;
     }
     if (tweens.length) { stepTweens(ts); again = true; }

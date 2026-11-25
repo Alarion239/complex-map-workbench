@@ -225,7 +225,6 @@
     setupParams(!!loaded);
     buildDisplay();
     setupPane(paneL, 'L');
-    setupPane(paneR, 'R');
     PlaneMenu.init(planeMenuApi());   // the planes' context menu
     Commands.init(commandsApi());   // the command palette (src/commands.js)
     Construct.init({ cm: cmApi() });   // constructions (the interface)
