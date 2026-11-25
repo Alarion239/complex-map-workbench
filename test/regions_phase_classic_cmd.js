@@ -72,7 +72,7 @@ for (let k = 0; k < 10 && (await ev('Tour.isActive()')); k++) {
 }
 await ev('Tour.isActive() ? Tour.stop() : 0; 1'); await settle(300);
 info.views = ids;
-ok('the Views chapter has no Patterns step and ends with Phase key', ids.length >= 4 && !ids.includes('patterns') && ids[ids.length - 1] === 'key', ids);
+ok('the Views chapter has no Patterns step and ends with the Riemann sphere', ids.length >= 3 && !ids.includes('patterns') && ids[ids.length - 1] === 'sphere', ids);
 
 // ---- 7. the Regions pop-up fits its box in every language: its description wraps, with no sideways scroll cutting the values
 for (const lang of ['en', 'ru', 'it']) {

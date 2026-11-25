@@ -82,7 +82,7 @@ const tourApi = {
   // ---- the user's work (REQUIRED for the tour's scenes: snapshot, restore and loadScene together, see below)
   snapshot() -> { state, mem },          // state: JSON-serialisable, what writeState saves (the persisted state,
                                          // with the user's look: opacity, heights, styles); mem: what lives
-                                         // in memory only (the undo history and its index, the focus, the transport,
+                                         // in memory only (the undo history and its index, the focus,
                                          // the open panels). Must not be null
   restore(snap, opt) -> boolean,         // put it back exactly, in place, then save(). Return false (or throw) when it
                                          // could not. After a reload or a crash it gets { state } only and
@@ -100,7 +100,6 @@ const tourApi = {
                                          // know is ignored, null means the app's default
   setView(main),                         // 'xy' | 'phase' | 'land'                         (setMain)
   setSurface(pane, surf),                // pane 'L' | 'R', surf 'plane' | 'sphere'          (setView(side, surf))
-  setDeformation(on),                    // open or close the transport, as M does          (openTransport / closeTransport)
   setTool(id),                           // 'select', 'disc', … (the ids of TOOLS)          (setTool)
   focusStep(k),                          // 0 = Whole chain, k = step k                      (setFocus)
   showPanel(side, sheet?),               // 'left' | 'right': open a collapsed side panel   (setPanels); v15: on a
@@ -170,8 +169,8 @@ copy false; `restore()` brings the user's look back with their state.
 | `height` | `'log'`, `'abs'`, `'re'`, `'im'` (Landscape) | `S.height` |
 | `sheets` | boolean (Landscape: All sheets) | `S.sheets` |
 | `phaseStyle` | the ids of DC_STYLES (`'enhanced'` is Tiles) | `S.dc` |
-| `paths` | boolean (the transport's Paths) | the deformation round's paths flag |
-| `allAtOnce` | boolean (the transport's All at once) | the deformation round's order |
+| `paths` | boolean (the paths t ↦ Hₜ(z), `S.morphPaths`) | the paths flag |
+| `allAtOnce` | boolean (all steps at once, `S.homAll`) | the deformation's order |
 
 ### Anchors
 
@@ -193,14 +192,11 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 | `zpCard` | the card of a zeros-and-poles step | the `.card` around `.params.zp` |
 | `invBtn` | the f⁻¹ button of the first card that has one | the `.card button` whose label is f<sup>−1</sup> |
 | `sheets` | the All sheets check of the Landscape options | the label around `#sheetsChk` |
-| `phaseKey` | the Phase key check of Y's options (X → Y, Y on its plane) | the label around `#wKeyChkR` |
-| `rightOpts` | Y's Display options button, where the Phase key goes when Y's options strip has no room (the fallback of `phaseKey`; v16.5 UX20: on a desktop always, in Y's pane head) | `#rightFoot .opts-btn` |
 | `leftOpts` | (v16.5 UX20) X's Display options button in its pane head on a desktop: the Phase style and Landscape's options (the fallback of `phaseStyle`) | `#leftFoot .opts-btn` |
 | `soundBtn`, `soundBar` | the Sound control of the top bar (the sound round); on a phone with sound on, its button left in the bar | `#soundBtn`, `#soundPh` |
 | `phaseStyle` | the Phase style control of the Phase view's options (Tiles … Cauchy) | `#dcSeg` |
 | `examples`, `palette`, `exportBtn`, `helpBtn`, `moreBtn` | the top bar | `#examplesBtn`, `#cmdBtn`, `#exportBtn`, `#helpBtn`, `#hdrMoreBtn` |
-| `viewSwitch`, `deformToggle` | X → Y · Phase · Landscape; Deformation | `#viewSwitch`, `#morphBtn` |
-| `transport`, `paths`, `allAtOnce` | the docked transport, its Paths toggle, its One after another / All at once select | `.tdock:not([hidden])`, `#pathsBtn`, `#homOrderSel` |
+| `viewSwitch` | X → Y · Phase · Landscape | `#viewSwitch` |
 | `rightPanel` | the right side panel | `#rightPanel` |
 | `composite`, `guarantees`, `domain`, `matrix` | the right panel's sections: Composite map, Guarantees, Natural domain, Step by step | `#propsPanel > section:nth-of-type(1)` … `(4)` |
 
@@ -232,20 +228,18 @@ opens; `formula`, `shapes` and `display` are in closed sheets, so their steps ar
 | feature | what | the steps left out without it |
 |---|---|---|
 | `zp` | the zeros-and-poles step type (`funcs.js` `id: 'zp'`) | Analysis: Zeros and poles (its scene uses it). The integral and the natural domain then use the typed formula 1/(z²+1) instead of the zp step |
-| `allAtOnce` | the One after another / All at once select of the transport | Deformation: All steps at once |
 | `sound` | the Sound control (`typeof Sound !== 'undefined'`) | Palette and keys: Sound |
 | `params` | v15: shared numbers (`typeof Params !== 'undefined'`) | Editing the chain: Shared numbers (its scene) |
 | `planeMenu` | v15: the planes' context menu (`typeof PlaneMenu !== 'undefined'`) | Editing the chain: Add a zero here |
 (`zp` now leaves out Editing the chain: Zeros and poles and Add a zero here, both on the `zp` scene.)
 
-Before integration (v12) both are missing; the demo adapter returns `has('zp') === false` and
-`has('allAtOnce') === false`. After the deformation round lands, the app can omit `has` or return true.
+Before integration (v12) `zp` is missing; the demo adapter returns `has('zp') === false`.
 
 ### Events
 
 Each event ticks the Try it of the steps that wait for it. An event the app never emits only means that Try it never
 ticks; Next always works. Emit them where the user's action lands; emitting them for the tour's own calls (setView,
-setDeformation, ...) is harmless, because a step starts listening only after its own actions have run.
+setSurface, ...) is harmless, because a step starts listening only after its own actions have run.
 
 | event | payload | emit when |
 |---|---|---|
@@ -255,9 +249,6 @@ setDeformation, ...) is harmless, because a step starts listening only after its
 | `step-focused` | `{ k }` | the focus changes (0 = Whole chain) |
 | `step-selected` | `{ k }` | a card or the F tile is selected for the Inspector (`k` is the step's number, or `'F'` for the F tile) |
 | `view-changed` | `{ main }` | the view switch changes (key or click) |
-| `deformation-toggled` | `{ on }` | the transport opens or closes |
-| `deformation-t` | `{ t }` | the user scrubs t (not while playing) |
-| `paths-toggled` | `{ on }` | Paths is toggled (button, P, palette); the tour waits for two |
 | `integral-opened` | `{ shape }` | the integral popover opens |
 | `palette-opened` | `{}` | the command palette opens |
 | `zp-moved` | `{ kind: 'zero' \| 'pole', i }` | a zero or a pole of a zeros-and-poles step is dragged |
@@ -344,7 +335,7 @@ Files changed: `build.py`, `src/app.js`, `src/page.html`, `src/tour.js`, `test/t
 - `tourApi` has every method of §3. `anchor` returns undefined (the defaults fit this markup).
 - `has`: `'zp'` is `!!Funcs.DEFS.zp`, `'sound'` is `typeof Sound !== 'undefined'`, anything else true.
 - `snapshot`: `state` is exactly what `writeState` saves; `mem` holds the undo history and index, the panels as
-  shown, the transport, the tool, the selection, the planes' views and cameras, the views' memories and the Examples
+  shown, the tool, the selection, the planes' views and cameras, the views' memories and the Examples
   label.
 - `restore`: in place, then `save()`. From a stash it sanitises the state as a reload does and starts a fresh history.
 - `sandbox(true)` writes any pending save, then `writeState` writes nothing until `sandbox(false)`.
@@ -469,19 +460,7 @@ The constructions round (work/xvc, notes/constructions-v16/SPEC.md 16).
 | `construct-added` | `{ op: 'circle3' \| 'meet' \| 'midpoint' \| 'bisector' \| 'glider' }` | a construction tool, the Point tool on a crossing or a curve, or the planes' menu makes a construction (construct.js) |
 | `construct-family` | `{ kind: 'disc' \| 'halfplane' \| 'complement' \| 'circle' \| 'line' }` | a circle through three points changes family while its points move (CORE's `recomputed` event, kindChanged) |
 
-### Anchors added by the deformation range (v16)
-
-The deformation range (work/xv16, notes/deform-range/SPEC.md 10.2). Read by xv16's t_tour.js only.
-
-| name | element | note |
-|---|---|---|
-| `bracketL` | `#chainBracket .br-end.l` | the left end of the deformation's bracket over the chain (shown while the deformation shows the whole chain); on a phone, where the bracket is only drawn, `#pipeline` |
-
-### Events added by the deformation range (v16)
-
-| event | payload | emit when |
-|---|---|---|
-| `deformation-range` | `{ a, b }` | the bracket is set (dragged, its keys, the ⋯ menu's Deformation, the palette, the phone's Deformed steps row); every step is `{ a: 1, b: n }` |
+### The deformation's bracket (v16)
 
 The scene action `['range', null \| { a, b }]` (adapter `setRange`) sets the bracket before a stop; null is every step.
 
@@ -510,8 +489,6 @@ shows the chosen tool).
 | `card2Menu` | the card f₂, whose ⋯ shows on it; on a phone, once a tap on it opens the Editor sheet, f₂'s ⋯ there | Part of the chain, on a touch screen (`try.work`) |
 | `ctxUndo` | `.ph-ctx[data-k="construct"]`'s first button, Undo pick (the phone's context bar) | Circle through three points, on a touch screen (`try.work`) |
 | `paramSlider` | the first `#propsPanel .prm-row input[type="range"]` | Shared numbers: drag the slider of a |
-| `tSlider` | `#morphRange` | Play and scrub: drag t |
-| `playBtn` | `#morphPlay` | Play and scrub: Play |
 | `copyTex` | `#propsPanel .insp-F .ihead .icon-btn` | The formula in LaTeX: F's Copy LaTeX button (with `composite`, which selects F) |
 
 `tool:disc` (v12's contract) is now a function of the same kind: before, its selector found the rail's hidden copy
@@ -570,8 +547,6 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 |---|---|---|
 | `view-moved` | `{ pane: 'L' \| 'R' \| 'P', how: 'pan' \| 'zoom' \| 'orbit' }` | the end of the user's pan, zoom (a wheel: 250 ms after its last tick; a pinch: on lift) or orbit (Landscape, sphere); `'P'` is the one wide panel |
 | `layer-opened` | `{ kind: 'catalog' }` | the step catalog opens (the add card, {+}, the palette's Add a step: `openPalette` with `fnOnly`) |
-| `phase-key` | `{ on }` | Phase key is toggled (Y's check, the legend's key check) |
-| `order-changed` | `{ all }` | One after another / All at once changes (`setHomAll`) |
 | `step-replaced` | `{ k, type }` | a step is replaced by its inverse (`invertStep`); `type` is the new step's type |
 | `tex-copied` | `{ what: 'F' }` | F's LaTeX is copied (the Inspector's copy button with the F tile selected) |
 | `listen-ended` | `{ piece, fn, closed, W, heard, full }` | a Listen along ends (v16.5: `fn` true when it played the function, `piece` true for the composition): played out (`full: true`), stopped, or cut by a scene change; `heard` in seconds; `W` the rounded winding number of a closed curve with no cut, else null |
@@ -593,7 +568,7 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 - `try.then` (at most 60): the result line once the task is done. `try.after`: an earlier step of the chapter whose
   task must have been done in this run (else the step is read).
 - `act: 'listen' | 'sound'`, `hear: true`, `captions: [[seconds, text], …]` (ascending, within the piece's length; v16.5: with `capFrac: true`, fractions of the playback in [0, 1), scaled by `listen-started`'s `dur`, for the function's Listen along, whose length is the curve's at the zoom).
-- Look keys `phaseKey` (Y's Phase key) and `sectors` (8, 12, 16 or 24; the phase sectors of Tiles).
+- Look key `sectors` (8, 12, 16 or 24; the phase sectors of Tiles).
 - A scene with `app: name` is loaded from `api.sceneSpec(name)`; with no answer it is absent and its steps are left out.
 - `Tour.auto(on?)`: Move on by itself, read or set. `Tour.lit()` adds `strip: { l, t, r, b }`, `mode` (`desk`, `port`,
   `head`, `row`), `why`, `done` and `countdown: { left, held: [kinds], state: 'idle' | 'running' | 'held' | 'cancelled' |

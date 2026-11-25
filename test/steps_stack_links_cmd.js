@@ -1,0 +1,320 @@
+// The Stack's two kinds of connector (19-stack-links.js, #1996): the Stack key's switch between straight strands,
+// (1 − s)z + s·F(z), and the glide's own curved paths. On the plan's maps with the disc on w₁ selected on z, at the
+// Stack's opening camera (Tilt):
+//  - the key ends with the switch, Straight checked on a state that has none; a press on Glide paths draws the curved
+//    connectors, and changes neither the floor (its picture, the lit patches) nor the levels' maps; the tubes' ends are
+//    the same in both kinds;
+//  - curved, a connector is the steps view's glide: at heights 1/4, 1/2 and 3/4 a point of a tube lies where the glide
+//    from z to w₁ puts it (M1: the points above the cut, which keep the glide's principal branch; M2 and M3: all);
+//  - M1 z², |w − 1| < 0.5, curved: the −1 tube rises whole (no slice has a step between two of its points ten times its
+//    median step), with no label; on the steps' own cuts (the test hook's branch: false) the cut tears it, and the tear is
+//    labelled "torn here by the glide’s cut, not a split". Straight, the narrowing keeps its label. M2 and M3, curved:
+//    no slice is torn (M2's inner piece is stretched far, not torn);
+//  - the window, in both kinds: nothing of the tubes is drawn outside the box (the overlay's px away from its hull and the
+//    labels' plates); M2, curved: the inner piece leaves the window, labelled "out of the window from here to height …"
+//    inside the pane; straight, and M1 and M3, no tube leaves it;
+//  - the pieces' meetings: M3, curved, the zoom's path makes the three tubes one from below half way up, much lower than
+//    the straight strands bring them together: labelled once, "the glide brings the pieces together from here, not a
+//    join"; M3 straight, and M1 and M2 in both kinds, no meeting is labelled;
+//  - the choice is saved with the steps view's place (S.sv.links) and a reload opens on it; the switch takes the arrow keys
+//    (→ and ←) and the mouse, and keeps the focus on the radio checked; it shows its name, Connectors; on a phone
+//    (390 × 844) its radios are 44 px targets inside the switch's box, and M1's narrowing keeps its formula whole on a line;
+//  - curved, seen straight down, the frame is Look down's (the lines to the target bend only as the tubes stand up);
+//  - timing (reported, not gated): a Tilt turn on M3 draws the tubes in about the same time a frame in both kinds (the
+//    curved connectors' samples are kept, not made again a frame).
+// Its frames go to shots/ (links-<map>-straight.png and -curved.png) for the screenshot review.
+// A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const LOAD_MS = 40000, READY_MS = 60000;
+const fails = [], info = {};
+let pass = 0;
+const ok = (name, cond, got) => { if (cond) pass++; else fails.push({ name, got }); };
+const until = (expr, max = READY_MS) => settled({ until: expr, max });
+const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+const DEG = Math.PI / 180;
+const TEAR = 'torn here by the glide’s cut, not a split', NARROW = 'narrows here: F′(−1) = −2, not a join', SOONER = 'the glide brings the pieces together from here, not a join';
+const MAPS = {
+  M1: { steps: [{ type: 'pown', params: { n: 2 }, on: true }], c: [1, 0], r: 0.5 },
+  M2: { steps: [{ type: 'joukowski', params: {}, on: true }], c: [0.6, 0.5], r: 0.35 },
+  M3: { steps: [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }], c: [1.1, 0], r: 0.25 },
+};
+const hooked = () => ev('typeof __cmwStackLinks === "function"');
+const open = async (m, { ns = `links-${Date.now()}`, fresh = true, stack = true, phone = false, lang = 'en' } = {}) => {
+  const M = MAPS[m];
+  const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: M.c, r: M.r, stage: 1 }], steps: M.steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 110 } };
+  await view(phone ? 390 : 1440, phone ? 844 : 900, false, phone);
+  await nav(`http://localhost:${PORT}/gl-helpers.html`);
+  if (fresh) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+  await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
+  await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')", LOAD_MS);
+  await until('__cmwSteps().ready.ready && __cmwSteps().i === 0');
+  await ev(`__cmwSelect('d'); 1`);
+  // (Look down draws on the flat plane; a reload opens on the saved Stack, where it does not)
+  if (fresh) {
+    await until(`__cmwShapes().selected === 'd' && typeof __cmwLookDown === 'function' && !!__cmwLookDown()`);
+    if (!stack) { await frames(); return ns; }
+    await ev(`__cmwSteps({ surf: 'stack' }); 1`);
+  }
+  await until(`__cmwSteps().surf === 'stack' && !!__cmwStack().drawn && !!__cmwStack().drawn.tubes`, 20000);
+  await frames();
+  return ns;
+};
+const drawn = async () => (await ev('__cmwStack()')).drawn;
+// the switch in the key: its two segments' values, the checked one, and a press on one
+const sw = () => ev(`(() => { const e = document.querySelector('#plotL .ld-key .ld-links'); return e ? { vals: [...e.querySelectorAll('[data-v]')].map((b) => b.dataset.v), on: (e.querySelector('.on') || { dataset: {} }).dataset.v || null, label: e.getAttribute('aria-label') } : null; })()`);
+const press = async (v) => { await ev(`(document.querySelector('#plotL .ld-key .ld-links [data-v="${v}"]').click(), 1)`); await until(`__cmwStack().drawn && __cmwStack().drawn.links === '${v}' && !!__cmwStack().drawn.tubes`, 10000); await frames(); };
+// a hash of the floor's canvas (the floor's picture and its lit patches)
+const floorHash = () => ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data; let h = 2166136261; for (let i = 0; i < d.length; i += 4) h = Math.imul(h ^ (d[i] | d[i + 1] << 8 | d[i + 2] << 16), 16777619); return h >>> 0; })()`);
+const links = (o) => ev(`__cmwStackLinks(${o ? JSON.stringify(o) : ''})`);
+const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+// a plane point in the left pane's flat css px (the overlay's)
+const flat = async (re, im) => { const [x, y] = await ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`), o = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left, r.top]; })()`); return [x - o[0], y - o[1]]; };
+// a slice's worst step between two of its points over its median step, the most over every loop of every piece at height j
+const worstStep = (data, j) => {
+  let worst = 0;
+  for (const P of data.pieces) for (const lev of P.loops) {
+    const q = lev[j], g = q.map((p, i) => dist(p, q[(i + 1) % q.length])), med = g.slice().sort((a, b) => a - b)[g.length >> 1];
+    worst = Math.max(worst, Math.max(...g) / med);
+  }
+  return worst;
+};
+
+// the overlay's px drawn outside the box as the camera sees it (the hull of its floor's and glass's corners, with OUT_PX
+// to spare for the open rings on its sides), away from the labels' plates, sampled every 3 device px; and the pane's size
+const OUT_PX = 6;
+let pane = null;
+const outside = (d) => ev(`(() => {
+  const o = document.getElementById('overlayL'), r = o.getBoundingClientRect(), dpr = o.width / r.width, w = r.width, h = r.height, D = ${JSON.stringify(d)};
+  const lv = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+  const pts = [[0, 0], [w, 0], [w, h], [0, h]].flatMap(([x, y]) => [lv(D.floor, x, y), lv(D.glass, x, y)]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], hi = [];
+  for (const p of pts) { while (lo.length > 1 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (const p of pts.slice().reverse()) { while (hi.length > 1 && cross(hi[hi.length - 2], hi[hi.length - 1], p) <= 0) hi.pop(); hi.push(p); }
+  const hull = lo.slice(0, -1).concat(hi.slice(0, -1));
+  const away = (x, y) => hull.some((a, i) => { const b = hull[(i + 1) % hull.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]); return cross(a, b, [x, y]) / L < -${OUT_PX}; });
+  const plates = (D.tubes ? D.tubes.labels : []).map((l) => l.box).filter(Boolean);
+  const data = o.getContext('2d').getImageData(0, 0, o.width, o.height).data;
+  let n = 0;
+  for (let Y = 0; Y < o.height; Y += 3) for (let X = 0; X < o.width; X += 3) {
+    if (data[(Y * o.width + X) * 4 + 3] < 40) continue;
+    const x = X / dpr, y = Y / dpr;
+    if (away(x, y) && !plates.some((b) => x >= b[0] - 2 && x <= b[2] + 2 && y >= b[1] - 2 && y <= b[3] + 2)) n++;
+  }
+  return n;
+})()`);
+
+await open('M1');
+pane = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return { w: r.width, h: r.height }; })()`);
+ok('the page has the connectors\' hook', await hooked(), null);
+for (const m of ['M1', 'M2', 'M3']) {
+  if (m !== 'M1') await open(m);
+  if (!(await hooked())) break;
+  const r = info[m] = {};
+  const s0 = r.switch = await sw();
+  ok(`${m}: the key ends with the switch, Glide paths and Straight, Straight checked`, !!s0 && s0.vals.join() === 'curved,straight' && s0.on === 'straight' && s0.label === 'Connectors', s0);
+  const d0 = await drawn(), h0 = await floorHash(), o0 = await outside(d0);
+  await shot(`links-${m}-straight`);
+  ok(`${m}: straight on opening`, d0.links === 'straight' && d0.tubes.mode === 'straight', { links: d0.links, mode: d0.tubes.mode });
+  await press('curved');
+  const d1 = await drawn(), h1 = await floorHash(), o1 = await outside(d1);
+  await shot(`links-${m}-curved`);
+  ok(`${m}: a press on Glide paths draws the curved connectors`, d1.links === 'curved' && d1.tubes.mode === 'curved' && (await sw()).on === 'curved', { links: d1.links, mode: d1.tubes.mode });
+  ok(`${m}: the floor's picture and its lit patches do not change`, h0 === h1, { h0, h1 });
+  ok(`${m}: the floor's and the glass's maps do not change`, JSON.stringify(d0.floor) === JSON.stringify(d1.floor) && JSON.stringify(d0.glass) === JSON.stringify(d1.glass), { f0: d0.floor, f1: d1.floor });
+  const ends = (d) => JSON.stringify(d.tubes.pieces.map((P) => P.loops.map((L) => [L.floor, L.glass])));
+  ok(`${m}: the tubes' ends are the same in both kinds`, ends(d0) === ends(d1), null);
+  // (curved: the glide's own path, checked against the steps view's glide map at the same place)
+  const L = await links(), n = L.n;
+  let tried = 0, on = 0, worstOff = 0;
+  for (const P of L.data.pieces) for (const lev of P.loops) for (let i = 0; i < lev[0].length; i += 8) {
+    const z = lev[0][i];
+    if (m === 'M1' && !(z[1] > 1e-6)) continue;
+    for (const j of [n / 4, n / 2, (3 * n) / 4]) {
+      const g = (await links({ glide: [j / n, z[0], z[1]] })).glide, e = dist(g, lev[j][i]);
+      tried++; worstOff = Math.max(worstOff, e);
+      if (e < 1e-9 * (1 + Math.hypot(...g))) on++;
+    }
+  }
+  r.glide = { tried, on, worstOff };
+  ok(`${m}: curved, a tube's points lie on the steps view's glide at heights 1/4, 1/2 and 3/4`, tried > 0 && on === tried, r.glide);
+  // (a slice stretched far, M2's inner piece, is no tear)
+  // (the window: each label's kind, straight and curved; what the overlay draws outside the box)
+  const kinds = (d) => d.tubes.labels.map((x) => x.kind).sort().join(',');
+  r.kinds = { straight: kinds(d0), curved: kinds(d1) };
+  r.outside = { straight: o0, curved: o1 };
+  ok(`${m}: straight, no tube leaves the window`, !/exit/.test(r.kinds.straight), r.kinds);
+  ok(`${m}: nothing of the tubes is drawn outside the box, in either kind`, r.outside.straight === 0 && r.outside.curved === 0, r.outside);
+  if (m === 'M2') {
+    const ex = d1.tubes.labels.filter((x) => x.kind === 'exit');
+    r.exit = ex;
+    ok('M2: curved, the inner piece leaves the window, labelled "out of the window from here to height …"', ex.length === 1 && /^out of the window from here/.test(ex[0].text) && ex[0].s > 0 && ex[0].s < 1, ex);
+    ok('M2: curved, the exit label lies inside the pane', ex.length === 1 && !!ex[0].box && ex[0].box[0] >= 0 && ex[0].box[1] >= 0 && ex[0].box[2] <= pane.w && ex[0].box[3] <= pane.h, { box: ex[0] && ex[0].box, pane });
+  } else ok(`${m}: curved, no tube leaves the window`, !/exit/.test(r.kinds.curved), r.kinds);
+  if (m === 'M3') {
+    // (the zoom's path makes the three tubes one from half way up, well below where the straight strands bring them
+    // together: labelled once, at the lowest meeting)
+    const meets = (d) => d.tubes.labels.filter((x) => x.kind === 'cross' || x.kind === 'sooner');
+    const c1 = r.meetCurved = meets(d1), c0 = r.meetStraight = meets(d0);
+    ok(`M3: curved, the glide's early meeting of the pieces is labelled once, "${SOONER}", below the glass's half`, c1.length === 1 && c1[0].kind === 'sooner' && c1[0].text === SOONER && c1[0].s < 0.5, c1);
+    ok('M3: straight, no meeting is labelled', c0.length === 0, c0);
+  } else ok(`${m}: no meeting of pieces is labelled, in either kind`, !/cross|sooner/.test(r.kinds.curved + ',' + r.kinds.straight), r.kinds);
+  if (m !== 'M1') ok(`${m}: curved, no slice is torn and no tear is labelled`, L.data.tears.length === 0 && !d1.tubes.labels.some((x) => x.kind === 'tear'), { tears: L.data.tears, labels: d1.tubes.labels });
+  if (m === 'M1') {
+    const wc = r.worstCurved = Math.max(...[...Array(n - 1)].map((_, j) => worstStep(L.data, j + 1)));
+    ok('M1: curved, the −1 tube rises whole: no slice has a step 10 times its median', wc < 10, wc);
+    ok('M1: curved, no tear and no label', L.data.tears.length === 0 && d1.tubes.labels.length === 0, { tears: L.data.tears, labels: d1.tubes.labels });
+    // (a pick's strand from a point of the −1 piece below the axis rises on that piece's branch: at ¼, ½ and ¾ of the way
+    // it lies on the tube's slice there, in both kinds)
+    const neg = L.data.pieces.findIndex((P) => P.loops[0][0].some((p) => p[0] < -0.5));
+    const iBelow = neg < 0 ? -1 : L.data.pieces[neg].loops[0][0].findIndex((p) => p[1] < -0.05);
+    // (the strand's point at height t, along its polyline: straight, its two ends)
+    const along = (st, t) => { for (let k = 1; k < st.length; k++) if (st[k][2] >= t - 1e-9) { const a = st[k - 1], b = st[k], u = (t - a[2]) / (b[2] - a[2]); return [a[0] + u * (b[0] - a[0]), a[1] + u * (b[1] - a[1])]; } return null; };
+    const strandOff = async (kind) => {
+      await press(kind);
+      const Lk = await links(), lev = Lk.data.pieces[neg].loops[0], z = lev[0][iBelow], v = await ev(`__cmwPlaneMenu().stage(1, ${z[0]}, ${z[1]})`);
+      const st = (await links({ flat: [z[0], z[1], v[0], v[1]] })).flat;
+      let worst = 0;
+      for (const J of [n / 4, n / 2, (3 * n) / 4]) { const p = along(st, J / n), q = await flat(...lev[J][iBelow]); worst = Math.max(worst, p ? Math.hypot(p[0] - q[0], p[1] - q[1]) : Infinity); }
+      // (and from a point inside the piece, between that one and −1: its strand lies inside the tube's slice there)
+      const y = [0.6 * z[0] - 0.4, 0.6 * z[1]], vy = await ev(`__cmwPlaneMenu().stage(1, ${y[0]}, ${y[1]})`);
+      const sy = (await links({ flat: [y[0], y[1], vy[0], vy[1]] })).flat;
+      let inside = 0;
+      for (const J of [n / 4, n / 2, (3 * n) / 4]) {
+        const p = along(sy, J / n), poly = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return ${JSON.stringify(lev[J])}.map(([a, b]) => { const q = __cmwPlaneMenu().w2s('L', a, b); return [q[0] - r.left, q[1] - r.top]; }); })()`);
+        let c = false;
+        for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) { const A = poly[i], B = poly[k]; if ((A[1] > p[1]) !== (B[1] > p[1]) && p[0] < ((B[0] - A[0]) * (p[1] - A[1])) / (B[1] - A[1]) + A[0]) c = !c; }
+        if (c) inside++;
+      }
+      return { worst, inside };
+    };
+    if (iBelow >= 0) {
+      const off = r.strandOff = { curved: await strandOff('curved'), straight: await strandOff('straight') };
+      await press('curved');
+      ok('M1: a pick\'s strand from a point of the −1 piece below the axis lies on its tube at ¼, ½ and ¾ of the way, in both kinds', off.curved.worst < 0.5 && off.straight.worst < 0.5, off);
+      ok('M1: a pick\'s strand from a point inside the −1 piece lies inside its tube\'s slices at ¼, ½ and ¾ of the way, in both kinds', off.curved.inside === 3 && off.straight.inside === 3, off);
+    } else ok('M1: a point of the −1 piece below the axis', false, null);
+    // (on the steps' own cuts: the principal z^(1 + t) tears the −1 piece, and the tear is labelled)
+    const T = await links({ branch: false });
+    await frames(); await frames();
+    const dt = await drawn();
+    r.torn = { tears: T.data.tears, labels: dt.tubes.labels.map((x) => x.text), worst: worstStep(T.data, n / 2) };
+    ok('M1: on the steps\' own cuts, the −1 piece is torn, widest half way up', worstStep(T.data, n / 2) > 10 && T.data.tears.length === 1 && Math.abs(T.data.tears[0].s - 0.5) < 0.05, r.torn);
+    ok(`M1: the tear is labelled "${TEAR}"`, dt.tubes.labels.length === 1 && dt.tubes.labels[0].text === TEAR && dt.tubes.labels[0].kind === 'tear', r.torn);
+    await links({ branch: true });
+    await press('straight');
+    const ds = await drawn();
+    ok(`M1: straight, the narrowing keeps its label "${NARROW}"`, ds.tubes.labels.length === 1 && ds.tubes.labels[0].text.replace(/\u00a0/g, ' ') === NARROW, ds.tubes.labels);
+  }
+}
+// saved with the steps view's place, and a reload opens on it; the switch takes the arrow keys
+if (await hooked()) {
+  const ns = await open('M2');
+  await press('curved');
+  await until(`(() => { const s = JSON.parse(localStorage.getItem('complex-map-workbench-v1:${ns}') || '{}'); return !!s.sv && s.sv.links === 'curved'; })()`, 5000).catch(() => null);
+  const saved = await ev(`(() => { const s = JSON.parse(localStorage.getItem('complex-map-workbench-v1:${ns}') || '{}'); return s.sv ? s.sv.links : null; })()`);
+  ok('the choice is saved with the steps view\'s place (S.sv.links)', saved === 'curved', saved);
+  await open('M2', { ns, fresh: false });
+  const back = await drawn(), sb = await sw();
+  ok('a reload opens on the saved choice', back.links === 'curved' && !!sb && sb.on === 'curved', { links: back.links, sw: sb });
+  await ev(`(document.querySelector('#plotL .ld-key .ld-links [data-v="curved"]').focus(), 1)`);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+  await until(`__cmwStack().drawn && __cmwStack().drawn.links === 'straight'`, 5000).catch(() => null);
+  await frames();
+  const focus = await ev(`(() => { const a = document.activeElement; return a ? { v: a.dataset ? a.dataset.v || null : null, inSwitch: !!a.closest('.ld-links'), tag: a.tagName } : null; })()`);
+  ok('the switch takes the arrow keys, and the focus stays on the radio checked', (await drawn()).links === 'straight' && !!focus && focus.inSwitch && focus.v === 'straight', { links: (await drawn()).links, focus });
+  // (a second key, ←, back to Glide paths; then a mouse click on Straight)
+  const focusNow = () => ev(`(() => { const a = document.activeElement; return a ? { v: a.dataset ? a.dataset.v || null : null, inSwitch: !!a.closest('.ld-links') } : null; })()`);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
+  await until(`__cmwStack().drawn && __cmwStack().drawn.links === 'curved'`, 5000).catch(() => null);
+  await frames();
+  const f2 = await focusNow(), l2 = (await drawn()).links;
+  ok('a second arrow key switches back, and the focus stays on the radio checked', l2 === 'curved' && !!f2 && f2.inSwitch && f2.v === 'curved', { links: l2, focus: f2 });
+  // (the click is on the radio not checked, whatever the keys left, so that it changes the kind)
+  const other = l2 === 'curved' ? 'straight' : 'curved';
+  await clickSel(`#plotL .ld-key .ld-links [data-v="${other}"]`);
+  await until(`__cmwStack().drawn && __cmwStack().drawn.links === '${other}'`, 5000).catch(() => null);
+  await frames();
+  const f3 = await focusNow(), l3 = (await drawn()).links;
+  ok('a mouse click switches, and the focus stays on the radio clicked', l3 === other && !!f3 && f3.inSwitch && f3.v === other, { links: l3, focus: f3, other });
+  const lead = await ev(`(() => { const r = document.querySelector('#plotL .ld-key .ld-links-row'); const l = r && r.querySelector('.ld-links-l'); return l ? l.textContent : null; })()`);
+  ok('the switch has its visible name, Connectors', lead === 'Connectors', lead);
+}
+// a phone: the switch's radios are 44 px targets in the unfolded key
+if (await hooked()) {
+  await open('M1', { phone: true });
+  await ev(`(() => { const t = document.querySelector('#plotL .ld-key .ld-ttl'); if (t && document.querySelector('#plotL .ld-key.folded')) t.click(); return 1; })()`);
+  await frames();
+  const hs = info.phoneTargets = await ev(`[...document.querySelectorAll('#plotL .ld-key .ld-links > button')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })`);
+  ok('phone: the switch\'s radios are at least 44 px tall', hs.length === 2 && hs.every(([, hh]) => hh >= 44), hs);
+  const inBox = info.phoneBoxes = await ev(`(() => { const g = document.querySelector('#plotL .ld-key .ld-links'), G = g.getBoundingClientRect(); return { seg: [G.top, G.bottom].map(Math.round), radios: [...g.querySelectorAll(':scope > button')].map((b) => { const r = b.getBoundingClientRect(); return { box: [r.left, r.top, r.right, r.bottom].map(Math.round), inside: r.left >= G.left - 0.5 && r.right <= G.right + 0.5 && r.top >= G.top - 0.5 && r.bottom <= G.bottom + 0.5 }; }) }; })()`);
+  ok('phone: each radio lies inside the switch\'s box', inBox.radios.length === 2 && inBox.radios.every((r) => r.inside), inBox);
+  const ctl = await ev(`(() => { const b = document.querySelector('#plotL .ld-key > button.ld-ttl'); const ids = b ? (b.getAttribute('aria-controls') || '').split(' ') : []; return { ids, found: ids.map((i) => !!document.getElementById(i)), row: ids.includes('ldLinks') && document.getElementById('ldLinks') === document.querySelector('#plotL .ld-key .ld-links-row') }; })()`);
+  ok('phone: the key\'s fold button controls the marks\' list and the switch\'s row', ctl.ids.length === 2 && ctl.found.every(Boolean) && ctl.row, ctl);
+  await shot('links-phone');
+}
+// a phone (390 × 844), M1 straight: the narrowing's formula stays whole on its line, wherever the label breaks
+if (await hooked()) {
+  await open('M1', { phone: true });
+  const nl = info.phoneNarrow = ((await drawn()).tubes.labels || []).filter((x) => x.kind === 'narrow').map((L) => ({ lines: L.lines, hits: L.hits }));
+  ok('phone, M1: the narrowing\'s formula F′(−1) = −2 stays whole on one line', nl.length === 1 && nl[0].lines.some((l) => l.replace(/\u00a0/g, ' ').includes('F′(−1) = −2')), nl);
+}
+// a phone (390 × 844), en and ru, M2 and M3 with glide paths: each label's plate lies inside the pane, clear of every mark
+// drawn (the tubes', the strands' and Look down's: the record's marks), with its dot at the plate's end or corner, or a
+// leader from the dot to the plate's edge
+if (await hooked()) {
+  for (const lang of ['en', 'ru']) for (const m of ['M2', 'M3']) {
+    await open(m, { phone: true, lang });
+    await press('curved');
+    const d = await drawn(), lb = (d.tubes.labels || []).filter((x) => x.kind === 'exit' || x.kind === 'sooner');
+    const W = await ev(`document.getElementById('overlayL').getBoundingClientRect().width`), H = await ev(`document.getElementById('overlayL').getBoundingClientRect().height`);
+    const over = (b) => d.tubes.marks.filter(([x, y]) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3]).length;
+    // (the dot at the plate's end or corner, or a leader from it to the plate's edge)
+    const atEnd = (L) => {
+      const [x, y] = L.at, b = L.box, nx = Math.min(Math.abs(b[0] - x), Math.abs(b[2] - x)), ny = Math.min(Math.abs(b[1] - y), Math.abs(b[3] - y));
+      if (L.leader) { const [lx, ly] = L.leader; return lx >= b[0] - 0.5 && lx <= b[2] + 0.5 && ly >= b[1] - 0.5 && ly <= b[3] + 0.5 && (Math.abs(lx - b[0]) < 0.5 || Math.abs(lx - b[2]) < 0.5 || Math.abs(ly - b[1]) < 0.5 || Math.abs(ly - b[3]) < 0.5); }
+      return (nx <= 12 && y >= b[1] - 2 && y <= b[3] + 2) || (nx <= 12 && ny <= 12);
+    };
+    const got = info[`phone ${lang} ${m}`] = lb.map((L) => ({ text: L.text, lines: L.lines, box: L.box && L.box.map(Math.round), at: L.at.map(Math.round), leader: L.leader && L.leader.map(Math.round), hits: L.hits, over: L.box ? over(L.box) : null }));
+    ok(`phone ${lang}, ${m}: its label shows`, lb.length === 1, got);
+    ok(`phone ${lang}, ${m}: the label lies inside the pane, clear of every mark, its dot at the plate's end or corner or led to it`, lb.length === 1 && !!lb[0].box && lb[0].box[0] >= 0 && lb[0].box[1] >= 0 && lb[0].box[2] <= W && lb[0].box[3] <= H && lb[0].hits === 0 && over(lb[0].box) === 0 && atEnd(lb[0]), got);
+    await shot(`links-phone-${m}-${lang}`);
+  }
+
+}
+
+// curved, seen straight down, the Stack's frame is still Look down's (its lines to the target straight): the frame
+// __cmwStack({ same }) draws at pitch 90° against Look down's on the flat plane, device px that differ
+if (await hooked()) {
+  await open('M1', { stack: false });
+  await links({ links: 'curved' });
+  await frames(); await frames();
+  const top = info.top = await ev(`__cmwStack({ same: { yaw: 0, pitch: ${90 * DEG} } })`);
+  ok('curved, straight down the Stack\'s frame is pixel-equal to Look down\'s', !!top && top.px > 0 && top.main === 0 && top.over === 0, top);
+}
+
+// the tubes' cost a frame while the Tilt turns on M3, in both kinds, the CPU slowed 4×: reported, not gated
+// (ci/browser_suites.js TIMING)
+if (await hooked()) {
+  await open('M3');
+  const cost = {};
+  await send('Emulation.setCPUThrottlingRate', { rate: 4 });
+  for (const kind of ['straight', 'curved', 'straight', 'curved']) {
+    await press(kind);
+    const ms = cost[kind] = cost[kind] || [];
+    for (let i = 0; i < 12; i++) {
+      await ev(`__cmwCam('L', { yaw: ${-30 * DEG} + ${i} * ${15 * DEG}, pitch: ${(20 + (i % 6) * 8) * DEG} }); 1`);
+      await frames();
+      const d = await drawn();
+      if (d && d.tubes && d.tubes.ms != null) ms.push(d.tubes.ms);
+    }
+  }
+  await send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  const med = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1];
+  info.cost = { straight: med(cost.straight), curved: med(cost.curved), frames: [cost.straight.length, cost.curved.length] };
+  ok('timing: a Tilt turn on M3 draws the curved tubes within 1.25× the straight ones\' time a frame (median) + 0.5 ms', cost.straight.length === 24 && cost.curved.length === 24 && info.cost.curved <= 1.25 * info.cost.straight + 0.5, info.cost);
+}
+
+return { pass: fails.length === 0, passed: pass, fails, info };

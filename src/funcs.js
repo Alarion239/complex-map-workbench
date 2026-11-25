@@ -85,7 +85,7 @@ const Funcs = (() => {
 
   // the homotopies, natural paths and derivatives live in src/natpaths.js and src/derivs.js
   const { XN, texOf, taylorAt, polyMul, ratOf, derivAst, derivativeStep, chainDerivativeStep } = Derivs;
-  const { mobHom, mobHomTex, linHom, memoAt, powHom, expHom, expHomTex, logHom, logHomTex, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat } = NatPaths;
+  const { mobHom, mobHomTex, linHom, memoAt, powHom, powaHom, twoPhaseNeg, NEG_INV, expHom, expHomTex, logHom, logHomTex, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat } = NatPaths;
 
   // ---- parameter helpers ----
   const cutParams = [
@@ -534,11 +534,14 @@ const Funcs = (() => {
       if (n === 0) P = CONSTANT;
       else if (n > 0) P = props({ analytic: true, entire: true, rational: true, polynomial: true, proper: true, injective: n === 1, mobius: n === 1, deg: n, degExact: true });
       else P = props({ analytic: true, rational: true, injective: n === -1, mobius: n === -1, deg: an, degExact: true });
-      let hom, homTex;
-      if (n >= 0) { hom = powHom(C(n, 0), PI, 0); homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (principal branch)', { v, e: expoTex(n) }) }); }
+      // homCut(theta): the same homotopy with its cut on the ray at angle theta, for a set of points that cut misses (the
+      // Stack's curved tubes); every branch ends at the one z^n
+      let hom, homTex, homCut;
+      if (n >= 0) { hom = powHom(C(n, 0), PI, 0); homCut = (theta) => powHom(C(n, 0), theta, 0); homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (principal branch)', { v, e: expoTex(n) }) }); }
       else {
         const h1 = powHom(C(an, 0), PI, 0), inv = mobHom([C(0, 0), C(1, 0), C(1, 0), C(0, 0)]);
         homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$', { v, e: expoTex(1 + 2 * (an - 1)) }) });
+        homCut = (theta) => { const hc = powHom(C(an, 0), theta, 0); return (t) => (t < 0.5 ? hc(2 * t) : hom(t)); };
         hom = (t) => {
           if (t < 0.5) return h1(2 * t);
           const g = inv(2 * t - 1);
@@ -552,7 +555,7 @@ const Funcs = (() => {
       return {
         inverseNote: n === 0 ? $t('z⁰ = 1 is constant, so it has no inverse') : null,
         f: (z) => CX.ipow(z, n),
-        hom, homTex, props: P,
+        hom, homTex, homCut: n >= 2 || n <= -2 ? homCut : null, props: P,
         tex: (a) => (n === 1 ? a : n === 0 ? { s: '1', p: 4 } : n < 0 ? { s: `\\frac{1}{${an === 1 ? a.s : atom(a) + '^{' + an + '}'}}`, p: 4 } : powTex(a, n)),
         poles: n < 0 ? [C(0, 0)] : [],
         domain: n < 0 ? (v) => `${v}\\neq 0` : null,
@@ -602,8 +605,9 @@ const Funcs = (() => {
         inverseNote: inverse ? null : a2 === 0 ? $t('z⁰ = 1 is constant, so it has no inverse')
           : $t('A complex exponent winds around 0, so its inverse would need a spiral branch cut; use the Preimage view'),
         f: (z) => CX.pow(z, alpha, th, k),
-        hom: powHom(alpha, th, k),
-        homTex: (v = 'z', o) => ({ tex: alpha.im === 0 ? $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (%{cut})', { v, e: expoTex(alpha.re), cut: branchOr(o, cut, k) }) : $t('the homotopy $H_t(%{v})=%{v}^{1+(\\alpha-1)t}$, $\\alpha=%{alpha}$ (%{cut})', { v, alpha: CX.tex(alpha, 3), cut: branchOr(o, cut, k) }) }),
+        hom: powaHom(alpha, th, k),
+        twoPhase: () => twoPhaseNeg(alpha),
+        homTex: (v = 'z', o) => ({ tex: twoPhaseNeg(alpha) ? $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (%{cut}), then the elliptic Möbius transformations from the identity to $1/w$', { v, e: expoTex(1 + 2 * (-alpha.re - 1)), cut: branchOr(o, cut, k) }) : alpha.im === 0 ? $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (%{cut})', { v, e: expoTex(alpha.re), cut: branchOr(o, cut, k) }) : $t('the homotopy $H_t(%{v})=%{v}^{1+(\\alpha-1)t}$, $\\alpha=%{alpha}$ (%{cut})', { v, alpha: CX.tex(alpha, 3), cut: branchOr(o, cut, k) }) }),
         tex: (a) => powTex(a, valTex(alpha)),
         props: props({ analytic: true, injective: inj }),
         cuts: [{ kind: 'ray', p: C(0, 0), ang: th, editable: true }],
@@ -1112,7 +1116,7 @@ const Funcs = (() => {
     switch (b.def.id) {
       case 'log': b.f = (z) => CX.log(z, th); b.hom = logHom(th, 0); break;
       case 'root': { const e = 1 / Math.max(2, v.n); b.f = (z) => CX.powReal(z, e, th); b.hom = powHom(C(e, 0), th, 0); break; }
-      case 'powa': { const al = v.alpha; b.f = (z) => CX.pow(z, al, th); b.hom = powHom(al, th, 0); break; }
+      case 'powa': { const al = v.alpha; b.f = (z) => CX.pow(z, al, th); b.hom = powaHom(al, th, 0); b.twoPhase = () => twoPhaseNeg(al); break; }
     }
     return b;
   }
@@ -1617,7 +1621,7 @@ const Funcs = (() => {
   const { SHEET_MAX, branchNode, sheetOffsets, sheetCombos, sheetCount, sheetCountOf, sheetEval, sheetHomOk, sheetMapCombos, sheetMapEval, sheetMapHow, sheetMapPieces, sheetSteps, stepSheets } = Sheets({ DEG, PI, circleAt, circleRel, isLive });
 
   return {
-    DH_NMAX, DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst, chainDerivativeStep,
+    DH_NMAX, DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, twoPhaseNeg, NEG_INV, setOnePhase: NatPaths.setOnePhase, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst, chainDerivativeStep,
     REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFollow, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, sheetOffsets, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitSvPlace, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };

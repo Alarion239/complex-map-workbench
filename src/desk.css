@@ -3,6 +3,11 @@
    ====================================================================== */
 /* ---------- the chain's row: 188 px ---------- */
 .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 188px); }
+/* (the classic view's chain box: its cards are drawn by the Inspector, so while #pipeline holds none the box and its gutter
+   take no room, as in the steps view, except while a tour's strip is on the stage: the classic tour's steps anchor on the box;
+   the phone parks #pipeline in its sheet and keeps its box) */
+:root.classic:not(.ph) .stage:not(:has(.tour-strip)):has(> .pipe-wrap > #pipeline:empty) { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
+:root.classic:not(.ph) .stage:not(:has(.tour-strip)):has(> .pipe-wrap > #pipeline:empty) > :is(.pipe-wrap, #gutterRow) { display: none; }
 
 /* ---------- the Inspector (the right panel) ---------- */
 .panel.right { overflow: hidden; }
@@ -430,19 +435,21 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sh-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sh-ihead .sh-in { margin-left: 6px; font: var(--t-label); color: var(--muted); }
 /* the readout card of a stage disc (19-readout.js): its r slider's ticks at the join radii sit on the track, the
-   thumb's half width (5px) in from each end */
+   thumb's half width (--ro-th / 2) in from each end */
 .ro-card { display: flex; flex-direction: column; gap: 4px; }
+/* (in a shape's row, under its editor, the card is set in as the editor is) */
+.shape > .ro-card { padding: 8px; border-top: 1px solid var(--line); }
 .ro-counts { font: var(--t-body); color: var(--ink); }
-.ro-track { position: relative; grid-area: rng; min-width: 0; }
+.ro-track { position: relative; grid-area: rng; min-width: 0; --ro-th: 10px; }
 .ro-ticks { position: absolute; inset: 0; pointer-events: none; }
-.ro-tick { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: var(--cut); left: calc(5px + (100% - 10px) * var(--f)); }
+.ro-tick { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: var(--cut); left: calc(var(--ro-th) / 2 + (100% - var(--ro-th)) * var(--f)); }
 .ro-joins, .ro-off { font: var(--t-label); color: var(--muted); }
 .sh-insp > .shape-edit { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 0; border-top: 0; }
 .sh-insp > .shape-edit .inp { height: 32px; padding: 0 8px; }
 .sh-acts { display: flex; gap: 8px; margin-top: 8px; }
 
 /* ---------- the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
-:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
+:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #leftTabs, :root.sv #leftTitle { display: none !important; }
 :root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
 :root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto auto; }
 /* (the pane keeps its column whatever its thread's length: the grid's one column is no wider than the pane, and its

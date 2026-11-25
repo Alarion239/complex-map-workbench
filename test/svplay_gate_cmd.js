@@ -190,10 +190,23 @@ for (const lang of ['en', 'ru']) {
   info.jobsHeld = held;
   ok('a job left: a press of Play starts no glide', held.play === null && !held.anim, held);
   ok('a job left: the wait is under way', await ev('__cmwSteps().moving'), held);
+  // the pointer rests on the waiting button: its open tip says the wait's words, and once the wait ends it says the
+  // button's own (an open tip that kept "Preparing the glide…" through the play was the fault)
+  const at = await ev('(() => { const r = document.querySelector(".sv-play").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()');
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at[0], y: at[1] });
+  const TIP = '(() => { const t = document.getElementById("tip"), b = document.querySelector(".sv-play"); return { shown: !t.hidden, text: t.firstChild ? t.firstChild.textContent : "", own: (b.getAttribute("data-tip") || "").split(/\\s{2,}/)[0] }; })()';
+  await settled({ max: 5000, only: true, until: '!document.getElementById("tip").hidden' });
+  const tipWait = await ev(TIP);
+  info.tipWait = tipWait;
+  ok('the open tip of the waiting button says its words', tipWait.shown && tipWait.text === tipWait.own, tipWait);
   await ev(`(${WATCH_PLAY}, 1)`);
   await ev('(__cmwSteps({ holdJobs: false }), 1)');
   await settled({ max: 20000, only: true, until: 'window.__played === true' });
   ok('the job done: the glide starts', await ev('window.__played'), held);
+  const tipAfter = await ev(TIP);
+  info.tipAfter = tipAfter;
+  ok('the wait over: the open tip says the button\'s own words, not the wait\'s', tipAfter.text !== tipWait.text && (!tipAfter.shown || tipAfter.text === tipAfter.own), { tipWait, tipAfter });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
 }
 
 // a change of mind during a wait (#1951): a press on another control ends the wait and waits instead, in both directions; a

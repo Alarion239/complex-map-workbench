@@ -1,7 +1,7 @@
 // The globe suites' shared pixel check (p3_accept_cmd.js, p3_accept_steps_cmd.js): a globe pane's fill against the truth.
 // An expression for eval in a suite, which supplies ev and settled: `const { grab, globeCheck, neutralFrame, handedness, countPicks, FILL_DIFF, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'))`.
-// globeCheck(side, cls, step, mode, id) picks each pixel's point with the page's pick of that side (__cmwSphereW for 'R',
-// __cmwSphereWL for 'L'). A sample is fill when its frame differs from a reference frame without the fill by more than FILL_DIFF
+// globeCheck(side, cls, step, mode, id) picks each pixel's point with the page's pick of X's pane (__cmwSphereWL: the
+// pane drawn, side 'L'). A sample is fill when its frame differs from a reference frame without the fill by more than FILL_DIFF
 // (the sum of the channels' differences); the frames are the page's D1 (as drawn), D0 and Db. mode 'alpha' (the classic
 // panes): the reference D0 is the same frame with the fill's alpha 0. mode 'scope' (the steps view's globe, scope Inside
 // regions, the region of shape id): D0 is the Everywhere frame, and the reference Db is the same frame with the shape hidden
@@ -45,7 +45,7 @@ const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
   return ev(`(() => {
   const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}), r = cv.getBoundingClientRect();
   const D1 = window.__p3D1, D0 = window.__p3D0, Db = window.__p3Db, GW = cv.width, dpr = cv.width / r.width;
-  const pick = ${side === 'L' ? '__cmwSphereWL' : '__cmwSphereW'};
+  const pick = __cmwSphereWL;
   const cls = ${cls}, fillAt = ${fillSrc(mode)};
   const Wd = Math.floor(r.width), Hd = Math.floor(r.height), C = new Int8Array(Wd * Hd), WW = [];
   // the globe's point labels (0, infinity, 1, i, -1, -i: drawn over the frame in both) are left out, 16 px around each
@@ -74,7 +74,7 @@ const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
 // (the grid: a pick every HAND_STEP px, HAND_MARGIN px in from the pane's edge; the triangle's legs are HAND_LEG px)
 const HAND_MARGIN = 20, HAND_STEP = 23, HAND_LEG = 4;
 const handedness = (side) => ev(`(() => {
-  const out = [0, 0], pick = ${side === 'L' ? '__cmwSphereWL' : '__cmwSphereW'};
+  const out = [0, 0], pick = __cmwSphereWL;
   const r = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}).getBoundingClientRect();
   for (let y = ${HAND_MARGIN}; y < r.height - ${HAND_MARGIN}; y += ${HAND_STEP}) for (let x = ${HAND_MARGIN}; x < r.width - ${HAND_MARGIN}; x += ${HAND_STEP}) {
     const a = pick(x, y), b = pick(x + ${HAND_LEG}, y), c = pick(x, y - ${HAND_LEG});
@@ -85,7 +85,7 @@ const handedness = (side) => ev(`(() => {
 })()`);
 // the number of pane pixels (every second one, 3 px in from the edge) whose point, by the pane's own pick, satisfies pred
 // (page code: (w) => boolean)
-const countPicks = (side, pred) => ev(`(() => { let n = 0; const pick = ${side === 'L' ? '__cmwSphereWL' : '__cmwSphereW'}, r = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}).getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = pick(x, y); if (w && (${pred})(w)) n++; } return n; })()`);
+const countPicks = (side, pred) => ev(`(() => { let n = 0; const pick = __cmwSphereWL, r = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}).getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = pick(x, y); if (w && (${pred})(w)) n++; } return n; })()`);
 const EPI = Math.exp(-Math.PI);
 // the annulus e^-pi < |w| < 1 (z^i of H): inside beyond 3 px of both rims; outside: the hole cap and beyond |w| = 1
 const ANNULUS = `(w) => { const a = Math.hypot(w[0], w[1]), e = ${EPI}; return a > e && a < 1 ? 1 : -1; }`;

@@ -11,12 +11,12 @@
       steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }],
     },
     {
-      name: $t('Quarter plane squared'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), trySv: $t('Try: press › and watch the quadrant open onto the half-plane.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
+      name: $t('Quarter plane squared'), trySv: $t('Try: press › and watch the quadrant open onto the half-plane.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
       shapes: [{ kind: 'sector', c: [0, 0], r: 0, t1: 0, t2: 90 }, { kind: 'pgrid', c: [0, 0], r: 2, nc: 4, nr: 16 }],
       steps: [{ type: 'pown', params: { n: 2 } }],
     },
     {
-      name: $t('Joukowski airfoil'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: drag the circle through 1, then press Deformation.'), trySv: $t('Try: drag the circle through 1, then press ›.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'plane-changed' }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Joukowski airfoil'), trySv: $t('Try: drag the circle through 1, then press ›.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'plane-changed' }]], tourSv: 'planes', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [
         { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true },
         { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888 },
@@ -30,9 +30,9 @@
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Disk automorphism'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the disk turns into itself.'), trySv: $t('Try: press ›: the disk turns into itself.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
+      name: $t('Disk automorphism'), trySv: $t('Try: press ›: the disk turns into itself.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1 }, { kind: 'pgrid', c: [0, 0], r: 1, nc: 5, nr: 16 }],
-      steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }], morph: true,
+      steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }],
     },
     {
       name: $t('Sine of a half-strip'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'phase' }]], try: $t('Try: switch to Phase and look for the zeros of sin z.'), trySv: $t('Try: on z, find the points where every colour meets: the zeros of sin z.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.stage === 0 && e.mod < 0.05 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
@@ -45,7 +45,7 @@
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Cayley, then cube'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), trySv: $t('Try: press › twice: the half-plane becomes the disk, then wraps.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 2 }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
+      name: $t('Cayley, then cube'), trySv: $t('Try: press › twice: the half-plane becomes the disk, then wraps.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 2 }]], tourSv: 'planes', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
       shapes: [{ kind: 'halfplane', a: [0, 0], b: [1, 0] }, { kind: 'cgrid', a: [-2, 0], b: [2, 2.5], n: 8 }],
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
@@ -55,7 +55,7 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the point at 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Roots as preimages'), trySv: $t('Try: on w₁, drag the point at 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
       // (the point and the circle on w₁ are shapes of that plane, drawn and dragged there; their preimages show on z)
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }, { kind: 'point', p: [0, 0], stage: 1 }, { kind: 'circle', c: [0, 0], r: 0.6, stage: 1 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
@@ -89,7 +89,7 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: click the chip f₁, then Show all sheets in the Inspector.'), tryDoneSv: [[{ on: 'sheets-shown' }, { on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'sheets-shown' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: click the chip f₁, then Show all sheets in the Inspector.'), tryDoneSv: [[{ on: 'sheets-shown' }, { on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -116,7 +116,7 @@
       steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Poles of the Gamma function'), tryDone: [[{ on: 'probe' }]], try: $t('Try: hover a pole in Y: X marks the point with that value.'), trySv: $t('Try: hover near a pole: |Γ| grows without bound.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.mod > 20 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      name: $t('Poles of the Gamma function'), trySv: $t('Try: hover near a pole: |Γ| grows without bound.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.mod > 20 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
@@ -391,12 +391,6 @@
     if (l || r) { setPanels(S.hideLeft || l, S.hideRight || r); return true; }
     return false;
   }
-  function setSolo(which) {
-    if (Views.merged(S.view, morphOn())) return; // a merged view is one panel: nothing to expand
-    setOpt('solo', S.solo === which ? null : which);
-    applyLayout();
-    save();
-  }
   function applyLayout() {
     const lay = document.querySelector('.layout');
     placeKeys();
@@ -409,24 +403,15 @@
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
     $('toggleRight').setAttribute('aria-pressed', String(!S.hideRight));
     const panes = document.querySelector('.panes');
-    // merged views (merged-views.md): one wide panel, the other pane hidden (on a phone too) and no expand button,
-    // so it reads as a view of its own, not an expanded pane
-    const one = solo(), mg = Views.merged(S.view, morphOn());
-    panes.classList.toggle('solo-L', one === 'L');
-    panes.classList.toggle('solo-R', one === 'R');
+    // X's pane alone, one wide panel (on a phone too)
+    const mg = Views.merged(S.view);
+    panes.classList.add('solo-L');
     panes.classList.toggle('merged-L', mg === 'L');
     panes.classList.toggle('merged-R', mg === 'R');
-    for (const [id, w] of [['leftSolo', 'L'], ['rightSolo', 'R']]) {
-      const b = $(id);
-      b.hidden = !!mg;
-      b.setAttribute('aria-pressed', String(S.solo === w));
-      b.setAttribute('data-tip', S.solo === w ? $t('Show both planes') : $t('Expand plane')); b.removeAttribute('title');
-      b.innerHTML = S.solo === w ? ICONS.restore : ICONS.expand;
-    }
     syncModeChips();
-    if (mg !== layoutMg || one !== layoutOne) { layoutMg = mg; layoutOne = one; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
+    if (mg !== layoutMg) { layoutMg = mg; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
   }
-  let layoutMg = null, layoutOne = null;
+  let layoutMg;   // (undefined until the first layout, which always resizes the panes)
   // the panes' canvases follow their boxes (the ResizeObserver, and a layout change at once: a merge or a split
   // must not leave a frame, a fit or a mesh to be made at the old width)
   function onPaneResize() {
@@ -435,12 +420,11 @@
     $('paneL').classList.toggle('narrow', $('paneL').getBoundingClientRect().width < 520);
     syncViewControls();
     fitRightTitle();
-    if (a && leftStage() > 0 && leftAuto && solo() !== 'R') { paneL.setView(V.left); fitPane(paneL, leftStage()); }
+    if (a && leftStage() > 0 && leftAuto) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
     if (a || b) {
-      // (a merged view widens one pane: its options strip re-flows at the new width; a hidden pane is not fitted)
+      // (the options strip re-flows at the pane's new width)
       layoutFoot();
       sourceViewChanged();
-      if (rightAuto && rImage() && solo() !== 'L') fitRight();
       requestRender('L', 'R');
       sndRelayout();   // (sound: the plane under a still pointer moved)
     }
@@ -526,7 +510,7 @@
     const refit = !m && exFitKey && exFitKey === JSON.stringify(S.srcView) && EX[currentExample] && EX[currentExample].fit;
     // a shape draft and the probe end with the view they were made in; targets are edited in Y (X → Y only)
     draft = null; probe = null; hoverCut = 0; setReadouts(null);
-    rHover = null; setHoverW(null);
+    setHoverW(null);
     applyLayout();
     if (refit) { exFitTo(EX[currentExample]); paneL.setView(S.srcView); }
     sndRelayout();
@@ -542,11 +526,10 @@
   }
   function viewChanged(side) {
     if (side === 'R') {
-      // targets are drawn and edited in Y Plane; a target draft and a target selection end with it (the transport
-      // stays open)
+      // targets are drawn and edited in Y Plane; a target draft and a target selection end with it
       // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
       if (draft && draft.target) draft = null;
-      rHover = null; setHoverW(null);
+      setHoverW(null);
       if (autoFit()) { rightAuto = true; fitRight(); }
       buildShapeList();
     } else {
@@ -564,16 +547,14 @@
     btn.title = off ? why : tip;
     note.textContent = off ? why : '';
   }
+  // X's stack: Sphere (not on the Landscape, with the reason) and Fit view, which X's picture always has something to fit
   function syncStackKeys() {
-    for (const side of ['left', 'right']) {
-      const L = side === 'left', sph = $(side + 'Sph');
-      if (!sph) continue;
-      const on = SV.on ? SV.surf === 'sphere' : (L ? xView().surf : S.view.R.surf) === 'sphere';
-      sph.setAttribute('aria-pressed', String(on));
-      sph.innerHTML = MODE_ICONS.sphere;
-      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
-      setStackKey($(side + 'Fit'), $(side + 'FitWhy'), !L && !rImage(), $t('Nothing to fit yet'), $t('Fit view') + '  Z');
-    }
+    const sph = $('leftSph');
+    if (!sph) return;
+    sph.setAttribute('aria-pressed', String(SV.on ? SV.surf === 'sphere' : xView().surf === 'sphere'));
+    sph.innerHTML = MODE_ICONS.sphere;
+    setStackKey(sph, $('leftSphWhy'), SV.on ? SV.surf === 'land' : lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
+    setStackKey($('leftFit'), $('leftFitWhy'), false, '', $t('Fit view') + '  Z');
   }
   // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
   function stackSphere(side) {
@@ -647,6 +628,8 @@
     // (a focus counts as keyboard navigation when a Tab or arrow key came this many ms before it)
     const NAV_KEY_MS = 300;
     let timer = 0, cur = null, lastHide = 0, kbdTip = null, navKeyAt = -1e9;
+    // the element whose data-tip the open tip shows, and the observer that keeps the tip to its words
+    let tipObs = null, tipWatched = null;
     // the tool descriptions that say click, in touch words (the others drag, hold or pick)
     const TOUCH_DESC = {
       point: () => $t('Tap to place a point; its images are labelled a′, a″, …'),
@@ -677,8 +660,16 @@
       let y = r.top - th - 6; if (y < 6) y = r.bottom + 6;
       tip.style.left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2)) + 'px';
       tip.style.top = y + 'px';
+      // (an open tip follows its element's words: a control that changes its data-tip while it is shown, as Play does when
+      // its glide waits and when the wait ends, shows the new words at once, and no tip when it has none)
+      if (tipWatched !== el) {
+        if (tipObs) tipObs.disconnect();
+        tipWatched = el;
+        tipObs = new MutationObserver(() => { if (!tip.hidden && tipWatched === el) { if (el.getAttribute('data-tip')) show(el); else hide(); } });
+        tipObs.observe(el, { attributes: true, attributeFilter: ['data-tip', 'data-desc'] });
+      }
     };
-    const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; };
+    const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; if (tipObs) { tipObs.disconnect(); tipObs = null; tipWatched = null; } };
     document.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
       const tg = /** @type {HTMLElement} */ (e.target);
@@ -918,7 +909,7 @@
     if (host) for (const t of host.querySelectorAll('.toast[data-undo]')) t.remove();
   }
   // (a message never lands on a control) A desktop's messages sit
-  // above the chain, centred between X's and Y's button columns (and above the deformation's transport), as wide as
+  // above the chain, centred between X's and Y's button columns, as wide as
   // the room between them, wrapping to a second line; a phone's sit above the chain bar, right of the inset and left of
   // the plane's key column, or above the inset where that room is too narrow. Placed whenever one shows (an observer
   // on the host) and when the layout changes.
@@ -984,10 +975,12 @@
       st.bottom = Math.round(H0() - floor + 12) + 'px';
       return;
     }
-    const chain = box(document.querySelector('.pipe-wrap'));
-    if (!chain || !(chain.width > 0)) { clear(); return; }
+    // (over the chain box's top; while the box is hidden (the classic view with no cards, #2269) over the planes' foot, 12 px above it)
+    const chain = box(document.querySelector('.pipe-wrap')), panes = chain ? null : box($('panes'));
+    const base = chain && chain.width > 0 ? chain : panes && panes.width > 0 ? panes : null;
+    if (!base) { clear(); return; }
     const H = window.innerHeight, W = window.innerWidth;
-    let lo = 8, hi = W - 8, top = chain.top;
+    let lo = 8, hi = W - 8, top = chain ? chain.top : base.bottom - 4;
     const dock = [...document.querySelectorAll('.tdock:not([hidden])')].map(box).filter(Boolean);
     for (const d of dock) top = Math.min(top, d.top);
     const inset = box(document.querySelector('.panes > .pane.ph-inset'));
@@ -1113,8 +1106,8 @@
   function examplesApi() {
     return {
       EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette,
-      commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
-      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild,
+      commit, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
+      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, phHold, placePop, popOpenedFrom, rebuild,
       setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,

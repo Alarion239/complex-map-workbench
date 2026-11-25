@@ -1,13 +1,17 @@
   // ---------------------------------------------------------------- export phrases (SPEC 12)
   // a caption phrase for capT: {src, params}; values are text or {m: TeX} (the app sets the maths: z₂ = −1 − 1.5i)
   const SUBR = { '₀': 0, '₁': 1, '₂': 2, '₃': 3, '₄': 4, '₅': 5, '₆': 6, '₇': 7, '₈': 8, '₉': 9 };
-  // a point's name as TeX (z₂ -> z_{2}, ζ₁ -> \zeta_{1}, z₀″ -> z_{0}''), or null for a name in words
+  // a point's name as TeX (z₂ -> z_{2}, ζ₁ -> \zeta_{1}, z₀″ -> z_{0}'', a plane's point w₁,₁ -> w_{1,\,1}), an image's too
+  // (F(z₀) -> F(z_{0}), w₂(z₁) -> w_{2}(z_{1}), Hₜ(z₀) -> H_{t}(z_{0})), or null for a name in words
   function nameTex(nm) {
+    const img = /^([A-Za-z])([₀-₉ₜ]*)\((.+)\)$/u.exec(nm);
+    if (img) { const inner = nameTex(img[3]); return inner ? `${img[1]}${img[2] ? `_{${[...img[2]].map((c) => (c === 'ₜ' ? 't' : SUBR[c])).join('')}}` : ''}(${inner})` : null; }
     if (/^[A-Za-z]$/.test(nm)) return nm;            // (a user's one-letter label)
-    const m = /^([a-zζ])([₀-₉]+)([′″‴]*)$/u.exec(nm);
+    const m = /^([a-zζ])([₀-₉]+)(?:,([₀-₉]+))?([′″‴]*)$/u.exec(nm);
     if (!m) return nm === '∞' ? '\\infty' : null;
-    const base = m[1] === 'ζ' ? '\\zeta' : m[1];
-    return `${base}_{${[...m[2]].map((c) => SUBR[c]).join('')}}${"'".repeat([...m[3]].reduce((n, c) => n + ('′″‴'.indexOf(c) + 1), 0))}`;
+    const base = m[1] === 'ζ' ? '\\zeta' : m[1], digits = (d) => [...d].map((c) => SUBR[c]).join('');
+    // (a plane's point, w₁,₁: a thin space after the comma, so its two numbers do not read as one, w₁₁)
+    return `${base}_{${digits(m[2])}${m[3] ? `,\\,${digits(m[3])}` : ''}}${"'".repeat([...m[4]].reduce((n, c) => n + ('′″‴'.indexOf(c) + 1), 0))}`;
   }
   // a caption names each point once with its value (a point shape's own phrase does: "the point
   // $z_0=-1.5$"), so a definition names point shapes by their label only (the figure labels them), a zero by name and
@@ -92,12 +96,14 @@
       if (d.seg && d.fill !== 'in' && s._seg) {
         const info = segInfo(s), C = find(d.args[0].s), cpc = C && piecesOf(C)[d.args[0].part], kpc = piecesOf(s)[0];
         let r = null;
+        // (the domain is C's open side: the drawn disc's or half-plane's TeX, a closed set's (≤, ≥), made strict)
+        const open = (t) => t.replace(/\\le /g, '<').replace(/\\ge /g, '>');
         try {
           // (the outside of a circle is a disc of the sphere, infinity included)
-          if (info && cpc && cpc.kind === 'circle' && isXY(cpc.c)) { r = Region.KINDS.disc.tex({ kind: 'disc', c: cpc.c, r: cpc.r }); if (info.word === 'out') r = `\\{${r.replace(/</g, '>')}\\}\\cup\\{\\infty\\}`; }
+          if (info && cpc && cpc.kind === 'circle' && isXY(cpc.c)) { r = open(Region.KINDS.disc.tex({ kind: 'disc', c: cpc.c, r: cpc.r })); if (info.word === 'out') r = `\\{${r.replace(/</g, '>')}\\}\\cup\\{\\infty\\}`; }
           else if (info && cpc && cpc.kind === 'line' && isXY(cpc.a) && isXY(cpc.b)) {
             const L = [cpc.a[0] - (cpc.b[1] - cpc.a[1]), cpc.a[1] + (cpc.b[0] - cpc.a[0])], left = info.seg * Constr.fOf(info.Gc, L) < 0;
-            r = Region.KINDS.halfplane.tex({ kind: 'halfplane', a: left ? cpc.a : cpc.b, b: left ? cpc.b : cpc.a });
+            r = open(Region.KINDS.halfplane.tex({ kind: 'halfplane', a: left ? cpc.a : cpc.b, b: left ? cpc.b : cpc.a }));
           }
         } catch (e) { r = null; }
         if (r) {
@@ -165,21 +171,21 @@
 .cm-chip > .cm-seg, .cm-chip > .cm-x { flex: 0 0 auto; }
 .draft-chip.cm-on { pointer-events: auto; padding: 0 4px 0 10px; }
 .draft-chip.cm-on.cm-low { top: auto !important; bottom: 32px; left: 8px; translate: none; max-width: calc(100% - 64px); }
-/* ([v16.5 check app-5] at the foot the chip clears the plane's buttons, 48 px narrower than at the top: its sentence may
+/* (at the foot the chip clears the plane's buttons, 48 px narrower than at the top: its sentence may
    take a third line there rather than be cut; the one-line rule in syncChip measures it in this place) */
 .draft-chip.cm-on.cm-low .cm-chip > .cm-t { -webkit-line-clamp: 3; }
 .cm-seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-2, 6px); overflow: hidden; }
 .cm-sb { border: 0; background: transparent; color: var(--ink-2); font: var(--t-label); padding: 2px 8px; cursor: pointer; }
 .cm-sb.on { background: var(--inverse); color: var(--inverse-ink); }
-/* [v16.4 review user-5] touch: each segment button takes taps 40px tall, with the same look */
+/* touch: each segment button takes taps 40px tall, with the same look */
 .cm-seg.cm-touch { overflow: visible; }
 .cm-seg.cm-touch .cm-sb { position: relative; }
 .cm-seg.cm-touch .cm-sb:first-child { border-radius: 5px 0 0 5px; }
 .cm-seg.cm-touch .cm-sb:last-child { border-radius: 0 5px 5px 0; }
 .cm-seg.cm-touch .cm-sb::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 40px; transform: translateY(-50%); }
 .cm-x { border: 0; background: transparent; color: var(--ink-2); font-size: 19px; line-height: 1; width: 28px; height: 28px; cursor: pointer; }
-/* [v16.5 UX48, UX51, UX52, UX100] the chip wraps (text, then its controls; a refusal or the how-to on a line of its own); the
-   kept curve's token; the ? */
+/* the chip wraps (text, then its controls; a refusal or the how-to on a line of its own); the kept curve's
+   token; the ? */
 .empty-chip > .cm-chip { flex-wrap: wrap; row-gap: 4px; }
 /* (the chip's words let the plane take the pointer, as the polygon's chip does: only its buttons take a press, so a
    pick under its second line still lands) */
@@ -199,7 +205,7 @@
 /* a finger: words in the segments, every control taps 44 px */
 .cm-chip.cm-tch .cm-sb { min-width: 44px; }
 .cm-chip.cm-tch :is(.cm-x, .cm-tokx, .cm-q)::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.cm-chip.cm-tch .cm-x { position: relative; width: 32px; height: 32px; }
+.cm-chip.cm-tch .cm-x { position: relative; width: 32px; height: 32px; padding: 0; display: inline-grid; place-items: center; }
 /* (a finger: the × beside the words on the first line, the choices on the second) */
 .cm-chip.cm-tch > .cm-t { flex: 1 1 calc(100% - 48px); }
 .cm-chip.cm-tch > .cm-x { order: 1; margin-left: auto; }
@@ -211,10 +217,10 @@
 .cm-chip.cm-tch > .cm-seg { position: relative; z-index: 1; }
 .cm-t > .cm-nw { white-space: nowrap; }
 .shape .d .cm-def { color: var(--ink-2); font: var(--t-label); }
-/* [review user-11] a definition (or a reason) wraps to two lines in its row instead of being cut */
+/* a definition (or a reason) wraps to two lines in its row instead of being cut */
 .shape-row:has(> .shape-name .cm-def, > .shape-name .d[data-cm] > .err-msg) { height: auto; min-height: 32px; padding-top: 4px; padding-bottom: 4px; }
 .shape-name:has(.cm-def, .d[data-cm] > .err-msg) { align-items: baseline; flex-wrap: wrap; white-space: normal; -webkit-mask-image: none; mask-image: none; }
-/* [v16 verify-4] too narrow beside the name: the definition takes the row's full width under it */
+/* too narrow beside the name: the definition takes the row's full width under it */
 .shape-name .d:has(> .cm-def, > .err-msg)[data-cm] { flex: 1 1 8em; min-width: 0; }
 .shape .d[data-cm] > .cm-def, .shape .d[data-cm] > .err-msg { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; line-height: 15px; }
 .shape.cm-helper > .shape-row { padding-left: 18px; }
@@ -223,7 +229,7 @@
 .rail-sep { width: 18px; height: 1px; background: var(--line); margin: 4px 0; flex: 0 0 auto; }
 #railTools.cm-tight1 > .rail-tool:is([data-tool="cgrid"], [data-tool="pgrid"]), #railTools.cm-tight2 > .rail-tool:is([data-tool="curve"], [data-tool="lasso"]) { display: none; }
 @media (min-width: 768px) { :root:not(.ph) .cm-tight3 > .rail-label { display: none; } }
-/* [v16.5 UX55] last, the Hyperbolic line tile leaves the rail (it stays in the drawer's Construct grid and in ⌘K) */
+/* last, the Hyperbolic line tile leaves the rail (it stays in the drawer's Construct grid and in ⌘K) */
 #railTools.cm-tight4 > .rail-tool[data-tool="hyper"] { display: none; }
 .cm-insp { display: flex; flex-direction: column; gap: 4px; }
 .cm-ihead { margin-bottom: 4px; }
@@ -331,7 +337,7 @@
     handleMove: g(handleMove, null), handleUp: g(handleUp), moveUp: g(moveUp), moveDrag: g(moveDrag, false), cancelDrag: g(cancelDrag, false), globeSlide: g(globeSlide, null), globePoint: g(globePoint, false), touchNow: () => touchNow(), altNow: () => !!A && altNow(), samePick, click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false), drafting: g(drafting, false), undoPick: g(undoPick, null), undoPickable: g(undoPickable, false), hint: g(() => chipText(true, true), ''),
     hover: g(hover), finalPick: g(finalPick, false), pointer, leave: g(leave), drawOverlay: g(drawOverlay), syncChip: g(syncChip), chipSide: g(chipSide, null), toolChanged: g(toolChanged), deleteMessage: g(deleteMessage, null), zpOffNote: g(zpOffNote, ''),
     row: g(row, false), rowMenu: g(rowMenu), markLinks: g(markLinks), orderRows: g(orderRows), linked: g(linked, new Set()),
-    fixedName: (s) => (A ? fixedName(s) : null), defText: g(defText, null), reasonText: g(reasonText, ''), refName: g(refName, ''), shapeLabel: g(shapeLabel, ''), pointName: g(pointName, ''), followsText: g(followsText, ''), phrase: g(phrase, null), menuItems: g(menuItems, []),
+    nameTex, fixedName: (s) => (A ? fixedName(s) : null), defText: g(defText, null), reasonText: g(reasonText, ''), refName: g(refName, ''), shapeLabel: g(shapeLabel, ''), pointName: g(pointName, ''), followsText: g(followsText, ''), phrase: g(phrase, null), menuItems: g(menuItems, []),
     inspectorSig: g(inspectorSig, null), inspectorBuild, inspectorFill, usedBy: g((id) => { try { return [...graph().users(id)]; } catch (e) { return []; } }, []), setFill, paletteActs: g(paletteActs, []), CAPTIONS,
     // TEST-HOOK (dropped from the published page by build.py)
     debug,

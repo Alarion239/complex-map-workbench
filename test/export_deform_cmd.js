@@ -2,8 +2,7 @@
 // be encoded, a video that keeps nothing unless a test asks, the lecture pace of videoTimes(), the dark theme (no frame
 // rebuilds the app), and the Export dialog's Video format: its options, the summary line, Save video with its progress
 // (focus on Cancel while it runs, on Save video after), no long task, Cancel, the narrow phones, and the dialog's video
-// preview (it plays at the video's frame rate, its frame k is the saved video's frame k). The classic views' deformation
-// export is export_deform_classic_cmd.js.
+// preview (it plays at the video's frame rate, its frame k is the saved video's frame k).
 // CMW_ONLY names one part (the CI runs each: ci/browser_suites.js): 'video' (the first four), 'dialog', 'preview'; with none
 // every part runs. Writes its files to test/regress/export/out/. A command file for a CDP daemon (test/cdp_kit README).
 const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
