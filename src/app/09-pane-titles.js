@@ -315,7 +315,7 @@
     return probeTeachUntil > now ? `<span class="rhint rteach">${SV.on ? $t('Hold and slide to read {f}', { f: svMapCall('html') }) : $t('Hold and slide to read F(z)')}</span>` : '';
   };
   const idleLeft = () => (lGlobe() ? `<span class="rhint rglobe">${globeHint('L')}</span>`
-    : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
+    : lLand() ? `<span class="rhint">${tool === 'pick' && landPickOn() && document.documentElement.classList.contains('ph') ? landPickPhrases($t('Tap to pick · hold and slide to read · drag to orbit · pinch to zoom')) : tool !== 'select' && tool !== 'formula' && !(tool === 'pick' && landPickOn()) ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
   function idleRight() {
     // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
@@ -329,7 +329,7 @@
   // a sliders button into a popover; on a phone all of them do.
   const phoneMQ = matchMedia('(max-width: 767px)');
   // one options strip per pane (panels.md 4): foot.L in X, foot.R in Y
-  const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null });
+  const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null, pat: null });
   const foot = { L: footOf(), R: footOf() };
   phoneMQ.addEventListener('change', () => { if (S && paneR) layoutFoot(true); });
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
@@ -450,7 +450,11 @@
     ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
-    const pat = inHead && pushHome() ? patternBtn(side) : null;
+    // (the Regions button is the one its open pop-up hangs from, kept through this layout: a new one would read unpressed, and a
+    // press on it would not be the anchor's re-click)
+    const patHeld = !!(ft.pat && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === 'pattern' && ft.pat.getAttribute('aria-expanded') === 'true');
+    const pat = inHead && pushHome() ? (patHeld ? ft.pat : patternBtn(side)) : null;
+    if (patHeld && pat) drawPhaseSwatch(pat.firstChild);
     let n = kids.length;
     if (phone) n = 0;
     else {
@@ -538,6 +542,7 @@
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
     drawPhaseSwatch(b.firstChild);
     b.addEventListener('click', () => openFootPop(b, false, side, true));
+    foot[side].pat = b;
     return b;
   }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {

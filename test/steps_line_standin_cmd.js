@@ -21,8 +21,11 @@ const pts = SHAPES.flatMap((s) => Array.from({ length: 48 }, (_, k) => {
   const a = 2 * Math.PI * (k + 0.5) / 48, x = s.c[0] + s.r * Math.cos(a), y = s.c[1] + s.r * Math.sin(a);
   return [x * x - y * y + 1, 2 * x * y];
 }));
+// (the meshing window the stand-ins are measured in, saved with the state: a thread saved on a later plane with no window is
+// meshed in the settled pane's, which changes how many outlines are made and what each costs, and this suite reads the outlines)
+const CLIP_WIN = { x0: -2.75, x1: 2.75, y0: -4.166666666666667, y1: 4.166666666666667 };
 const ns = 'sls' + Date.now();
-await seed(ns, { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'custom', params: { expr: 'z+1', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 2, T: 0, scope: 'all', surf: 'plane' } });
+await seed(ns, { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'custom', params: { expr: 'z+1', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 2, T: 0, scope: 'all', surf: 'plane' }, clipWin: CLIP_WIN });
 await go(`${base}/test.html?ns=${ns}&view=steps&glhold&glline=1e6`);
 await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'function' && !!window.GLR && GLR.ok" });
 // (held: the frame pending on the lines' own program, read once two reads 300 ms apart agree: the regions' stand-in
@@ -44,7 +47,7 @@ ok('while the links are held: each shape\'s outline is a stand-in at the lines\'
 ok('timing: each outline\'s stand-in takes at most the real budget here (25 ms; the page\'s own budget is set)', held.made.length === SHAPES.length && held.made.every((r) => r.ms <= 25), info.made);
 // an expensive series: its stand-in is refused (the first segment's evaluations show it would not fit), not made
 const ns2 = 'slx' + Date.now();
-await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 1, T: 0, scope: 'all', surf: 'plane' } });
+await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 1, T: 0, scope: 'all', surf: 'plane' }, clipWin: CLIP_WIN });
 await go(`${base}/test.html?ns=${ns2}&view=steps&glhold`);
 await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'function' && !!window.GLR && GLR.ok" });
 const exWait = await settled({ only: true, max: 30000, until: `GLR.lineStandIns().length >= ${SHAPES.length}` });

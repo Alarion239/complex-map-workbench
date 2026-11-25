@@ -11,7 +11,8 @@
 // - once: the live region says the language's "Preparing the glide…" exactly once while the play waits;
 // - after: once the play starts, ▶ is described and named as it is when it plays (no share, not Cancel), and not busy;
 // - unknown: a gauge with no total yet (null) leaves the ring at the unknown fill (0.25) and the description at the
-//   language's "Preparing the glide…" alone, no share that was not measured; control: a gauge of 0.47 says 40 %
+//   language's "Preparing the glide…" alone, no share that was not measured, and its state is unknown; control: a gauge
+//   of 0.47 says 40 %; and a gauge of 0.05 after an unknown one says 0 %, what was measured, not the ring's kept 0.25
 //   (__cmwWaitSay: the wait's look on a button apart from the page).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
@@ -56,8 +57,12 @@ for (const lang of Object.keys(WORDS)) {
   if (!up.ok) throw new Error(`${lang}: the page hooks are not up: ` + JSON.stringify(up));
   const unk = await ev('__cmwWaitSay(null)'), known = await ev('__cmwWaitSay(0.47)');
   info[`${lang} unknown`] = { unk, known };
-  ok(`${lang} unknown: with no total yet the ring stands at 0.25 and the description is "${W.live}" alone`, !!unk && unk.desc === W.live && unk.fill === 0.25, unk);
+  ok(`${lang} unknown: with no total yet the ring stands at 0.25, its state unknown, and the description is "${W.live}" alone`, !!unk && unk.desc === W.live && unk.fill === 0.25 && unk.wait === 'unknown', unk);
   ok(`${lang} unknown control: a gauge of 0.47 is described with 40 %`, !!known && known.desc === W.say.replace('{p}', '40'), known);
+  // (a share measured after an unknown one is said as measured, not as the ring's kept arc: 0.05 is 0 %, while the ring keeps 0.25)
+  const thenSmall = await ev('__cmwWaitSay([null, 0.05])');
+  info[`${lang} unknown then 0.05`] = thenSmall;
+  ok(`${lang} measured after unknown: a gauge of 0.05 after an unknown one is described with 0 %, the ring kept at 0.25`, !!thenSmall && thenSmall.desc === W.say.replace('{p}', '0') && thenSmall.fill === 0.25 && thenSmall.wait === 'busy', thenSmall);
   await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'all', surf: 'plane', ahead: { ms: 0, waitMs: ${WAIT_MS} } }), 1`);
   await rest(0);
   // (the chain's first glide plays live; its frame cost is measured after it ends)

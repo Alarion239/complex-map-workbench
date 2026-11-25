@@ -76,7 +76,7 @@ for (const [w, h, mobile, lang] of [[1024, 768, false, 'ru'], [360, 780, true, '
   const r3 = await ring();
   ok(`${tag}: parked between planes, the ring is a playhead under the chips`, r3.between && r3.w <= 3 && r3.z === '0', r3);
 }
-// (ux's wave 12 sweep) on the globe the dimmed draw tools say they are off
+// on the globe the dimmed draw tools say they are off
 await open(1024, 768, false, 'en', 3);
 await ev(`__cmwSteps({ surf: 'sphere' }); 1`);
 // (the tools are marked when the globe's first frame is drawn: up to 6 s on a software renderer; #508)
