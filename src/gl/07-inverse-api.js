@@ -1017,6 +1017,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function reptAccFree(E) {
     for (const T of [E.A, E.B]) if (T) { gl.deleteTexture(T.tex); gl.deleteFramebuffer(T.fbo); }
     for (const q of E.q || []) gl.deleteQuery(q);
+    if (E.hq) gl.deleteQuery(E.hq);
   }
   // the tiles of a w x h rect of at most px pixels each: [x, y, w, h]
   function reptTiles(w, h, px) {
@@ -1166,6 +1167,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(Q, 'uAccMode', mark ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (mark) {
+      reptMarked = sig === null ? null : E;
       if (repMarkFrame !== invFrame) { repMarkFrame = invFrame; gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); }
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       gl.colorMask(false, false, false, false);
@@ -1202,13 +1204,28 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     hatchPass(Q, dpr, false);
     return true;
   }
+  // the accumulation entry whose picture the frame's mark pass composited (a cacheable draw's), for reptHatchFill
+  let reptMarked = null;
+  // The hatch over the marked pixels, then the marks cleared. -> whether the picture's hatch covers any pixel: an occlusion
+  // query over the hatch's draw, asked once for a picture (its accumulation entry) and answered, as WebGL answers, by a later
+  // frame, which is asked for (reptKick) until it finds the entry's answer; true or false once it is known, else undefined, as for
+  // an uncacheable picture. null when the frame has no mark pass to hatch or the program is not ready
   function reptHatchFill(dpr) {
     const Q = ok && program('reptHatch');
-    if (!Q || repMarkFrame !== invFrame) return false;
+    if (!Q || repMarkFrame !== invFrame) return null;
+    const E = reptMarked;
+    reptMarked = null;
+    const q = E && E.hatched === undefined && !E.hq ? gl.createQuery() : null;
+    if (q) gl.beginQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE, q);
     hatchPass(Q, dpr, true);
+    if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); E.hq = q; reptKick(); }
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     repMarkFrame = -1;
-    return true;
+    if (E && E.hq) {
+      // (a result not there yet asks for another frame, until it is)
+      if (gl.getQueryParameter(E.hq, gl.QUERY_RESULT_AVAILABLE)) { E.hatched = !!gl.getQueryParameter(E.hq, gl.QUERY_RESULT); gl.deleteQuery(E.hq); E.hq = null; } else reptKick();
+    }
+    return E ? E.hatched : undefined;
   }
   // the pixels the frame's stencil marks unresolved (a REPT plan's region-mask pass, drawInverse), counted by a read-back
   // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks. cc: a

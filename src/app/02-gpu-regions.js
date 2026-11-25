@@ -379,8 +379,6 @@
     const m = R.steps.length, j = allAtOnce() ? (morph.T > 0 ? m : 0) : Math.min(m, Math.ceil(morph.T));
     return j >= m ? R.p1 : j > 0 ? R.steps[j - 1] : R.lo;
   };
-  // (exact ends, as homrange.ts lerpE and gl.js MAP_STAGE)
-  const lerpF = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); });
   // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none: a constant
   // or a formula that is not recognisably a catalog map, funcs.js); the identity at t <= 0 and f at t >= 1 (D3)
   const homF = (k, t) => HR.homF(k, t);
@@ -438,16 +436,7 @@
     const out = [];
     const lk = leftStage();
     const needs = (map, role, kind) => (s) => pathOf(s, map, role, kind, { status: true }).path === 'forward';
-    if (lk > 0 && solo() !== 'R') out.push({ role: 'L', F: stageF(lk), key: 'S' + chainSig[lk], need: needs(stageMap(lk), 'L', lGlobe() ? 'globe' : 'flat') });
-    if (solo() !== 'L') {
-      // (Y always shows the images: in its plane or on its globe)
-      const imgs = true;
-      const kind = rGlobe() ? 'globe' : 'flat';
-      if (imgs && rightStage() > 0) {
-        const k = rightStage();
-        out.push({ role: 'R', F: stageF(k), key: 'S' + chainSig[k], need: needs(stageMap(k), 'R', kind) });
-      }
-    }
+    if (lk > 0) out.push({ role: 'L', F: stageF(lk), key: 'S' + chainSig[lk], need: needs(stageMap(lk), 'L', lGlobe() ? 'globe' : 'flat') });
     if (svFixWant && SV.on) out.push(svFixWant);
     return out;
   }
