@@ -126,8 +126,9 @@ Each platform's job is there for its own shader compiler:
 
 - **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
   loops. One link on WARP takes from seconds to minutes, and which program runs past the inverse page's wait
-  (`WAIT_MS`, 120 s) changes from run to run: such a case did not run, and the job names it in its line and summary
-  row and leaves it out of the verdict (`settlePending` in `ci/glsl.js`). On any other renderer it is an error.
+  (`WAIT_MS`, 120 s) changes from run to run: up to three such cases were not compared, and the job names them in its
+  line and summary row and leaves them out of the verdict (`settlePending` in `ci/glsl.js`). More than three, or such a
+  case on any other renderer, is an error each.
 - **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
 - **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`; a local browser-suite run uses lavapipe instead where it is installed, below): CPU WebGL2. Headless Chrome falls back to it without a
   usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
