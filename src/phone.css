@@ -542,11 +542,12 @@ html:not(.ph) .ph-only { display: none !important; }
    here, not over the chip's column, and the drop below an unfolded key that a plane's chip takes where the key stands at the top left (page.html) would
    put the chip under the bar) */
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden], .collapsed)) > .draft-chip.cm-on { top: 40px; }
-/* (under 340 px of window, the 320 px tall phones, the plane above the bar is 106 px, shorter than two keys: the three keys stand in one
-   row, Fit view, Sphere, Display from the left, 44 px each with 8 px between. Fit view's right edge is 112 px in: 8 + 44 + 8 + 44 + 8, the
+/* (under 390 px of window, the 320 and 360 px tall phones, the plane above the bar is 106 px at 320 and about 146 at 360, and the tour lane
+   takes the top 48 of it under the head: two keys stacked, 96 px with their gap, do not fit between the lane and the bar, and the upper one
+   would stand under the lane. The three keys stand in one row, Fit view, Sphere, Display from the left, 44 px each with 8 px between. Fit view's right edge is 112 px in: 8 + 44 + 8 + 44 + 8, the
    two keys at its right and the gaps; the construction chip stops 172 px short of the plane's right edge: 112 + 44 + 16, Fit view's lane
    and a gap each side. The colour key card, 74 px tall, cannot stand beside the row in 106 px and lies over it while it is open) */
-@media (max-height: 340px) {
+@media (max-height: 389.98px) {
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
