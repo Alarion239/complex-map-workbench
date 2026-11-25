@@ -81,6 +81,9 @@ await load('headpressxy' + Date.now(), ST, '', 'classic');
 ok('the page shows the classic view', !(await isSteps()), null);
 await ev(`__cmwSetMain('xy'), 1`);
 await settled({ max: 15000, until: `!!document.querySelector('#paneL .pane-head .pat-btn')` });
+// (and the page at rest: clicked while the page was still settling after the switch, the pop-up closed again on its own
+// before the look was read, at 1440 × 900 since the classic view's empty chain box takes no room, #2360)
+await settled({ max: 30000 });
 await scene('classic X → Y', false, { 'Regions button': 1 });
 await ev(`document.documentElement.removeAttribute('data-theme'), 1`);
 return { pass: fails.length === 0, fails, info };
