@@ -4,8 +4,8 @@
 //    that differ: 0 on both canvases);
 //  - the control: a camera 1° off straight down, by pitch or by yaw, differs on both canvases, so the count sees a tilt;
 //  - on the Stack surface the left plane is not flat (no rulers, no flat overlays), and the levels are drawn in the one
-//    order floor, floor marks, tubes, lines, glass, glass marks, labels at every camera of a turn round the box and up to
-//    straight down;
+//    order floor, floor marks, tubes, levels, lines, glass, glass marks, picks, labels at every camera of a turn round the
+//    box and up to straight down;
 //  - tilted, the overlay holds the glass's ink where the target's ring and the glass's rim project, wherever the camera;
 //  - the head's Surface button reads Stack and is named so, and the Surface menu checks it; at 320 × 568, where the head
 //    shows the button as its icon and ▾, the Stack has an icon;
@@ -22,7 +22,7 @@ const until = (expr, max = READY_MS) => settled({ until: expr, max });
 const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
 const DEG = Math.PI / 180;
 const M3 = [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }];
-const ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
+const ORDER = ['floor', 'floor marks', 'tubes', 'levels', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: M3, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
 const open = async (w, h, phone) => {
   const ns = `stack-${Date.now()}`;
