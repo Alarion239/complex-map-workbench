@@ -122,7 +122,7 @@
         await settled({ only: true, max: 20000, until: `!![...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getClientRects().length)` });
         await ev(`[...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getClientRects().length).click(), 1`);
       },
-      ready: `(() => { const p = document.querySelector('.disp-pop'); return !!p && p.getClientRects().length > 0 && document.getAnimations().length === 0; })()`,
+      ready: `(() => { const p = document.querySelector('.disp-pop'), b = [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getAttribute('aria-expanded') === 'true'); return !!b && !!p && p.getClientRects().length > 0 && document.getAnimations().length === 0; })()`,
       why: `(() => ({ btns: [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].map((e) => e.getClientRects().length > 0), pop: !!document.querySelector('.disp-pop') }))()`,
       after: `(() => { const b = [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getAttribute('aria-expanded') === 'true'); if (b) b.click(); return 1; })()` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
