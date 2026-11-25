@@ -4,7 +4,7 @@
 //     degree 3 (Integer power z^3, a coprime rational step, zeros and poles), the same op as its formula's; other
 //     repeats (a P/Q that is not coprime among them) keep their path;
 //     a repeat next to another step plans its copies: exactly when they are few, too long for a plan (tooLong) when
-//     they are many;
+//     they are many; a plane range that holds the repeat alone plans it as REPT, with an inverse program of its own;
 //  2. the root certificate: every certified root lies within its radius of a root that an independent float64
 //     Durand-Kerner finds; a root set with a duplicate, a far-off root or a chain error past the roots' separation
 //     fails;
@@ -90,10 +90,13 @@ check('a block of two steps is not REPT', !/^REPT/.test(kinds(chainOf([St('mul',
 const AN = chainOf([St('mul', { c: '2' }), St('custom', { expr: NEWTON, cut: 180 }, { n: 20, len: 1 })]);
 const planAN = Inverse.planChain(AN.steps, AN.built, 0, 2);
 check('Newton x 20 after x 2 is too long for a plan, not REPT', !planAN.ok && planAN.tooLong === true && planAN.reason === 'chain too long', planAN.reason);
-// (the chain decides a repeat's form once, for all its plans and its one GLSL inverse program: the repeat's own plane
-// (1, 2] plans its copies too)
+// (a plane range that holds the repeat alone plans it as one REPT op, with an inverse program of its own: the repeat's
+// own plane (1, 2] here, and plane 1 of a chain where the repeat comes first)
 const planAN12 = Inverse.planChain(AN.steps, AN.built, 1, 2);
-check('... and its plane (1, 2] alone plans the copies too: too long, not REPT', !planAN12.ok && planAN12.tooLong === true, planAN12.reason);
+check('... and its plane (1, 2] alone plans as REPT', planAN12.ok && planAN12.ops.map((o) => o.kind).join('>') === 'REPT', planAN12.ok ? planAN12.ops.map((o) => o.kind).join('>') : planAN12.reason);
+const NA = chainOf([St('custom', { expr: NEWTON, cut: 180 }, { n: 20, len: 1 }), St('mul', { c: '2' })]);
+const planNA01 = Inverse.planChain(NA.steps, NA.built, 0, 1), planNA02 = Inverse.planChain(NA.steps, NA.built, 0, 2);
+check('Newton x 20, then x 2: plane 1 plans as REPT, plane 2 is too long for a plan', planNA01.ok && planNA01.ops.map((o) => o.kind).join('>') === 'REPT' && !planNA02.ok && planNA02.tooLong === true, [planNA01.reason, planNA02.reason]);
 const planKinds = (steps) => { const c = chainOf(steps), p = Inverse.planChain(c.steps, c.built, 0, steps.length); return p.ok ? p.ops.map((o) => o.kind).join('>') : `X: ${p.reason}${p.tooLong ? ' (tooLong)' : ''}`; };
 const TIMES2 = St('mul', { c: '2' });
 const NEXT_TO = [
@@ -126,15 +129,18 @@ check('Integer power z^3 x 20 alone plans as REPT', planKinds([St('pown', { n: 3
   let plans = 0;
   const wrong = [];
   for (const [name, steps, top = steps.length] of chains) {
-    const c = chainOf(steps), inv = GLChain.buildInverse(c.steps, c.built);
+    const c = chainOf(steps);
     for (let a = 0; a < top; a++) {
-      const p = Inverse.planChain(c.steps, c.built, a, top);
+      const p = Inverse.planChain(c.steps, c.built, a, top), inv = GLChain.buildInverse(c.steps, c.built, p.opts);
       if (!p.ok) continue;
       plans++;
       if (inv.ok && !p.ops.every((o) => inv.ops.some((q) => q.step === o.step && q.node === o.node && q.kind === o.kind))) wrong.push(`${name} (${a}, ${top}]`);
     }
   }
-  check('every plan\'s ops are ops of its chain\'s GLSL inverse program (step, node, kind)', plans >= 6 && wrong.length === 0, `${plans} plans, ${JSON.stringify(wrong)}`);
+  check('every plan\'s ops are ops of the GLSL inverse program for its options (step, node, kind)', plans >= 6 && wrong.length === 0, `${plans} plans, ${JSON.stringify(wrong)}`);
+  // (a lone repeat's plan needs a program other than the chain's: the chain's holds the repeat's copies)
+  const c = chainOf([TIMES2, St('pown', { n: 3 }, { n: 3, len: 1 })]), p = Inverse.planChain(c.steps, c.built, 1, 2), own = GLChain.buildInverse(c.steps, c.built);
+  check('x 2, then z^3 x 3: plane (1, 2] plans REPT, an op the chain\'s own program does not hold', p.ok && p.ops[0].kind === 'REPT' && own.ok && !own.ops.some((q) => q.kind === 'REPT'), p.ok ? p.ops.map((o) => o.kind).join('>') : p.reason);
 }
 const plan20 = Inverse.planChain(N20.steps, N20.built, 0, 1);
 check('the gallery plane has a plan', plan20.ok && plan20.ops.length === 1);
