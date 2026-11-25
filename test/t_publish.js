@@ -17,7 +17,7 @@ let fails = 0;
 const ok = (name, pass, detail) => { if (!pass) { fails++; console.log('FAIL ' + name, detail === undefined ? '' : JSON.stringify(detail).slice(0, 400)); } };
 // the hook blocks as build.py finds them, per source file (a block never spans two files)
 const { BLOCK: RE, BLOCK_SRC, ANY, OPENER } = require('../tools/hook_marker');
-const RETIRED = 'TEMP-DEBUG' + '-HOOK';
+const OTHER_SPELLING = 'TEMP-DEBUG' + '-HOOK';   // (kept out of this file's own text so that a search for it finds no use)
 const HOOK_MAX = 300;   // lines: the longest hook block is about 240 (app.js's test helpers at the end of init)
 const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => /\.[jt]s$/.test(n) && !/^i18n_|^seasong/.test(n));
 for (const f of new Set([...files, 'app.js', 'gl.js'])) {
@@ -31,8 +31,8 @@ for (const f of new Set([...files, 'app.js', 'gl.js'])) {
     ok(`${f}:${from}: a hook block of ${lines} lines (at most ${HOOK_MAX})`, lines <= HOOK_MAX, m[0].slice(0, 200));
     ok(`${f}:${from}: one start marker per block`, (m[0].match(OPENER) || []).length === 1, m[0].slice(0, 200));
   }
-  // the retired alias is no longer dropped from the page: a block in it would ship its hook
-  ok(`${f}: no marker in the retired spelling`, !text.includes(RETIRED), null);
+  // build.py drops blocks in the one spelling above: a block in any other would ship its hook
+  ok(`${f}: no marker in another spelling`, !text.includes(OTHER_SPELLING), null);
   const starts = (text.match(OPENER) || []).length;
   ok(`${f}: every start marker has its end (${starts} start markers, ${n} blocks)`, starts === n, { starts, n });
   // every marker is one end of a block: a plain pair or a lone marker would leave its code in the page
