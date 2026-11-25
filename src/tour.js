@@ -127,7 +127,7 @@ const Tour = (() => {
   // try.ctl names the controls that complete the Try it (a tool's button, a slider, a view's key), lit while the
   // Try it shows, each its own area or a ring inside a lit one, and reachable with Tab; try.work names parts lit on a
   // touch screen only. live: the anchor is looked up again whenever the layout changes (a phone's tool in the More tools
-  // sheet, then on the More key). pictures: the chain shows its cards' pictures during the step (api.chainPictures).
+  // sheet, then on the More key).
   // The panes are named by their role, X and Y, never left and right: on a phone they stack.
   // notes/tour-r3/SPEC.md 3: lead, one sentence the strip shows without a tap (what to look at; required on a
   // step with no task, with tryWide or with try.after); try.then, the result line once the task is done; try.after, an
@@ -238,7 +238,7 @@ const Tour = (() => {
     PLANES,
     PLAYING,
     {
-      // notes/ui-redesign-2: the cards' pictures, the Inspector, zeros and poles, the planes' menu, shared numbers
+      // notes/ui-redesign-2: the Inspector, zeros and poles, the planes' menu, shared numbers
       id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 4, scene: 'strip',
       steps: [
         reorderStep,
@@ -421,7 +421,7 @@ const Tour = (() => {
     svSpeed: () => vis1('#svStrip .sv-speed'), svLoop: () => vis1('#svStrip .sv-loop'),
     // (the thread's Add function button, in either form; the second chip's ⋯ menu, or on a phone, where chips have none, the chip)
     svPrev: () => vis1('#svStrip .sv-prev'), svAdd: () => vis1('#svStrip .sv-add'), svMenu2: () => vis1(SV_K2 + ' .sv-more') || ANCHORS.svChip2(),
-    viewSwitch: '#viewSwitch', tools: '#secDraw', toolsRail: '#railTools',
+    viewSwitch: '#viewSwitch', tools: '#secDraw',
     // (the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = /** @type {HTMLElement | null} */ (document.querySelector('#constructTools')); return e && e.offsetParent ? e : null; },
     formula: '#secFormula', shapes: '#secShapes',
@@ -432,11 +432,10 @@ const Tour = (() => {
     display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.pat-pop') || document.querySelector('#rightFoot .pat-btn')),
     // (on a phone the chain, its Add tile and F are rows of the chain sheet; while it is closed, its "N steps ▾"
     // button in the chain bar, which opens it)
-    chain: '.pipe-wrap', addStep: () => inChainSheet('#addStepBtn'), panes: '#panes', paneL: '#paneL', paneR: '#paneR',
-    surfaceL: '#leftTabs', surfaceR: '#rightTabs',
-    // (the right panel is the Inspector; F's formula, guarantees and domain show there with the F tile selected,
-    // which the app's api.anchor does for these names)
-    rightPanel: '#rightPanel', composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
+    chain: '.pipe-wrap', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
+    // (F's formula, guarantees and domain show in the Inspector with the F tile selected, which the app's api.anchor
+    // does for these names)
+    composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
     domain: '#propsPanel .insp-F .idom', matrix: '#propsPanel .insp-F details.steps',
     // the editor of the selected zeros-and-poles step (its parameter block is .params.zp)
     zpCard: () => document.querySelector('#propsPanel .insp-step .params.zp'),
@@ -453,22 +452,14 @@ const Tour = (() => {
     // the head); INTEGRATION.md: the fallback of phaseStyle
     leftOpts: '#leftFoot .opts-btn:not(.pat-btn)',
     // the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
-    // closes the chain; on a phone, the Sphere key in the plane's right column
-    // the selected step's Show alone button in the Inspector's head: in a phone's sheet
-    lens: '#propsPanel .insp-step .ihead .alone-btn',
+    // closes the chain
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
-    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.ph-col .ph-sph'))].find((e) => e.offsetParent) || null,
+    fTile: () => inChainSheet('#pipeline .ftile'),
     // notes/v16-user5/AS-BUILT-tour.md: the control a step's task needs, exactly. A tool is its own button where  standards-ok: a spec path in notes/
     // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
     // outside the row is the More key, which then carries the tool's icon and name
     'tool:disc': toolBtn('disc'), 'tool:select': toolBtn('select'), 'tool:line': toolBtn('line'), 'tool:circle3': toolBtn('circle3'),
-    viewPhase: '#viewSwitch > [data-mode="phase"]', viewLand: '#viewSwitch > [data-mode="land"]',
     splitBtn: '#propsPanel .insp-step .split-offer:not([hidden]) .so-btn',
-    // the card f₁; the card f₂, whose ⋯ shows on it (on a phone, where a card has none, f₂'s ⋯ in the Editor sheet that
-    // a tap on the card opens)
-    card1: () => inChainSheet('#pipeline .card[data-k="1"]'),
-    card2: () => inChainSheet('#pipeline .card[data-k="2"]'),
-    card2Menu: () => (phoneLayout() && vis1('.ph-sheet:not([hidden]) .insp-step[data-k="2"] .ihead .more')) || vis1('#pipeline .card[data-k="2"]'),
     // the slider of the first shared number
     paramSlider: () => vis1('#propsPanel .prm-row input[type="range"]'),
     // F's Copy LaTeX button, in the head of the Inspector with the F tile selected
@@ -2125,9 +2116,6 @@ const Tour = (() => {
     rec.last = { ch: ch.id, i: si }; rec.open = true; save();
     // (the Inspector's split offer shows during the tour only at a step that asks for it)
     call('splitOffer', !!step.split);
-    // (a step about the cards' pictures shows them, Pictures rather than Names; any other step, and the end of the
-    // tour, gives the user's setting back. picNote: the tour changed it, and the step says so)
-    r.picNote = call('chainPictures', !!step.pictures) === true && !!step.pictures;
     for (const off of r.tryOffs.splice(0)) off();
     // (a new showing: no countdown, no caption, no Listen along from the step before; the Sound chapter's sound)
     clearTimeout(r.cdT);
@@ -2436,8 +2424,7 @@ const Tour = (() => {
     const end = (t) => (/[.!?…]\s*$/.test(t) ? t.trim() : t.trim() + '.');
     const line = tr ? plainCopy(tryFor(tr), modKey()) : step.lead ? plainCopy($t(leadFor(step)), modKey()) : '';
     // (what the tour changed in the user's settings for this step, and that they come back, is said to a screen reader)
-    const notes = (r.picNote && step.pictures ? ' ' + $t('The tour turns the cards\' pictures on for this step; your setting comes back after it.') : '')
-      + (r.sndNote && step.hear ? ' ' + $t('The tour turns Hear the function on for this step; your setting comes back after it.') : '');
+    const notes = r.sndNote && step.hear ? ' ' + $t('The tour turns Hear the function on for this step; your setting comes back after it.') : '';
     r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k: r.countText, title: stepTitle(step) }) + (line ? end(line) : '') + notes;
   }
   // a lit control smaller than 48 x 48 px pulses its ring once when the step appears (none with reduced motion)
@@ -2908,8 +2895,6 @@ const Tour = (() => {
     for (const off of r.tryOffs.splice(0)) off();
     for (const off of r.offs.splice(0)) off();
     cancelAnimationFrame(r.ui.raf);
-    // (the chain's Pictures | Names setting as the user left it, before their work comes back)
-    call('chainPictures', false);
     if (opt.finished) {
       rec.done[CHAPTERS[r.ci].id] = CHAPTERS[r.ci].rev;
       // "Continue the tour" picks up at the next chapter, or nowhere after the last

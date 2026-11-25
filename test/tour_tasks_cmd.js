@@ -30,7 +30,6 @@ const ticks = async (ms = 2500) => until(`document.querySelector('.ts-l2').class
 const px = (side, re, im) => ev(`(() => { const v = __cmwPlaneMenu().view(${JSON.stringify(side)}), b = document.getElementById('plot${side}').getBoundingClientRect(); return [b.left + b.width / 2 + (${re} - v.cx) * v.s, b.top + b.height / 2 - (${im} - v.cy) * v.s]; })()`);
 
 await open('tt1', 1440, 900, false, false);
-const SV = await isSteps();
 const task = async (id, text, fn, ready) => {
   try {
     await goStep(id);
@@ -48,9 +47,8 @@ const task = async (id, text, fn, ready) => {
   } catch (e) { check(`${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } return null; }
 };
 
-// (standards-ok: the classic Y and Targets tasks are gone with Y's pane, not drawn since #994)
-if (SV) {
-  // targets in the steps view: a disc drawn on w₁, then ‹ to z. A disc drawn on z, then › and ‹, does not tick it
+{
+  // targets: a disc drawn on w₁, then ‹ to z. A disc drawn on z, then › and ‹, does not tick it
   const drawDisc = async () => {
     const d = await center('#tools > .tool[data-tool="disc"], #railTools > .tool[data-tool="disc"]');
     await mdrag(d[0], d[1], d[0], d[1]);
@@ -70,9 +68,8 @@ if (SV) {
   check('targets: a disc drawn on z, then › and ‹, does not tick it', !(await l2()).done, await l2());
 }
 
-// domain: click the whole map's chip; deriv: click the chip d/dz (the second step of its scene). The classic views have no
-// chain to click
-if (SV) {
+// domain: click the whole map's chip; deriv: click the chip d/dz (the second step of its scene)
+{
   await task('domain', 'Click the F tile.', async () => {
     const f = await center('#svStrip .sv-wholemap');
     await mdrag(f[0], f[1], f[0], f[1]);
@@ -85,8 +82,8 @@ if (SV) {
   check('deriv: the result line says what the step is', /Inspector shows the step that differentiates/.test((await l2()).text), await l2());
 }
 
-// the steps view's Add function and Reorder steps
-if (SV) {
+// Add function and Reorder steps
+{
   await task('add', 'Click Add function.', async () => {
     const c = await center('#svStrip .sv-add');
     await mdrag(c[0], c[1], c[0], c[1]);
@@ -129,8 +126,8 @@ const taskT = async (id, text, fn, ready) => {
     check(`phone ${id}: a finger ticks it`, t != null, [await cur(), await l2()]);
   } catch (e) { check(`phone ${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 };
-// deriv: a tap on the chip d/dz (the classic views have no chain to tap)
-if (SV) {
+// deriv: a tap on the chip d/dz
+{
   await open('tt5', 390, 844, false, true);
   await taskT('deriv', 'Tap the chip d/dz.', async () => {
     const c = await center('#svStrip .sv-step[data-k="2"] .sv-fchip');

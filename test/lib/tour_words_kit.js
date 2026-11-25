@@ -1,18 +1,17 @@
-// The walk shared by test/tour_words_cmd.js (the steps view's tour) and test/tour_words_classic_cmd.js (the classic views' tour):
+// The walk of test/tour_words_cmd.js:
 // for each language and each of the four environments (desk or phone layout, fine or coarse pointer) the page is opened in
 // that environment, and for each step in `steps` ([chapter id, step id]) the live copy and task are the ones meant for it.
 // A suite evals this file and gets { run }.
-//   run({ ev, go, settled, isSteps, view, logs, base, steps, fourCopies, wantSteps })  -> { pass, nfails, fails, info }
+//   run({ ev, go, settled, isSteps, view, logs, base, steps, fourCopies })  -> { pass, nfails, fails, info }
 //   steps       the steps checked in every environment
 //   fourCopies  the step ids (chapter/step) whose four environments must read four different copies
-//   wantSteps   true when the page must be in the steps view, false when it must be in the classic view
 (() => {
   // [name, width, height, touch emulation (pointer: coarse), phone layout]
   const COMBOS = [['desk-fine', 1440, 900, false, false], ['desk-coarse', 1024, 768, true, false], ['phone-coarse', 390, 844, true, true], ['phone-fine', 600, 800, false, true]];
   // the field of a step that is meant for a combination: fine/desk is the body, coarse/desk deskTouch, fine/phone phoneFine, coarse/phone touch
   const FIELD = { 'desk-fine': 'body', 'desk-coarse': 'deskTouch', 'phone-fine': 'phoneFine', 'phone-coarse': 'touch' };
   const TRY = { 'desk-fine': 'text', 'desk-coarse': 'deskTouch', 'phone-fine': 'phoneFine', 'phone-coarse': 'touch' };
-  const run = async ({ ev, go, settled, isSteps, view, logs, base, steps, fourCopies, wantSteps }) => {
+  const run = async ({ ev, go, settled, isSteps, view, logs, base, steps, fourCopies }) => {
     const fails = [], info = {};
     const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
     const seen = {};
@@ -22,7 +21,7 @@
       await go(`${base}/test.html?ns=tw${lang}${name}${Date.now() % 1000000}&lang=${lang}`);
       await settled({ until: `typeof Tour === 'object' && typeof I18N === 'object' && I18N.lang === '${lang}'` });
       const sv = await isSteps();
-      if (sv !== wantSteps) return { pass: false, nfails: 1, fails: [{ name: `the page is not in the ${wantSteps ? 'steps' : 'classic'} view (the suite's tag in ci/suite_views.js)`, got: { sv } }], info };
+      if (!sv) return { pass: false, nfails: 1, fails: [{ name: `the page is not in the steps view (the suite's tag in ci/suite_views.js)`, got: { sv } }], info };
       const r = await ev(`(() => {
         const T = Tour._t, tr = (s) => (s == null ? null : I18N.t(s));
         const env = { coarse: matchMedia('(pointer: coarse)').matches, ph: document.documentElement.classList.contains('ph') };

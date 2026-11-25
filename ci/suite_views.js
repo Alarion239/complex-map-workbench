@@ -351,23 +351,15 @@ const VIEWS = {
   'split_deform_cmd.js': steps({ pin: true }),
   'tour_audit_cmd.js': steps({ pin: true }),
   'tour_auto_cmd.js': steps({ pin: true }),
-  'tour_auto_classic_cmd.js': classic('the classic views\' tour tasks with real input: the view switch\'s doors, Phase key, X\'s pan,'
-    + ' the preimages hint and the Deformation\'s Part of the chain; the steps view\'s are tour_auto_cmd'),
   'tour_chapters_cmd.js': steps({ pin: true }),
   'tour_cmd.js': steps({ pin: true }),
-  'tour_cmd_classic_cmd.js': classic('the classic views\' tour: X\'s pan task and the strip\'s arrow keys, the Views chapter (the view'
-    + ' switch, Phase, Sphere, Phase key) and the Deformation chapter (Paths, All steps at once, Part of the chain); the steps view\'s'
-    + ' is tour_cmd'),
   'tour_it360_cmd.js': steps({ pin: true }),
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': steps({ pin: true }),
   'tour_perf_cmd.js': steps({ pin: true }),
   'tour_phone_cmd.js': steps({ pin: true }),
-  'tour_phone_classic_cmd.js': classic('the classic views\' tour on a phone: X\'s 608 px under the chain bar and the Phase key sheet below the strip;'
-    + ' the steps view\'s is tour_phone_cmd'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
-  'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
   'steps_cauchy_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
   'steps_cauchy_carry_cmd.js': steps(),
@@ -377,8 +369,6 @@ const VIEWS = {
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_390_cmd.js': steps({ pin: true }),
-  'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
-    + ' does not have; the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': steps({ pin: true }),
   'ux165_learn_classic_cmd.js': classic('the classic views\' learn checks: Y\'s pane head (the pattern key, option bar, target note, the empty chain\'s Add function), the deformation\'s readout, play button, draw chip and Video format, the Shapes list\'s shape keys and the right-click menus of the Shapes rows and chain cards; the steps view has none of these'),
   'ux165_learn_phone_classic_cmd.js': classic('the classic phone\'s learn checks: Y\'s chip naming the inset after a target and the inset\'s pulse (V01), and the message row under the chain bar (UX80); the steps view\'s phone has no inset and no chain bar'),

@@ -306,7 +306,7 @@
     let f = S.focus;
     if (from != null) f = f === from ? k : f > from && f <= k ? f - 1 : f < from && f >= k ? f + 1 : f;
     else if (f >= k) f += n;
-    setFocus(Math.max(0, Math.min(S.steps.length, f)), f === S.focus);
+    setFocus(Math.max(0, Math.min(S.steps.length, f)));
     setSel(k);
     requestRender('P');
   }

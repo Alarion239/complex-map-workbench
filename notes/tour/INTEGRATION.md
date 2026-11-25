@@ -184,11 +184,10 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 |---|---|---|
 | `paneL`, `paneR` | the X pane, the Y pane | `#paneL`, `#paneR` |
 | `panes` | both panes, or the one wide panel (Phase, Landscape, the merged deformation plane) | `#panes` |
-| `surfaceL`, `surfaceR` | the Plane · Sphere control of the left (or only) panel, of Y | `#leftTabs`, `#rightTabs` |
-| `tools`, `toolsRail`, `tool:disc` | the Draw section, the collapsed rail's tools, the Disc tool | `#secDraw`, `#railTools`, `.tool[data-tool="disc"]` |
+| `tools`, `tool:disc` | the Draw section, the Disc tool | `#secDraw`, `.tool[data-tool="disc"]` |
 | `formula`, `shapes` | Region from a formula, the shape list | `#secFormula`, `#secShapes` |
 | `display` | the regions' display (#363: their grid lines, chevrons and opacity; no pattern to choose) | `#regionsBox`, Y's Regions button |
-| `chain`, `addStep` | the function chain, its add card | `.pipe-wrap`, `#addStepBtn` |
+| `chain` | the function chain | `.pipe-wrap` |
 | `zpCard` | the card of a zeros-and-poles step | the `.card` around `.params.zp` |
 | `invBtn` | the f⁻¹ button of the first card that has one | the `.card button` whose label is f<sup>−1</sup> |
 | `sheets` | the All sheets check of the Landscape options | the label around `#sheetsChk` |
@@ -197,7 +196,6 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 | `phaseStyle` | the Phase style control of the Phase view's options (Tiles … Cauchy) | `#dcSeg` |
 | `examples`, `palette`, `exportBtn`, `helpBtn`, `moreBtn` | the top bar | `#examplesBtn`, `#cmdBtn`, `#exportBtn`, `#helpBtn`, `#hdrMoreBtn` |
 | `viewSwitch` | X → Y · Phase · Landscape | `#viewSwitch` |
-| `rightPanel` | the right side panel | `#rightPanel` |
 | `composite`, `guarantees`, `domain`, `matrix` | the right panel's sections: Composite map, Guarantees, Natural domain, Step by step | `#propsPanel > section:nth-of-type(1)` … `(4)` |
 
 ### Anchors added or changed in v15
@@ -214,8 +212,6 @@ once v15 is merged; `test/t_tour.js` of the v15 build reads both tables (the v14
 | `inspector` | the Inspector's Selection (the selected step's editor) | `#propsPanel .insp-sel` |
 | `params` | the Inspector's Parameters (the shared numbers of `src/params.js`) | `#propsPanel .prm`, else `.insp-params` |
 | `fTile` | the F tile that closes the chain | `#pipeline .ftile` |
-| `sphereKey` | on a phone, the Sphere key in the plane's right column (the fallback of `surfaceL`) | the visible `.ph-col .ph-sph` |
-| `lens` | v15.1: the selected step's lens (Show this step alone) in the Inspector's head; on a phone, in the Editor sheet. Lit by `basics/chain`'s `try.work` (the parts a touch task names, lit and kept clear on a touch screen) | `#propsPanel .insp-step .ihead .alone-btn` |
 | `splitOffer` | v15.2 (notes/formula-steps/DESIGN.md): the selected formula step's split offer in the Inspector (how it is built from catalog steps, and Split into n steps); on a phone, in the Editor sheet. Shown during the tour only at a step with `split: true` (the app's `splitOffer(on)`, called by `show` for every step) | `#propsPanel .insp-step .split-offer:not([hidden])` |
 
 On a phone (below 768 px, `src/phone.js`): `tools` (`#secDraw`) is the tool row, `chain` (`.pipe-wrap`) the chain bar
@@ -246,9 +242,7 @@ setSurface, ...) is harmless, because a step starts listening only after its own
 | `probe` | `{ pane: 'L' \| 'R', w: [re, im] }` | the pointer (or a held finger) probes a point (the hover preimages); the tour waits for a `'R'` probe inside the unit disc and one outside it (without `w`, any `'R'` probe) |
 | `shape-added` | `{ kind, plane: 'z' \| 'w', stage }` (`stage`: the plane of the chain the shape was drawn on, 0 for z) | a shape or a target is added (drawn, typed, pasted) |
 | `shape-moved` | `{ id, plane }` | a drag moves or reshapes a shape or a target (once, at the end of the drag) |
-| `step-focused` | `{ k }` | the focus changes (0 = Whole chain) |
 | `step-selected` | `{ k }` | a card or the F tile is selected for the Inspector (`k` is the step's number, or `'F'` for the F tile) |
-| `view-changed` | `{ main }` | the view switch changes (key or click) |
 | `integral-opened` | `{ shape }` | the integral popover opens |
 | `palette-opened` | `{}` | the command palette opens |
 | `zp-moved` | `{ kind: 'zero' \| 'pole', i }` | a zero or a pole of a zeros-and-poles step is dragged |
@@ -481,12 +475,7 @@ shows the chosen tool).
 | `tool:select` | the Select tool's button | dragging: Your shapes, zeros and poles, It follows its points, Branch cuts |
 | `tool:line` | the Line tool's button | Intersections (a phone: the Line tile in More tools, else the More key) |
 | `tool:circle3` | the Circle through 3 points tool's button | Circle through three points (a phone: its tile, then the More key) |
-| `viewPhase` | `#viewSwitch > [data-mode="phase"]` | Three views: Choose Phase |
-| `viewLand` | `#viewSwitch > [data-mode="land"]` | Cards follow the view: choose Landscape |
 | `splitBtn` | `#propsPanel .insp-step .split-offer:not([hidden]) .so-btn` | A formula in steps: Split into n steps (the offer is unfolded for the tour's stop without saving the fold) |
-| `card1` | `#pipeline .card[data-k="1"]` | The function chain: double-click (tap) f₁ |
-| `card2` | `#pipeline .card[data-k="2"]` | The derivative as a step: double-click (tap) the card d/dz, the second card of that scene |
-| `card2Menu` | the card f₂, whose ⋯ shows on it; on a phone, once a tap on it opens the Editor sheet, f₂'s ⋯ there | Part of the chain, on a touch screen (`try.work`) |
 | `ctxUndo` | `.ph-ctx[data-k="construct"]`'s first button, Undo pick (the phone's context bar) | Circle through three points, on a touch screen (`try.work`) |
 | `paramSlider` | the first `#propsPanel .prm-row input[type="range"]` | Shared numbers: drag the slider of a |
 | `copyTex` | `#propsPanel .insp-F .ihead .icon-btn` | The formula in LaTeX: F's Copy LaTeX button (with `composite`, which selects F) |
@@ -609,14 +598,12 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
   when no tour runs. `Tour.lane({ id, title, body, acts, drop, onClose })` shows it (the first-run invitation is
   `suggest`, an example's Try line `example`), `Tour.laneHide(id)` takes it away, `Tour.laneId()` names the one shown. A
   tour start takes the slot.
-- `step-focused` (the chain piece, UX01): an add, a move or a duplicate that leaves the focus where it was emits none
-  (`setFocus(k, quiet)`).
 
 ## 10. The steps view's tour (#442)
 
-Under `?view=steps` (a property of the page, fixed at its load) the tour's chapter list changes: a chapter "Planes" (id
-`planes`, 8 steps, `PLANES` in `src/tour.js`) takes the place of Basics' X and Y steps (`x`, `y`, `preimages`, `chain`) and of
-the whole Deformation chapter. A step puts the view where its task needs it with the adapter call
+The tour's chapter list is the steps view's: Basics, "Planes" (id `planes`, 8 steps, `PLANES` in `src/tour.js`), "Playing the
+chain" (`playing`, `PLAYING`), Editing, Constructions, Analysis, Branches, Sound, Export and Keys. A step puts the view where its
+task needs it with the adapter call
 `svPlace({ i, T, scope, surf })` (the plane `i` at once, the colour plane `T` as an index among the planes with -1 the last,
 the scope `'all' | 'in'`, the surface `'plane' | 'sphere' | 'land'`; it sends none of the events below). `svPlace` is among the
 calls a borrowed canvas needs: a tour that cannot put the user's work back skips the steps that make it.
