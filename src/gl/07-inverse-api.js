@@ -163,14 +163,15 @@
   }
   const formsSrc = (srcs) => (srcs.length ? srcs.join('') + 'float formulaLevel(int f, vec2 z) {\n' + srcs.map((_, i) => `  if (f == ${i}) return ilev${i}(z);\n`).join('') + '  return -1.0;\n}\n' : '');
 
-  // ---- inverse programs (4.4): keyed inv|<inverse key>|<formula bundle>|B<n> (invS on the globe), in progs (so
+  // ---- inverse programs (4.4): keyed inv|<source key>|<formula bundle>|B<n> (invS on the globe), in progs (so
   // context loss clears them) with their own LRU of 8 that never evicts a program drawn in this or the last frame.
   // Never a history stand-in. A failed compile is silent (one console line, no frameErr / lastError) and marks the
   // chain structure ineligible for the session.
   const INV_KEEP = 8;
   let invFrame = 0;                     // begin() / viewport() count: "this or the previous frame" = the last 4
   const invFailed = new Set();          // inverse keys whose program failed (session)
-  function invProgKey(inv, B, globe, formsKey) { return `${globe ? 'invS' : 'inv'}|${inv.key}|${formsKey}|B${B}`; }
+  // (inv.srcKey: what the program's text is built from, GLChain's inverse key and the constants it bakes in)
+  function invProgKey(inv, B, globe, formsKey) { return `${globe ? 'invS' : 'inv'}|${inv.srcKey || inv.key}|${formsKey}|B${B}`; }
   // coldNonce (tests: the perf suite's cold-compile units, SPEC 13.12): every new inverse program gets a uniform the
   // compilers cannot fold, so its text is new to the machine (macOS caches compiled Metal libraries system-wide, and
   // ANGLE strips comments): its compile and first draw are cold, as on a user's first visit
@@ -322,6 +323,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // compile when it is missing (never in side mode, never while forward programs of this chain still compile, those of
   // a view no pane shows aside: e.offView).
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
+  const INV_NOT_STARTED = 'not started';
   function invProgram(B, globe, start, extra, invOv) {
     // (invOv: an inverse op list other than the chain's, GLChain.buildInverse of the chain with a step's homotopy at t
     // standing for the step: its own program, the chain's forward data beside it)
@@ -335,7 +337,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const id = invProgKey(inv, B, globe, fk);
     let e = progs.get(id);
     if (!e) {
-      if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : 'not started' };
+      if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : INV_NOT_STARTED };
       for (const q of progs.values()) if (q.key === cur.key && q.state === 'pending' && !q.inv && !q.offView) return { state: 'pending', reason: 'forward programs first' };
       e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now() };
       progs.set(id, e);
@@ -654,28 +656,47 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }
+  // the program arguments drawInverse draws the state st with: the B class of its opacity, the view kind (globe), and the
+  // variant (st.carry: the carried colour's, staged for a shape of a later plane (rec, or st.staged without a record)
+  // on the plane; else st.extra)
+  function invArgs(st, rec) {
+    const globe = st.viewKind === 'globe', look = st.look || {};
+    return { B: invB(look.alphaOwn ?? look.alpha ?? 1), globe, extra: st.carry ? carryExtra(st, !globe && stagedOf(st, rec)) : st.extra };
+  }
   // the state of the program drawInverse(st) would draw with (st.staged: for a shape of a later plane), nothing drawn: 'ready' (it or a ready B class of it
   // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
   // asking begins its compile when it is missing, as drawInverse does. For st.coldOk callers: a cold ready program counts
   // as ready
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
-    const globe = st.viewKind === 'globe', look = st.look || {};
-    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry ? carryExtra(st, !globe && stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id)))) : st.extra;
+    const { B, globe, extra } = invArgs(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id)));
     const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
   }
+  // How far the inverse programs of the states sts (drawInverse's arguments, as inverseState takes them) have come:
+  // {done, total}. A state is done when its program has linked (a cold one too: its first draw is the caller's, or the
+  // frame's), or when nothing will come of it (no inverse for it, a failed compile, a side draw). start: begin the
+  // compile of a program not started (it waits while the chain's forward programs link, and is asked again by the next
+  // call)
+  function inverseWarmup(sts, opt = {}) {
+    let done = 0;
+    if (!ok || lost) return { done, total: sts.length };
+    for (const st of sts) {
+      const { B, globe, extra } = invArgs(st, null);
+      const pr = /** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv));
+      if (pr.state === 'ready' || pr.state === 'error' || (pr.state === 'none' && pr.reason !== INV_NOT_STARTED)) done++;
+    }
+    return { done, total: sts.length };
+  }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
-    const globe = st.viewKind === 'globe';
     const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
     if (!rec || !rec.ok) return 'error';
-    const look = st.look || {};
-    let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
     // globe)
-    const extra = st.carry ? carryExtra(st, !globe && stagedOf(st, rec)) : st.extra;
+    const args = invArgs(st, rec), { globe, extra } = args, look = st.look || {};
+    let B = args.B;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
@@ -899,6 +920,20 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return 'drawn';
   }
   let invDraws = 0, invHalfDraws = 0, invAltUsed = false, invGlobeSc = 0, invGlobeScPx = 0;
+  // one pixel of the inverse program e into the current target (full resolution, or half: the half target), alpha 0
+  function warmDraw(e, half) {
+    if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, halfTarget(Math.max(1, halfW), Math.max(1, halfH))); gl.viewport(0, 0, 1, 1); }
+    gl.useProgram(e.p);
+    resetState();
+    gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, 1, 1);
+    // a globe program draws the globe's vertex layout (the pipeline includes it): one triangle, uMVP still 0, so
+    // nothing is rasterised
+    if (e.name === 'invS') { const g = sphere(); gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0); }
+    else { gl.bindVertexArray(empty()); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+    gl.bindVertexArray(null);
+    gl.disable(gl.SCISSOR_TEST);
+    if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(vpX, vpY, fw, fh); }
+  }
   // ---- a REPT draw (flat): passes of at most REPT_TILE_SOLVES root solves into accumulation targets, then into the pane
   // A REPT program's walk costs up to REPEAT_NODES_MAX root solves a pixel, so one draw of a pane could run for seconds
   // and trip a GPU watchdog (a reset, a lost context). It renders into accumulation targets of the rect's size (RGBA8,
@@ -1223,23 +1258,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!ok || lost) return 0;
     flushHalf();
     let nFull = 0;
-    const one = (e, half) => {
-      if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, halfTarget(Math.max(1, halfW), Math.max(1, halfH))); gl.viewport(0, 0, 1, 1); }
-      gl.useProgram(e.p);
-      resetState();
-      gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, 1, 1);
-      // a globe program draws the globe's vertex layout (the pipeline includes it): one triangle, uMVP still 0, so
-      // nothing is rasterised
-      if (e.name === 'invS') { const g = sphere(); gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0); }
-      else { gl.bindVertexArray(empty()); gl.drawArrays(gl.TRIANGLES, 0, 3); }
-      gl.bindVertexArray(null);
-      gl.disable(gl.SCISSOR_TEST);
-      if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(vpX, vpY, fw, fh); }
-    };
     for (const e of progs.values()) {
       if (!invWarmable(e) || !e.p) continue;
-      if (!e.warm) { one(e, false); e.warm = true; nFull++; }
-      if (half && e.warmHalfWanted && !e.warmHalf && warmUpsample()) { one(e, true); e.warmHalf = true; e.warmHalfWanted = false; }
+      if (!e.warm) { warmDraw(e, false); e.warm = true; nFull++; }
+      if (half && e.warmHalfWanted && !e.warmHalf && warmUpsample()) { warmDraw(e, true); e.warmHalf = true; e.warmHalfWanted = false; }
     }
     return nFull;
   }
@@ -1424,7 +1446,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : 0; }, setReptFastNodes: (n) => { reptFastNodes = n > 0 ? n : 0; },
     holdReptB: (on) => { reptHoldB = !!on; },
     reptTiles: () => { const r = Object.assign({ kept: reptAccs.size }, reptStat); for (const k of Object.keys(reptStat)) reptStat[k] = 0; return r; },
-    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, hatchAll, reptHatchFill, reptMarkCount, packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, hatchAll, reptHatchFill, reptMarkCount, packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, inverseWarmup, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
