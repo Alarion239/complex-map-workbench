@@ -3430,6 +3430,8 @@
  "A starter disc added on {w}, with its preimage on {z}": "Disco iniziale aggiunto su {w}, con la sua controimmagine su {z}",
  "Disc added on {w}, about the image of the lit point": "Disco aggiunto su {w}, attorno all’immagine del punto illuminato",
  "The pieces of its preimage are not counted for these steps": "Per questi passi i pezzi della controimmagine non si contano",
+ "The pieces of its preimage are not counted: step {k} ({f}) has no exact inverse": "I pezzi della controimmagine non si contano: il passo {k} ({f}) non ha un'inversa esatta",
+ "The pieces of its preimage are not counted: step {k} ({f}) has infinitely many preimages": "I pezzi della controimmagine non si contano: il passo {k} ({f}) ha infinite controimmagini",
  "{n} preimage\u0004{n} preimages": {
   "one": "{n} controimmagine",
   "other": "{n} controimmagini"
@@ -3499,5 +3501,9 @@
  "the pieces cross here, not a join": "i pezzi qui si incrociano, non è un’unione",
  "the glide brings the pieces together from here, not a join": "la transizione unisce i pezzi da qui, non è un’unione",
  "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Questo passo ripetuto è troppo lungo per essere disegnato esattamente: l’immagine delle regioni qui non è nota e il piano è tratteggiato. Con meno copie il disegno è esatto.",
- "Where the plane is hatched, the exact image could not be found.": "Dove il piano è tratteggiato, non è stato possibile trovare l’immagine esatta."
+ "Where the plane is hatched, the exact image could not be found.": "Dove il piano è tratteggiato, non è stato possibile trovare l’immagine esatta.",
+ "No sheet under the centre of the view": "Nessun foglio sotto il centro della vista",
+ "Click to pick · hold and slide to read": "Fai clic per scegliere · tieni premuto e scorri per leggere",
+ "Tap to pick · hold and slide to read": "Tocca per scegliere · tieni premuto e scorri per leggere",
+ "Tap to pick · hold and slide to read · drag to orbit · pinch to zoom": "Tocca per scegliere · tieni premuto e scorri per leggere · trascina per ruotare · pizzica per lo zoom"
 }
