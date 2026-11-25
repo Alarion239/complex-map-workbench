@@ -371,7 +371,7 @@ const Examples = (() => {
       [`${k('H')} ${k('N')} ${k('K')}`, $t('Half-plane, annulus, sector')], [k('T'), $t('Type a region formula')],
       [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
       [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
-      // (K or M plays the chain, P shows its paths)
+      // (K or M plays the chain and P shows its paths: the steps view's rows; the classic view has no deformation, and its P is the Point tool)
       ...(exSv() ? [[`${k('K')} ${k('M')}`, $t('Play the chain, or pause it')], [k('P'), $t('Paths t ↦ Hₜ(z) on or off')]] : []), [k('⇧ M'), $t('Sound on or off')],
       [k('Z'), $t('Fit view')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
