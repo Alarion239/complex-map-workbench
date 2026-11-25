@@ -20,8 +20,8 @@ const Tour = (() => {
   // (api.has(feature) === false: a step falls back to the next scene of its list, or is left out). `look` is the
   // display the copy assumes; the tour applies it with api.setLook right after api.loadScene, so a user's own opacity
   // or Landscape height never makes the copy false (restore() brings the user's look back).
-  // (phaseKey, Y's Phase key; sectors, the phase sectors of Tiles: 12 lines 30° apart, Hear the function's notes)
-  const LOOK = { alpha: null, height: 'log', sheets: false, phaseStyle: 'enhanced', paths: true, allAtOnce: false, phaseKey: false, sectors: 12 };
+  // (sectors, the phase sectors of Tiles: 12 lines 30° apart, Hear the function's notes)
+  const LOOK = { alpha: null, height: 'log', sheets: false, phaseStyle: 'enhanced', paths: true, allAtOnce: false, sectors: 12 };
   const look = (o) => Object.assign({}, LOOK, o || {});
   const SCENES = {
     strip: {
@@ -150,18 +150,6 @@ const Tour = (() => {
           body: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.',
           touch: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Pinch to zoom and drag empty space to pan.',
           try: { text: 'Drag empty space in X, or scroll to zoom.', touch: 'Drag empty space in X, or pinch.', on: 'view-moved', test: (e) => !e || (e.pane === 'L' && e.how !== 'orbit'), ctl: ['tool:select'] } },
-        { id: 'y', anchor: 'paneR', title: 'Y: the image', before: [['plane', 'R'], ['tool', 'select']],
-          lead: 'The strip becomes the unit disc, and angles are kept.',
-          body: 'Y shows the image under $F(z)=(e^z-1)/(e^z+1)$: the strip becomes the unit disc. $F$ is conformal there: grid lines still cross at right angles, and tiny squares map to near-squares.',
-          try: { text: 'Scroll to zoom in Y, or drag to pan.', touch: 'Pinch in Y, or drag.', on: 'view-moved', test: (e) => !e || (e.pane === 'R' && e.how !== 'orbit'), ctl: ['tool:select'], then: 'Y moved on its own: X keeps its view.' } },
-        // (on a phone Y is the large plane here also when the tour resumes at this step)
-        { id: 'preimages', anchor: 'paneR', also: ['paneL'], title: 'Preimages', before: [['plane', 'R']],
-          body: 'Hover a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart, as $F$ has period $2\\pi i$.',
-          // (touch: a still hold opens the planes' menu; a hold then a slide probes)
-          touch: 'Hold a point $w$ in Y, then slide: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart.',
-          try: { text: 'Hover inside the disc, then outside it.', touch: 'Hold inside the disc until the ring fills, then slide out.', on: 'probe', test: probeInOut, then: 'Inside, one $z$; outside, two, $2\\pi i$ apart.',
-            // (a hold shorter than the ring pans Y; the line says why)
-            hint: { on: 'view-moved', test: (e) => !e || e.pane === 'R', touch: 'That moved Y: hold still until the ring fills, then slide.' } } },
         // (the Disc tool itself, where it shows: the Draw panel, the rail, a phone's tool row; live: the lit tool is
         // looked up again as the layout changes)
         { id: 'draw', anchor: 'tool:disc', also: ['paneL'], live: true, title: 'Draw a shape', before: [['plane', 'L']],
@@ -187,7 +175,7 @@ const Tour = (() => {
           touch: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and tap a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.', deskTouch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card to select it, and the Inspector edits it. Show alone there shows that step alone: X and Y become its input and output.', phoneFine: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and click a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.',
           try: { text: 'Double-click the card $f_1$.', touch: 'Open the chain, tap $f_1$, then Show alone.', deskTouch: 'Tap the card $f_1$, then Show alone.', phoneFine: 'Open the chain, click $f_1$, then Show alone.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
         // (the open catalog holds the countdown: it moves on CD_MS after it closes)
-        { id: 'add', anchor: ['addStep', 'chain'], also: ['paneR'], title: 'Add a function', before: [['focus', 0]],
+        { id: 'add', anchor: ['addStep', 'chain'], title: 'Add a function', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
           touch: 'Open the chain with the steps button under the planes and tap Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.', deskTouch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.', phoneFine: 'Open the chain with the steps button under the planes and click Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.',
           try: { text: 'Press {+}, or click the add card.', touch: 'Open the chain, then tap Add function.', deskTouch: 'Tap Add function.', phoneFine: 'Open the chain, then click Add function.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
@@ -211,12 +199,6 @@ const Tour = (() => {
         { id: 'sphere', anchor: ['surfaceL', 'sphereKey'], also: ['panes'], title: 'The Riemann sphere', before: [['view', 'phase'], ['surface', 'L', 'sphere'], ['tool', 'select']],
           body: 'Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.',
           try: { text: 'Drag the sphere to turn it.', on: 'view-moved', test: orbit, ctl: ['panes'], then: '$\\infty$ is the north pole; here $F(\\infty)=1$.' } },
-        // (on a desktop Phase key is a toggle in Y's pane head, lit, or behind the head's ⋯ button when
-        // the head has no room for it; on a phone, Y is the large plane and its options are in the Display sheet)
-        { id: 'key', anchor: ['phaseKey', 'rightOpts'], also: ['paneR'], title: 'Phase key', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { phaseKey: false }], ['plane', 'R'], ['panel', 'sheet', 'display']],
-          touch: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.', deskTouch: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.', phoneFine: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
-          body: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
-          try: { text: 'Turn on Phase key.', on: 'phase-key', test: (e) => !e || e.on === true, ctl: ['phaseKey'], then: 'Each colour now reads as a value of $w$.' } },
       ],
     },
     {
@@ -476,6 +458,10 @@ const Tour = (() => {
     const derivStep = chs.find((/** @type {any} */ c) => c.id === 'branches').steps.find((/** @type {any} */ st) => st.id === 'deriv');
     Object.assign(derivStep, { also: ['svStrip'], before: [...derivStep.before, ['svPlace', { i: 1 }]],
       try: { text: 'Click the chip $d/dz$.', touch: 'Tap the chip $d/dz$.', on: 'step-selected', test: (/** @type {any} */ e) => !e || e.k === 2, ctl: ['svChip2'], then: 'The Inspector shows the step that differentiates the chain so far.' } });
+  } else {
+    // the classic view draws X alone: Analysis' targets step, which draws targets in Y, is left out
+    const ana = /** @type {any} */ (CHAPTERS.find((c) => c.id === 'analysis'));
+    ana.steps = ana.steps.filter((/** @type {any} */ st) => st.id !== 'targets');
   }
   // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
   // point gave which
@@ -485,19 +471,6 @@ const Tour = (() => {
     if (e.dir > 0) m.up = 1;
     if (e.dir < 0) m.down = 1;
     return !!(m.up && m.down);
-  }
-  // the preimages Try it: a probe of Y inside the disc and one outside it (w: [re, im] or {re, im}); a probe without
-  // w (an app that does not report it) ticks it at once
-  function probeInOut(e, m) {
-    if (!e) return true;
-    if (e.pane === 'L') return false;
-    if (e.w == null) return true;
-    m = m || {};
-    const a = Array.isArray(e.w) ? Math.hypot(e.w[0], e.w[1]) : Math.hypot(e.w.re, e.w.im);
-    if (!Number.isFinite(a)) return false;
-    if (a < 0.98) m.inside = true;
-    if (a > 1.02) m.outside = true;
-    return !!(m.inside && m.outside);
   }
 
   // Anchors of the current markup, used when the app's api.anchor(name) returns undefined for a name: a selector, or a
@@ -541,16 +514,10 @@ const Tour = (() => {
     // the Inspector's ⋯ menu of the selected step (Replace with the inverse); the All sheets check of the Landscape options (its label)
     invBtn: () => document.querySelector('#propsPanel .insp-step .ihead .more'),
     sheets: () => { const c = document.querySelector('#sheetsChk'); return c ? c.closest('label') || c : null; },
-    // the Sound control of the top bar (the sound round); the Phase key check of Y's options (X → Y, Y on its plane)
+    // the Sound control of the top bar (the sound round)
     soundBtn: '#soundBtn', soundBar: '#soundPh',
     // the Phase style control of the Phase view's options (Tiles, Plain, …, Cauchy)
     phaseStyle: '#dcSeg',
-    // (Y's Phase key is in its head, or behind its ⋯, or, when the head holds no toggle, in the Regions button's
-    // pop-up above the regions' options: the check while it is in the page, else the button that holds it)
-    phaseKey: () => { const c = document.querySelector('#wKeyChkR'); return c && document.body.contains(c) ? c.closest('label') || c : yOpts(); },
-    // Y's Display options button (the head's ⋯, or the Regions button when the toggles are merged into its pop-up),
-    // where the Phase key goes when Y's head has no room for it
-    rightOpts: () => yOpts(),
     // X's Display options button (the head's ⋯, when the Phase style or Landscape's options do not fit
     // the head); INTEGRATION.md: the fallback of phaseStyle
     leftOpts: '#leftFoot .opts-btn:not(.pat-btn)',
@@ -578,8 +545,6 @@ const Tour = (() => {
   };
   // the first visible match of a selector (a control that has a copy elsewhere, hidden in this layout)
   function vis1(sel) { for (const e of document.querySelectorAll(sel)) if (visible(e)) return e; return null; }
-  // Y's display options: its ⋯ button, or the Regions button when the toggles are merged into its pop-up
-  function yOpts() { return document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn'); }
   // a control of the chain: itself, or on a phone with the chain sheet closed, the button that opens it
   function inChainSheet(sel) { return !document.documentElement.classList.contains('ph') ? document.querySelector(sel) : vis1(sel) || vis1('.ph-csteps'); }
   const phoneLayout = () => document.documentElement.classList.contains('ph');
@@ -3389,7 +3354,7 @@ const Tour = (() => {
     // the steps the running (else the last) tour skipped: [{ id: 'chapter/step', why: 'missing' | 'clipped' | 'scene' }]
     skipped: skippedList,
     // internals for the tests and the design tables
-    _t: { cutShort: () => cutShort, CHAPTERS, PLANES, PLAYING, SV_ON, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, probeInOut, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
+    _t: { cutShort: () => cutShort, CHAPTERS, PLANES, PLAYING, SV_ON, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
       // (the lines the running chapter's strip line needs here, for the browser checks)
       needLines: (dbg) => (run ? needLines(run, dbg) : null) },
   };

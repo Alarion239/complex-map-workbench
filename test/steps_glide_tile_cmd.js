@@ -238,7 +238,7 @@ for (const c of CASES) {
   await hold(1.5);
   await hold(1.25);
   const after = info.repeatAfter = await tex1();
-  ok('Repeat: held at a quarter again, the tile shows the repeated step\'s formula, not the one before the Repeat', !!after && after !== before, { before, after });
+  ok('Repeat: held at a quarter again, the tile shows the repeated step\'s formula (This step, twice: n = 2, so \\circ 2), not the one before the Repeat', !!after && after !== before && after.includes('\\circ 2'), { before, after });
 }
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 return { pass: fails.length === 0, fails, info };
