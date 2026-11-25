@@ -1,10 +1,12 @@
-// The NEWT kit's GLSL for chains with no ray, dual or single NEWT op is the integration branch's byte for byte (#1339):
-// the external ray's stage, the dual derivative and the one-member exit change the program only for an op that carries
-// them. For each chain of CHAINS at each t of TS, the inverse program of the glide's frame (the steps' homotopies at t,
+// The NEWT kit's GLSL for chains with no ray, dual or single NEWT op is the recorded one byte for byte (#1339): the
+// external ray's stage, the dual derivative and the one-member exit change the program only for an op that carries them.
+// For each chain of CHAINS at each t of TS, the inverse program of the glide's frame (the steps' homotopies at t,
 // Inverse.homBuilt of Inverse.homOps, as the steps view builds it) is hashed: its library, its walker and its NEWT roots
-// pass's main. The hashes were recorded from the integration branch at 2d13da8c (test/fixtures/newt_kit_src.json, written by
-// this file with --write). The chains cover every kind of NEWT op the kit builds: a polynomial one (Aberth), a seeded one
-// (back ops: the inverse Joukowski map), one with a pole member (zeta) and a generic one; the run fails if a kind is missing.
+// pass's main. The hashes are in test/fixtures/newt_kit_src.json, written by this file with --write; a change to the kit
+// of every op writes them again, and ci/newt_ab.js shows that its programs draw what the base's drew, bit for bit. The
+// chains cover every kind of NEWT op the kit builds: a polynomial one (Aberth; of degree 5 and 6, since degrees 3 and 4
+// are the closed forms' RAT3 and RAT4 ops), a seeded one (back ops: the inverse Joukowski map), one with a pole member
+// (zeta) and a generic one; the run fails if a kind is missing.
 // The Douady-Hubbard map and the Böttcher coordinate are left out: their NEWT ops are the ones that carry the ray.
 // Run: node test/t_newt_kit_src.js [--write]
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
@@ -24,8 +26,8 @@ const St = (type, params = {}) => ({ type, params: Object.assign(Funcs.defaults(
 const custom = (expr) => St('custom', { expr, cut: 180 });
 // [name, steps]
 const CHAINS = [
-  ['cubic', [custom('z^3-2z+1')]],
-  ['quartic', [custom('z^4+z')]],
+  ['quintic', [custom('z^5-2z+1')]],
+  ['sextic', [custom('z^6+z')]],
   ['gamma+1', [custom('gamma(z)+1')]],
   ['sinz/z', [custom('sin(z)/z')]],
   ['cos^2', [custom('cos(z)^2')]],
@@ -61,7 +63,7 @@ if (WRITE) {
   console.log(`wrote ${Object.keys(out).length} programs to ${path.relative(root, FIXTURE)}`);
 } else {
   const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
-  for (const [k, v] of Object.entries(want)) check(`${k}: the inverse program's source is the integration branch's`, out[k] && out[k].src === v.src && out[k].newt === v.newt, JSON.stringify({ want: v, got: out[k] }));
+  for (const [k, v] of Object.entries(want)) check(`${k}: the inverse program's source is the recorded one`, out[k] && out[k].src === v.src && out[k].newt === v.newt, JSON.stringify({ want: v, got: out[k] }));
   check('every recorded program was built', Object.keys(want).every((k) => k in out) && Object.keys(out).length === Object.keys(want).length);
 }
 console.log(`${n} checks, ${bad} failed`);

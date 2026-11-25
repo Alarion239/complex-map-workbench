@@ -32,9 +32,9 @@ check('sphere (no sphereMode: image)', mig({ rightMode: 'sphere' }).view, V('xy'
 check('sphere color: the phase sphere', mig({ rightMode: 'sphere', sphereMode: 'color' }).view, V('phase', { P: sv('sphere') }));
 check('sphere color + plane', mig({ rightMode: 'sphere', sphereMode: 'color', spherePlane: true, leftSphere: true }).view, V('phase', { L: sv('sphere'), P: sv('sphere', true) }));
 for (const old of ['preimage', 'integral', 'nonsense', undefined]) check(`old mode ${old}`, mig({ rightMode: old }).view, V('xy'));
-// an open morph: Deformation on (merged-views.md migration)
-check('old Morph view: X → Y with the deformation', (() => { const o = mig({ rightMode: 'morph' }); return [o.view, o.deform]; })(), [V('xy'), true]);
-check('no deform flag otherwise', 'deform' in mig({ rightMode: 'image' }), false);
+// an old Morph view: X → Y, with no deformation flag (the deformation transport is gone)
+check('old Morph view: X → Y', mig({ rightMode: 'morph' }).view, V('xy'));
+check('no deform flag', ['morph', 'image'].map((m) => 'deform' in mig({ rightMode: m })), [false, false]);
 // solo: a wide panel needs none; the split view keeps its expanded pane
 check('color solo R: the portrait is a wide panel now', mig({ rightMode: 'color', solo: 'R' }).solo, null);
 check('3d solo L (the regions plane): both panes', mig({ rightMode: '3d', solo: 'L' }).solo, null);
@@ -81,8 +81,8 @@ for (const v of [V('xy'), V('xy', { L: sv('sphere') }), V('phase'), V('land', { 
 check('xOf xy', Views.xOf(V('xy', { L: sv('sphere', true) })), { surf: 'sphere', phase: false, eq: true });
 check('xOf phase', Views.xOf(V('phase', { P: sv('sphere') })), { surf: 'sphere', phase: true, eq: false });
 check('xOf land plaster', Views.xOf(V('land', { D: false })), { surf: 'land', phase: false, eq: false });
-// the merged pane: Phase and Landscape are one wide left pane; X → Y with the deformation one wide right pane
-check('merged', [Views.merged(V('xy'), false), Views.merged(V('xy'), true), Views.merged(V('phase'), false), Views.merged(V('land'), true)], [null, 'R', 'L', 'L']);
+// the merged pane: Phase and Landscape are one wide left pane; X → Y is split
+check('merged', [Views.merged(V('xy')), Views.merged(V('phase')), Views.merged(V('land'))], [null, 'L', 'L']);
 // the pane that shows the picture an old rightMode named (perf suite, layout-aware units)
 check('paneOf', ['image', 'color', '3d', 'sphere'].map((m) => Views.paneOf(m)).concat(Views.paneOf('sphere', 'color')), ['R', 'L', 'L', 'R', 'L']);
 console.log(fails ? `${fails} of ${n} FAILED` : `all ${n} passed`);

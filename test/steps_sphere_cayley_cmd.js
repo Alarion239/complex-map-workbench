@@ -31,6 +31,9 @@ await seed(ns, {
   shapes: [{ id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }],
   steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }],
   sv: { at: 1, T: 0 }, srcView: { cx: 0, cy: 0, s: 20 },
+  // (the meshing window the globe's samples are read in, saved with the state: with none a thread saved on a later plane is
+  // meshed in the settled pane's window, a much wider one at this scale, where one of the samples then reads bare paper)
+  clipWin: { x0: -7.7, x1: 7.7, y0: -12.5, y1: 12.5 },
 });
 await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
 await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && typeof __cmwGlobeSnap === 'function'` });

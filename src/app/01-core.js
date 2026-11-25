@@ -16,8 +16,6 @@
     eye: svgI('<path d="M1.75 8s2.3-4.25 6.25-4.25S14.25 8 14.25 8s-2.3 4.25-6.25 4.25S1.75 8 1.75 8z"/><circle cx="8" cy="8" r="2"/>'),
     eyeOff: svgI('<path d="M1.75 8s2.3-4.25 6.25-4.25S14.25 8 14.25 8s-2.3 4.25-6.25 4.25S1.75 8 1.75 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/>'),
     fit: svgI('<path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"/><circle cx="8" cy="8" r="1.75"/>'),
-    expand: svgI('<path d="M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9"/>'),
-    restore: svgI('<path d="M13 3L9 7M9 3.5V7h3.5M3 13l4-4M7 12.5V9H3.5"/>'),
     undo: svgI('<path d="M5.5 3.5l-3 3 3 3M2.5 6.5h7a3.5 3.5 0 0 1 0 7H6"/>'),
     redo: svgI('<path d="M10.5 3.5l3 3-3 3M13.5 6.5h-7a3.5 3.5 0 0 0 0 7H10"/>'),
     theme: svgI('<circle cx="8" cy="8" r="5.75"/><path d="M8 2.25a5.75 5.75 0 0 1 0 11.5z" fill="currentColor" stroke="none"/>'),
@@ -62,6 +60,8 @@
     color: msvg('<circle cx="8" cy="8" r="5.5"/><path d="M8 8h5.5M8 8l-2.75 4.76M8 8l-2.75-4.76"/>'),
     '3d': msvg('<path d="M1.5 12.5c2.5 0 3.5-6 6.5-6s4 6 6.5 6"/><path d="M1.5 14h13"/>'),
     sphere: msvg('<circle cx="8" cy="8" r="6"/><path d="M2 8a6 2.2 0 0 0 12 0"/><ellipse cx="8" cy="8" rx="2.4" ry="6"/>'),
+    // the Stack: the floor, the glass above it and a strand between them
+    stack: msvg('<path d="M1 14.5l4-4h10l-4 4z"/><path d="M1 6l4-4h10l-4 4z" fill="currentColor" fill-opacity=".3"/><path d="M7.5 12.5v-8.5"/>'),
     // the deformation (the Deformation toggle in the top bar)
     // X → Y (the top bar's split view): two planes and the map between them
     xy: msvg('<rect x="1.5" y="4" width="5" height="8" rx=".8"/><rect x="9.5" y="4" width="5" height="8" rx=".8"/><path d="M6.5 8h2.6M8 6.7l1.3 1.3L8 9.3"/>'),
@@ -285,6 +285,8 @@
   }
   const regionLook = () => solidKeep || { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
   // the sheets drawn on each side of an infinitely sheeted step's principal one (S.sheetW, the Landscape's "sheets ±"):
+  // smoothstep(a, b, x): 0 below a, 1 above b, and between them the cubic with no slope at either end
+  const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   // SHEET_W_MIN to SHEET_W_MAX, SHEET_W_DEFAULT when unset; sheetWOf(w): w within them
   const SHEET_W_MIN = 1, SHEET_W_MAX = 4, SHEET_W_DEFAULT = 2;
   const sheetWOf = (w) => Math.max(SHEET_W_MIN, Math.min(SHEET_W_MAX, Math.round(w) || SHEET_W_DEFAULT));
@@ -311,7 +313,7 @@
       cauchyShow: 'both', cauchyPlus: false,
       // the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
       params: [],
-      // (S.sv, the steps view's {at, T, scope, surf, speed}: absent until ?view=steps writes it, so the default
+      // (S.sv, the steps view's {at, T, scope, surf, links, speed, alone}: absent until ?view=steps writes it, so the default
       // view's saves are free of it; sanitizeState repairs it, Views.cleanSv)
     };
   }
@@ -810,7 +812,7 @@
     if (typeof Funcs.stageFunctions === 'function') { try { stageFns = Funcs.stageFunctions(S.steps, built); } catch (e) { console.error('stageFunctions', e); stageFns = null; } }
     if (!Array.isArray(stageFns) || stageFns.length !== S.steps.length + 1) stageFns = localStageFunctions();
     if (GLR.ok) {
-      try { GLR.setChain(GLChain.build(S.steps, built)); } catch (e) { console.error('GLChain', e); }
+      try { GLR.setChain(GLChain.build(S.steps, built)); } catch (e) { console.error('GLChain', e); GLR.refuseChain(String((e && e.message) || e)); }
     }
   }
   const nSteps = () => S.steps.length;
@@ -879,13 +881,14 @@
   // ---- the panes' views (panels.md 2): X on the left, Y on the right ----
   // lPlain: X Plane with the shapes; lColor: X Plane + Phase (the phase
   // portrait); lGlobe: X Sphere (lPhase: with the portrait); lLand: X Landscape;
-  // lFlat: X shows a plane in leftView() coordinates (drawing, rulers, flat overlays). rImage: Y Plane (the images,
+  // lFlat: X shows a plane in leftView() coordinates (drawing, rulers, flat overlays); the Stack's floor is a plane seen
+  // by its camera, not flat. rImage: Y Plane (the images,
   // the targets); rGlobe: Y Sphere.
   // (merged views, merged-views.md: X's picture follows the top bar's view: X → Y shows the shapes on X's Plane or
   // Sphere; Phase the portrait on its own Plane or Sphere (view.P); Landscape the relief, phase-coloured or plaster)
   const xSurf = () => { const v = S.view; return v.main === 'phase' ? v.P.surf : v.main === 'land' ? 'land' : v.L.surf; };
   const lPhase = () => S.view.main === 'phase' || (S.view.main === 'land' && !!S.view.D.phase);
-  const lFlat = () => xSurf() === 'plane';
+  const lFlat = () => xSurf() === 'plane' && !stackOn();
   const lPlain = () => S.view.main === 'xy' && S.view.L.surf === 'plane';
   const lColor = () => S.view.main === 'phase' && S.view.P.surf === 'plane';
   const lGlobe = () => xSurf() === 'sphere';
@@ -894,9 +897,9 @@
   const rGlobe = () => S.view.R.surf === 'sphere';
   // the Sphere's equatorial plane of X's globe (X → Y's z-sphere or the phase sphere)
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
-  // the pane a merged view shows alone ('L': Phase, Landscape; 'R': X → Y with the deformation), else the expanded
-  // pane of the split view (S.solo) or null
-  const solo = () => (SV.on ? 'L' : Views.merged(S.view, morphOn()) || (S.view.main === 'xy' ? S.solo : null));
+  // the one pane shown: X ('L'), in the steps view and the classic view alike; Y's pane is not drawn, and its DOM stays,
+  // hidden
+  const solo = () => 'L';
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)

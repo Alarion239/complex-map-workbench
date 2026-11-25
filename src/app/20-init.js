@@ -8,14 +8,13 @@
     // (the steps view's place on screen, as a save writes it: S.sv is written only by a save and an undo entry)
     const sv = svPlace();
     if (sv) o.sv = sv;
-    // (the recipient sees the same picture: the Landscape camera, relative to its fit, and the
-    // deformation at its t; read once at load, never kept in the saved state)
+    // (the recipient sees the same picture: the Landscape camera, relative to its fit; read once at load, never kept in
+    // the saved state)
     // (the camera of the surface the steps view shows: the z-globe's camL when it shows the sphere, else the Landscape's cam;
     // `of` names it, and a figCam without it is the Landscape's)
     const onGlobe = SV.on && SV.surf === 'sphere', c = onGlobe ? camL : cam, base = onGlobe ? CAML : CAM3;
     o.figCam = { yaw: c.yaw, pitch: c.pitch, d: c.dist / base.dist, tx: c.tx, ty: c.ty };
     if (onGlobe) o.figCam.of = 'sphere';
-    o.figMorph = morph.open ? { T: morph.T } : null;
     return o;
   }
   async function copyFigureLink() {
@@ -154,8 +153,8 @@
       let ok = false;
       try { ok = !S || (held ? localStorage.getItem(LS_KEY) != null : wrote !== false && localStorage.getItem(LS_KEY) === wrote); } catch (e) { ok = false; }
       if (!ok) return false;
-      // the open panels come back too: the deformation (at its t, paused), the open lamp, the selected shape
-      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1, phone: Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), big: Phone.big() } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
+      // the open panels come back too: the open lamp, the selected shape
+      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { lamp: openLamp, sel: selected, focus: 1, phone: Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), big: Phone.big() } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
       return true;
     }, () => toast($t('The language cannot change: this browser blocks site storage, and a reload would lose your work.')));
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
@@ -195,6 +194,8 @@
       warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
+    // a REPT draw with tiles still to draw (GLR's reptDraw): the panes are drawn again, one tile further
+    GLR.onReptPending = () => requestRender('L', 'R');
     setTheme(themePref()); // before the first readTheme, so canvases start in the saved theme
     GLR.setPalette(palPref());
     readTheme();
@@ -218,7 +219,7 @@
     paneL.setView(S.srcView);
     // a saved state without its window (older saves, hand-made states) meshes and samples in
     // the window of its view, as a scene opened from a file does, never in a fixed -4…4 that a deep view lies inside
-    if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; setOpt('clipWin', clipWin); } }
+    if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; clipDefault = true; setOpt('clipWin', clipWin); } }
     buildTools();
     setupFormula();
     setupParams(!!loaded);
@@ -274,9 +275,7 @@
         const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
         if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); requestRender('P'); save(); }
-        // a saved Morph view opens with the deformation on (merged-views.md migration)
-        if (S.deform) { deleteOpt('deform'); openTransport(); }
-        // a link's or a scene's camera and deformation time (figureState)
+        // a link's or a scene's camera (figureState), and an older link's deformation time
         if (S.figCam) {
           const c = S.figCam;
           if (c && [c.yaw, c.pitch, c.d].every(Number.isFinite) && c.d > 0) { const to = c.of === 'sphere' ? camL : cam, base = c.of === 'sphere' ? CAML : CAM3; to.yaw = c.yaw; to.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, c.pitch)); to.dist = c.d * base.dist; to.tx = Number.isFinite(c.tx) ? c.tx : 0; to.ty = Number.isFinite(c.ty) ? c.ty : 0; }
@@ -285,14 +284,13 @@
         if ('figMorph' in S) {
           const fm = S.figMorph;
           deleteOpt('figMorph');
-          // (the steps view has no Morph transport: the time is its place along the chain, set once the view is set up)
-          if (fm && Number.isFinite(fm.T) && SV.on) { if (!S.sv) svMorphT = fm.T; } else if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); } }
+          // (in the steps view the time is its place along the chain, set once the view is set up)
+          if (fm && Number.isFinite(fm.T) && SV.on && !S.sv) svMorphT = fm.T;
         }
         if (swUi) {
           if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }
           if (swUi.lamp) openLamp = swUi.lamp;
           if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (the open sheet; the large plane)
-          if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); }
           // focus returns to the control that switched: Settings, or the phone's More button
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }

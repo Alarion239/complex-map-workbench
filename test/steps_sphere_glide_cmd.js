@@ -5,6 +5,11 @@
 //    the whole globe
 //  - paths: parked, the frame draws the paths' moving points (__cmwSteps().paths.globeHeads > 0), and they threw nothing
 //    (globeError: a throw's message, named in the check)
+//  - the arrival on √'s plane (#2391, 'Square root and its sheets', Everywhere): the glide frame just short of plane w1
+//    draws every sheet, so it is the parked globe; the control, the principal sheet alone, is not; the same on the
+//    carried mesh's path, z⁵ − 5z (no inverse plan) then √, onto √'s plane w2; at u = 1/2 the principal sheet is in front:
+//    wherever it alone colours the globe, the frame with every sheet shows its colour; with the copies drawn only where
+//    the principal sheet is not opaque (#2406, glideStencil), the same frames on both paths
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -57,6 +62,108 @@ ok('parked: the colour shows inside the moving region', R.parked.coloured > 0, R
 ok('parked: Inside regions keeps the colour inside the region (at most 1.5 times the coloured pixels at rest)',
   R.parked.coloured <= 1.5 * R.rest.coloured, { rest: R.rest.coloured, parked: R.parked.coloured });
 ok(`parked: the paths of the glide are drawn on the globe${p && p.globeError ? ' (they threw: ' + p.globeError + ')' : ''}`, !!p && p.on && p.globeHeads > 0 && !p.globeError, p);
+// The arrival on √'s plane (#2391): 'Square root and its sheets', Everywhere, lines, the glide's paths and the strokes
+// hidden. Parked on plane w1 with All sheets the globe is coloured everywhere; the glide frame ARRIVE_EPS short of it
+// draws a copy per sheet, the principal one in front, so it is the parked globe: at most ARRIVE_MAX of the pixels more
+// than held_frames' DIFF_TOL apart. Control: the principal sheet alone (__cmwSteps({ glideSheets: 1 })), more than
+// ARRIVE_CONTROL apart. Every frame leaves out the arrival plane's colour under the carried colour (__cmwSteps({
+// restPaint: 0 })), which is the parked globe's and would cover a missing sheet
+const { hold, grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const ARRIVE_EPS = 1e-4, ARRIVE_MAX = 0.01, ARRIVE_CONTROL = 0.05;
+await ev(`__cmwExample(${exampleNames().indexOf('Square root and its sheets')}); 1`); await settled({ max: 20000 });
+const frameAt = async (state) => {
+  await ev('if (window.__svScrubUp) { window.__svScrubUp(); window.__svScrubUp = null; } 1');
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'sphere', go: 0, now: true }); __cmwSteps({ restPaint: 0 }); ${state}; 1`);
+  await quiet();
+};
+const heldAt = async (u) => { await frameAt('__cmwSteps({ park: 0 })'); await hold(u); await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: 20000 }); };
+await frameAt('__cmwSteps({ park: 1 })');
+ok('the parked globe on plane w1 is drawn', !!(await grab('sphParked1')), null);
+await heldAt(1 - ARRIVE_EPS);
+ok('the glide frame near plane w1 is drawn', !!(await grab('sphArrive')), null);
+R.arriveRec = await ev('(() => { const g = __cmwSvGlobe(0, 0); return { path: g.path, sheets: g.sheets }; })()');
+ok('the glide frame near plane w1 is carried by the inverse pass, on both of the root\'s sheets', R.arriveRec.path === 'inverse' && R.arriveRec.sheets === 2, R.arriveRec);
+await ev('__cmwSteps({ glideSheets: 1 }); 1');
+await heldAt(1 - ARRIVE_EPS);
+ok('the glide frame near plane w1, the principal sheet alone, is drawn', !!(await grab('sphArriveOne')), null);
+await ev('__cmwSteps({ glideSheets: 0 }); 1');
+R.arrival = { all: await compare('sphArrive', 'sphParked1'), one: await compare('sphArriveOne', 'sphParked1') };
+// Mid-glide, the principal sheet is in front: at u = 1/2 the two sheets' images overlap on the globe, and wherever the
+// principal sheet alone colours a pixel (saturation over FRONT_SAT) the frame with every sheet shows that colour (at most
+// FRONT_MAX of those pixels more than FRONT_TOL apart in a channel); a copy drawn over it would show its own sheet's colour
+// there. Control: the frame with every sheet differs from the principal one somewhere (the copy fills its holes)
+const FRONT_SAT = 40, FRONT_TOL = 32, FRONT_MAX = 0.005;
+await heldAt(0.5);
+ok('the glide frame at u = 1/2 is drawn', !!(await grab('sphMid')), null);
+await ev('__cmwSteps({ glideSheets: 1 }); 1');
+await heldAt(0.5);
+ok('the glide frame at u = 1/2, the principal sheet alone, is drawn', !!(await grab('sphMidOne')), null);
+await ev('__cmwSteps({ glideSheets: 0 }); 1');
+R.front = await ev(`(() => {
+  const A = window.__heldPx.sphMid, P = window.__heldPx.sphMidOne;
+  let n = 0, off = 0, other = 0;
+  for (let i = 0; i < P.length; i += 4) {
+    const d = Math.max(Math.abs(A[i] - P[i]), Math.abs(A[i + 1] - P[i + 1]), Math.abs(A[i + 2] - P[i + 2]));
+    if (Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${FRONT_SAT}) { n++; if (d > ${FRONT_TOL}) off++; } else if (d > ${FRONT_TOL}) other++;
+  }
+  return { principal: n, off, frac: n ? +(off / n).toFixed(4) : null, copiesShow: other };
+})()`);
+ok(`u = 1/2: wherever the principal sheet colours the globe, the frame with every sheet shows its colour (at most ${FRONT_MAX * 100} % apart)`, R.front.principal > 1000 && R.front.frac <= FRONT_MAX, R.front);
+ok('u = 1/2: the copy fills the principal sheet\'s holes (the frames differ there)', R.front.copiesShow > 1000, R.front);
+ok(`the glide frame ${ARRIVE_EPS} short of plane w1 is the parked globe: at most ${ARRIVE_MAX * 100} % of the pixels apart`, !!R.arrival.all && R.arrival.all.frac <= ARRIVE_MAX, R.arrival);
+ok(`the control: the principal sheet alone, more than ${ARRIVE_CONTROL * 100} % apart`, !!R.arrival.one && R.arrival.one.frac > ARRIVE_CONTROL, R.arrival);
+// The copies drawn only where the principal sheet is not opaque (#2406, __cmwSteps({ glideStencil: 1 })): the frame at
+// u = 1/2 and the arrival are the frames with every sheet in painter's order, at most CUT_MAX of the pixels apart, and
+// the record names the inverse path's cut. Control: the frame at u = 1/2 is still CUT_COPIES or more apart from the
+// principal sheet alone, so the copies are drawn
+const CUT_MAX = 0.001, CUT_COPIES = 0.003;
+await ev('__cmwSteps({ glideStencil: 1 }); 1');
+await heldAt(0.5);
+ok('the glide frame at u = 1/2, the copies cut, is drawn', !!(await grab('sphMidCut')), null);
+R.cutRec = await ev('(() => { const g = __cmwSvGlobe(0, 0); return { path: g.path, sheets: g.sheets, cut: g.cut }; })()');
+await heldAt(1 - ARRIVE_EPS);
+ok('the glide frame near plane w1, the copies cut, is drawn', !!(await grab('sphArriveCut')), null);
+await ev('__cmwSteps({ glideStencil: 0 }); 1');
+R.cut = { mid: await compare('sphMidCut', 'sphMid'), arrive: await compare('sphArriveCut', 'sphArrive'), copies: await compare('sphMidCut', 'sphMidOne') };
+ok('the copies cut: the inverse path\'s copies are drawn where the principal sheet is not opaque', R.cutRec.path === 'inverse' && R.cutRec.sheets === 2 && R.cutRec.cut === 'inverse', R.cutRec);
+ok(`the copies cut: at u = 1/2 and at the arrival the frame is the painter's one, at most ${CUT_MAX * 100} % of the pixels apart`, !!R.cut.mid && R.cut.mid.frac <= CUT_MAX && !!R.cut.arrive && R.cut.arrive.frac <= CUT_MAX, R.cut);
+ok(`the control: the copies cut still show, ${CUT_COPIES * 100} % or more apart from the principal sheet alone at u = 1/2`, !!R.cut.copies && R.cut.copies.frac >= CUT_COPIES, R.cut);
+// The same on the carried mesh's path: z⁵ − 5z (no inverse plan) then √, onto √'s plane w2
+{
+  const st5 = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type: 'custom', params: { expr: 'z^5-5z', cut: 180 }, on: true }, { type: 'root', params: { n: 2, cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 90 } };
+  const ns5 = 'svsgm' + Date.now();
+  await seed(ns5, st5);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns5}&view=steps`);
+  await settled({ max: 60000, until: `typeof __cmwSteps === 'function'` });
+  const frameAt5 = async (state) => {
+    await ev('if (window.__svScrubUp) { window.__svScrubUp(); window.__svScrubUp = null; } 1');
+    await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'sphere', go: 1, now: true }); ${state}; 1`);
+    await quiet();
+  };
+  const heldAt5 = async (u) => { await frameAt5('__cmwSteps({ park: 1 })'); await hold(1 + u); await ev(`__cmwSteps({ x: ${1 + u} }); 1`); await settled({ max: 20000 }); };
+  await frameAt5('__cmwSteps({ park: 2 })');
+  ok('mesh: the parked globe on plane w2 is drawn', !!(await grab('sphParked2')), null);
+  await heldAt5(1 - ARRIVE_EPS);
+  ok('mesh: the glide frame near plane w2 is drawn', !!(await grab('sphArrive2')), null);
+  R.arriveRecMesh = await ev('(() => { const g = __cmwSvGlobe(0, 0); return { path: g.path, sheets: g.sheets }; })()');
+  ok('mesh: the glide frame near plane w2 is carried by the mesh, on both of the root\'s sheets', R.arriveRecMesh.path === 'mesh' && R.arriveRecMesh.sheets === 2, R.arriveRecMesh);
+  await ev('__cmwSteps({ glideSheets: 1 }); 1');
+  await heldAt5(1 - ARRIVE_EPS);
+  ok('mesh: the glide frame near plane w2, the principal sheet alone, is drawn', !!(await grab('sphArrive2One')), null);
+  await ev('__cmwSteps({ glideSheets: 0 }); 1');
+  R.arrivalMesh = { all: await compare('sphArrive2', 'sphParked2'), one: await compare('sphArrive2One', 'sphParked2') };
+  ok(`mesh: the glide frame ${ARRIVE_EPS} short of plane w2 is the parked globe: at most ${ARRIVE_MAX * 100} % of the pixels apart`, !!R.arrivalMesh.all && R.arrivalMesh.all.frac <= ARRIVE_MAX, R.arrivalMesh);
+  ok(`mesh: the control, the principal sheet alone, more than ${ARRIVE_CONTROL * 100} % apart`, !!R.arrivalMesh.one && R.arrivalMesh.one.frac > ARRIVE_CONTROL, R.arrivalMesh);
+  // the copies cut on the mesh's path: the arrival is the painter's frame and the record names the mesh's cut
+  await ev('__cmwSteps({ glideStencil: 1 }); 1');
+  await heldAt5(1 - ARRIVE_EPS);
+  ok('mesh: the glide frame near plane w2, the copies cut, is drawn', !!(await grab('sphArrive2Cut')), null);
+  R.cutRecMesh = await ev('(() => { const g = __cmwSvGlobe(0, 0); return { path: g.path, sheets: g.sheets, cut: g.cut }; })()');
+  await ev('__cmwSteps({ glideStencil: 0 }); 1');
+  R.cutMesh = await compare('sphArrive2Cut', 'sphArrive2');
+  ok('mesh: the copies cut: the mesh\'s copies are drawn where the principal sheet is not drawn', R.cutRecMesh.path === 'mesh' && R.cutRecMesh.sheets === 2 && R.cutRecMesh.cut === 'mesh', R.cutRecMesh);
+  ok(`mesh: the copies cut: the arrival is the painter's frame, at most ${CUT_MAX * 100} % of the pixels apart`, !!R.cutMesh && R.cutMesh.frac <= CUT_MAX, R.cutMesh);
+}
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', R.logs.length === 0, R.logs);
 return { pass: fails.length === 0, fails, results: R };

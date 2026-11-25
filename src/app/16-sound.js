@@ -84,7 +84,6 @@
   function sndMorphArrive(...args) { return SH.sndMorphArrive(...args); }
   function sndScrub(...args) { return SH.sndScrub(...args); }
   function sndScrubEnd(...args) { return SH.sndScrubEnd(...args); }
-  function sndMotion(...args) { return SH.sndMotion(...args); }
   function sndFAt(...args) { return SH.sndFAt(...args); }
   function sndMove(...args) { return SH.sndMove(...args); }
   function sndPickAt(...args) { return SH.sndPickAt(...args); }
@@ -93,7 +92,6 @@
   function soundFunctionChanged(...args) { return SH.soundFunctionChanged(...args); }
   function sndRelayout(...args) { return SH.sndRelayout(...args); }
   function sndFrame(...args) { return SH.sndFrame(...args); }
-  function sndOverlay(...args) { return SH.sndOverlay(...args); }
   function sndCollide(...args) { return SH.sndCollide(...args); }
   function sndLoopDone(...args) { return SH.sndLoopDone(...args); }
   function sndListen(...args) { return SH.sndListen(...args); }

@@ -911,8 +911,13 @@ function svAttrFrames(drawn, prev, snaps) {
   });
   return out;
 }
+// whether a software renderer (SwiftShader, llvmpipe and lavapipe, WARP) draws the page: the steps view's GPU units are skipped
+// there, said in the details, unless CMW_SV_SOFT=1
+async function svSoftGL() {
+  return /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+}
 async function svInteractUnit(scene) {
-  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  const soft = await svSoftGL();
   // (on a software renderer a scene's unit outlasts UNIT_TIMEOUT_S (6-8 min for one rep on SwiftShader), and the
   // Mountain King's programs alone take minutes: skipped there, said in the details; CMW_SV_SOFT=1 runs them anyway)
   if (soft && process.env.CMW_SV_SOFT !== '1') { detail(`sv.interact.${scene}`, 'skipped: a software renderer (one rep outlasts the unit\'s time limit there)'); return; }
@@ -1023,7 +1028,8 @@ async function svInteractUnit(scene) {
 // no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot). o: {id: the
 // unit's id and its rows' prefix (default sv.glide.<scene>), surf: the steps view's surface ('plane' | 'sphere' | 'land'),
 // scope ('all': Everywhere | 'in': Inside regions), planes: [a, b] the glide's two planes (default [0, 1]), info: its rows
-// are info, state: the saved page to open instead of the default one}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
+// are info, state: the saved page to open instead of the default one, setup: a page expression evaluated once the view
+// is on plane a, before the glides}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
 // reference without the Landscape's glide makes it NEW (refCannot)
 // Opens the steps view on a fresh page (state: the saved page to start from, else the default one) and waits for its first frame
 // and the typesetter.
@@ -1059,7 +1065,7 @@ async function svWaitReady() {
 }
 async function svGlideUnit(scene, o = {}) {
   const id = o.id || `sv.glide.${scene}`, surf = o.surf || 'plane', scope = o.scope || 'all', [pa, pb] = o.planes || [0, 1];
-  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  const soft = await svSoftGL();
   if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer (the glide cannot reach 60 fps there, and the Mountain King\'s programs alone take minutes)'); return; }
   const EX = { zeta: 'Zeros of the zeta function', king: 'In the Hall of the Mountain King', jouk: 'Joukowski airfoil', dilog: 'The dilogarithm from its series' };
   const budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === id)) * 1000;
@@ -1078,6 +1084,7 @@ async function svGlideUnit(scene, o = {}) {
   for (const dpr of [1, 2]) {
     const pre = `${id}${dpr === 2 ? '.dpr2' : ''}`;
     const R = [], copies = [], links = [], labelMs = [], longInt = [], dprOk = [], readyMs = [], td = Date.now();
+    const FR = [], firstLinks = [], firstLong = [];
     let unready = false;
     if (dpr !== 1) await setDpr(dpr);
     try {
@@ -1091,6 +1098,7 @@ async function svGlideUnit(scene, o = {}) {
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
         dprOk.push(Math.abs((await B.ev('devicePixelRatio')) - dpr) < 1e-9);
         await B.ev(`__cmwSteps({ scope: '${scope}', surf: '${surf}', go: ${pa}, now: true }), 1`);
+        if (o.setup) await B.ev(o.setup);
         // (o.ready: the chain prepared first, its wait an info row: the Play gate holds a glide until the chain's jobs are
         // done, and a chain whose carried meshes are built on the CPU can take longer than a settle to prepare. A build
         // without the gate has no ready state and waits for nothing)
@@ -1108,7 +1116,16 @@ async function svGlideUnit(scene, o = {}) {
         await sleep(SV_IDLE_MS);
         await B.ev(SV_GLCOUNT);
         // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
+        // (o.first: the first of them, the page's first glide, measured as a glide is: its rows are .first's)
         for (const to of [pb, pa]) {
+          if (o.first && to === pb) {
+            const f = await glide(pb);
+            if (!f.drawn.length && surf === 'land') throw new Error(`${id}: this build's Landscape changes plane at once (no glide)`);
+            FR.push(legSummary([f], 'none'));
+            firstLinks.push(f.links);
+            firstLong.push(f.ints.filter((d) => d > SV_GLIDE_JANK_MS).length);
+            continue;
+          }
           const moving = await B.ev(`(__cmwSteps({ go: ${to} }), __cmwSteps().moving)`);
           if (!moving && surf === 'land' && to === pb) throw new Error(`${id}: this build's Landscape changes plane at once (no glide)`);
           await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
@@ -1144,6 +1161,14 @@ async function svGlideUnit(scene, o = {}) {
     else put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
     put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
     put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
+    // (o.first: the page's first glide, from pb's side of the warm pair: the same rows, and the programs it linked)
+    if (FR.length) {
+      putPooled(`${pre}.first.frame_p95_ms`, 'frame_ms', 'ms', FR, 'frame', 0.95, 'frame_p95');
+      put(`${pre}.first.fps`, 'throughput', 'frames/s', FR.map((r) => r.fps));
+      put(`${pre}.first.jank_ms`, 'jank_ms', 'ms', FR.map((r) => r.jank));
+      put(`${pre}.first.long_intervals`, 'info', `intervals > ${SV_GLIDE_JANK_MS} ms`, firstLong);
+      put(`${pre}.first.links`, 'info', 'programs', firstLinks);
+    }
     // (o.info: every row but dpr_ok is info: the unit measures a cost, it gates nothing)
     if (o.info) for (const [k, m] of Object.entries(RES.metrics)) if (k.startsWith(pre + '.') && k !== `${pre}.dpr_ok`) m.kind = 'info';
   }
@@ -1155,10 +1180,12 @@ async function svGlideUnit(scene, o = {}) {
 // frame draws. The baseline is the same glide held at the same place on the plane surface, All sheets, read first: the
 // added row is what the Landscape holds beyond the page's own drawing. The peak row counts the whole page's life, the
 // plane surface's glide to the baseline included (the Möbius step's: 35.0 MB, where its Landscape alone peaked at 28.5).
-// One group of rows per case: K sheets (√z, ⁴√z and ⁶√z then z + 2), and the default page's Möbius step, whose poles
-// are in the carried box. Info rows: the phones' limit is read off them, nothing gates (#1205). The one check,
-// baseline_ok: the baseline was read on the plane surface, All sheets, and holds at least SV_LAND_BASE_MIN bytes. A page
-// at rest with nothing drawn holds about 0.2 MB, and a baseline read there makes the added row the live row.
+// One group of rows per case: K sheets (√z, ⁴√z and ⁶√z then z + 2), the default page's Möbius step, whose poles are in
+// the carried box, and SV_LAND_POLES12_STATE, whose frame draws as many pole patches as the Landscape keeps (CARRY_POLES,
+// 12). Info rows: the phones' limit is read off them, nothing gates (#1205). The checks: baseline_ok, the baseline was read
+// on the plane surface, All sheets, and holds at least SV_LAND_BASE_MIN bytes (a page at rest with nothing drawn holds
+// about 0.2 MB, and a baseline read there makes the added row the live row); and patches_ok, for a case that names its
+// patches, its frame draws that many, so it measures what it is named for.
 const SV_LAND_BASE_MIN = 2e6;
 async function svLandBytesUnit() {
   const cases = [
@@ -1166,6 +1193,7 @@ async function svLandBytesUnit() {
     { tag: 'k4', state: svRootState(4) },
     { tag: 'k6', state: svRootState(6) },
     { tag: 'poles', state: null },
+    { tag: 'poles12', state: SV_LAND_POLES12_STATE, patches: SV_LAND_POLES_MAX },
   ];
   for (const c of cases) {
     const pre = `sv.land_bytes.${c.tag}`;
@@ -1190,6 +1218,7 @@ async function svLandBytesUnit() {
     put(`${pre}.gpu_land_added_bytes`, 'info', 'B', [mem.live - flat.live]);
     put(`${pre}.baseline_ok`, 'check', '', [at.surf === 'plane' && at.scope === 'all' && flat.live >= SV_LAND_BASE_MIN]);
     put(`${pre}.patches`, 'info', '', [carry ? carry.patches : 0]);
+    if (c.patches != null) put(`${pre}.patches_ok`, 'check', '', [!!carry && carry.patches === c.patches]);
     detail(`${pre}.carry`, JSON.stringify(carry));
   }
 }
@@ -1868,12 +1897,80 @@ unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain Kin
 unit('sv.glide.dilog', 'the steps view (on a GPU), the dilogarithm from its series (a Series step, aₙ = 1/n²): a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2. Its glide is the carried mesh\'s: the inverse pass inverts the Series step by Newton, and under Everywhere it has neither seeds nor every root for it (#885); info rows only: the number is that fallback\'s, which a per-pixel path for the step would replace. Each rep waits for the chain to be prepared before its warm glide (its meshes are built on the CPU: ready_ms)', () => svGlideUnit('dilog', { info: true, ready: true }), { timeoutS: 600 });
 unit('sv.glide.globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default', { id: 'sv.glide.globe', surf: 'sphere' }));
 unit('sv.glide.globe_in', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: the same glide in Inside regions (the carried colour per region on the globe)', () => svGlideUnit('default', { id: 'sv.glide.globe_in', surf: 'sphere', scope: 'in' }));
+// A drag of the branch cut's handle on √z (#1159): the chain SV_CUT_STATE at rest on w₁, the plane the cut is drawn in
+// after √z, and on w₂, where z + 2 carries it (the propagated cut). Per plane and rep: once the chain is prepared
+// (svWaitReady) and idle, the handle (__cmwCutHandles' first) dragged SV_CUT_DRAG_PX away and back, SV_CUT_DRAG_N moves a
+// leg 16 ms apart, each leg followed by its settle. Per plane, info rows: the frames, the input-to-frame latency and
+// the settle's jank (their Mac numbers say whether a lag is left to fix); and the programs linked during the legs, held
+// at 0 (a warm drag links none, as sv.glide.cut's glide links none)
+const SV_CUT_DRAG_PX = [40, 30], SV_CUT_DRAG_N = 24;
+async function svCutDragUnit() {
+  const id = 'sv.cut_drag';
+  const soft = await svSoftGL();
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer (its frame times say nothing of a GPU\'s; CMW_SV_SOFT=1 runs it)'); return; }
+  const PLANES = [['w1', 1], ['w2', 2]], R = { w1: [], w2: [] }, links = { w1: [], w2: [] }, carried = { w1: [], w2: [] };
+  const budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === id)) * 1000, t0 = Date.now();
+  for (let i = 0; i < REPS; i++) {
+    // (the reps stop early, said in the details, when the next would pass 75% of the unit's time limit)
+    if (i > 0 && (Date.now() - t0) / i * (i + 1) > budget) { detail(`${id}.reps`, `${i} of ${REPS} (the next rep would pass 75% of the unit's time limit)`); break; }
+    await openSteps(SV_CUT_STATE);
+    await settle(await pageNow());
+    if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
+    for (const [k, plane] of PLANES) {
+      await B.ev(`__cmwSteps({ go: ${plane}, now: true }), 1`);
+      const w = await svWaitReady();
+      if (!w.ready) { detail(`${id}.${k}.ready`, `not prepared: ${w.why} after ${w.ms} ms; parts ${JSON.stringify(w.parts)}`); continue; }
+      await settle(await pageNow());
+      await sleep(SV_IDLE_MS);
+      const legs = [];
+      for (const dir of [1, -1]) {
+        // (read again before each leg: the first leg moves the handle)
+        const h = (await B.ev('__cmwCutHandles()'))[0];
+        if (!h) throw new Error(`${id}: no cut handle on w${plane}`);
+        if (dir === 1) carried[k].push(h.carried);
+        const c0 = await B.ev('__perf.counters().links'), a = await pageNow();
+        await B.drag(h.x, h.y, h.x + dir * SV_CUT_DRAG_PX[0], h.y + dir * SV_CUT_DRAG_PX[1], { n: SV_CUT_DRAG_N, dt: 16 });
+        const b = await pageNow(), c1 = await B.ev('__perf.counters().links');
+        if (c1 > c0) console.error(`[perf] ${id}: ${c1 - c0} program(s) linked in a drag on w${plane}: ` + JSON.stringify(await B.ev(`__perf.linkNames(${a})`)));
+        const win = await windowStats(a, b), st = await settle(b);
+        legs.push(Object.assign(win, { links: c1 - c0, settle: st.timeout ? null : Math.max(0, st.t - b), settleTimeout: st.timeout, jank: await jankIn(b + 1, st.now) }));
+      }
+      // (a drag that drew nothing, one that missed the handle, measures nothing: the unit fails, not passes at 0)
+      if (legs.some((l) => !l.drawn.length)) throw new Error(`${id}: a drag on w${plane} drew no frames (${legs.map((l) => l.drawn.length).join(' + ')})`);
+      R[k].push(legSummary(legs, 'pointermove'));
+      links[k].push(legs.reduce((n, l) => n + l.links, 0));
+    }
+  }
+  for (const [k] of PLANES) {
+    const reps = R[k], pre = `${id}.${k}`;
+    if (!reps.length) continue;
+    putPooled(`${pre}.frame_p50_ms`, 'info', 'ms', reps, 'frame', 0.5, 'frame_p50');
+    putPooled(`${pre}.frame_p95_ms`, 'info', 'ms', reps, 'frame', 0.95, 'frame_p95');
+    putPooled(`${pre}.cpu_p95_ms`, 'info', 'ms', reps, 'cpu', 0.95, 'cpu_p95');
+    putPooled(`${pre}.latency_p95_ms`, 'info', 'ms', reps, 'lat', 0.95, 'lat_p95');
+    put(`${pre}.fps`, 'info', 'frames/s', reps.map((r) => r.fps));
+    put(`${pre}.settle_jank_ms`, 'info', 'ms', reps.map((r) => r.jank));
+    put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links[k])], { limit: 0, samples: links[k] });
+    detail(`${pre}.handle_carried`, carried[k]);
+  }
+}
 // (a chain with a ray cut: √z (cut 180°) then z + 2, the glide between w₁ and w₂ carrying the cut's two banks and, on the
 // globe, lifting them)
 const SV_CUT_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }], steps: [{ type: 'root', params: { n: 2, cut: 180 }, on: true }, { type: 'add', params: { c: '2' }, on: true }] };
 unit('sv.glide.cut', 'the steps view (on a GPU), a chain with a ray cut (√z, cut 180°, then z + 2): a warm glide there and back between w₁ and w₂ on the plane, the cut\'s image curve carried by the homotopy (#912): frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('cut', { id: 'sv.glide.cut', state: SV_CUT_STATE, planes: [1, 2] }));
 unit('sv.glide.cut_globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the same chain with a ray cut: the glide between w₁ and w₂ with the cut\'s image curve lifted to the globe (#912)', () => svGlideUnit('cut', { id: 'sv.glide.cut_globe', surf: 'sphere', state: SV_CUT_STATE, planes: [1, 2] }));
+// (the logarithm alone: its glide from z to w₁ on the globe draws the other sheets' copies under the principal one, up to
+// SV_GLIDE_SHEETS_MAX combos, by the inverse pass (#2391); with __cmwSteps({ glideStencil: 1 }) the copies only where
+// the principal sheet is not opaque (#2406). A build without that hook draws the copies in painter's order in both)
+const SV_LOG_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }] };
+unit('sv.glide.globe_sheets', 'the steps view on the globe (Surface: Sphere, on a GPU), the logarithm alone: a warm glide there and back between z and w₁, Everywhere, every sheet\'s copy drawn (#2391); info rows', () => svGlideUnit('log', { id: 'sv.glide.globe_sheets', surf: 'sphere', state: SV_LOG_STATE, info: true, ready: true, setup: '__cmwSteps({ glideStencil: 0 }), 1' }));
+unit('sv.glide.globe_sheets_cut', 'the steps view on the globe (Surface: Sphere, on a GPU), the same glide with the copies drawn only where the principal sheet is not opaque (the stencil, #2406): against sv.glide.globe_sheets, the cut\'s gain; info rows', () => svGlideUnit('log', { id: 'sv.glide.globe_sheets_cut', surf: 'sphere', state: SV_LOG_STATE, info: true, ready: true, setup: '__cmwSteps({ glideStencil: 1 }), 1' }));
+unit('sv.cut_drag', 'the steps view (on a GPU), √z (cut 180°) then z + 2: the cut\'s handle dragged 40 x 30 px and back on w₁ and on w₂, where the cut is carried (#1159): frame p95, latency, fps and the settle\'s jank per plane (info)', svCutDragUnit);
 unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton seeded from the step\'s own ops (#870); info rows only (its cost is measured, the look decides)', () => svGlideUnit('jouk', { info: true }));
+// (z³ then cos about 0: z³'s three sheets tie over every w, so the carried meshes resolve the ties per pixel, two draws a
+// frame, GLR.carryResolve, #1054)
+const SV_TIE_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type: 'pown', params: { n: 3 }, on: true }, { type: 'cos', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 } };
+unit('sv.glide.tie', 'the steps view (on a GPU), z³ then cos about 0: a warm glide there and back between w₁ and w₂, Everywhere on the plane, at dpr 1 and 2. Its glide is the carried mesh\'s, and z³\'s three sheets tie over every w, so each frame draws the meshes twice to resolve the ties per pixel (#1054); info rows only: the cost of a frame with ties', () => svGlideUnit('tie', { id: 'sv.glide.tie', state: SV_TIE_STATE, planes: [1, 2], info: true }));
 const SV_EXT_STATE = (type, params) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type, params, on: true }], srcView: { cx: 0, cy: 0, s: 60 } });
 unit('sv.glide.dh', 'the steps view (on a GPU), the Douady–Hubbard map: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton from the identity seed landed down the external ray; info rows only (its cost is measured against the mesh the reference build draws, the look decides)', () => svGlideUnit('dh', { id: 'sv.glide.dh', state: SV_EXT_STATE('dh', { N: 64 }), info: true }));
 unit('sv.glide.bottcher', 'the steps view (on a GPU), the Böttcher coordinate at c = -1: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, the same seed and ray as the Douady–Hubbard map; info rows only', () => svGlideUnit('bottcher', { id: 'sv.glide.bottcher', state: SV_EXT_STATE('bottcher', { c: '-1', N: 64 }), info: true }));
@@ -1883,10 +1980,26 @@ unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the sam
 // z's plane to keep the √z step's sheets)
 const SV_SHEETS_STATE = Object.assign({}, SV_CUT_STATE, { sheets: true, height: 'im' });
 unit('sv.glide.land_sheets', 'the steps view\'s Landscape with All sheets (Surface: Landscape, on a GPU), √z then z + 2: a warm glide there and back between w₁ and w₂ at dpr 1 and 2, the carry from z\'s plane drawing the √z step\'s two sheets (#1099); info rows only', () => svGlideUnit('sheets', { id: 'sv.glide.land_sheets', surf: 'land', state: SV_SHEETS_STATE, planes: [1, 2], info: true }));
+unit('sv.glide.land_sheets_max', 'the steps view\'s Landscape with All sheets at the Max mesh (meshN 1920, a 512² grid), √z then z + 2: the page\'s first glide w₁ → w₂ once the chain is prepared, then a warm glide there and back, at dpr 1 and 2 (#48: 60 fps, the first glide included); info rows only', () => svGlideUnit('sheets', { id: 'sv.glide.land_sheets_max', surf: 'land', state: Object.assign({}, SV_SHEETS_STATE, { meshN: 1920 }), planes: [1, 2], ready: true, first: true, info: true }), { timeoutS: 600 });
 unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a warm glide there and back between w₁ and w₂, the Möbius step, whose pole at w₁ = -1 is in the carried box (the pole patches), Everywhere; info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_pole', surf: 'land', planes: [1, 2], info: true }));
+// The carried Landscape's most pole patches (CARRY_POLES in src/gl/06-draws-3d.js): svLandPatches keeps the 4 poles of the
+// glide's map nearest the carried box's centre and the 8 poles of the height map (LAND_HEIGHT_POLES) outside the box
+// within a patch's reach of the far patches' inner ring
+const SV_LAND_POLES_MAX = 12;
+// a ring of n points of radius r about 0, from the angle ph, as a zeros-and-poles step's list
+const svRingList = (n, r, ph = 0) => Array.from({ length: n }, (_, k) => {
+  const a = ph + (2 * Math.PI * k) / n, x = r * Math.cos(a), y = r * Math.sin(a);
+  return `${x.toFixed(4)}${y < 0 ? '-' : '+'}${Math.abs(y).toFixed(4)}i`;
+}).join(', ');
+// z + 0.1, then a zeros-and-poles step with 4 poles on the circle of radius 0.5, inside the carried box, and 8 on the circle
+// of radius 10, outside it (the box is about 14 by 12) and within the far patches' reach. The glide w₁ → w₂ carries plane 1,
+// so the glide's map has the 4 inner poles and the height map (the same step) the 8 outer ones: 12 patches. The scale
+// 10¹² lifts every pole's residue (each is divided by its distances to the 11 others) to where svPolesIn finds it; at 10⁶
+// it finds 4
+const SV_LAND_POLES12_STATE = Object.assign({}, SV_CUT_STATE, { steps: [{ type: 'add', params: { c: '0.1' }, on: true }, { type: 'zp', params: { a: '1e12', zeros: '', poles: `${svRingList(4, 0.5)}, ${svRingList(8, 10, 0.2)}` }, on: true }] });
 // (K sheets: ⁿ√z then z + 2, all sheets of the root drawn)
 function svRootState(n) { return Object.assign({}, SV_SHEETS_STATE, { steps: [{ type: 'root', params: { n, cut: 180 }, on: true }, SV_SHEETS_STATE.steps[1]] }); }
-unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2) and the default page\'s Möbius step (its pole patches); info rows, and a check that the baseline holds the page\'s own drawing (#1205)', svLandBytesUnit);
+unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2), the default page\'s Möbius step (its pole patches) and a zeros-and-poles step whose frame draws all 12 pole patches (patches_ok); info rows, and a check that the baseline holds the page\'s own drawing (#1205)', svLandBytesUnit);
 unit('hover.default', 'hover the last plane past the colour plane z: the probe\'s preimage search, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover the last plane past the colour plane z: the probe\'s preimage search, z^3 - 1', () => hoverUnit('cubic'));
 // SPEC 12.5 (P0): exact images through infinity (the new units are NEW in the comparison until the baseline is

@@ -42,9 +42,9 @@ ok('INTEGRATION.md lists events', DOC_EVENTS.size >= 10, [...DOC_EVENTS]);
 for (const k of Object.keys(T.ANCHORS)) ok(`anchor ${k} of the default map is documented`, DOC_ANCHORS.has(k));
 for (const k of DOC_ANCHORS) ok(`documented anchor ${k} has a default`, k in T.ANCHORS);
 // the names the lead's contract asks for
-for (const k of ['examples', 'tool:disc', 'formula', 'shapes', 'chain', 'paneL', 'paneR', 'viewSwitch', 'deformToggle', 'paths', 'guarantees', 'exportBtn', 'palette', 'helpBtn'])
+for (const k of ['examples', 'tool:disc', 'formula', 'shapes', 'chain', 'paneL', 'paneR', 'viewSwitch', 'guarantees', 'exportBtn', 'palette', 'helpBtn'])
   ok(`contract anchor ${k}`, DOC_ANCHORS.has(k) && k in T.ANCHORS);
-for (const m of ['anchor(name)', 'has(feature)', 'snapshot()', 'restore(snap', 'loadScene(spec)', 'sandbox(on)', 'setView(main)', 'setSurface(pane, surf)', 'setDeformation(on)', 'setTool(id)', 'setLook(look)', 'busy()', 'hasWork()', 'on(event, fn)', 'tex(src)', 'storageKey(k)'])
+for (const m of ['anchor(name)', 'has(feature)', 'snapshot()', 'restore(snap', 'loadScene(spec)', 'sandbox(on)', 'setView(main)', 'setSurface(pane, surf)', 'setTool(id)', 'setLook(look)', 'busy()', 'hasWork()', 'on(event, fn)', 'tex(src)', 'storageKey(k)'])
   ok(`INTEGRATION.md documents api.${m}`, DOC.includes(m));
 for (const m of ['Tour.init', 'Tour.start', 'Tour.suggest', 'Tour.isSeen', 'Tour.openHelpMenu', 'Tour.auto']) ok(`INTEGRATION.md documents ${m}`, DOC.includes(m));
 // (the strip's slot, the Grieg example's scene, the sound of the Sound chapter)
@@ -55,14 +55,14 @@ const CH = T.CHAPTERS;
 // the anchors that are themselves the control a Try it needs: a tool, a toggle, the bracket, the palette's key,
 // the plane that is hovered, held or right-clicked
 // (also the planes together, where an orbit or the harp's laps happen, and the formula section with its field and Add)
-const CONTROL_ANCHORS = new Set(['tool:disc', 'tool:circle3', 'deformToggle', 'paths', 'bracketL', 'palette', 'paneL', 'paneR', 'panes', 'formula']);
+const CONTROL_ANCHORS = new Set(['tool:disc', 'tool:circle3', 'palette', 'paneL', 'paneR', 'panes', 'formula']);
 const steps = CH.flatMap((c) => c.steps.map((s) => Object.assign({ ch: c.id }, s)));
 // (an eighth chapter, Editing the chain: the cards, the Inspector, zeros and poles, the planes' menu, shared numbers)
 // (a ninth chapter, Constructions, of 3 steps, SPEC 16: the budget grows by that chapter)
 // (a tenth chapter, Sound, of 4 steps)
 ok('5 to 10 chapters', CH.length >= 5 && CH.length <= 10, CH.length);
 ok('20 to 48 steps', steps.length >= 20 && steps.length <= 48, steps.length);   // (with the deformation range's stop and the Sound chapter)
-check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'construct', 'deform', 'analysis', 'branches', 'sound', 'export', 'keys']);   // (with Constructions and Sound)
+check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'construct', 'analysis', 'branches', 'sound', 'export', 'keys']);   // (with Constructions and Sound)
 ok('basics: 8 to 10 steps (about two minutes)', CH[0].steps.length >= 8 && CH[0].steps.length <= 10, CH[0].steps.length);
 // (with the auto-advance a task step takes seconds: at most 7)
 ok('basics: at most 8 Try its (two minutes, as the suggestion promises; #34 added the Y step\'s, a scroll or a drag)', CH[0].steps.filter((s) => s.try).length <= 8, CH[0].steps.filter((s) => s.try).map((s) => s.id));
@@ -75,11 +75,15 @@ for (const c of CH) {
 }
 // what the tour covers (the lead's list): each topic has a step
 const ids = new Set(steps.map((s) => `${s.ch}/${s.id}`));
-for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/formula', 'basics/chain', 'basics/add', 'basics/x', 'basics/y', 'basics/preimages',
-  'views/phase', 'views/land', 'views/sphere', 'deform/toggle', 'deform/paths', 'deform/order',
-  'analysis/targets', 'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/cards', 'edit/inspector', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
-  'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'views/key', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
+for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/formula', 'basics/chain', 'basics/add', 'basics/x',
+  'views/phase', 'views/land', 'views/sphere',
+  'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/cards', 'edit/inspector', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
+  'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
   ok(`covers ${id}`, ids.has(id));
+// the classic view draws X alone: the steps that need Y's pane are left out (Y: the image, Preimages, Phase key, Targets),
+// and Add a function lights no Y
+for (const id of ['basics/y', 'basics/preimages', 'views/key', 'analysis/targets']) ok(`the classic tour has no ${id}, which needs Y's pane`, !ids.has(id));
+ok('no classic step lights Y\'s pane', steps.every((s) => ![].concat(s.anchor || [], s.also || []).includes('paneR')), steps.filter((s) => [].concat(s.anchor || [], s.also || []).includes('paneR')).map((s) => s.ch + '/' + s.id));
 // the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
 const stepOf0 = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
@@ -124,7 +128,7 @@ for (const s of steps) {
     if (s.ch === 'sound') { const it = IT[t]; ok(`${id}: Italian of "${t.slice(0, 30)}" at most 64 as read`, typeof it === 'string' && T.plainCopy(it, 'Ctrl').length <= 64, it); }
   }
   for (const a of s.before || []) {
-    ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'deform', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane', 'range'].includes(a[0]), a);
+    ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane', 'range'].includes(a[0]), a);
     if (a[0] === 'select') ok(`${id}: select value`, a[1] === 'F' || (Number.isInteger(a[1]) && a[1] >= 1), a);
     if (a[0] === 'plane') ok(`${id}: plane value`, ['L', 'R'].includes(a[1]), a);
     if (a[0] === 'scene') ok(`${id}: scene ${a[1]} exists`, [].concat(a[1]).every((k) => !!T.SCENES[k]), a[1]);
@@ -132,7 +136,6 @@ for (const s of steps) {
     if (a[0] === 'look') ok(`${id}: look keys`, a[1] && Object.keys(a[1]).every((k) => k in T.LOOK), a);
     if (a[0] === 'view') ok(`${id}: view value`, ['xy', 'phase', 'land'].includes(a[1]), a);
     if (a[0] === 'surface') ok(`${id}: surface value`, ['L', 'R'].includes(a[1]) && ['plane', 'sphere'].includes(a[2]), a);
-    if (a[0] === 'deform') ok(`${id}: deform value`, typeof a[1] === 'boolean', a);
     // ('sheet', a phone's sheet only; a third value names the phone's sheet: tools, display)
     if (a[0] === 'panel') ok(`${id}: panel value`, ['left', 'right', 'sheet'].includes(a[1]) && (a[2] == null || /^(tools|display|steps)(:(draw|construct|shapes))?$/.test(a[2])) && (a[1] !== 'sheet' || a[2] != null), a);
   }
@@ -170,7 +173,7 @@ for (const e of EXAMPLE_ONLY) ok(`${e} is waited for by an example's Try line`, 
 for (const e of DOC_EVENTS) if (!EXAMPLE_ONLY.includes(e)) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
 // every task with a drag asks for the Select tool, which it switches on first and lights
 // (a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)
-for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw' && x.id !== 'targets')) {   // (draw and targets choose the Disc tool first, which they light)
+for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw')) {   // (draw chooses the Disc tool first, which it lights)
   ok(`${s.ch}/${s.id}: a drag lights the Select tool`, [].concat(s.try.ctl || []).includes('tool:select'), s.try.ctl);
   ok(`${s.ch}/${s.id}: a drag switches to Select first`, (s.before || []).some((a) => a[0] === 'tool' && a[1] === 'select'), s.before);
 }
@@ -195,29 +198,17 @@ ok('Circle through three points lights its tool, and opens a phone\'s More tools
 ok('Cards follow the view shows the pictures', stepOf('edit', 'cards').pictures === true && CH.flatMap((c) => c.steps).filter((x) => x.pictures).length === 1);
 // (and opens the left panel, a drawer on a narrow desktop, or a phone's Tools sheet, where the list is)
 ok('Your shapes switches to Select first, and its Try it says V', eq(stepOf('basics', 'shapes').before, [['tool', 'select'], ['panel', 'left', 'tools:shapes']]) && /\{V\}/.test(stepOf('basics', 'shapes').try.text));
-ok('Phase key starts it off, so Turn on Phase key can always tick', stepOf('views', 'key').before.some((a) => a[0] === 'look' && a[1].phaseKey === false));
-ok('All steps at once starts it off', stepOf('deform', 'order').before.some((a) => a[0] === 'look' && a[1].allAtOnce === false));
-check('Paths: toggled twice, so it ends on', stepOf('deform', 'paths').try.count, 2);
 const an = CH.find((c) => c.id === 'analysis').steps.map((s) => s.id);
 ok('Natural domain comes before Guarantees, which says what Step by step shows', an.indexOf('domain') < an.indexOf('guarantees') && /Step by step/.test(stepOf('analysis', 'guarantees').body) && !/Step by step/.test(stepOf('analysis', 'domain').body));
 ok('the integral copy names the menu item of a closed curve', /\\oint F/.test(stepOf('analysis', 'integral').body) && !/Integrate/.test(stepOf('analysis', 'integral').body));
 ok('no copy promises that squares stay square', steps.every((s) => !/squares? stay square/.test(s.body)));
 check('domain copy by scene', [T.copyFor(stepOf('analysis', 'domain'), 'residueZp') !== stepOf('analysis', 'domain').body, T.copyFor(stepOf('analysis', 'domain'), 'residue')], [true, stepOf('analysis', 'domain').body]);
 check('copyFor: the phone layout reads its place words (touch with a coarse pointer, narrow with a fine one), the desk layout the body (#480)', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true }), T.copyFor({ body: 'b', narrow: 'n' }, null, { coarse: true, narrow: false }), T.copyFor({ body: 'b', narrow: 'n' }, null, { coarse: false, narrow: true }), T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: false, narrow: false })], ['t', 'b', 'n', 'b']);
-// the preimages Try it: a probe inside the disc and one outside
-const pio = T.probeInOut;
-ok('probe: a bare event ticks', pio(undefined) === true && pio({ pane: 'R' }) === true);
-ok('probe: X does not tick', pio({ pane: 'L', w: [0, 0] }) === false);
-let mem = {};
-ok('probe: inside only does not tick', pio({ pane: 'R', w: [0.3, 0.2] }, mem) === false && pio({ pane: 'R', w: { re: 0.1, im: 0 } }, mem) === false);
-ok('probe: inside then outside ticks', pio({ pane: 'R', w: [0, 1.4] }, mem) === true);
-mem = {};
-ok('probe: outside then inside ticks', pio({ pane: 'R', w: [2, 0] }, mem) === false && pio({ pane: 'R', w: [0.5, 0] }, mem) === true);
 ok('scenes: every step type has params', Object.values(T.SCENES).every((sc) => sc.steps.every((st) => typeof st.type === 'string' && st.params && typeof st.params === 'object')));
 check('the zeros-and-poles scene needs the zp step', [T.SCENES.zp.needs, T.SCENES.zp.steps[0].type], ['zp', 'zp']);
 const CHA = CH.find((c) => c.id === 'analysis'), CHE = CH.find((c) => c.id === 'edit');
 const ixA = (id) => CHA.steps.findIndex((s) => s.id === id), ixE = (id) => CHE.steps.findIndex((s) => s.id === id);
-check('the scene a step shows: its chapter scene, or the last scene action before it', ['targets', 'cauchy', 'integral', 'domain'].map((id) => T.sceneAt(CHA, ixA(id))), ['roots', 'roots', 'residueZp', 'residueZp']);
+check('the scene a step shows: its chapter scene, or the last scene action before it', ['cauchy', 'integral', 'domain'].map((id) => T.sceneAt(CHA, ixA(id))), ['roots', 'residueZp', 'residueZp']);
 check('Editing: the strip, then zeros and poles, then the shared number', ['cards', 'inspector', 'zp', 'numbers'].map((id) => T.sceneAt(CHE, ixE(id))), ['strip', 'strip', 'zp', 'numbers']);
 ok('the shared-number scene binds the circle to a', T.SCENES.numbers.params[0].name === 'a' && T.SCENES.numbers.shapes.some((sh) => sh.bind && sh.bind.r === 'a') && T.SCENES.numbers.needs === 'params');
 
@@ -278,11 +269,10 @@ check('countdown: Move on by itself off -> never', [fireAt([[0, { type: 'done', 
 // (regress-6: Move on by itself off applies to doors too)
 check('countdown: Move on by itself off -> a door only ticks', [fireAt([[0, { type: 'done', door: true, off: true }]]), fireAt([[0, { type: 'done', door: true, reduced: true, off: true }]])], [null, null]);
 // (user-2, user-8, user-9: the formula task on a phone too; a listen step names ▶ and says when the tour turns
-// the sound on; Preimages' touch task names the ring, with a hint when a short hold pans Y)
-{ const f = stepOf('basics', 'formula'), s1 = stepOf('sound', 'song'), pr = stepOf('basics', 'preimages');
+// the sound on)
+{ const f = stepOf('basics', 'formula'), s1 = stepOf('sound', 'song');
   ok('basics/formula asks its task on every screen, its example not the field\'s placeholder', !f.tryWide && !/\|z-1\|<2/.test(f.try.text));
-  ok('sound/song: the task names ▶ and has a sound-off variant', /▶/.test(s1.try.text) && /sound on/.test(s1.try.off));
-  ok('basics/preimages: the touch task names the ring and a hint answers a pan of Y', /ring/.test(pr.try.touch) && pr.try.hint && pr.try.hint.on === 'view-moved' && pr.try.hint.test({ pane: 'R' }) && !pr.try.hint.test({ pane: 'L' })); }
+  ok('sound/song: the task names ▶ and has a sound-off variant', /▶/.test(s1.try.text) && /sound on/.test(s1.try.off)); }
 check('countdown: a door -> 700 (300 with reduced motion), held by nothing', [fireAt([[0, { type: 'done', door: true }]]), fireAt([[0, { type: 'done', door: true, reduced: true }]]), fireAt([[0, { type: 'hold', kind: 'pointer' }], [0, { type: 'done', door: true }], [100, { type: 'input' }]])], [700, 300, 700]);
 check('countdown: an input before done changes nothing', fireAt([[0, { type: 'input' }], [100, { type: 'done' }]]), 100 + CDM);
 check('countdown: input while held changes nothing', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'listen' }], [1000, { type: 'input' }], [2000, { type: 'release', kind: 'listen' }]]), 2000 + CDM);
@@ -295,7 +285,11 @@ check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }
 // the totals of SPEC 3: 47 steps, 34 with a task (2 doors), 13 read; less Add a zero here (issue #13: the planes' menu
 // adds no zeros)
-check('44 steps: 38 tasks (1 door), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [44, 38, 1, 6]);   // (#34: y, targets, domain, deriv and cauchy have tasks; #363: Views' Patterns step went)
+// (standards-ok: the Deformation chapter's rows went with the chapter, #994: the classic transport is gone; the steps
+// view's chapter is Planes, t_tour_planes.js)
+// (standards-ok: the rows on the steps that need Y's pane, Basics y and preimages, Views key and the probe they shared,
+// go with those steps (#994); the rows on the steps that stay are kept, and the classic tour's absence of them is checked)
+check('35 steps: 29 tasks (no door), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [35, 29, 0, 6]);   // (domain, deriv and cauchy have tasks)
 
 // ---- lit areas
 let L = T.litAreas([{ l: 10, t: 10, r: 110, b: 40 }]);
@@ -414,11 +408,10 @@ console.warn = warn0;
 ok('broken storage is reported on the console', warned >= 2, warned);
 
 // ---- features the build lacks (api.has) and the step order
-Tour.init({ has: (f) => !['zp', 'allAtOnce'].includes(f) });
-const ai = CH.findIndex((c) => c.id === 'analysis'), di = CH.findIndex((c) => c.id === 'deform'), ei = CH.findIndex((c) => c.id === 'edit');
+Tour.init({ has: (f) => f !== 'zp' });
+const ai = CH.findIndex((c) => c.id === 'analysis'), ei = CH.findIndex((c) => c.id === 'edit');
 ok('the zeros-and-poles step is absent without the zp feature', T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'zp')));
 ok('Shared numbers is not absent without zp (its own scene)', !T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'numbers')));
-ok('All at once is absent without it', T.absent(di, CH[di].steps.findIndex((s) => s.id === 'order')));
 ok('a step after the zp scene is not absent (it loads its own scene)', !T.absent(ai, CH[ai].steps.findIndex((s) => s.id === 'integral')));
 Tour.init({});
 ok('no api.has: nothing is absent', !T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'zp')));
@@ -450,8 +443,6 @@ Tour.init({});
 
 // ---- the copy of a control found in the ⋯ menu; layout-only steps; place()'s near miss is not 'side'
 check('copyFor: the ⋯ menu fallback says "in this menu" first', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true, menu: true }), T.copyFor({ body: 'b', touch: 't' }, null, { coarse: true, menu: true })], ['n', 't']);
-// (not wide-only: on a phone Y's options, with the Phase key, are in the Display sheet the step opens)
-ok('views/key opens the Display sheet on a phone (Y large)', !stepOf('views', 'key').wide && JSON.stringify(stepOf('views', 'key').before).includes('["panel","sheet","display"]') && JSON.stringify(stepOf('views', 'key').before).includes('["plane","R"]'));
 ok('basics/shapes asks its Try it on wide screens only', stepOf('basics', 'shapes').tryWide === true);
 // ---- the module without a DOM
 ok('no DOM: suggest is a no-op', Tour.suggest() === false);

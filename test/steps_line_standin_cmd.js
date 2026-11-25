@@ -4,8 +4,10 @@
 // drawn from the map's CPU twin (the lines' stand-in, drawLines' st.cpu): at points along each shape's image on w₂, the
 // frame drawn while the links are held is the frame drawn once they land (each point's pixel within 32 levels of one of
 // the 3 x 3 pixels about it in the linked frame, at least 95 % of the points), each shape's made at the lines' own
-// template size within the stand-in's CPU budget (CPU_LINE_MS, 25 ms). An expensive series (about 2 ms an evaluation on
-// the CI machines) gets none: the lines are refused within the budget and a segment, as GLR.lineStandIns records.
+// template size (8). The stand-in's CPU budget (CPU_LINE_MS, 25 ms) picks a smaller size when the first segments' time
+// extrapolates past it, which a busy machine stretches, so this page sets the budget to 1e6 ms (?glline) and the size
+// is the one the stand-in takes when it fits. An expensive series (about 2 ms an evaluation on the CI machines) gets
+// none under the real budget: the lines are refused within the budget and a segment, as GLR.lineStandIns records.
 // A command file for a CDP daemon; CI runs it in the views shard (ci/browser_shards.js). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -19,9 +21,12 @@ const pts = SHAPES.flatMap((s) => Array.from({ length: 48 }, (_, k) => {
   const a = 2 * Math.PI * (k + 0.5) / 48, x = s.c[0] + s.r * Math.cos(a), y = s.c[1] + s.r * Math.sin(a);
   return [x * x - y * y + 1, 2 * x * y];
 }));
+// (the meshing window the stand-ins are measured in, saved with the state: a thread saved on a later plane with no window is
+// meshed in the settled pane's, which changes how many outlines are made and what each costs, and this suite reads the outlines)
+const CLIP_WIN = { x0: -2.75, x1: 2.75, y0: -4.166666666666667, y1: 4.166666666666667 };
 const ns = 'sls' + Date.now();
-await seed(ns, { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'custom', params: { expr: 'z+1', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 2, T: 0, scope: 'all', surf: 'plane' } });
-await go(`${base}/test.html?ns=${ns}&view=steps&glhold`);
+await seed(ns, { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'custom', params: { expr: 'z+1', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 2, T: 0, scope: 'all', surf: 'plane' }, clipWin: CLIP_WIN });
+await go(`${base}/test.html?ns=${ns}&view=steps&glhold&glline=1e6`);
 await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'function' && !!window.GLR && GLR.ok" });
 // (held: the frame pending on the lines' own program, read once two reads 300 ms apart agree: the regions' stand-in
 // meshes are made in idle slices)
@@ -39,15 +44,19 @@ info.outline = K.tally(held.px, rel.px, { tol: 32, note: (k) => ({ w: pts[k].map
 ok('while the links are held: the outlines on w₂ are the linked frame\'s (at least 95 % of the points within 32 levels)', info.outline.n >= 80 && info.outline.wrong <= 0.05 * info.outline.n, info.outline);
 info.made = held.made;
 ok('while the links are held: each shape\'s outline is a stand-in at the lines\' template size (8)', held.made.length === SHAPES.length && held.made.every((r) => r.m === 8), info.made);
-ok('timing: each outline\'s stand-in is made within its CPU budget (25 ms)', held.made.length === SHAPES.length && held.made.every((r) => r.ms <= 25), info.made);
+ok('timing: each outline\'s stand-in takes at most the real budget here (25 ms; the page\'s own budget is set)', held.made.length === SHAPES.length && held.made.every((r) => r.ms <= 25), info.made);
 // an expensive series: its stand-in is refused (the first segment's evaluations show it would not fit), not made
 const ns2 = 'slx' + Date.now();
-await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 1, T: 0, scope: 'all', surf: 'plane' } });
+await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 1, T: 0, scope: 'all', surf: 'plane' }, clipWin: CLIP_WIN });
 await go(`${base}/test.html?ns=${ns2}&view=steps&glhold`);
 await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'function' && !!window.GLR && GLR.ok" });
 const exWait = await settled({ only: true, max: 30000, until: `GLR.lineStandIns().length >= ${SHAPES.length}` });
 info.expensive = { wait: exWait, x: await ev('__cmwSteps().x'), made: await ev('GLR.lineStandIns()') };
 ok('an expensive series: no stand-in, each outline refused', exWait.ok && info.expensive.x === 1 && info.expensive.made.length === SHAPES.length && info.expensive.made.every((r) => r.m === 0), info.expensive);
+// (the probe: the first CPU_LINE_PROBE segments, each at the template size M, 2M + 1 evaluations: the refusal comes at the
+// latest there, however fast the machine runs, so the evaluations made are bounded without a clock)
+const PROBE_EVALS = 8 * (2 * 8 + 1);
+ok('an expensive series: each outline is refused within the probe\'s evaluations (' + PROBE_EVALS + '), whatever the machine\'s speed', info.expensive.made.length === SHAPES.length && info.expensive.made.every((r) => r.m === 0 && r.ev > 0 && r.ev <= PROBE_EVALS), info.expensive);
 ok('timing: an expensive series\' outlines are refused within the budget and a segment (60 ms)', info.expensive.made.length === SHAPES.length && info.expensive.made.every((r) => r.ms <= 60), info.expensive);
 await ev('GLR.holdLinks(false), 1');
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));

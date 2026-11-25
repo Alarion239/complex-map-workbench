@@ -110,18 +110,6 @@
   "note": "split atLeast of chrome.extra.n_preimages_of",
   "file": "app.js:2615"
  },
- "int.sym_around_name": {
-  "en": "{sym} around {name}{part}",
-  "ru": "{sym} по контуру {name}{part}",
-  "note": "integral popover title; {sym} is ∮ or ∫, {name} the curve name, {part} the \"(visible part)\" note",
-  "file": "app.js:1"
- },
- "int.sym_along_name": {
-  "en": "{sym} along {name}{part}",
-  "ru": "{sym} по кривой {name}{part}",
-  "note": "integral popover title",
-  "file": "app.js:1"
- },
  "roots.n_roots_of": {
   "en": "<div class=\"ch\">{n} roots of {fxHtml} = {val} {where}{choice}</div>",
   "ru": "<div class=\"ch\">{n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
@@ -559,18 +547,6 @@
   "note": "English source fixed (README \"Two English errors to fix\"): exp followed by log -> log followed by exp. New English key; the Russian of chrome.list_sound_but_not was already right.",
   "file": "app.js:8795"
  },
- "int.aria_around": {
-  "en": "Line integral around {name}",
-  "ru": "Интеграл по контуру {name}",
-  "note": "integral popover aria-label",
-  "file": "app.js:5893"
- },
- "int.aria_along": {
-  "en": "Line integral along {name}",
-  "ru": "Интеграл по кривой {name}",
-  "note": "integral popover aria-label",
-  "file": "app.js:5893"
- },
  "chip.per_div": {
   "en": "{x} / div",
   "ru": "{x} / дел.",
@@ -890,19 +866,6 @@
  "cap.shape_the_kind_m_gen": {
   "en": "the %{kind} %{m}",
   "ru": "%{kind} %{m}",
-  "ctx": "gen",
-  "note": "shapePhrase, genitive",
-  "file": "app.js:9053"
- },
- "cap.shape_the_label_m": {
-  "en": "the %{label} %{m}",
-  "ru": "%{label} %{m}",
-  "note": "shapePhrase, nominative",
-  "file": "app.js:9053"
- },
- "cap.shape_the_label_m_gen": {
-  "en": "the %{label} %{m}",
-  "ru": "%{label} %{m}",
   "ctx": "gen",
   "note": "shapePhrase, genitive",
   "file": "app.js:9053"
