@@ -645,8 +645,20 @@
   // so the drawn mesh is the same whatever the machine's load; SM_MS_CAP CPU ms is a safety stop only. (The wall-clock
   // 1.5 s of 8.4 expires on a heavy scene, so the drawn meshes would be partial and change with the load.)
   const SM_APP = /** @type {any} */ (SphereMesh.APP || { maxWork: 250000, maxNodes: 300000, guard: 2 });
-  const smWork = () => (SM_APP.workOf ? SM_APP.workOf(SphereMesh.kOf(S.alpha)) : SM_APP.maxWork);
   const SM_GUARD = SM_APP.guard, SM_SLICE = 5, SM_CPU_BYTES = 32 * 1024 * 1024, SM_LIVE_NODES = 1500000, SM_NODES = SM_APP.maxNodes, SM_MS_CAP = 10000;
+  // The steps view's whole plane (__svAll, its carried colour Everywhere) takes larger budgets than SphereMesh.APP's:
+  // its front layer about a fold of the map (z³ then cos about z³ = π) is refined to device pixels, and with APP's the
+  // leaves there stay pending and undrawn, so other sheets and bare paper show through them (steps_mesh_arc). Those
+  // leaves lie along the fold's curves, so how many the pane needs grows with its linear size in device pixels, the
+  // square root of its area: SM_ALL_NODES nodes and SM_ALL_WORK evaluations for a pane of SM_ALL_PX device pixels (a
+  // 1200 x 800 window's at dpr 1), and a larger pane's by the square root of the ratio, at most SM_ALL_SCALE_MAX times
+  // (a 1200 x 800 window's at dpr 2; a 390 x 844 phone's at dpr 2 is about 1.36). Its outer ring (__svRing) and every
+  // other shape keep APP's
+  const SM_ALL = '__svAll', SM_ALL_NODES = 300000, SM_ALL_WORK = 500000, SM_ALL_PX = 530000, SM_ALL_SCALE_MAX = 2;
+  const smAllScale = (v) => (v && v.kind === 'flat' ? Math.min(SM_ALL_SCALE_MAX, Math.max(1, Math.sqrt((v.W * v.H) / SM_ALL_PX))) : 1);
+  // a shape's budgets for a mesh in view v: its map evaluations and its nodes
+  const smWork = (s, v) => Math.max(SM_APP.workOf ? SM_APP.workOf(SphereMesh.kOf(S.alpha)) : SM_APP.maxWork, s && s.id === SM_ALL ? Math.round(SM_ALL_WORK * smAllScale(v)) : 0);
+  const smNodes = (s, v) => (s && s.id === SM_ALL ? Math.max(SM_NODES, Math.round(SM_ALL_NODES * smAllScale(v))) : SM_NODES);
   const sm = { entries: new Map(), jobs: new Map(), want: new Map(), running: false, kickT: 0, cpuBytes: 0, exportPartial: 0, exportGen: 0, stats: { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 } };
   const smOn = () => GLR.ok && !!GLR.createPreMesh;
   function smStretched(s) {
@@ -814,7 +826,7 @@
         left: smLeft(),
         view: v, Kmax: kp ? 2 : SphereMesh.kOf(lk.alpha), depth: kp ? (z) => Inverse.sheetKey(kp, z, null) : undefined,
         pattern: { id: (GLR.PATTERNS || {})[lk.pattern] ?? 1, cell: patternCell(), lines: !!lk.lines },
-        maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
+        maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork(s, v)) : smWork(s, v), budgetMs: SM_MS_CAP, maxNodes: smNodes(s, v),
       };
       sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false) + (why === 'linking' ? '|link' : ''), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });
     }
@@ -914,7 +926,7 @@
           steps: smSteps(m), F: cpuMap(m), injective: smInjective(m), shape: JSON.parse(JSON.stringify(s)),
           left: smLeft(),
           view: v, Kmax: SphereMesh.kOf(S.alpha), pattern: { id: (GLR.PATTERNS || {})[S.pattern] ?? 1, cell: patternCell(), lines: !!S.lines },
-          maxWork: smWork() * 4, budgetMs: SM_MS_CAP * 3, maxNodes: SM_NODES * 2,
+          maxWork: smWork(s, v) * 4, budgetMs: SM_MS_CAP * 3, maxNodes: smNodes(s, v) * 2,
         });
         const t0 = performance.now();
         let cpu = 0, slices = 0, st;
