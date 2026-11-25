@@ -876,6 +876,7 @@
  "torn here by the glide’s cut, not a split": "здесь разрезано разрезом перехода, это не разделение",
  "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Этот повтор слишком длинный, чтобы нарисовать его точно: образ областей здесь неизвестен, и плоскость заштрихована. С меньшим числом копий рисунок получается точным.",
  "No sheet under the centre of the view": "Под центром вида нет листа",
- "Click to pick · hold and slide to read · drag to orbit": "Щелчок выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает",
+ "Click to pick · hold and slide to read": "Щелчок выбирает точку · удерживайте и ведите, чтобы прочитать",
+ "Tap to pick · hold and slide to read": "Касание выбирает точку · удерживайте и ведите, чтобы прочитать",
  "Tap to pick · hold and slide to read · drag to orbit": "Касание выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает"
 }

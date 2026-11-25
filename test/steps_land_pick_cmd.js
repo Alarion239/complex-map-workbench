@@ -1,7 +1,8 @@
 // The pick on the Landscape's sheets (19-land-pick.js): the steps view's Landscape parked on w₁ and coloured from z
 // carries plane z's points to w₁, so over each w it draws a sheet for each preimage of w in z's box, at its height (Re
 // z). On M3, z³ − 1.2z + 0.3, with real pointer events:
-//  - the Pick tool picks here, and the plane says its gestures, not that drawing is off or elsewhere (en, ru, it);
+//  - the Pick tool picks here, and the plane says its gestures, not that drawing is off or elsewhere (en, ru, it); on a
+//    portrait phone the readout's hint says them, with no chip, clear of the folded key;
 //  - the point under the pointer is a sheet's: over a grid of the pane, each pixel where the pick meets a sheet gives a
 //    point z of plane z with M3(z) = w, the point of w₁ under it; the pick meets sheets on both sides of the real axis;
 //  - a click lights the twins of the point it picked: the three preimages of its w (M3's roots, to 1e-9), said in the
@@ -30,10 +31,12 @@ const MIN_HITS = 20;          // the grid's pixels where the pick meets a sheet,
 const NEAR_PX = 12;           // css px: twins' rings nearer than this are drawn as one (LAND_PICK_NEAR, twice PICK_RING)
 const HOLD_WAIT = 4000;
 const HINTS = {
-  en: { chip: 'Click to pick · hold and slide to read · drag to orbit', off: ['Drawing is off', 'Draw in X → Y (1)'] },
-  ru: { chip: 'Щелчок выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает', off: ['Рисуйте в виде X → Y (1)'] },
-  it: { chip: 'Fai clic per scegliere · tieni premuto e scorri per leggere · trascina per ruotare', off: ['Disegna in X → Y (1)'] },
-};       // ms: a held press's twins light within this (the hold is STACK_HOLD_MS, 450)
+  en: { chip: 'Click to pick · hold and slide to read', phone: 'Tap to pick · hold and slide to read · drag to orbit', off: ['Drawing is off', 'Draw in X → Y (1)'] },
+  ru: { chip: 'Щелчок выбирает точку · удерживайте и ведите, чтобы прочитать', phone: 'Касание выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает', off: ['Рисуйте в виде X → Y (1)'] },
+  it: { chip: 'Fai clic per scegliere · tieni premuto e scorri per leggere', phone: 'Tocca per scegliere · tieni premuto e scorri per leggere · trascina per ruotare', off: ['Disegna in X → Y (1)'] },
+};
+const PHONES = [[360, 800], [390, 844]];   // portrait phones, touch: no chip; the readout's hint says the gestures
+const KEY_HIT = 44;            // css px: the folded key's hit area, about its centre       // ms: a held press's twins light within this (the hold is STACK_HOLD_MS, 450)
 const TURN = 0.05;            // rad: a quick drag turns the camera at least this much
 // the chains' maps of plane z to w₁ ([re, im] points)
 const mul = ([a, b], [c, d]) => [a * c - b * d, a * d + b * c];
@@ -60,10 +63,10 @@ const roots3 = (w) => {
 const sameSet = (a, b, tol = REL) => !!a && !!b && a.length === b.length && a.every((p) => b.some((q) => close(p, q, tol)));
 const pts = (l) => (l ? l.zs.map((q) => [q[0], q[1]]) : null);
 
-const open = async (expr, lang = 'en') => {
+const open = async (expr, lang = 'en', phone = null) => {
   const ns = `lpick-${Date.now()}`;
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [{ type: 'custom', params: { expr }, on: true }], nextId: 50 };
-  await view(1440, 900, false, false);
+  await view(phone ? phone[0] : 1440, phone ? phone[1] : 900, false, !!phone);
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
@@ -225,6 +228,18 @@ for (const l of ['ru', 'it']) {
   await open('z^3-1.2z+0.3', l);
   const hl = await hints();
   ok(`${l}: the plane says the Pick tool's gestures on the sheets, and nothing about drawing elsewhere`, hintsOk(hl, l), hl);
+}
+// ---- on a portrait phone: no chip (centred at the top it lay over the folded key, and in ru and it over the readout's
+// second line); the readout's hint says the gestures, clear of the folded key's hit area
+const rects = () => ev(`(() => { const r = (id) => { const e = document.getElementById(id); if (!e || e.hidden || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }; return { chip: r('sphereChipL'), readout: r('leftReadout'), key: r('leftLegend') }; })()`);
+const meet = (a, b) => !!a && !!b && a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+const hitArea = (k) => k && [(k[0] + k[2]) / 2 - KEY_HIT / 2, (k[1] + k[3]) / 2 - KEY_HIT / 2, (k[0] + k[2]) / 2 + KEY_HIT / 2, (k[1] + k[3]) / 2 + KEY_HIT / 2];
+for (const ph of PHONES) for (const l of ['en', 'ru', 'it']) {
+  await open('z^3-1.2z+0.3', l, ph);
+  const hl = await hints(), rc = await rects(), at = `${l}, ${ph.join(' × ')}`;
+  (info.phone = info.phone || {})[at] = rc;
+  ok(`${at}: no hint chip; the readout's hint says the gestures for a finger, and nothing about drawing elsewhere`, !rc.chip && hl.readout.includes(HINTS[l].phone) && !HINTS[l].off.some((t) => hl.readout.includes(t)), { hl, rc });
+  ok(`${at}: the readout keeps clear of the folded key's ${KEY_HIT} px hit area`, !!rc.readout && !meet(rc.readout, hitArea(rc.key)), rc);
 }
 
 const bad = logs(true).filter((e) => e.t === 'EXC' || e.t === 'error');

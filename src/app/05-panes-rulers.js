@@ -176,10 +176,12 @@
       const drawing = tool !== 'select' && !(tool === 'pick' && landPickOn()) && solo() !== 'R';
       const where = lLand() ? $t('the landscape') : $t('the Riemann sphere');
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
+      const pickHint = tool === 'pick' && landPickOn() && solo() !== 'R' && !document.documentElement.classList.contains('ph');
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
-      // (the Pick tool on the Landscape's sheets: its gestures, 19-land-pick.js)
-      else if (tool === 'pick' && landPickOn() && solo() !== 'R') msg = fingerNow() ? $t('Tap to pick · hold and slide to read · drag to orbit') : $t('Click to pick · hold and slide to read · drag to orbit');
+      // (the Pick tool on the Landscape's sheets: its gestures, 19-land-pick.js, beside the readout's orbit hint; on a
+      // phone the readout's hint says them, idleLeft, and no chip covers the plane's keys)
+      else if (pickHint) msg = fingerNow() ? $t('Tap to pick · hold and slide to read') : $t('Click to pick · hold and slide to read');
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
       // listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
