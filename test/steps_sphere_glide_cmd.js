@@ -65,13 +65,14 @@ ok(`parked: the paths of the glide are drawn on the globe${p && p.globeError ? '
 // hidden. Parked on plane w1 with All sheets the globe is coloured everywhere; the glide frame ARRIVE_EPS short of it
 // draws a copy per sheet, the principal one in front, so it is the parked globe: at most ARRIVE_MAX of the pixels more
 // than held_frames' DIFF_TOL apart. Control: the principal sheet alone (__cmwSteps({ glideSheets: 1 })), more than
-// ARRIVE_CONTROL apart
+// ARRIVE_CONTROL apart. Every frame leaves out the arrival plane's colour under the carried colour (__cmwSteps({
+// restPaint: 0 })), which is the parked globe's and would cover a missing sheet
 const { hold, grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const ARRIVE_EPS = 1e-4, ARRIVE_MAX = 0.01, ARRIVE_CONTROL = 0.05;
 await ev(`__cmwExample(${exampleNames().indexOf('Square root and its sheets')}); 1`); await settled({ max: 20000 });
 const frameAt = async (state) => {
   await ev('if (window.__svScrubUp) { window.__svScrubUp(); window.__svScrubUp = null; } 1');
-  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'sphere', go: 0, now: true }); ${state}; 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'sphere', go: 0, now: true }); __cmwSteps({ restPaint: 0 }); ${state}; 1`);
   await quiet();
 };
 const heldAt = async (u) => { await frameAt('__cmwSteps({ park: 0 })'); await hold(u); await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: 20000 }); };
