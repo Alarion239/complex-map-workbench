@@ -182,7 +182,9 @@ if (!ALL) {
     ok('cut: seeded under the fill\'s rate the chain plans ahead', (await planOf()) === 'ahead', { c, rate, seeded: rate / 4, waitMs });
     const a = await press(0);
     info.cut = { c, rate, waitMs, d, a };
-    ok('cut: the fill ends early: from the press to the glide under way is under 0.6 of the draw wait', a.ms < 0.6 * waitMs, { waitedMs: a.ms, waitMs });
+    // (by the fill's own record: a fast fill makes the wait short, and the press to the glide under way is mostly the page's fixed overhead)
+    ok('cut: the fill ends early: cut for time, its time under 0.6 of the draw wait and its frames under half of them', !!a.fill && a.fill.state === 'live' && a.fill.why === 'time' && a.fill.fillMs < 0.6 * waitMs && a.fill.n < a.fill.N / 2, { fill: a.fill && { state: a.fill.state, why: a.fill.why, n: a.fill.n, N: a.fill.N, fillMs: a.fill.fillMs }, waitMs });
+    ok('cut: the glide is under way within the draw wait and the test\'s slack of the press', a.ms < waitMs + WAIT_SLACK_MS, { pressMs: a.ms, waitMs });
     ok('cut: it says why once', a.said.length === 1 && a.said[0].includes(TIME), a.said);
     ok('cut: the chain\'s cost is raised to what the fill found (at least 0.7 of its rate) and it plans live', a.cost >= 0.7 * rate && (await planOf()) === 'time', { cost: a.cost, rate });
     const b = await press(1);
