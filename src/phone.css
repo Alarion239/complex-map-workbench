@@ -113,6 +113,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) { display: grid; grid-template-columns: 44px 44px; }
 :root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) > :not(.ph-tilt) { grid-column: 2; }
 :root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col > .ph-tilt { grid-column: 1; grid-row: 2; }
+/* (the column takes no press itself, its keys do: the gaps between them and an empty cell of the Stack's grid, left of Sphere, where
+   the folded colour key stands, pass a tap to what is under them) */
+:root.ph .pane:not(.ph-inset) .ph-col { pointer-events: none; }
+:root.ph .pane:not(.ph-inset) .ph-col > * { pointer-events: auto; }
 .ph-key { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--overlay); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-1); }
 .ph-key[hidden] { display: none; }
 .ph-key svg { width: 18px; height: 18px; }
