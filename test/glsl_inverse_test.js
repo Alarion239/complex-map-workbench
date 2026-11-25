@@ -633,17 +633,20 @@ void main() {
       ['bite x 20', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32)],
       // (the repeat's own plane in a longer chain, then x 2 (#2416): plane 1's plan is REPT, drawn by the program of its
       // own options, GLChain.buildInverse(steps, built, plan.opts), beside the chain's)
-      ['bite x 20, then x 2, on plane 1', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), { after: [St('mul', { c: '2' })] }]];
+      ['bite x 20, then x 2, on plane 1', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), { after: [St('mul', { c: '2' })] }],
+      // (the repeat second: x 2, then the repeat, on the stages (1, 2], the walker's ops active from the second step)
+      ['x 2, then bite x 20, on (1, 2]', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), { before: [St('mul', { c: '2' })] }]];
     // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
     for (const fastN of [0, PASS_B_FAST]) {
       GLR.setReptFastNodes(fastN);
-      for (const [name0, nRep, shape, pts, { after = [] } = {}] of SCENES) {
+      for (const [name0, nRep, shape, pts, { before = [], after = [] } = {}] of SCENES) {
         const name = name0 + (fastN ? ` (first pass ${fastN} solves)` : '');
-        const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } }), ...after];
-        const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built, 0, 1);
+        const steps = [...before, Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } }), ...after];
+        const a = before.length, b = a + 1;
+        const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built, a, b);
         // (a plan whose options are not the chain's draws by the program of its own, as the app's invPlan pairs them)
         const own = plan.ok && plan.opts.rept && !Inverse.chainOpts(steps, built).rept ? GLChain.buildInverse(steps, built, plan.opts) : undefined;
-        if (after.length && !own) { RP.failCount++; RP.fails.push({ chain: name, bad: ['no program of the plan\'s own options'] }); continue; }
+        if (steps.length > 1 && !own) { RP.failCount++; RP.fails.push({ chain: name, bad: ['no program of the plan\'s own options'] }); continue; }
         if (!plan.ok || plan.ops[0].kind !== 'REPT') { RP.failCount++; RP.fails.push({ chain: name, bad: ['plan ' + (plan.reason || plan.ops.map((o) => o.kind).join('>'))] }); continue; }
         GLR.setChain(GLChain.build(steps, built));
         const prep = Inverse.prepare(plan, { win: VIEW, shape });
@@ -651,7 +654,7 @@ void main() {
         const px32 = Math.fround(PIX), alpha = 1, B = GLR.inverseB(alpha), K = Math.min(B, GLR.inverseK(alpha));
         const data = new Float32Array(1024 * 2 * 4);
         pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = px32; });
-        const st = { map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, inv: own, look: { alpha, alphaOwn: alpha, pattern: 'checker', cell: 0.5 }, extra: EXTRA_REPT };
+        const st = { map: { mode: 0, a, b }, plan, prep, shape, inv: own, look: { alpha, alphaOwn: alpha, pattern: 'checker', cell: 0.5 }, extra: EXTRA_REPT };
         const g = await gpuRun(st, data, pts.length, 1);
         if (g.error) { R.errors.push(`rept ${name}: gpu ${g.error}`); continue; }
         pts.forEach((w, i) => {

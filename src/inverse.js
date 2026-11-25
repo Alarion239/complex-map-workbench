@@ -64,11 +64,13 @@ const Inverse = (() => {
   // options (Inverse.chainOpts), so a repeat in a longer chain is planned by its copies on its own plane too
   const REPT_RANGE = true;
   // Inverse.rangeOpts(steps, built, a, b) -> the stepOps options of the plans for the stages (a, b]: {rept: true} when
-  // the range holds one live step (REPT_RANGE), else the chain's (Inverse.chainOpts)
+  // the range's one live step is a repeat whose ops are then one REPT op (REPT_RANGE), else the chain's
+  // (Inverse.chainOpts), so that every other plan matches the chain's own program
   function rangeOpts(steps, built, a, b) {
-    let live = 0;
-    for (let k = a + 1; k <= b; k++) if (isLive(steps[k - 1], built[k - 1])) live++;
-    return REPT_RANGE && live === 1 ? { rept: true } : chainOpts(steps, built);
+    let live = 0, only = 0;
+    for (let k = a + 1; k <= b; k++) if (isLive(steps[k - 1], built[k - 1])) { live++; only = k; }
+    const own = REPT_RANGE && live === 1 && built[only - 1].repeat ? stepOps(built[only - 1], { rept: true }) : null;
+    return own && own.ok && own.ops.length === 1 && own.ops[0].kind === 'REPT' ? { rept: true } : chainOpts(steps, built);
   }
   // Inverse.inverseKey(steps, built, opts): structure of every step (op kinds, or 'X' when it has no enumerator), each
   // decomposed with opts (default the chain's, Inverse.chainOpts); parameter values are uniforms, so a parameter change

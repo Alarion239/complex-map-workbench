@@ -141,6 +141,13 @@ check('Integer power z^3 x 20 alone plans as REPT', planKinds([St('pown', { n: 3
   // (a lone repeat's plan needs a program other than the chain's: the chain's holds the repeat's copies)
   const c = chainOf([TIMES2, St('pown', { n: 3 }, { n: 3, len: 1 })]), p = Inverse.planChain(c.steps, c.built, 1, 2), own = GLChain.buildInverse(c.steps, c.built);
   check('x 2, then z^3 x 3: plane (1, 2] plans REPT, an op the chain\'s own program does not hold', p.ok && p.ops[0].kind === 'REPT' && own.ok && !own.ops.some((q) => q.kind === 'REPT'), p.ok ? p.ops.map((o) => o.kind).join('>') : p.reason);
+  // (a range whose one live step is not a repeat with a REPT form keeps the chain's options: no program of its own, even
+  // when the chain holds such a repeat elsewhere)
+  const p1 = Inverse.planChain(c.steps, c.built, 0, 1), plain = chainOf([TIMES2, St('add', { c: '1' })]), p2 = Inverse.planChain(plain.steps, plain.built, 1, 2);
+  check('x 2, then z^3 x 3: plane 1 (x 2 alone) and plane (1, 2] of x 2, then + 1 keep their chain\'s options', p1.ok && p1.opts.rept === Inverse.chainOpts(c.steps, c.built).rept && p2.ok && p2.opts.rept === Inverse.chainOpts(plain.steps, plain.built).rept, [p1.opts, p2.opts]);
+  const ezx = chainOf([St('exp', {}), St('pown', { n: 3 }, { n: 3, len: 1 }), TIMES2]), ch = Inverse.chainOpts(ezx.steps, ezx.built);
+  const [e01, e12, e23] = [[0, 1], [1, 2], [2, 3]].map(([a, b]) => Inverse.planChain(ezx.steps, ezx.built, a, b));
+  check('exp, then z^3 x 3, then x 2: planes (0, 1] and (2, 3] keep the chain\'s options, (1, 2] plans REPT', e01.ok && e01.opts.rept === ch.rept && e23.ok && e23.opts.rept === ch.rept && e12.ok && e12.ops[0].kind === 'REPT' && e12.opts.rept && !ch.rept, [e01.opts, e12.ok && e12.ops.map((o) => o.kind).join('>'), e23.opts]);
 }
 const plan20 = Inverse.planChain(N20.steps, N20.built, 0, 1);
 check('the gallery plane has a plan', plan20.ok && plan20.ops.length === 1);
