@@ -11,7 +11,7 @@
 //   one run to the next) are one mesh (its nodes, evaluations and triangles) at every slowing, whatever the machine's
 //   speed;
 // - the slowing is felt: each mesh at 6 spends at least SLOW_MIN times the CPU per evaluation that it spends at 1.
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = { rates: {} };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return !!cond; };
@@ -44,10 +44,9 @@ for (const rate of RATES) {
 const base = info.rates[1], slow = info.rates[6];
 for (const tag of Object.keys(MESHES)) {
   const at = RATES.map((r) => info.rates[r][tag]).filter(Boolean);
-  const fixed = at;
   // (one key: the meshing window follows the pane's box when the mesh is built, so two runs can mesh two windows)
   const byKey = new Map();
-  for (const e of fixed) byKey.set(e.key, (byKey.get(e.key) || []).concat(e));
+  for (const e of at) byKey.set(e.key, (byKey.get(e.key) || []).concat(e));
   // (a key with one mesh compares nothing: its size is in info.groups)
   info.groups = Object.assign(info.groups || {}, { [tag]: [...byKey].map(([key, same]) => ({ key, meshes: same.length })) });
   for (const [key, same] of byKey) ok(`the ${tag} mesh: those of one key that end on a deterministic budget are one mesh (nodes, evaluations, triangles), at every slowing`, same.every((e) => e.nodes === same[0].nodes && e.work === same[0].work && e.n === same[0].n), { key, same });

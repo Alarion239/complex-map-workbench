@@ -641,6 +641,7 @@
   // pre-mapped stand-in, a whole picture of the plane), and the jobs run on in idle slices past SM_MS_CAP, which would
   // end them on a partial mesh that depends on the machine's speed. smRunawayMs CPU ms stops a job that never ends:
   // nothing is adopted for its key, so the stand-in stays and the key is not asked for again (sm.capped)
+  // (every job, not only the pair's, waits out a hidden page)
   let smRunawayMs = 60000;
   // (a slot is `<shape id>|<role>|<kind>`: the ring's shape id carries its index, `__svRing|4`)
   const smPairKind = (slot) => (!slot.endsWith('|SV|flat') ? null : slot.startsWith('__svAll|') ? 'all' : slot.startsWith('__svRing|') ? 'ring' : null);

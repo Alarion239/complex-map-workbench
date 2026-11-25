@@ -2031,7 +2031,9 @@
   // whether the shown plane (the nearest one) takes a carried colour: past the colour plane; the pre-mapped meshes of
   // the carried colour are built in the background only while it does (smPump)
   function svCarryWanted() {
-    try { return !svColoured(svBetween(SV.g.x).near); } catch (e) { return true; }
+    // (before the view has its state, nothing says the carried colour is not wanted)
+    if (!SV.g) return true;
+    return !svColoured(svBetween(SV.g.x).near);
   }
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
