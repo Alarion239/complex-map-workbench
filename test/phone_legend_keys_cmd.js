@@ -4,7 +4,8 @@
 // 740 × 360. Checked: the folded colour key's 44 px hit area meets none of the plane's keys (Fit view, Sphere, Display), and a press at
 // the key's centre finds it; the key stands 8 px clear of the row's first key (Fit view), its centre on the row's centre line (within 2 px),
 // and the readout and the construction chip stop 8 px short of it; the card it unfolds into lies inside the plane and the screen.
-// The Stack's row has the Tilt key too (#2415): the same checks on it, the Tilt key among the keys the colour key must clear.
+// The Stack's row has the Tilt key too (#2415): the same checks on it, the Tilt key among the keys the colour key must clear (the left
+// plane's construction chip does not show on the Stack, so its row is the flat plane's alone). The readout is measured at its widest.
 // In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -12,7 +13,7 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const HIT_PAD = 8, GAP = 8, LINE = 2;   // px: the key's hit area past its glyph (phone.css), the gap kept to what stands beside it, the centre line's slack
 const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
 // the folded colour key's place, measured and checked (the plane keys: Fit view, Sphere, Display, and the Tilt key where the Stack shows it)
-const legend = async (tag) => {
+const legend = async (tag, stack = false) => {
   const m = info[tag] = await ev(`(() => {
     const R = (e) => { if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null; };
     const A = (o) => o && [o.l, o.t, o.r, o.b].map(Math.round);
@@ -23,7 +24,9 @@ const legend = async (tag) => {
     const at = c ? document.elementFromPoint(c[0], c[1]) : null, fit = keys.fit, ro = R(document.querySelector('#plotL > .chip.readout')), chip = R(document.querySelector('#draftChipL.cm-on'));
     return { legend: A(g), collapsed: !!lg && lg.classList.contains('collapsed'), meets, centreFindsKey: !!at && (at === lg || lg.contains(at)), tall: document.documentElement.classList.contains('ph-ctx-tall'),
       gapToFit: fit && hit ? Math.round(fit.l - hit.r) : null, offLine: fit && c ? Math.round(Math.abs(c[1] - (fit.t + fit.b) / 2) * 10) / 10 : null,
-      readout: A(ro), readoutShort: ro && hit ? Math.round(hit.l - ro.r) : null, chip: A(chip), chipShort: chip && hit ? Math.round(hit.l - chip.r) : null, plot: A(R(document.getElementById('plotL'))) };
+      readout: A(ro), readoutShort: ro && hit ? Math.round(hit.l - ro.r) : null,
+      // (the readout at the widest its max-width lets it be: its width is set far past it, read, and put back)
+      roRoom: (() => { const e = document.querySelector('#plotL > .chip.readout'); if (!e || !hit) return null; const w = e.style.width; e.style.width = '9999px'; const q = e.getBoundingClientRect(); e.style.width = w; return Math.round(hit.l - q.right); })(), chip: A(chip), chipShort: chip && hit ? Math.round(hit.l - chip.r) : null, plot: A(R(document.getElementById('plotL'))) };
   })()`);
   ok(`${tag}: the colour key is folded, in the tall-bar state (control)`, !!m.legend && m.collapsed && m.tall, m);
   ok(`${tag}: the folded colour key's 44 px hit area meets no plane key (Fit view, Sphere, Display, Tilt)`, !!m.meets && m.meets.length === 0, m);
@@ -31,7 +34,9 @@ const legend = async (tag) => {
   ok(`${tag}: the colour key stands ${GAP} px clear of Fit view, the row's first key`, m.gapToFit != null && m.gapToFit >= GAP - 0.5, m);
   ok(`${tag}: the colour key's centre is on the row's centre line (within ${LINE} px)`, m.offLine != null && m.offLine <= LINE, m);
   ok(`${tag}: the readout stops ${GAP} px short of the colour key`, m.readoutShort == null || m.readoutShort >= GAP - 0.5, m);
-  ok(`${tag}: the construction chip stops ${GAP} px short of the colour key`, m.chipShort == null || m.chipShort >= GAP - 0.5, m);
+  ok(`${tag}: the readout at its widest stops ${GAP} px short of the colour key`, m.roRoom != null && m.roRoom >= GAP - 0.5, m);
+  // (the left plane's construction chip does not show on the Stack, chipSide: the row is the flat plane's)
+  if (!stack) ok(`${tag}: the construction chip stops ${GAP} px short of the colour key`, m.chipShort != null && m.chipShort >= GAP - 0.5, m);
 };
 for (const lang of ['en', 'ru']) for (const [w, h] of [[568, 320], [600, 320], [640, 360], [740, 360]]) {
   const tag = `${lang} ${w}×${h}`;
@@ -59,6 +64,6 @@ for (const lang of ['en', 'ru']) for (const [w, h] of [[568, 320], [600, 320], [
   await ev(`__cmwSteps({ surf: 'stack' }); 1`);
   await settled({ max: 20000, until: `__cmwSteps().surf === 'stack' && typeof __cmwStack === 'function' && !!__cmwStack().drawn && !!document.querySelector('#plotL .ph-tilt:not([hidden])')` });
   await frames(); await frames();
-  await legend(tag + ' on the Stack');
+  await legend(tag + ' on the Stack', true);
 }
 return { pass: fails.length === 0, fails, info };
