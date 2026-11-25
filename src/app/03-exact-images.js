@@ -632,16 +632,7 @@
     const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
     return invOwnPath(h, s, a, b, own);
   }
-  // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
-  function requestInverseFor(map) {
-    if (!GLR.inverseRequest || !GLR.packShapes || !PHASE.R.flat) return;
-    if (isIdentMap(map) || !invPlan(map.a || 0, map.b || 0).ok) return;
-    const list = S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area' && !s._err);
-    if (!list.length) return;
-    cmFormAnchor('X');
-    GLR.packShapes(S.shapes.filter((s) => s.visible !== false));
-    if (GLR.inverseRequest(S.alpha, 'flat') === 'pending') invWaiting.add('R');
-  }
+
   // the words of text in lines no wider than maxW as ctx sets them (its font), each word on the line until the next would
   // pass maxW (a word wider than maxW is a line of its own)
   function wrapWords(ctx, text, maxW) {

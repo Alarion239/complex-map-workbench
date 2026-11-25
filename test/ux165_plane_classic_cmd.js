@@ -1,7 +1,8 @@
 // The plane's names and a finger drag, classic view only: a one-finger drag from an unselected disc selects it and pans the
-// plane (in the steps view a finger drag scrubs its thread), and the names of X and Y: titles, canvas names, Shapes headings,
-// Plane | Sphere in both heads, the phone chip's X tag, and the same in Russian (the steps view has one plane and no X or Y).
-// The classic readout (UX10, UX105): two lines on a laptop and on a phone, in X expanded, under the construction chip, and the key's three marks in STIX
+// plane (in the steps view a finger drag scrubs its thread), and X's names: its title, canvas name, Shapes heading (and no
+// Targets group with no targets), Plane | Sphere in its head, the phone chip's X tag, and the same in Russian (the steps
+// view has no X). (standards-ok: Y's title, canvas name, head and the expanded X are gone with Y's pane, not drawn since #994)
+// The classic readout (UX10, UX105): two lines on a laptop and on a phone, under the construction chip, and the key's three marks in STIX
 // (the steps view's readout is one row of pairs: ux165_plane_cmd.js).
 // The rest of the piece is ux165_plane_cmd.js. A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
@@ -33,16 +34,15 @@ await laptop();
 await load(NS + 'k', SD);
 await settle(800);
   // UX27: one name per plane
-  info.l27 = await ev(`({ l: document.getElementById('leftTitle').textContent, r: document.getElementById('rightTitle').textContent, ax: document.getElementById('overlayL').getAttribute('aria-label'), ay: document.getElementById('overlayR').getAttribute('aria-label'), heads: [...document.querySelectorAll('#shapeList .shapes-sub')].map((e) => e.textContent) })`);
+  info.l27 = await ev(`({ l: document.getElementById('leftTitle').textContent, ax: document.getElementById('overlayL').getAttribute('aria-label'), heads: [...document.querySelectorAll('#shapeList .shapes-sub')].map((e) => e.textContent) })`);
   ok('UX27 X\'s title: "X · z-plane, domain of F"', /^X · z-plane/.test(info.l27.l) && /domain of F/.test(info.l27.l), info.l27);
-  ok('UX27 Y\'s title: "Y · w = F(z), image"', /^Y · w = F\(z\)/.test(info.l27.r) && /image/.test(info.l27.r), info.l27);
-  ok('UX27 the canvases\' names are the heads\' own words', /^X · z-plane, domain of F$/.test(info.l27.ax) && /^Y · w = F\(z\), image, after 1 step$/.test(info.l27.ay), info.l27);
-  ok('UX27 the Shapes headings: In X (z-plane), Targets in Y (w-plane)', info.l27.heads[0] === 'In X (z-plane)' && /^Targets in Y \(w/.test(info.l27.heads[1] || ''), info.l27.heads);
+  ok('UX27 X\'s canvas name is its head\'s own words', /^X · z-plane, domain of F$/.test(info.l27.ax), info.l27);
+  // (no targets: no Targets group and no note on drawing one, since Y's pane, where they are drawn, is not drawn)
   const tnote = await ev(`(document.querySelector('#shapeList .empty-note') || {}).textContent || ''`);
-  ok('UX27 no targets: "Draw one in Y (the w-plane)"', /Draw one in Y \(the w-plane\)/.test(tnote), tnote);
-  // UX37: Plane | Sphere in words at 1366 with both panels
-  info.l37 = await ev(`[...document.querySelectorAll('#leftTabs > button, #rightTabs > button')].map((b) => { const s = b.querySelector('span'); const r = b.getBoundingClientRect(); return { t: s && getComputedStyle(s).display !== 'none' ? s.textContent : '', h: Math.round(r.height) }; })`);
-  ok('UX37 "Plane | Sphere" in words in both pane heads', info.l37.length === 4 && info.l37.every((x) => /^(Plane|Sphere)$/.test(x.t) && x.h >= 28), info.l37);
+  ok('UX27 the Shapes heading: In X (z-plane), and no Targets group without targets', info.l27.heads.length === 1 && info.l27.heads[0] === 'In X (z-plane)' && !/Y/.test(tnote), [info.l27.heads, tnote]);
+  // UX37: Plane | Sphere in words at 1366
+  info.l37 = await ev(`[...document.querySelectorAll('#leftTabs > button')].map((b) => { const s = b.querySelector('span'); const r = b.getBoundingClientRect(); return { t: s && getComputedStyle(s).display !== 'none' ? s.textContent : '', h: Math.round(r.height) }; })`);
+  ok('UX37 "Plane | Sphere" in words in X\'s pane head', info.l37.length === 2 && info.l37.every((x) => /^(Plane|Sphere)$/.test(x.t) && x.h >= 28), info.l37);
 
 // D9: the first press on a disc only selects it; a drag from it pans the plane
 await phone();
@@ -66,13 +66,6 @@ await settle(800);
   const cut = await ev(`[...document.querySelectorAll('#leftReadout > .rln')].map((k) => { const rg = document.createRange(); rg.selectNodeContents(k); return +(rg.getBoundingClientRect().width - k.getBoundingClientRect().width).toFixed(2); })`);
   ok('UX10 laptop: no readout line is cut', cut.length === 2 && cut.every((d) => d <= 0.01), cut);
   ok('UX10 laptop: |z| and arg fit beside z at 1366', /\|z\| /.test(info.l10[0]) && /arg /.test(info.l10[0]), info.l10);
-  // X expanded: F(z) is still read
-  await clickSel('#leftSolo'); await settle(500);
-  const p2 = await W(0.5, -0.8);
-  await move(p2[0], p2[1]); await settle(200);
-  const solo = await rln();
-  ok('UX10 with X expanded, F(z) is read in X', solo.length === 2 && /^w = F\(z\)/.test(solo[1]), solo);
-  await clickSel('#leftSolo'); await settle(400);
 }
 
 // UX10 on the phone: the scale chip teaches the hold-and-slide once, and the probe reads two lines

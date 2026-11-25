@@ -235,9 +235,9 @@ if (!ru.err) {
 // every tick label stands inside the figure, over its tick: with cross axes (Homework, Slides) a tick near a panel's left edge
 // has its label centred under it, which reached past the figure's few points of margin («−8» in example 1, on the camera's
 // window). A label whose centred place is inside the figure keeps it; one that would start left of the figure slides right
-// just as far as the edge, still over its tick. The steps view's Two planes figure and the classic two-panel Image figure,
-// Homework and Slides in en, Homework in ru. (An x tick label: a 'tick' box just under its panel's real axis; its tick: the
-// label's value through the panel's window.)
+// just as far as the edge, still over its tick. The steps view's Two planes figure and the classic X → Y figure (X's panel,
+// the one it draws, #994; built as the dialog builds it, view xyL), Homework and Slides in en, Homework in ru. (An x tick
+// label: a 'tick' box just under its panel's real axis; its tick: the label's value through the panel's window.)
 {
   const EDGE = 0.01, CENTRE = 0.05;
   const ticksOf = (o) => evJson(`await (async () => { try { const f = await Figure.build(${JSON.stringify(o)}); if (!f) return JSON.stringify({ none: true });
@@ -275,10 +275,10 @@ if (!ru.err) {
     await go(`${base}/test.html?view=classic&ns=xtpt${Date.now() % 1e7}${lang === 'en' ? '' : `&lang=${lang}`}`);
     await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.Figure && typeof __cmwExample === "function"', max: 30000 });
     await ev('(__cmwExample(1), 1)'); await settled();
-    const cl = await ticksOf({ for: pre, cols: 2, crop: 'screen', capInImage: false }), cc = check(cl);
+    const cl = await ticksOf({ view: 'xyL', for: pre, cols: 2, crop: 'screen', capInImage: false }), cc = check(cl);
     info[`ticks classic image ${pre} ${lang}`] = { err: cl.err, W: cl.W, n: (cl.ticks || []).length, ...cc };
-    ok(`classic view, example 1, ${pre} two-panel figure, ${lang}: every tick label is inside the figure`, !cl.err && (cl.ticks || []).length >= least && cc.outside.length === 0, cc.outside);
-    ok(`classic view, example 1, ${pre} two-panel figure, ${lang}: each x tick label is over its tick, centred where that fits in the figure`, !cl.err && cc.off.length === 0, cc.off);
+    ok(`classic view, example 1, ${pre} X → Y figure (X's panel), ${lang}: every tick label is inside the figure`, !cl.err && (cl.ticks || []).length >= least && cc.outside.length === 0, cc.outside);
+    ok(`classic view, example 1, ${pre} X → Y figure (X's panel), ${lang}: each x tick label is over its tick, centred where that fits in the figure`, !cl.err && cc.off.length === 0, cc.off);
   }
 }
 return { pass: fails.length === 0, fails, info };

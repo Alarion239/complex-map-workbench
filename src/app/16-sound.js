@@ -92,7 +92,6 @@
   function soundFunctionChanged(...args) { return SH.soundFunctionChanged(...args); }
   function sndRelayout(...args) { return SH.sndRelayout(...args); }
   function sndFrame(...args) { return SH.sndFrame(...args); }
-  function sndOverlay(...args) { return SH.sndOverlay(...args); }
   function sndCollide(...args) { return SH.sndCollide(...args); }
   function sndLoopDone(...args) { return SH.sndLoopDone(...args); }
   function sndListen(...args) { return SH.sndListen(...args); }

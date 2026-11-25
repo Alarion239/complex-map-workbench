@@ -128,7 +128,7 @@
     if (!st) return false;
     cancelTweens(); closePad(); closePalette();
     draft = null; drag = null; probe = null; zpSel = null; zpHover = null; selected = null; hoverShape = null;
-    rHover = null; setHoverW(null);
+    setHoverW(null);
     morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     setState(st);
@@ -186,8 +186,7 @@
     if ('phaseStyle' in lk) { setOpt('dc', DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc); setOpt('landPlain', false); cauchyCache.key = ''; }
     if ('paths' in lk) { setOpt('morphPaths', lk.paths !== false); const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
-    // the Phase key of Y, and the phase sectors (Tiles' 30° lines)
-    if ('phaseKey' in lk) setOpt('wKey', !!lk.phaseKey);
+    // the phase sectors (Tiles' 30° lines)
     if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
     requestRender('L', 'R');
