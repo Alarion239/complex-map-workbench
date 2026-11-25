@@ -242,8 +242,8 @@ const Phone = (() => {
   }
 
   // ---------------- the planes ----------------
-  // (the steps view is one plane at every step of its chain, whichever view the page's layout names)
-  function merged() { const p = $('panes'); return rootEl.classList.contains('sv') ? 'L' : p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (one plane, X's, in the steps view and the classic view alike: Y's pane is not drawn, so it has no inset and no Both key)
+  function merged() { return 'L'; }
   function syncPanes() {
     const p = $('panes'), mg = merged();
     const b = mg || big;
@@ -774,7 +774,7 @@ const Phone = (() => {
       { name: $t('Colour style'), label: '#landPaint', rows: [matches('.ph-style'), matches('.sty-seg, #landPaint')] },
       { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
       { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg'), (k) => land && matches('.cam-reset')(k)] },
-      { name: $t('View'), rows: [matches('.cam-reset')] },
+      { name: $t('View'), rows: [matches('.sv-sheet-stack'), matches('.cam-reset')] },
       { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
       { name: $t('Overlays'), rows: [] },
     ];
@@ -796,7 +796,7 @@ const Phone = (() => {
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    const tn = A.targetNote(), scope = A.scopeSeg();
+    const tn = A.targetNote(), scope = A.scopeSeg(), stackv = A.stackSeg();
     // the regions' display and the mesh quality are groups like the rest. One opacity: the regions box's own slider
     // drives the same value as the opacity group's in the steps view, so it is hidden there (the classic views keep it)
     const alpha = reg && $('alphaRange') && /** @type {HTMLElement | null} */ ($('alphaRange').closest('.fader-row'));
@@ -806,7 +806,7 @@ const Phone = (() => {
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...(els.style.hidden ? [] : [els.style]), ...kids, ...(unit ? [unit] : [])]),
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...(stackv ? [stackv] : []), ...(els.style.hidden ? [] : [els.style]), ...kids, ...(unit ? [unit] : [])]),
       ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }

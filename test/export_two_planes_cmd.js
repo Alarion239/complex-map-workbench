@@ -232,4 +232,53 @@ if (!ru.err) {
   const lr = pdfLayer(ru.a);
   ok('a Russian figure\'s PDF shows its key\'s words in Cyrillic, and embeds its font', ['на полосу яркости', '×1,69'].every((w) => lr.shown.join(' ').includes(w)) && lr.embedded, { shown: lr.shown, texts: ru.texts });
 }
+// every tick label stands inside the figure, over its tick: with cross axes (Homework, Slides) a tick near a panel's left edge
+// has its label centred under it, which reached past the figure's few points of margin («−8» in example 1, on the camera's
+// window). A label whose centred place is inside the figure keeps it; one that would start left of the figure slides right
+// just as far as the edge, still over its tick. The steps view's Two planes figure and the classic X → Y figure (X's panel,
+// the one it draws, #994; built as the dialog builds it, view xyL), Homework and Slides in en, Homework in ru. (An x tick
+// label: a 'tick' box just under its panel's real axis; its tick: the label's value through the panel's window.)
+{
+  const EDGE = 0.01, CENTRE = 0.05;
+  const ticksOf = (o) => evJson(`await (async () => { try { const f = await Figure.build(${JSON.stringify(o)}); if (!f) return JSON.stringify({ none: true });
+    const imgs = [...f.svg.matchAll(/<image x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.-]+)" height="([\\d.-]+)"/g)].map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
+    const i = f.info || {}, wins = Array.isArray(i.boxes) ? i.boxes : (i.panels || []).map((sd) => i.boxes && i.boxes[sd]);
+    return JSON.stringify({ W: f.W, imgs, wins, ticks: f.boxes.filter((b) => b.kind === 'tick').map((b) => ({ tex: b.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) });
+  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
+  const num = (tex) => Number(String(tex).replace(/\{,\}/g, '.').replace(/[−-]/g, '-').replace(/[^\d.\-]/g, ''));
+  // -> { outside, off }: the tick labels outside the figure, and the x tick labels not over their tick or moved needlessly
+  const check = (f) => {
+    const outside = (f.ticks || []).filter((b) => b.x0 < -EDGE || b.x1 > f.W + EDGE);
+    const off = [];
+    (f.imgs || []).forEach((im, k) => {
+      const b = f.wins && f.wins[k];
+      if (!b) return;
+      const oy = Math.min(im.y + im.h, Math.max(im.y, im.y + (b.y1 / (b.y1 - b.y0)) * im.h));
+      for (const q of f.ticks || []) {
+        if (q.y0 < oy || q.y0 > oy + 4 || q.x1 < im.x - 20 || q.x0 > im.x + im.w) continue;
+        const px = im.x + (num(q.tex) - b.x0) / (b.x1 - b.x0) * im.w, w = q.x1 - q.x0, mid = (q.x0 + q.x1) / 2;
+        const covers = q.x0 <= px + EDGE && px <= q.x1 + EDGE;
+        const placed = px - w / 2 >= 0 ? Math.abs(mid - px) < CENTRE : Math.abs(q.x0) < CENTRE;
+        if (!covers || !placed) off.push({ tex: q.tex, panel: k, px: +px.toFixed(2), box: [q.x0, q.x1].map((v) => +v.toFixed(2)) });
+      }
+    });
+    return { outside, off };
+  };
+  for (const [pre, lang] of [['homework', 'en'], ['slides', 'en'], ['homework', 'ru']]) {
+    // (Slides labels only ±1, which example 1 puts on the panels' edges: its rows hold no label, a control there is none)
+    const least = pre === 'homework' ? 8 : 0;
+    await ready(1, lang === 'en' ? undefined : lang);
+    const sv = await ticksOf({ svPic: 'two', for: pre, crop: 'screen', capInImage: false }), cs = check(sv);
+    info[`ticks steps two planes ${pre} ${lang}`] = { err: sv.err, W: sv.W, n: (sv.ticks || []).length, ...cs };
+    ok(`steps view, example 1, ${pre} Two planes, ${lang}: every tick label is inside the figure`, !sv.err && (sv.ticks || []).length >= least && cs.outside.length === 0, cs.outside);
+    ok(`steps view, example 1, ${pre} Two planes, ${lang}: each x tick label is over its tick, centred where that fits in the figure`, !sv.err && cs.off.length === 0, cs.off);
+    await go(`${base}/test.html?view=classic&ns=xtpt${Date.now() % 1e7}${lang === 'en' ? '' : `&lang=${lang}`}`);
+    await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.Figure && typeof __cmwExample === "function"', max: 30000 });
+    await ev('(__cmwExample(1), 1)'); await settled();
+    const cl = await ticksOf({ view: 'xyL', for: pre, cols: 2, crop: 'screen', capInImage: false }), cc = check(cl);
+    info[`ticks classic image ${pre} ${lang}`] = { err: cl.err, W: cl.W, n: (cl.ticks || []).length, ...cc };
+    ok(`classic view, example 1, ${pre} X → Y figure (X's panel), ${lang}: every tick label is inside the figure`, !cl.err && (cl.ticks || []).length >= least && cc.outside.length === 0, cc.outside);
+    ok(`classic view, example 1, ${pre} X → Y figure (X's panel), ${lang}: each x tick label is over its tick, centred where that fits in the figure`, !cl.err && cc.off.length === 0, cc.off);
+  }
+}
 return { pass: fails.length === 0, fails, info };

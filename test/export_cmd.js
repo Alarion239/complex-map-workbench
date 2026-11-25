@@ -119,19 +119,21 @@ for (const [p, o] of Object.entries(PRESETS)) {
   const r = await build(`svfilm-strip-${p}`, Object.assign({ svPic: 'film' }, o));
   if (r && p === 'article2W') ok('filmstrip: a frame per plane, each titled', r.boxes.filter((b) => b.kind === 'title').length === nPlanes && /The planes along/.test(r.cap), { titles: r.boxes.filter((b) => b.kind === 'title').map((b) => b.tex), planes: nPlanes, cap: r.cap });
 }
-// the classic X -> Y figure: two panels (a) and (b), the open boundaries dashed and the images of the points named A',
+// the classic X -> Y figure: X's panel, the one the view draws (#994), the open boundaries dashed and the points named A,
 // and the Phase view's zeros and poles, which the steps view's one plane does not draw; on a page that asks for the
 // classic view
+// (standards-ok: panel (b), Y's, with its images named A' and its "(a) … (b)" caption, goes with Y's pane, which the
+// classic view does not draw; the one panel's points, boundaries and caption are read here)
 await open('xrexportc', 1440, 900, false, 'classic');
 await ev('__cmwExample(1); 1'); await settle(2200);
 for (const p of ['article1', 'homework']) {
   const r = await build(`xy-strip-${p}`, PRESETS[p]);
   if (r && p === 'homework') {
     ok('homework: open boundaries dashed and said so', /stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /Dashed: boundary not included\./.test(r.cap), r.cap);
-    ok('homework: points named A, A\'', /\$A=0\$/.test(r.cap) && /goes to \$A'\$/.test(r.cap), r.cap);
+    ok('homework: points named A', /\$A=0\$/.test(r.cap), r.cap);
     ok('homework: 1 in margins by default, shrink only', /469\.75pt \\linewidth\\else 469\.75pt\\fi/.test(r.tex), r.tex.slice(0, 300));
   }
-  if (r && p === 'article1') ok('article: solid boundaries, (a) (b)', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /^\(a\) /.test(r.cap) && / \(b\) /.test(r.cap), r.cap);
+  if (r && p === 'article1') ok('article: solid boundaries, one panel (no (a) or (b))', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && !/^\(a\) /.test(r.cap) && !/ \(b\) /.test(r.cap), r.cap);
 }
 await ev(`__cmwSetMain('phase'); 1`); await settled({ until: `__cmwView().main === 'phase'` });
 for (const p of ['article1', 'article2']) {

@@ -8,8 +8,10 @@
 //             adds, unless the diff creates a test file that takes them over (a split), or retires the file (below)
 //   retired   a suite the diff deletes is retired, its assertions not counted as dropped, when the same diff names it in
 //             the ledger ci/retired_suites.js with a reason and drops it from what runs: from ci/suite_views.js and
-//             ci/browser_shards.js, or from ci/browser_suites.js (EXCLUDED). A ledger entry the diff adds for a file it
-//             does not delete is a finding
+//             ci/browser_shards.js (a suite the base's shard lists never named ran in the catch-all shard, so it has no
+//             shard line to drop), or from ci/browser_suites.js (EXCLUDED). A unit test (test/t_*.js) runs because it
+//             exists, so its ledger line alone retires it. A ledger entry the diff adds for a file it does not delete is a
+//             finding
 // Only comments on added lines of src/, ci/, test/ and tools/ are read, and not the generated files. An added line
 // opts out with `standards-ok: <reason>` in its own comment; a test file opts out of the assertion count with the
 // same marker on any line it adds. A marker with no reason is itself a finding.
@@ -18,7 +20,7 @@
 // annotations on the lines and the job summary. It reports and exits 0 unless --block is given, then exits 1 when
 // anything is found.
 const { execFileSync } = require('child_process');
-const { ROOT, summary, esc } = require('./lib');
+const { ROOT, summary, esc, reEscape } = require('./lib');
 
 // room for the diff of a large change (256 MiB); git's output is read whole
 const GIT_BUFFER = 1 << 28;
@@ -36,7 +38,9 @@ const HISTORY = [
   [new RegExp(`\\bwas (?:then |first |later )?(?:${CHANGED})\\b`, 'i'), 'was <changed>'], [/\bused to\b/i, 'used to'],
   [/\bnow (?:\w+ )?(?:has|have|caches|stores?|keeps?|clamps?|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|returns?|lives?|goes|comes|sits)\b/i, 'now <verb>'],
   [/\bpreviously\b/i, 'previously'], [/\bno longer (?:has|have|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|needs?|exists?|returns?|goes|comes)\b/i, 'no longer <verb>'],
-  [/\breplaces\b/i, 'replaces'], [/\binstead of the old\b/i, 'instead of the old'],
+  // (`replaces` alone says what the code does now, one thing taking another's place while a condition holds; beside a word
+  // for the past it is history)
+  [/\breplaces (?:the |an? )?(?:old|former|legacy|classic)\b/i, 'replaces the old'], [/\binstead of the old\b/i, 'instead of the old'],
   // (a version inside a path, notes/constructions-v16/, or before a file's extension, SPEC-v17.md, is a name, not a label;
   // a point release, a release series ending in .x and a label after a hyphen are labels)
   [/(?<![/\w])v1\d(?:\.\d+)*(?:\.x)?(?:-beta(?:\.\d+)?)?\b(?![\w.-]*\/)(?!\.(?:md|js|json|html|txt|py|ya?ml|css)\b)/i, 'a version label'], [/(?<![-_/.\w])beta\.\d+\b(?![/.]\w)/i, 'a version label'],
@@ -49,9 +53,11 @@ const PLAN = [
   [/#\d+ (?:item|step|phase|part) \d+/i, 'an issue number as a plan step'],
   [/\b(?:item|step|phase) \d+ of #\d+/i, 'an issue number as a plan step'],
   [/\[[A-Za-z]{1,3}\d+(?: [^\]]*)?\]/, 'a bracketed plan label'],
-  // (the number of a review round's finding, bracketed or not: a review, check or verify item, a UX item; a suite under
-  // test/ names the finding its rows pin, so the rule leaves test/ alone)
-  [/\b(?:review|check) (?:user|app|ux)-\d+\b|\bverify-\d+\b|\bUX ?\d{1,3}\b/, 'a review label', /^test\//],
+  // (the number of a review round's finding, bracketed or not: a review, check or verify item, a UX item, a
+  // regression or speed item; a numbered review round itself, outside a path; a suite under test/ names the finding
+  // its rows pin, so the rule leaves test/ alone)
+  [/\b(?:review|check) (?:user|app|ux)-\d+\b|\b(?:verify|regress|speed)-\d+\b|\bUX ?\d{1,3}\b|(?<!\/)\br\d+ review\b/, 'a review label',
+    /^test\//],
 ];
 const MARKER = /standards-ok:(.*)$/;
 // a call that checks something: check(, ok(, assert( and assert.method(; not a definition (function check(, ok = (...))
@@ -115,11 +121,12 @@ function parseDiff(text) {
 }
 
 const LEDGER = 'ci/retired_suites.js';
-// the suites a parsed diff retires (a Set of test/ paths), and the findings of ledger entries for files it does not delete
-function retiredBy(files) {
+// the suites a parsed diff retires (a Set of test/ paths), and the findings of ledger entries for files it does not delete.
+// baseOf(path): the text of a file at the diff's base, or null (a suite in no shard line there ran in the catch-all shard)
+function retiredBy(files, baseOf = () => null) {
   const byFile = (name) => files.find((f) => f.file === name) || { added: [], removed: [] };
-  const entry = (b) => new RegExp(`^\\s*'${b.replace(/[.]/g, '\\.')}':`);
-  const named = (b) => new RegExp(`'${b.replace(/[.]/g, '\\.')}[#']`);
+  const entry = (b) => new RegExp(`^\\s*'${reEscape(b)}':`);
+  const named = (b) => new RegExp(`'${reEscape(b)}[#']`);
   // dropped from a list: a removed line names it and no added line does
   const dropped = (name, re) => { const f = byFile(name); return f.removed.some((l) => re.test(l)) && !f.added.some((a) => re.test(a.text)); };
   const deleted = new Set(files.filter((f) => f.deleted && TEST_FILE.test(f.file)).map((f) => f.file));
@@ -130,18 +137,21 @@ function retiredBy(files) {
     const file = 'test/' + m[1], b = m[1];
     if (!deleted.has(file)) { found.push({ file: LEDGER, line: a.n, rule: 'retired', text: a.text.trim(), why: `names ${file}, which this change does not delete` }); continue; }
     if (!m[3].replace(/['`",\s]/g, '')) continue;   // (no reason: not retired)
+    if (b.startsWith('t_')) { retired.add(file); continue; }
     // (in ci/browser_suites.js only an EXCLUDED line, whose value is its reason string, counts: a SUITES or TIMING entry
     // dropped alone leaves the suite running)
     const excluded = new RegExp(entry(b).source + `\\s*'`);
-    const gone = (dropped('ci/suite_views.js', entry(b)) && dropped('ci/browser_shards.js', named(b))) || dropped('ci/browser_suites.js', excluded);
+    const shardsBase = baseOf('ci/browser_shards.js');
+    const offShards = dropped('ci/browser_shards.js', named(b)) || (shardsBase != null && !named(b).test(shardsBase));
+    const gone = (dropped('ci/suite_views.js', entry(b)) && offShards) || dropped('ci/browser_suites.js', excluded);
     if (gone) retired.add(file);
   }
   return { retired, found };
 }
 
-// the findings of a parsed diff: [{ file, line, rule, text, why }]
-function check(files) {
-  const { retired, found } = retiredBy(files), counted = [];
+// the findings of a parsed diff: [{ file, line, rule, text, why }]; baseOf as for retiredBy
+function check(files, baseOf) {
+  const { retired, found } = retiredBy(files, baseOf), counted = [];
   for (const f of files) {
     if (!SCOPE.test(f.file) || GENERATED.test(f.file)) continue;
     const marked = f.added.some((a) => (MARKER.exec(commentOf(a.text, f.file)) || [])[1]?.trim());
@@ -192,7 +202,7 @@ function diffAgainst(ref) {
 if (require.main === module) {
   const a = process.argv.slice(2);
   const ref = a.includes('--ref') ? a[a.indexOf('--ref') + 1] : 'HEAD~1';
-  const found = check(parseDiff(diffAgainst(ref)));
+  const found = check(parseDiff(diffAgainst(ref)), (file) => { try { return execFileSync('git', ['show', `${ref}:${file}`], { cwd: ROOT, encoding: 'utf8', maxBuffer: GIT_BUFFER }); } catch (e) { return null; } });
   const gh = a.includes('--github') || !!process.env.GITHUB_ACTIONS;
   if (gh) for (const x of found.slice(0, MAX_ANNOTATIONS)) console.log(`::warning file=${x.file},line=${x.line},title=standards ${x.rule}::${x.why}`);
   for (const x of found) console.log(`${x.file}:${x.line}: ${x.rule}: ${x.why}${x.text ? '  ' + x.text.slice(0, SHOWN_CHARS) : ''}`);

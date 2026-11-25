@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
-const { ROOT, PY, run, summary } = require('./lib');
+const { ROOT, PY, run, summary, reEscape } = require('./lib');
 const { SHARDS, suitesOf } = require('./browser_shards');
 const { EXCLUDED } = require('./browser_suites');
 const GLSL = require('./glsl');
@@ -73,9 +73,12 @@ const MAP = [
   ['src/app/19-steps-ahead.js', { core: true, areas: ['views'] }],                              // the steps view's render-ahead frames (#1339; its suite is in the exact shard)
   ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
   ['src/app/19-readout.js', ui('views', 'desktop', 'phone')],                                      // a stage disc's readout card in the Inspector (#1983)
+  ['src/app/19-glide-tile.js', ui('views', 'desktop', 'phone', 'layout')],                         // the glide's formula tile over the left plane (#1533)
   ['src/app/19-lookdown.js', ui('views', 'desktop', 'phone')],                                     // Look down: the target ring, lines, critical marks and key (#1984)
   ['src/app/19-stack.js', ui('views', 'desktop', 'phone')],                                        // the Stack: the floor and the glass seen by the Tilt camera (#1986)
   ['src/app/19-stack-tubes.js', ui('views', 'desktop', 'phone')],                                  // the Stack's tubes, critical strands and narrowing labels (#1987)
+  ['src/app/19-stack-pick.js', ui('views', 'desktop', 'phone')],                                   // picking in the Stack: the floor's and the glass's points under the pointer (#1988)
+  ['src/app/19-stack-links.js', ui('views', 'desktop', 'phone')],                                  // the Stack's connectors, straight and curved, and their switch (#1996)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
@@ -227,7 +230,7 @@ function glslPagesOf(f) {
 // [#385] the files that name window.__cmw<name> (a whole word): the browser suites (test/*_cmd.js) and unit tests are
 // fine; anything else that calls a hook (the app itself, the quality and perf runners, ci/, the cdp kit) is outside
 function hookCallers(names) {
-  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`);
+  const re = new RegExp(`\\b(?:${names.map(reEscape).join('|')})\\b`);
   const suites = [], outside = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {

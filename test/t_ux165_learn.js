@@ -42,24 +42,22 @@ ok('UX90: the lead keeps the strip\'s rule (one sentence, at most 60, a full sto
 ok('UX77: Details adds to the lead (it no longer repeats it)', !w.body.includes(w.lead) && /your own work comes back exactly as it was/.test(w.body), w.body);
 ok('#250: no Details control: its words, its aria-label and its rec.why are gone', !/\$t\('Details'\)/.test(SRC) && !/rec\.why/.test(SRC));
 ok('#34: Move on by itself is a checkbox in the chapters menu (no timer icon in the strip), and the phone\'s sheet keeps it', !/ts-autob/.test(SRC) && /menuitemcheckbox/.test(SRC) && /ts-auto/.test(SRC));
-const key = step('views', 'key');
-// (#247: the check is a toggle in Y's head, so the task names the check alone; the head's ⋯ is lit when it is behind it)
-ok('UX20: the Phase key step lights the head\'s ⋯ button when the check is behind it', key.anchor[1] === 'rightOpts' && key.try.text === 'Turn on Phase key.', key.try);
-ok('UX20: the step\'s task text keeps the strip\'s length', plain(key.try.text).length <= 60, key.try.text);
+// (standards-ok: the Phase key step, Y's, is left out of the classic tour: Y's pane is not drawn since #994)
 
 // ---- Russian (UX78, UX93 and every string of this piece)
 const RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../notes/i18n/ru/v165-ux-learn.json'), 'utf8'));
 const ents = Object.entries(RU).filter(([k]) => !k.startsWith('_'));
-// (61: the piece's 67 less the six the classic Deformation's chip and Video offer had, gone with the transport, #994)
-ok('the table has the piece\'s strings', ents.length >= 61, ents.length);
+// (60: the piece's strings the page still ships; the classic transport's six and the classic tour's Phase key task are
+// not among them, #994)
+ok('the table has the piece\'s strings', ents.length >= 60, ents.length);
 ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter(([, v]) => !(v.en && v.ru)).map(([k]) => k));
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
 // (V165_HERE is one set holding every piece's table, this one among them)
 ok('make_ru_table.py reads the table after every v16.4 one', /V165_HERE = \{[^}]*'v165-ux-learn\.json'[^}]*\}/.test(MK) && MK.indexOf("glob('v165-*.json')") > MK.lastIndexOf("glob('v164-*.json')"));
 const TABLE = (() => { const s = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const m = /I18N\.define\('ru', (".*")\);\s*$/ms.exec(s); return JSON.parse(JSON.parse(m[1])); })();
 const keyOf = (v) => (v.ctx ? v.ctx + '\u0004' : '') + v.en;
-// (the old Help "Deformation" paragraph has no stopgap Russian any more: the app calls the release's paragraph, whose
-// Russian comes from v164-help.json)
+// (the old Help "Deformation" paragraph has no stopgap Russian any more: the app calls the guide's Deformation paragraph,
+// the steps view's glide, whose Russian comes from tools/ru_extra.json)
 const missing = ents.filter(([, v]) => !(keyOf(v) in TABLE));
 ok('every string of the piece is in the shipped table', missing.length === 0, missing.map(([k]) => k));
 // (the two Help texts of the chapters menu and its button, and the sound step's task, are kept in tools/ru_extra.json, not in this table: the generator rejects a key in both)
@@ -67,7 +65,7 @@ const EXTRA_RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../tools/ru_ex
 for (const k of ["This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.", "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.", "Click ▶ to turn sound on and listen."]) ok(`ru_extra.json holds the Russian of "${k.slice(0, 30)}…", and it is in the shipped table`, typeof EXTRA_RU[k] === 'string' && TABLE[k] === EXTRA_RU[k], k);
 ok('no stopgap entry is left for the older Help "Deformation" paragraph, and the release\'s paragraph is in the table',
   !ents.some(([, v]) => /^Stopgap/.test(v.note || '')) && !ents.some(([k]) => /^help\.deformation\./.test(k))
-  && Object.keys(TABLE).some((k) => k.startsWith('<b>Deformation</b> in the top bar') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)));
+  && Object.keys(TABLE).some((k) => k.startsWith('A glide shows the homotopy') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)));
 ok('UX78: «Дальше автоматически»', TABLE['Move on by itself'] === 'Дальше автоматически', TABLE['Move on by itself']);
 ok('UX93: the tour is «Обучение»', TABLE['Guided tour'] === 'Обучение' && TABLE['⋯ › Guided tour'] === '⋯ › Обучение');
 const obzor = Object.entries(TABLE).filter(([k, v]) => /tour|Tour/.test(k) && (typeof v === 'string' ? [v] : Object.values(v)).some((x) => /[Оо]бзор/.test(x)));
@@ -76,7 +74,7 @@ ok('UX93: the welcome title fits a 360 px strip', TABLE['Welcome to the Workbenc
 const tiles = ents.filter(([, v]) => v.ctx === 'phone tile');
 ok('UX93: the phone tile names are one word or two short ones, without a soft hyphen', tiles.length === 7 && tiles.every(([, v]) => !/­/.test(v.ru) && v.ru.split(' ').every((wd) => wd.length <= 9)), tiles.map(([, v]) => v.ru));
 // the strip's Russian rule: leads and tasks at most 64 as read
-for (const id of ['lead.welcome2', 'try.key.desk']) ok(`Russian ${id}: at most 64 as read`, plain(RU[id].ru).length <= 64, RU[id].ru);
+for (const id of ['lead.welcome2']) ok(`Russian ${id}: at most 64 as read`, plain(RU[id].ru).length <= 64, RU[id].ru);
 // every placeholder of the English is in the Russian
 for (const [k, v] of ents) {
   const ph = (s) => [...s.matchAll(/%?\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');

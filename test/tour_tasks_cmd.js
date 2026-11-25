@@ -1,4 +1,4 @@
-// The tour's task lines (ux's approved table): Y's scroll or drag, Targets' disc drawn in Y, Natural domain's click on the whole map
+// The tour's task lines (ux's approved table): Targets' disc drawn on w₁ (the steps view), Natural domain's click on the whole map
 // (the steps view), the derivative's click on its chip (the steps view) and Cauchy's drag of the circle. Each: nothing ticks without input; real mouse input ticks it
 // within 300 ms; the result line (then) shows; the tour's English line is the approved one. 1440 × 900, English.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -48,29 +48,8 @@ const task = async (id, text, fn, ready) => {
   } catch (e) { check(`${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } return null; }
 };
 
-if (!SV) {
-// y: a pan of Y (not of X)
-await task('y', 'Scroll to zoom in Y, or drag to pan.', async () => {
-  const b = await ev(`(() => { const b = document.getElementById('plotR').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
-  await mdrag(b[0] + 150, b[3] - 90, b[0] + 210, b[3] - 120);
-});
-check('y: the result line says Y moved on its own', /Y moved on its own/.test((await l2()).text), await l2());
-// (a pan of X alone does not tick Y's task)
-await goStep('y');
-{ const b = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
-  await mdrag(b[0] + 150, b[3] - 90, b[0] + 210, b[3] - 120); await sleep(500);
-  check('y: a pan of X does not tick it', !(await l2()).done, await l2()); }
-
-// targets: choose Disc, then drag in Y
-await task('targets', 'Choose Disc, then drag in Y.', async () => {
-  const d = await center('#tools > .tool[data-tool="disc"], #railTools > .tool[data-tool="disc"]');
-  await mdrag(d[0], d[1], d[0], d[1]);   // (a click)
-  await sleep(300);
-  const b = await ev(`(() => { const b = document.getElementById('plotR').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
-  await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
-});
-check('targets: the result line says X shades its preimage', /X shades its preimage/.test((await l2()).text), await l2());
-} else {
+// (standards-ok: the classic Y and Targets tasks are gone with Y's pane, not drawn since #994)
+if (SV) {
   // targets in the steps view: a disc drawn on w₁, then ‹ to z. A disc drawn on z, then › and ‹, does not tick it
   const drawDisc = async () => {
     const d = await center('#tools > .tool[data-tool="disc"], #railTools > .tool[data-tool="disc"]');
@@ -150,11 +129,6 @@ const taskT = async (id, text, fn, ready) => {
     check(`phone ${id}: a finger ticks it`, t != null, [await cur(), await l2()]);
   } catch (e) { check(`phone ${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 };
-// y: a finger drags Y (the large plane on a phone at this step; the steps view's tour has no Y step)
-if (!SV) await taskT('y', 'Pinch in Y, or drag.', async () => {
-  const b = await ev(`(() => { const b = document.getElementById('plotR').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
-  await tdrag(b[0] + 120, b[1] + 200, b[0] + 190, b[1] + 160);
-});
 // deriv: a tap on the chip d/dz (the classic views have no chain to tap)
 if (SV) {
   await open('tt5', 390, 844, false, true);
