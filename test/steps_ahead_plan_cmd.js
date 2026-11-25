@@ -11,8 +11,9 @@
 //   fill's own cap); a second glide says nothing more. info.glide has each map's estimate (cost times frames) beside the wait it made.
 // It asserts nothing about which side of a limit a map lands on: that depends on the machine. Run with CMW_AHEAD_PLAN_ALL=1 the
 // suite measures the whole gallery, at the page's device pixel ratio (CMW_DPR) and at each CPU slowing in
-// CMW_AHEAD_PLAN_RATES (a list, '1,4' by default 1) and, in CMW_AHEAD_PLAN_RANGE ('from-to', the gallery's indices; 0 is the z^-2 scene), the maps it measures; Emulation.setCPUThrottlingRate slows the page's thread, not the GPU
-// process, where lavapipe draws), and asserts nothing but that it measured.
+// CMW_AHEAD_PLAN_RATES (a list such as '1,4', by default 1; Emulation.setCPUThrottlingRate slows the page's thread, not the GPU
+// process, where lavapipe draws, so a rate of 4 is not a device four times slower) and, in CMW_AHEAD_PLAN_RANGE ('from-to', the gallery's
+// indices; 0 is the z^-2 scene), the maps it measures; it asserts nothing but that it measured.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return !!cond; };
@@ -71,9 +72,10 @@ const table = [];
 const record = (name, rate, m) => {
   const P = m.plan, dpr = P && P.dpr;
   if (!P) { table.push({ name, rate, dpr, cost: null, probe: m.probe && { state: m.probe.state, why: m.probe.why } }); return; }
-  const at = (speed, planes) => P.rows.find((r) => r.speed === speed && r.planes === planes);
-  const cell = (speed, planes) => { const r = at(speed, planes); return `${r.plan} N${r.N} t${margins(P, r).time} m${margins(P, r).memory}${nearOf(P, r).length ? ' NEAR ' + nearOf(P, r).join('+') : ''}`; };
-  table.push({ name, rate, dpr, cost: P.cost, frame: `${P.pw}x${P.ph}`, fast1: cell('fast', 1), normal1: cell('normal', 1), normal2: cell('normal', 2), slow1: cell('slow', 1), near: P.rows.filter((r) => nearOf(P, r).length).map((r) => `${r.speed}/${r.planes}:${nearOf(P, r).join('+')}`) });
+  const cell = (r) => `${r.plan} N${r.N} t${margins(P, r).time} m${margins(P, r).memory}${nearOf(P, r).length ? ' NEAR ' + nearOf(P, r).join('+') : ''}`;
+  const rows = {};
+  for (const r of P.rows) rows[`${r.speed}/${r.planes}`] = cell(r);
+  table.push({ name, rate, dpr, cost: +P.cost.toFixed(1), frame: `${P.pw}x${P.ph}`, rows, near: P.rows.filter((r) => nearOf(P, r).length).map((r) => `${r.speed}/${r.planes}:${nearOf(P, r).join('+')}`) });
 };
 
 const maps = ALL ? gallery() : null;

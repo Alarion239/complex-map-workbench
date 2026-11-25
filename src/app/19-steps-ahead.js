@@ -272,7 +272,7 @@
         rows.push({ speed, planes, ms, N, plan: svAheadPlan({ ms }), fillMs: +(c * N).toFixed(1), bytes: N * paneL.pw * paneL.ph * 4 });
       }
     }
-    return { cost: +c.toFixed(2), pw: paneL.pw, ph: paneL.ph, dpr: paneL.dpr, liveMs: aheadMs(), waitMs: aheadWaitMs(), budget: aheadBudget(), rows };
+    return { cost: c, pw: paneL.pw, ph: paneL.ph, dpr: paneL.dpr, liveMs: aheadMs(), waitMs: aheadWaitMs(), budget: aheadBudget(), rows };
   };
   const svAheadTune = (o) => { svAheadTest = Object.assign(svAheadTest || {}, o); };
   // TEST-HOOK
