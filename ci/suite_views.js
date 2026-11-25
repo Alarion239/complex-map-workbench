@@ -387,6 +387,7 @@ const VIEWS = {
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
   'steps_sound_name_cmd.js': steps(),
+  'phone_sound_bar_cmd.js': steps(),
   'v151_cmd.js': steps({ pin: true }),
 
   // to port: export (the shown plane, the filmstrip, the glide)
