@@ -88,7 +88,8 @@
     ctx.restore();
   }
   function drawLookDown(pane) {
-    lookDrawn = null;
+    // (nothing drawn is nothing to press: the square goes with the marks)
+    lookDrawn = null; lookSq = null;
     const s = findShape(selected);
     syncLookKey(lookDownOn(s));
     if (!lookDownOn(s)) return;

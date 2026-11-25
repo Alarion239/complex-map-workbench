@@ -13,7 +13,8 @@
 //    clear of the square) or on a line moves the target with the pointer, its centre and its ring to a pixel;
 //  - M3 with the Pick tool: the target's square is drawn at c + r; a drag of it sets r to the distance from c, the centre
 //    where it was, and one Undo puts r back and says so; over it the cursor is ew-resize and it is lit, and the light goes
-//    when the pointer leaves the plane; a radius bound to a point has no square; on a phone, where the ring is drawn
+//    when the pointer leaves the plane; with the card's Look down switch off, a drag where it was resizes nothing; a radius
+//    bound to a point has no square; on a phone, where the ring is drawn
 //    smaller than a finger's reach, a finger on its far side drags the disc, not the square;
 //  - sin z, |w − 0.5| < 0.2, infinitely many critical points: crosses at π/2 + kπ in the window, again after a pan;
 //  - on a phone the card is in the disc's row in Shapes, and Look down draws (steps_lookdown_phone_cmd.js has the rest).
@@ -154,6 +155,15 @@ const mouse = (type, x, y, o = {}) => send('Input.dispatchMouseEvent', Object.as
     await sleep(300); await frames();
     const d2 = await target(), said = await ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent).join(' | ')`);
     ok('M3, Pick: one Undo puts r back, and says "Undid: edit …"', d2.r === 0.25 && /Undid: edit /.test(said), { d2, said });
+    // (the card's Look down switch off: no marks and no square, and a press where the square was does not resize)
+    await ev(`(() => { const sw = document.querySelector('#propsPanel .ro-card input[type=checkbox]'); if (sw) sw.click(); return 1; })()`);
+    await frames(); await frames();
+    const L3 = await look(), d3 = await target();
+    await drag(a[0], a[1], b[0], b[1], 10, 16);
+    await frames();
+    const d4 = await target();
+    info.square.off = { L3, d3, d4 };
+    ok('M3, Pick, Look down switched off: no square, and a drag where it was leaves r as it was', L3 === null && d4.r === d3.r, info.square.off);
   }
 }
 {
