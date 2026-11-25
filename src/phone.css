@@ -161,6 +161,13 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ld-key:not(.folded) > .ld-ttl::after { border-bottom-color: transparent; border-top-color: currentColor; translate: 0 2px; }
 :root.ph .ld-key > .ld-ttl:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
 :root.ph .ld-key:not(.folded) { background: var(--surface); max-height: calc(100% - var(--ruler) - 6px - var(--ph-lift) - var(--ld-top)); overflow-y: auto; overscroll-behavior: contain; }
+/* (on a landscape phone the plane is wide and short: the Stack's open key has 130 px of it at 320 tall. Its connector switch goes on the title's row
+   and its marks under them, in a box up to 460 px wide that stops short of the plane's 2 × 2 key column (96 px, its 8 px edge and a 6 px gap): its
+   title, switch and marks all show, the marks in two lines in Russian too, #2418) */
+:root.ph.ph-land .ld-key:not(.folded):has(> .ld-links-row) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; max-width: min(calc(100% - var(--ruler) - 6px - 110px), 460px); }
+:root.ph.ph-land .ld-key:not(.folded):has(> .ld-links-row) > .ld-ttl { grid-area: 1 / 1; flex: none; }
+:root.ph.ph-land .ld-key:not(.folded):has(> .ld-links-row) > .ld-links-row { grid-area: 1 / 2; }
+:root.ph.ph-land .ld-key:not(.folded):has(> .ld-links-row) > .ld-list { grid-area: 2 / 1 / 3 / 3; }
 /* (with a sheet open on a portrait phone the plane keeps its title chip only, as its other keys: design-11) */
 :root.ph.ph-split:not(.ph-land) .ld-key { display: none !important; }
 
