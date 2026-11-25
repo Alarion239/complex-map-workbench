@@ -42,6 +42,7 @@ const VIEWS = {
   'export_glide_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'layout_rows_cmd.js': steps({ pin: true }),
+  'layout_ground_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
   'phone_edit_head_cmd.js': steps({ pin: true }),
   'phone_fmap_cmd.js': steps(),
@@ -68,6 +69,7 @@ const VIEWS = {
   'steps_seams_cmd.js': steps(),
   'gl_uniform_units_cmd.js': steps(),
   'glchain_slot_cap_cmd.js': steps(),
+  'steps_refused_seam_cmd.js': steps(),   // (a refused chain's status card, the seam's handle and θ chip clear of it, #2330)
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_glide_negpow_cmd.js': steps(),
@@ -77,12 +79,14 @@ const VIEWS = {
   'steps_ahead_cmd.js': steps(),
   'steps_stack_ahead_cmd.js': steps(),
   'steps_ahead_ring_cmd.js': steps(),
+  'steps_wait_say_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_negpow_glide_cmd.js': steps({ pin: true }),
   'steps_land_glide_sheets_cmd.js': steps(),
   'steps_land_sheets_prestart_cmd.js': steps(),
   'steps_land_cracks_cmd.js': steps(),
+  'steps_glide_tile_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
@@ -161,6 +165,9 @@ const VIEWS = {
   'steps_lookdown_phone_cmd.js': steps(),
   'steps_stack_levels_cmd.js': steps(),
   'steps_stack_tubes_cmd.js': steps(),
+  'steps_stack_pick_cmd.js': steps(),
+  'steps_stack_links_cmd.js': steps(),
+  'steps_stack_surface_cmd.js': steps(),
   'floor_pick_cmd.js': steps({ pin: true }),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
@@ -172,16 +179,17 @@ const VIEWS = {
   'steps_chipname_cmd.js': steps(),
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
-  'steps_colour_pick_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
-  'steps_colour_parity_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
+  'steps_colour_pick_cmd.js': steps(),
+  'steps_colour_parity_cmd.js': steps(),
   'steps_sheet_grid_cmd.js': steps({ pin: true }),
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
+  'steps_mesh_end_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
   'steps_mesh_tie_cmd.js': steps(),
   'steps_mesh_tie_newt_cmd.js': steps(),
   'steps_mesh_arc_cmd.js': steps(),
   'steps_exact_saved_false_cmd.js': steps(),
-  'steps_drawplane_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
+  'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
   'steps_regions_note_cmd.js': steps({ pin: true }),
   'steps_order_cmd.js': steps(),
@@ -195,6 +203,8 @@ const VIEWS = {
   'steps_dh_stop_cmd.js': steps(),
   'steps_bottcher_axis_cmd.js': steps(),
   'steps_parked_repeat_cmd.js': steps(),
+  'steps_parked_repeat_catalog_cmd.js': steps(),
+  'steps_parked_repeat_refusal_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
   'newt_poly_order_cmd.js': steps({ pin: true }),
   'series_limit_cmd.js': steps({ pin: true }),
@@ -215,6 +225,7 @@ const VIEWS = {
   'phone_toast_sheet_cmd.js': steps(),
   'steps_toast_ctx_cmd.js': steps(),
   'phone_legend_clear_cmd.js': steps(),
+  'classic_chain_box_cmd.js': classic('the classic view\'s empty chain box under the plane (#2269), which goes with the classic view'),
   'phone_legend_said_cmd.js': steps(),
   'phone_legend_open_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
@@ -464,11 +475,14 @@ const VIEWS = {
 };
 
 // the entries' faults against the runnable suites: a suite with no entry, an entry for no runnable suite, a bad entry,
-// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps),
-// so a steps() entry without it, or a port or classic one with it, is wrong (a ported suite, pin: true, needs no URL)
+// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps,
+// or opens its page through the chain kit), so a steps() entry without it, or a port or classic one with it, is wrong
+// (a ported suite, pin: true, needs no URL)
 function checkViews(runnable) {
   const fs = require('fs'), path = require('path'), bad = [];
-  const asksSteps = (f) => { try { return /view=steps/.test(fs.readFileSync(path.join(__dirname, '..', 'test', f), 'utf8')); } catch (e) { return false; } };
+  // (a suite asks the steps view by naming it in a URL, or by opening its page through test/lib/steps_chain_kit.js,
+  // whose openChain does)
+  const asksSteps = (f) => { try { const src = fs.readFileSync(path.join(__dirname, '..', 'test', f), 'utf8'); return /view=steps/.test(src) || /steps_chain_kit\.js/.test(src); } catch (e) { return false; } };
   for (const f of runnable) if (!VIEWS[f]) bad.push(`${f}: no view in ci/suite_views.js (steps, port or classic)`);
   for (const [f, tag] of Object.entries(VIEWS)) {
     if (!runnable.includes(f)) bad.push(`${f}: in ci/suite_views.js but not a runnable suite`);

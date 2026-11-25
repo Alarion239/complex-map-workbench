@@ -24,6 +24,15 @@ check('a bypassed step is not a plane for T', Views.cleanSv({ ...ok, T: 2 }, [0,
 check('unknown scope', Views.cleanSv({ ...ok, scope: 'x' }, P).scope, 'all');
 check('unknown surface', Views.cleanSv({ ...ok, surf: 'cube' }, P).surf, 'plane');
 check('the Stack is a surface', Views.cleanSv({ ...ok, surf: 'stack' }, P).surf, 'stack');
+check('the Stack\'s connectors are kept', [Views.cleanSv({ ...ok, links: 'curved' }, P).links, Views.cleanSv({ ...ok, links: 'straight' }, P).links], ['curved', 'straight']);
+check('an unknown kind of connector is dropped', 'links' in Views.cleanSv({ ...ok, links: 'wavy' }, P), false);
+// the Stack's camera: [yaw, pitch] in degrees, kept through JSON, yaw into [−180, 180), pitch into [10, 90]; anything else dropped
+check('cam: the Stack\'s camera is kept', Views.cleanSv({ ...ok, surf: 'stack', cam: [-30, 35] }, P).cam, [-30, 35]);
+check('cam: a JSON round trip keeps it', Views.cleanSv(JSON.parse(JSON.stringify({ sv: { ...ok, cam: [0, 90] } })).sv, P).cam, [0, 90]);
+check('cam: yaw is taken into [-180, 180)', [190, -190, 180, 540].map((y) => Views.cleanSv({ ...ok, cam: [y, 40] }, P).cam[0]), [-170, 170, -180, -180]);
+check('cam: pitch is clamped to [10, 90]', [Views.cleanSv({ ...ok, cam: [0, 120] }, P).cam[1], Views.cleanSv({ ...ok, cam: [0, -5] }, P).cam[1]], [90, 10]);
+check('cam: not two finite numbers is dropped', [[1], [1, 2, 3], ['1', 2], [NaN, 2], 'tilt', null].map((c) => 'cam' in Views.cleanSv({ ...ok, cam: c }, P)), [false, false, false, false, false, false]);
+check('cam: a state without one has none (an old link)', 'cam' in Views.cleanSv(ok, P), false);
 for (const sp of ['fast', 'normal', 'slow', 'slower']) check('speed ' + sp, Views.cleanSv({ ...ok, speed: sp }, P).speed, sp);
 check('unknown speed is dropped (the device\'s applies)', 'speed' in Views.cleanSv({ ...ok, speed: 'warp' }, P), false);
 check('a state without a speed has none', 'speed' in Views.cleanSv({ at: 1 }, P), false);

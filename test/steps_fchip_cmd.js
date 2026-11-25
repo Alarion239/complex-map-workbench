@@ -15,17 +15,10 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ns = 'svf' + Date.now();
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
-  steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
+const { MOB, CUBE, EXP, S2, WHOLEMAP_UP, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
+const CHAIN3 = [EXP, MOB, CUBE];
 const LONG = { type: 'sin', params: {}, on: true };
-const open = async (w, h, touch, lang, chain) => {
-  const stx = chain ? Object.assign({}, st, { steps: chain }) : st;
-  await view(w, h, false, touch);
-  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(stx))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
-};
+const open = (w, h, touch, lang, chain) => openChain({ ns, w, h, mobile: touch, lang, shapes: [S2], steps: chain || CHAIN3, until: WHOLEMAP_UP, max: 30000 });
 const S = () => ev('__cmwSteps()');
 const whole = () => ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'); if (!f) return null; const rail = document.querySelector('#svStrip .sv-rail'), add = document.querySelector('#svStrip .sv-add'), planes = [...document.querySelectorAll('#svStrip .sv-plane')], last = planes[planes.length - 1];
   return { text: f.textContent, label: f.getAttribute('aria-label'), pressed: f.getAttribute('aria-pressed'), tab: f.tabIndex, tag: f.tagName, hidden: f.hidden, shown: getComputedStyle(f).display !== 'none',
@@ -72,7 +65,7 @@ const KEY = 'Whole map';
 const labelOf = (lang) => ev(`I18N.at(${JSON.stringify(lang)}).t(${JSON.stringify(KEY)})`);
 const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
-  for (const [what, chain] of [['1 step', st.steps.slice(0, 1)], ['2 steps', st.steps.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
+  for (const [what, chain] of [['1 step', CHAIN3.slice(0, 1)], ['2 steps', CHAIN3.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
     await open(1440, 900, false, lang, chain);
     if (what === '1 step') {
       // (a one-step chain has no F chip: F is f₁ there)
