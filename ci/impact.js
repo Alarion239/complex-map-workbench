@@ -118,6 +118,7 @@ const MAP = [
   ['src/commands.js', ui('desktop', 'i18n')],                                 // the command palette (desktop: formulas too)
   ['src/soundhooks.js', ui('sound')],                                         // the sound hooks: the cues, listening, loops
   ['src/export.js', ui('export', 'i18n')],                                    // export, captions and the figure's renderer
+  ['src/glyphmatch.js', ui('views', 'desktop', 'phone', 'layout')],         // the glide tile's glyph matching (#2409)
   ['src/morphpaths.js', ui('deform')],                                        // the deformation's paths
   ['src/integrals.js', { core: true, areas: ['desktop'] }],                   // the integrals (from part 07; the palette's ∫ too)
   ['src/examples.js', ui('desktop', 'phone', 'tour')],                        // the examples and the guide (from part 15)

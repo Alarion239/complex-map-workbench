@@ -67,14 +67,18 @@
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, rept, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
   window.__cmwSumRun = (role = 'L', work) => { if (work) { sumWork = work; sumRuns.clear(); requestRender('L', 'R'); } const r = sumRuns.get(role === 'R' ? paneR : paneL); return r ? { taken: r.view !== null, hit: r.hit, spent: r.spent, tried: r.tried } : null; };   // (the pane's last sample of infinite sums that do not converge, sumWatch; work: the terms a sample may evaluate from now on, and a new sample)
-  // the glide tile (#1533): shown, its box and the plane's (page px), what it keeps clear of, and the spot it takes for
-  // its size now (svTileSpot), or null
+  // the glide tile (#1533): shown, its box and the plane's (page px), what it keeps clear of, the spot it takes for
+  // its size now (svTileSpot), or null, and the morph it shows (#2409), or null
   window.__cmwTile = (sync) => {
     if (sync) svTileSync(true);
     const el = svTile.el, P = $('plotL').getBoundingClientRect(), r = el && !el.hidden ? el.getBoundingClientRect() : null;
     const box = (o) => [Math.round(o.left), Math.round(o.top), Math.round(o.right), Math.round(o.bottom)];
     const obs = svTileObstacles($('plotL'));
-    return { shown: !!r && el.style.visibility !== 'hidden', box: r && box(r), plot: box(P), obstacles: obs.map(box), spot: el ? svTileSpot(P, el.offsetWidth, el.offsetHeight, obs) : null, key: svTile.key, fit: [svTile.a && !svTile.a.hidden, svTile.b && !svTile.b.hidden], offscreen: !!SV.offscreen, q: svTile.q };
+    return { shown: !!r && el.style.visibility !== 'hidden', box: r && box(r), plot: box(P), obstacles: obs.map(box), spot: el ? svTileSpot(P, el.offsetWidth, el.offsetHeight, obs) : null, key: svTile.key, fit: [svTile.a && !svTile.a.hidden, svTile.b && !svTile.b.hidden], offscreen: !!SV.offscreen, q: svTile.q,
+      // (the morph shown: its glyph pairs and, for each part, which it is (0 a pair, -1 the first's alone, 1 the second's), its
+      // affines at the two ends and now, and its opacity now)
+      morph: svTile.m && !svTile.m.hidden && svTile.morph ? { pairs: svTile.morph.pairs, parts: svTile.morph.parts.map((p) => ({ fade: p.fade, a: p.a, b: p.b,
+        now: (/matrix\(([^)]*)\)/.exec(p.el.getAttribute('transform') || '') || [0, ''])[1].split(' ').map(Number), op: +p.el.getAttribute('opacity') })) } : null };
   };
   window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
