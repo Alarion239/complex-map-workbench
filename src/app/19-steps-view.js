@@ -2046,7 +2046,6 @@
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
-    smKeepPaired(shapes.map((x) => `${x.id}|SV|flat`));
     for (const x of shapes) {
       const r = x === ring ? svRingGPU(ring) : svCarryGPU(x);
       if (!r || !r.meshRes) return false;
