@@ -3,8 +3,8 @@
   // stage T). Its place at height s, 0 the floor and 1 the glass, in the floor's own coordinates, is one of two kinds
   // (SV.links, the Stack key's switch, saved with the steps view's place):
   // - 'straight': (1 − s)·z + s·F(z), so the box's slice at s is the graph of F turned in C²; with planes between (the
-//   Stack's middle levels, stackLevelStages), straight from each plane's image of z to the next one's, plane n of m at
-//   s = n / m;
+  //   Stack's middle levels, stackLevelStages), straight from each plane's image of z to the next one's, plane n of m at
+  //   s = n / m (stackLevelAt);
   // - 'curved': the glide's own path from plane k to plane T, as the steps view glides it. With m steps between, s runs
   //   them in turn, step j (0-based) at u = m·s − j through its natural homotopy (homF), from the plane before it; with
   //   All at once (S.homAll, two steps or more), every step at once at u = s.
@@ -65,6 +65,19 @@
     const P = svPlanes(), i0 = P.indexOf(k), i1 = P.indexOf(T);
     return i0 < 0 || i1 <= i0 || svAllOk(i0, i1) ? [k, T] : P.slice(i0, i1 + 1);
   }
+  // the maps from plane k to each of the planes the Stack shows up to plane T: {L: stackLevelStages', G: G[n] the map from
+  // k to L[n] (the identity for k), m: the parts between them}
+  function stackLevelMaps(k, T) {
+    const L = stackLevelStages(k, T);
+    return { L, G: L.map((b) => (b === k ? (z) => z : rangeF(k, b))), m: L.length - 1 };
+  }
+  // the straight connector's place at height s (0 the floor, 1 the glass) through the level maps lm (stackLevelMaps'),
+  // from z's images ws on the levels (default: lm's maps of z): on the part from level n to level n + 1, straight between
+  // z's images there
+  function stackLevelAt(lm, s, z, ws = null) {
+    const x = s * lm.m, n = Math.min(lm.m - 1, Math.max(0, Math.floor(x)));
+    return tubeMix(ws ? ws[n] : lm.G[n](z), ws ? ws[n + 1] : lm.G[n + 1](z), x - n);
+  }
   // A group of plane points pts carried up by the given kind, from k to T: {lev, at}, lev[j][i] point i at height
   // j / LINK_N, with lev[0] = pts and lev[LINK_N] their images, and at(j, z) any plane point z at height j on the group's
   // branches.
@@ -72,11 +85,12 @@
   // (none: the steps' own cuts)
   function linkLevels(k, T, mode, pts, outer) {
     const F = rangeF(k, T);
-    let at;
+    let at, ws = null;
     if (mode !== 'curved') {
-      // (straight from each level's image of z to the next one's: stackLevelStages' planes, the nth of m at j = n·LINK_N / m)
-      const L = stackLevelStages(k, T), G = L.map((b) => (b === k ? (z) => z : rangeF(k, b))), m = L.length - 1;
-      at = (j, z) => { const x = (j / LINK_N) * m, n = Math.min(m - 1, Math.floor(x)); return tubeMix(G[n](z), G[n + 1](z), x - n); };
+      // (straight from each level's image of z to the next one's, stackLevelAt; each point's images on the levels made once)
+      const lm = stackLevelMaps(k, T);
+      ws = pts.map((z) => lm.G.map((g) => g(z)));
+      at = (j, z, i = -1) => stackLevelAt(lm, j / LINK_N, z, i >= 0 ? ws[i] : null);
     } else {
       const steps = linkSteps(k, T), m = steps.length, ring = (q) => (outer ? outer.map((i) => q[i]) : null);
       if (S.homAll && m > 1 && !steps.some((b) => isDeriv(b))) {
@@ -98,8 +112,8 @@
       }
     }
     const lev = [pts];
-    for (let j = 1; j < LINK_N; j++) lev.push(pts.map((z) => at(j, z)));
-    lev.push(pts.map(F));
+    for (let j = 1; j < LINK_N; j++) lev.push(pts.map((z, i) => at(j, z, ws ? i : -1)));
+    lev.push(ws ? ws.map((w) => w[w.length - 1]) : pts.map(F));
     return { lev, at: (j, z) => (j <= 0 ? z : j >= LINK_N ? F(z) : at(j, z)) };
   }
   // The height at which a loop's slice is torn widest, and where: {j, z} (the middle of its jump), or null where it is
@@ -162,7 +176,7 @@
         if (tr && !out.tears.some((x) => x.piece === n)) out.tears.push({ piece: n, s: tr.j / LINK_N, z: tr.z });
       }
     });
-    out.crosses = linkCrosses(out.pieces.map((P, n) => P.loops[outers[n]]), mode === 'curved');
+    out.crosses = linkCrosses(out.pieces.map((P, n) => P.loops[outers[n]]), mode === 'curved', stackLevelMaps(k, T));
     // (the preimages outside every piece and the critical points rise on the steps' own cuts)
     const rest = free.map((i) => zs[i]).concat(crit);
     if (rest.length) {
@@ -195,11 +209,12 @@
   // only where it is not that:
   // - 'cross': their slices meet at s and part again at s1, below the glass;
   // - 'sooner' (curved): they meet from s up to the glass (s1 = 1), and the straight strands bring the same two pieces
-  //   together LINK_SOONER or more higher up (straight, the levels between each loop's floor and glass ends).
+  //   together LINK_SOONER or more higher up (the straight connectors from each loop's floor points, through the levels
+  //   between, lm: stackLevelMaps').
   const LINK_SOONER = 0.1;
-  function linkCrosses(outer, curved) {
+  function linkCrosses(outer, curved, lm) {
     const out = [], first = (p, q) => { for (let J = 1; J < LINK_N; J++) if (linkMeet(p(J), q(J))) return J; return LINK_N; };
-    const flat = (lev) => (J) => lev[0].map((z, i) => tubeMix(z, lev[LINK_N][i], J / LINK_N));
+    const flat = (lev) => { const ws = lev[0].map((z) => lm.G.map((g) => g(z))); return (J) => lev[0].map((z, i) => stackLevelAt(lm, J / LINK_N, z, ws[i])); };
     for (let a = 0; a < outer.length; a++) for (let b = a + 1; b < outer.length; b++) {
       const meet = [null];
       for (let J = 1; J < LINK_N; J++) meet.push(linkMeet(outer[a][J], outer[b][J]));
@@ -211,7 +226,8 @@
   }
   // The connector shown from the floor's point z up to v on the glass (plane points), in the flat plane's css px with its
   // heights, [[x, y, t], ...], for a strand that rises along it (the picks'): curved, the glide's path from the floor to
-  // the selected disc's plane, on the branches of the piece z lies in, where it ends at v; else straight, its two ends
+  // the selected disc's plane, on the branches of the piece z lies in, where it ends at v; else straight: its two ends, or
+  // where there are levels between, its places at every height through them (stackLevelAt)
   function stackLinkFlat(pane, z, v) {
     const s = findShape(selected);
     if (linkMode() === 'curved' && s) {
@@ -221,6 +237,15 @@
       for (let J = 0; J <= LINK_N; J++) pts.push(at(J, z));
       const w = pts[LINK_N];
       if (CX.isFin(w) && CX.abs(CX.sub(w, v)) <= 1e-6 * (1 + CX.abs(v))) return pts.map((q, J) => [...pane.w2s(q), J / LINK_N]);
+    }
+    const lm = s ? stackLevelMaps(leftStage(), shapeStage(s)) : null;
+    if (lm && lm.m > 1) {
+      const ws = lm.G.map((g) => g(z)), w = ws[lm.m];
+      if (CX.isFin(w) && CX.abs(CX.sub(w, v)) <= 1e-6 * (1 + CX.abs(v))) {
+        const pts = [];
+        for (let J = 0; J <= LINK_N; J++) pts.push([...pane.w2s(stackLevelAt(lm, J / LINK_N, z, ws)), J / LINK_N]);
+        return pts;
+      }
     }
     return [[...pane.w2s(z), 0], [...pane.w2s(v), 1]];
   }

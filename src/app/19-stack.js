@@ -51,6 +51,9 @@
     const R = stackRoom(pane, camera), k = stackFit(pane, camera, R), cx = (R[0] + R[2]) / 2, cy = (R[1] + R[3]) / 2;
     return [k * co, -k * sp * si, k * si, k * sp * co, cx - k * (co * w / 2 + si * h / 2), cy + k * sp * (si * w / 2 - co * h / 2) - k * cp * (up - 0.5) * H];
   }
+  // the camera's map of the box's level at height t between the floor's map F and the glass's G (stackLevel is affine in
+  // its height)
+  const stackMapAt = (F, G, t) => F.map((v, i) => v + t * (G[i] - v));
   // the scale, never above 1, at which the camera's view of pane's box fits the room R = [x0, y0, x1, y1] (css px)
   function stackFit(pane, camera, R) {
     const w = pane.w, h = pane.h, H = STACK_GLASS_H * Math.min(w, h), cp = stackTilt(camera), sp = cp === 0 ? 1 : Math.sin(camera.pitch);
@@ -277,7 +280,7 @@
     const link = (path) => stackClipPath(pane, path.map((p, J) => {
       const t = J / LINK_N, z = path[0], w = path[LINK_N];
       return [...pane.w2s(tubeMix(tubeMix(z, w, t), p, up)), t];
-    })).runs.map((r) => r.map(([x, y, t]) => { const m = F.map((v, n) => v + t * (G[n] - v)); return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }));
+    })).runs.map((r) => r.map(([x, y, t]) => { const m = stackMapAt(F, G, t); return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }));
     const bent = ln && up > 0 && (ln.mode === 'curved' || (!!chain && chain.levels.length > 2));
     const lines = bent ? Object.assign({ link: (i) => ln.zs[i] && link(ln.zs[i]) }, lv) : lv;
     // (Look down's marks as points in the canvas's css px, for the labels to keep clear of: the critical points on the
@@ -301,7 +304,7 @@
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
       picks: () => { picks = drawStackPicks(pane, ctx, F, G); },
-      labels: () => { if (tubes && tubes.labels.length) drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera), tubes.marks.concat(lookPts(), mids.flatMap((L) => L.pieces.flatMap((P) => P.loops.flatMap((q) => q.map((e) => e.px)))))); },
+      labels: () => { if (tubes && tubes.labels.length) drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera), tubes.marks.concat(lookPts(), stackLevelPts(mids))); },
     };
     const order = ['floor'];
     for (const layer of STACK_ORDER.slice(1)) { layers[layer](); order.push(layer); }
@@ -310,6 +313,14 @@
     const levels = chain ? chain.levels.map((L) => ({ stage: L.stage, up: L.up, pieces: L.pieces.map((P) => ({ parent: P.parent, covers: P.covers, ink: P.ink, roots: P.roots.map(xy) })) })) : null;
     return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk, tubes, levels, mids, why: chain ? chain.why : null, links: ln ? ln.mode : null, picks, plane: TH.plane };
   }
+  // the middle levels' marks (drawStackLevels' mids) as points in the canvas's css px, for the labels to keep clear of: their
+  // pieces' outlines and their names' plates
+  // (a plate as points TUBE_CELL apart, the grid the labels' search counts on)
+  const stackLevelPts = (mids) => mids.flatMap((L) => {
+    const out = L.pieces.flatMap((P) => P.loops.flatMap((q) => q.map((e) => e.px))), [x0, y0, x1, y1] = L.name.box;
+    for (let y = y0; y <= y1 + 1e-9; y += Math.min(TUBE_CELL, y1 - y0 || 1)) for (let x = x0; x <= x1 + 1e-9; x += Math.min(TUBE_CELL, x1 - x0 || 1)) out.push([x, y]);
+    return out;
+  });
   // the Stack's overlay on the left pane (renderOverlays'), with Look down's key chip when the marks show. False when the
   // Stack is not shown
   function stackDrawOverlay(pane) {

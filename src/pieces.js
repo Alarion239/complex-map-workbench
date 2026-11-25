@@ -98,11 +98,12 @@ const Pieces = (() => {
   //   {counted: true, roots: [{z, mult, piece}] (the preimages of c, z null for infinity; piece: an index into pieces), pieces: [{loops:
   //   [index into loops], holes, covers, unbounded}] (covers: how many times it covers the disc), loops: [{path: C[],
   //   k, ccw}] (the boundary's closed loops in the order followed, k: how many times each covers the rim), holes (in
-  //   all), joins: [{r, values}] (the join radii below r, Critical.joinRadii)} | {counted: false, reason}
+  //   all), joins: [{r, values}] (the join radii below r, Critical.joinRadii)} | {counted: false, reason, inverse (true where
+  //   a step has no exact inverse, or infinitely many preimages)}
   function count(steps, built, a, b, c, r) {
     const plan = Inverse.pointPlan(steps, built, a, b);
-    if (!plan.ok) return { counted: false, reason: plan.reason };
-    if (!plan.ops.every(finite)) return { counted: false, reason: 'the chain has infinitely many preimages' };
+    if (!plan.ok) return { counted: false, reason: plan.reason, inverse: true };
+    if (!plan.ops.every(finite)) return { counted: false, reason: 'the chain has infinitely many preimages', inverse: true };
     const crit = Critical.ofChain(steps, built, a, b);
     if (!crit.values.known) return { counted: false, reason: crit.values.reason };
     const radii = Critical.joinRadii(crit.values.list, c), wInf = Inverse.critForward(plan.ops, 0, null);
@@ -159,7 +160,8 @@ const Pieces = (() => {
   // indices, increasing, the last b: the disc's own plane) and how they nest, each piece in the piece of the next level
   // that its roots map into:
   //   {counted: true, levels: [{stage, count (Pieces.count from that stage to b; null for b), pieces: [{roots: [index into
-  //   count.roots], parent: index into the next level's pieces (-1 for b's), covers}]}]} | {counted: false, reason, step}
+  //   count.roots], parent: index into the next level's pieces (-1 for b's), covers}]}]} | {counted: false, reason, step,
+  //   inverse (Pieces.count's)}
   // The disc itself is b's one piece, its root c. A piece maps into one piece of the next level (a connected set's image is
   // connected, and the pieces are the components of the preimage), so all its roots agree on the parent. Levels are
   // counted from the top down; not counted at the first level that is not (step: the first step on from it to the next
@@ -173,7 +175,7 @@ const Pieces = (() => {
       const k = levels[i], next = levels[i + 1], pc = count(steps, built, k, b, c, r);
       if (!pc.counted) {
         const on = steps.findIndex((st, j) => j >= k && j < next && st.on !== false);
-        return { counted: false, reason: pc.reason, step: on >= 0 ? on + 1 : next };
+        return { counted: false, reason: pc.reason, step: on >= 0 ? on + 1 : next, inverse: !!pc.inverse };
       }
       const plan = Inverse.pointPlan(steps, built, k, next), up = out[0];
       // (the piece of the level above that holds the image of root z)

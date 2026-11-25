@@ -53,8 +53,7 @@
     const pc = readoutData(s).pc;
     let d = null;
     if (pc.counted) {
-      const L = stackLevelStages(k, T), m = L.length - 1;
-      const G = L.map((b) => (b === k ? (z) => z : rangeF(k, b))), f = L.slice(1).map((b, n) => rangeF(L[n], b));
+      const { L, G, m } = stackLevelMaps(k, T), f = L.slice(1).map((b, n) => rangeF(L[n], b));
       const dF = (g, z) => { const h = 1e-6 * (1 + CX.abs(z)); return CX.scale(CX.sub(g(CX.add(z, C(h, 0))), g(CX.sub(z, C(h, 0)))), 0.5 / h); };
       const pieces = pc.pieces.map((P, i) => ({ ink: TUBE_INKS[i % TUBE_INKS.length], loops: P.loops.map((li) => {
         const z = tubeResample(pc.loops[li].path, TUBE_PTS);
@@ -67,7 +66,7 @@
           const z = G[n](r.z), dz = dF(f[n], z);
           if (!(dz.re < 0 && Math.abs(dz.im) <= NARROW_TOL * CX.abs(dz))) continue;
           const u = 1 / (1 - dz.re), w = G[n + 1](r.z);
-          narrows.push({ z, d: C(dz.re, 0), s: (n + u) / m, p: C(z.re + u * (w.re - z.re), z.im + u * (w.im - z.im)), a: L[n], b: L[n + 1] });
+          narrows.push({ z, d: C(dz.re, 0), s: (n + u) / m, p: tubeMix(z, w, u), a: L[n], b: L[n + 1] });
         }
       }
       d = { pieces, narrows };
@@ -165,7 +164,7 @@
     if (!d || fade <= 0) return null;
     // a point of the flat plane's css px at height t, through the level map at t (the levels' maps are affine in the
     // height); a plane point there
-    const lift = (q, t) => { const m = Fm.map((v, i) => v + t * (Gm[i] - v)); return [m[0] * q[0] + m[2] * q[1] + m[4], m[1] * q[0] + m[3] * q[1] + m[5]]; };
+    const lift = (q, t) => { const m = stackMapAt(Fm, Gm, t); return [m[0] * q[0] + m[2] * q[1] + m[4], m[1] * q[0] + m[3] * q[1] + m[5]]; };
     const at = (p, t) => lift(pane.w2s(p), t);
     const ink = (P) => TH.c[P.ink], per = LINK_N / TUBE_LEVELS, box = [[0, 0], [pane.w, 0], [pane.w, pane.h], [0, pane.h]];
     // the labels (drawStackLabels): straight, the narrowings; curved, the tears; the tubes out of the window and the

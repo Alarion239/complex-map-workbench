@@ -254,7 +254,7 @@
     const lookRing = s && lookMarksOn(s) ? lookMarks(pane, s) : null;
     if (!lit && !hv && !lookRing) return rec;
     // a point of the flat plane's css px at height t, through the levels' maps
-    const at = (p, t) => { const m = F.map((v, i) => v + t * (G[i] - v)); return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; };
+    const at = (p, t) => { const m = stackMapAt(F, G, t); return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; };
     const flat = (q) => pane.w2s(q), inside = (p) => p[0] >= 0 && p[0] <= pane.w && p[1] >= 0 && p[1] <= pane.h;
     const ring = (p, r, colour, fill) => {
       const x = p[0], y = p[1];

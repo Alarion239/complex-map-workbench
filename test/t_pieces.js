@@ -110,7 +110,10 @@ const tree = (steps, levels, c, r) => (Pieces && Pieces.tree ? Pieces.tree(steps
   const j = tree(M4, [0, 1, 2], c, 1.6);
   check('tree M4, r = 1.6: one piece on each level, linked', j.counted && JSON.stringify(j.levels.map((l) => l.pieces.length)) === '[1,1,1]' && j.levels[0].pieces[0].parent === 0 && j.levels[1].pieces[0].parent === 0, j.reason || j.levels.map((l) => l.pieces.map((P) => P.parent)));
   const x = tree([St('exp'), St('pown', { n: 2 })], [0, 1, 2], C(1, 0.5), 0.2);
-  check('tree [exp, z²]: not counted, and names step 1 (exp)', !!Pieces && !x.counted && x.step === 1 && typeof x.reason === 'string', x);
+  check('tree [exp, z²]: not counted, and names step 1 (exp), which has no exact inverse', !!Pieces && !x.counted && x.step === 1 && x.inverse === true && typeof x.reason === 'string', x);
+  // (a rim through a critical value is not a step's inverse: M4 with the rim through w₁'s critical value −1, |−1 − c| = r)
+  const cr = tree(M4, [0, 1, 2], c, Math.hypot(1.5, 0.5));
+  check('tree M4, the rim through −1: not counted, not for a step\'s inverse', !!Pieces && !cr.counted && cr.inverse === false, cr);
   const two = tree(M4, [0, 2], c, 0.2);
   check('tree M4 on [z, w₂]: 4 pieces, each the disc\'s child', two.counted && two.levels.length === 2 && two.levels[0].pieces.length === 4 && two.levels[0].pieces.every((P) => P.parent === 0), two.reason || two);
 }

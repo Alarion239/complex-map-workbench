@@ -793,7 +793,7 @@
  "A starter disc added on {w}, with its preimage on {z}": "В плоскости %{w} добавлен начальный круг, его прообраз — в плоскости %{z}",
  "Disc added on {w}, about the image of the lit point": "В плоскости %{w} добавлен круг с центром в образе выбранной точки",
  "The pieces of its preimage are not counted for these steps": "Для этих шагов части прообраза не подсчитываются",
- "The pieces of its preimage are not counted through step {k} ({f})": "Части прообраза не подсчитываются через шаг {k} ({f})",
+ "The pieces of its preimage are not counted: step {k} ({f}) has no exact inverse": "Части прообраза не подсчитываются: шаг {k} ({f}) не обращается точно",
  "{n} preimage\u0004{n} preimages": {
   "one": "%{n} прообраз",
   "few": "%{n} прообраза",

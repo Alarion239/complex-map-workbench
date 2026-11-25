@@ -7,9 +7,10 @@
 //    of its parent piece, and every root on w₁ maps by w₁² − 1 to the centre;
 //  - the middle level w₁ is drawn: its pieces' outlines lie on the preimage of the rim on w₁ (|w² − 1 − c| = r) and are
 //    drawn where the level's map at ½ puts them;
-//  - the straight connectors meet the middle level: half way up, each floor point of a tube is at its image on w₁;
+//  - the straight connectors meet the middle level: half way up, each floor point of a tube is at its image on w₁, and a
+//    pick's strand from a floor point is at its image there; the level is named w₁ beside its frame;
 //  - All at once, the glide from z to w₂ passes no plane: two levels, no middle one, the 4 tubes straight to the glass;
-//  - [eᶻ, z²], whose first step has no exact inverse: no levels, no tubes, and the card names step 1;
+//  - [eᶻ, z²], whose first step has no exact inverse: no levels, no tubes, and the card says step 1 has no exact inverse;
 //  - straight down no middle level is drawn, so the frame is Look down's.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -86,6 +87,16 @@ const ln = await ev('typeof __cmwStackLinks === "function" ? __cmwStackLinks({ l
 let lN = 0, lAt = 0;
 if (ln && ln.data) for (const P of ln.data.pieces) for (const lev of P.loops) for (let i = 0; i < lev[0].length; i += 8) { lN++; if (dist(lev[ln.n / 2][i], sq(lev[0][i])) < TOL) lAt++; }
 ok('M4: half way up, each tube\'s floor point is at its image on w₁', lN > 0 && lAt === lN, { lN, lAt });
+// the middle level's name, beside its frame, inside the pane
+const pw = await ev(`document.getElementById('overlayL').getBoundingClientRect().width`), ph = await ev(`document.getElementById('overlayL').getBoundingClientRect().height`);
+ok('M4: the middle level is named w₁, beside its frame, inside the pane', !!mid && !!mid.name && mid.name.text === 'w₁' && mid.name.box[0] >= 0 && mid.name.box[1] >= 0 && mid.name.box[2] <= pw && mid.name.box[3] <= ph, mid && mid.name);
+// a pick's strand rises along the straight connector: half way up, at the point's image on w₁
+if (L.length === 3) {
+  const z = L[0].pieces[0].roots[0], st = await ev(`typeof __cmwStackLinks === 'function' ? __cmwStackLinks({ flat: [${z[0]}, ${z[1]}, ${C0[0]}, ${C0[1]}] }).flat : null`);
+  const half = st && st.find((q) => Math.abs(q[2] - 0.5) < 1e-9), want = await flat(...sq(z));
+  info.pick = { z, n: st && st.length, half, want };
+  ok('M4: a pick\'s strand passes the point\'s image on w₁ half way up', !!half && dist(half, want) <= PX, info.pick);
+}
 // straight down: no middle level
 if (await hooked()) {
   await ev(`__cmwCam('L', { yaw: 0, pitch: ${90 * DEG} }); 1`);
@@ -106,7 +117,7 @@ await open(EXPZ, { c: [1, 0.5] });
 const x = await drawn(), xCard = await card();
 info.exp = { levels: x && x.levels, why: x && x.why, tubes: x && x.tubes, card: xCard };
 ok('[eᶻ, z²]: no levels and no tubes, with the reason', !!x && Array.isArray(x.levels) && x.levels.length === 0 && typeof x.why === 'string' && x.tubes === null, info.exp);
-ok('[eᶻ, z²]: the card names step 1', /through step 1\b/.test(xCard || ''), xCard);
+ok('[eᶻ, z²]: the card names step 1, which has no exact inverse', /step 1 \(f₁\) has no exact inverse/.test(xCard || ''), xCard);
 
 const errs = (await logs()).filter((e) => (e.t === 'EXC' || e.t === 'error' || e.t === 'log-error') && !/Failed to load resource|favicon/.test(e.m || ''));
 ok('no errors in the console', errs.length === 0, errs.slice(0, 5));
