@@ -1889,8 +1889,11 @@
       gl.enable(gl.BLEND);
     }
     // st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
-    // the globe's depth again, which the passes below are tested against
+    // the globe's depth again, which the passes below are tested against. st.carriedCopies, before it: [{carried,
+    // around(draw)}], the other sheets' carried colour, each drawn inside its around (the chain on that copy's sheets,
+    // svOnSheets), a later one over an earlier one and st.carried over them all (each draw clears the depth)
     const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
+    if (P && st.carried) for (const cp of st.carriedCopies || []) cp.around(() => drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, cp.carried), sph));
     const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, st.carried), sph));
     if (carried) {
       gl.colorMask(false, false, false, false);
@@ -1964,9 +1967,12 @@
     return { MVP, eye, key: sph.key, carried };
   }
   // lifted regions on the globe (drawSphere's st.regions, or its mask's): an exact image's inverse pass over the globe's
-  // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written
+  // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written. A
+  // region with around(draw) is drawn inside it (the steps view's sheet copies: the chain on that copy's sheets while
+  // its pass draws, svOnSheets); a later region is drawn over an earlier one
   function sphereRegions(list, sph, MVP, eye) {
     for (const r of list) {
+      if (r.around) { r.around(() => sphereRegions([Object.assign({}, r, { around: null })], sph, MVP, eye)); continue; }
       if (r.inv) {
         let res = 'error';
         try {

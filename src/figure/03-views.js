@@ -708,6 +708,13 @@
     }
     return m + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="${lw}"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="${lw}"/></g>`;
   }
+  // a key's lines, centred on kx, lh apart from baseline to baseline: the first on the baseline b0, or, without one, the
+  // tallest glyph of them at y. Each is set by its baseline, so the pitch is the same whatever letters a line has («цвет»
+  // has nothing above the x-height, «перенесён» has «ё»). Returns the items and the last line's baseline
+  const keyLines = (its, kx, y, lh, b0 = null) => {
+    const b = b0 != null ? b0 : y + Math.max(0, ...its.map((it) => it.a));
+    return { items: its.map((it, j) => XD.at(it, kx, b + j * lh, 'middle', 'base', 'key')), last: b + (its.length - 1) * lh };
+  };
   // the key of a plane past the colour plane, in a column keyW pt wide centred on kx whose top is y: the ring, then the line
   // saying where the colour is carried from, wrapped to the column's width, the plane's name in math. Returns its items and
   // the y its last line ends at
@@ -716,7 +723,7 @@
     const items = [ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, lw), ...ringMarks(kx, ky, R, tp)];
     const lns = keyWrap(carried.text, keyW - 2, (t) => XD.tex(keyWithName(t, carried.from), tp));
     const y0 = ky + R + 1.5 + lh + 2;
-    lns.forEach((ln, j) => items.push(XD.at(XD.tex(keyWithName(ln, carried.from), tp), kx, y0 + j * lh, 'middle', 'top', 'key')));
+    items.push(...keyLines(lns.map((ln) => XD.tex(keyWithName(ln, carried.from), tp)), kx, y0, lh).items);
     return { items, bottom: y0 + lns.length * lh + 2 };
   }
   // a key's words in lines no wider than w pt, each as set by tex(line) (a word wider than w is a line of its own)
@@ -800,11 +807,14 @@
       // may be wider than it, as Russian "на полосу яркости"; a wrapped one takes a line of lh more for each line it adds)
       const perTex = (t) => XD.tex(keyTxt(t), tp), capTex = (t) => XD.tex(keyWithName(t, sv.name), tp);
       const per = sv && !sv.plain ? keyWrap(sv.perBand, keyW - 2, perTex) : [], cap = sv ? keyWrap(sv.caption, keyW - 2, capTex) : [];
-      const linesH = (lns, tex) => (lns.length - 1) * lh + ht(tex(lns[lns.length - 1]));
+      // (lines set by keyLines: from the tallest glyph of them to the last line's foot; and the caption under the per-band
+      // lines, whose first baseline is lh + 2 under their last, from the per-band lines' tallest glyph)
+      const topA = (its) => Math.max(...its.map((it) => it.a)), linesH = (lns, tex) => { const its = lns.map(tex); return topA(its) + (its.length - 1) * lh + its[its.length - 1].d; };
+      const perCapH = () => { const p = per.map(perTex), c = cap.map(capTex); return topA(p) + per.length * lh + 2 + (c.length - 1) * lh + c[c.length - 1].d; };
       const above = sv ? R + 1.5 + ht(XD.tex('i', tp)) : R + 12 + ht(XD.tex(`\\arg ${A.fname()}`, tp));
       const below = !sv ? R + 1.5 + ht(XD.tex('-\\pi/2', tp))
         : sv.plain ? R + 1.5 + tp * 1.3 + 2 + linesH(cap, capTex)
-          : Math.max(R + 1.5 + tp * 2.5 + sh + 1.5 + linesH(per, perTex), R + 1.5 + tp * 2.5 + sh + 1.5 + per.length * lh + 2 + linesH(cap, capTex));
+          : R + 1.5 + tp * 2.5 + sh + 1.5 + Math.max(linesH(per, perTex), perCapH());
       let ky = top + h / 2;
       if (ky + below > top + h + bottom) ky = Math.max(above + 1, top + h + bottom - below);
       keyBottom = ky + below + 2;
@@ -813,8 +823,9 @@
         // the pane's key: the ring labelled 1, i, -1, -i, then (but in the plain Phase style) the three modulus bands with
         // their factor, and the caption "arg and |F|" ("arg F" when plain), the plane's variable in italic
         items.push(...ringMarks(kx, ky, R, tp));
-        // (offsets in pt, tp the tick text's size: the strip lies 1.3 tp under the ring's last label, its factor and "per band" 1.5 pt off it, the caption 2 pt under the last)
-        let yy = ky + R + 1.5 + tp * 1.3;
+        // (offsets in pt, tp the tick text's size: the strip lies 1.3 tp under the ring's last label, its factor and "per band" 1.5 pt off it, the caption's first baseline lh + 2 under the last per-band one, or, in the plain style, its tallest glyph 2 pt under the ring's labels)
+        const yy = ky + R + 1.5 + tp * 1.3;
+        let capB = null;
         // (a Phase picture: its key never says "carried from", which the pane's does only off Phase)
         if (!sv.plain) {
           const sw = 2 * R, sx = kx - R, sy = yy + tp * 1.2;
@@ -822,10 +833,11 @@
           for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
           items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="${P.lw.frame}"/>`);
           items.push(XD.at(XD.tex(keyTxt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
-          per.forEach((ln, j) => items.push(XD.at(perTex(ln), kx, sy + sh + 1.5 + j * lh, 'middle', 'top', 'key')));
-          yy = sy + sh + 1.5 + per.length * lh;
+          const pl = keyLines(per.map(perTex), kx, sy + sh + 1.5, lh);
+          items.push(...pl.items);
+          capB = pl.last + lh + 2;
         }
-        cap.forEach((ln, j) => items.push(XD.at(capTex(ln), kx, yy + 2 + j * lh, 'middle', 'top', 'key')));
+        items.push(...keyLines(cap.map(capTex), kx, yy + 2, lh, capB).items);
       } else {
         items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
         items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'ring-mark'));
