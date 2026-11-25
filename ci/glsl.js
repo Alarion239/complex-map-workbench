@@ -179,6 +179,7 @@ async function runPage(base, p, side) {
       if (expectCompared != null && !(r.compared >= expectCompared)) { ok = false; note += `; ${r.compared} values compared, at least ${expectCompared} expected`; }
     }
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
+    if (p.id === 'inverse') { const pd = settlePending(r); note += pd.note; if (pd.fault) { ok = false; note += `; ${r.pending.length} not linked after the wait`; } }
     const exc = B.logs().filter((l) => l.t === 'EXC');
     if (exc.length) { ok = false; r.exception = exc[0].m.slice(0, 300); note += `; page exception: ${r.exception}`; }
   } catch (e) {
@@ -190,6 +191,23 @@ async function runPage(base, p, side) {
     await B.close();
   }
   return { r, ok, note, ms: Date.now() - t0, cpu };
+}
+
+// the inverse page's cases whose program had not linked when the page's wait ran out (r.pending: their names). On WARP
+// (Direct3D 11's software renderer, the hosted Windows runner) one link takes from seconds to minutes, and which program
+// runs past the wait changes from run to run, so such a case did not run and decides nothing: it is named in the note
+// (the log's line and the job summary's row). On any other renderer a link that slow is a fault: each case is an error,
+// in the page's own words. -> { note, fault }
+const WARP_RE = /Microsoft Basic Render Driver/, PENDING_NAMED = 5;
+function settlePending(r) {
+  const pend = r.pending || [];
+  if (!pend.length) return { note: '', fault: false };
+  if (WARP_RE.test(r.renderer || '')) {
+    const more = pend.length - PENDING_NAMED;
+    return { note: `; ${pend.length} not linked after the wait, not run (WARP): ${pend.slice(0, PENDING_NAMED).join(', ')}${more > 0 ? ` and ${more} more` : ''}`, fault: false };
+  }
+  r.errors = [...(r.errors || []), ...pend.map((x) => `${x}: gpu pending`)];
+  return { note: '', fault: true };
 }
 
 // ' (95 s; CPU: GPU process 60 s, page 30 s)'
@@ -294,4 +312,4 @@ async function main() {
 }
 // (ci/impact.js reads the pages and their inputs)
 if (require.main === module) main().then((rc) => process.exit(rc), (e) => { console.error(e); summary(`### GLSL conformance: setup problem\n\n\`${esc(String(e.message || e))}\`\n`); process.exit(2); });
-module.exports = { PAGES, inputsOf };
+module.exports = { PAGES, inputsOf, settlePending };

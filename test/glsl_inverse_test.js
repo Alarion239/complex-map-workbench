@@ -21,7 +21,7 @@
 //         eligible and compiled, else the forward mesh)
 window.__invTestRun = async (opts = {}) => {
   const R = window.__invTest = { done: false, cases: 0, eligibleCases: 0, programs: new Set(), waitMs: 0, points: 0, compared: 0, leaves: 0, skipped: { discontinuous: 0, ramp: 0, nonfinite: 0, ineligible: 0 },
-    failCount: 0, fails: [], byChain: {}, clip: null, fs: null, flip: null, ms: 0, errors: [],
+    failCount: 0, fails: [], byChain: {}, clip: null, fs: null, flip: null, ms: 0, errors: [], pending: [],
     rational: { chains: 0, cases: 0, eligibleCases: 0, compared: 0, leaves: 0, failCount: 0, kinds: {} } };   // the rational custom chains alone
   const t0 = performance.now();
   const C = CX.C;
@@ -250,11 +250,12 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // f() (a draw) until its program leaves 'pending', for up to WAIT_MS by the clock: Windows' software renderer
   // (WARP) can take longer for one program than 4000 tries 3 ms apart (12-16 s), which ended random cases 'gpu pending';
-  // 'pending' after WAIT_MS stays an error. R.waitMs: the longest wait
+  // a case whose program is still 'pending' after WAIT_MS did not run: its name goes in R.pending, not R.errors (gpuFailed),
+  // and ci/glsl.js decides what it means on the renderer the page ran on (settlePending). R.waitMs: the longest wait
   // (the flip test's programs wait up to FLIP_WAIT_MS: in the core tier the walk is short, so on Windows they are
   // still compiling, behind the walk's, when the flip test needs them, and one took over 120 s on WARP; its checks are
-  // about program identity, not compile time)
-  const WAIT_MS = 120000, FLIP_WAIT_MS = 480000;
+  // about program identity, not compile time). opts.waitMs: WAIT_MS for one run (a check of the pending record)
+  const WAIT_MS = opts.waitMs ?? 120000, FLIP_WAIT_MS = 480000;
   async function untilCompiled(f, wait = WAIT_MS) {
     const t = performance.now();
     let r = f();
@@ -262,6 +263,9 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     R.waitMs = Math.max(R.waitMs, Math.round(performance.now() - t));
     return r;
   }
+  // a case's GPU run that did not draw (g.error): a program still pending after the wait is the case's name in R.pending, any
+  // other state an error in R.errors, `what` then `text` (default ': gpu ') then the state
+  const gpuFailed = (what, g, text = ': gpu ') => { if (g.error === 'pending') R.pending.push(what); else R.errors.push(what + text + g.error); };
   // runs the program with st.extra on n points; rows = output rows
   async function gpuRun(st, data, n, rows) {
     gl.activeTexture(gl.TEXTURE1);
@@ -418,7 +422,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
       pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(pix); });
       const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape, look: { alpha, alphaOwn: alpha, pattern: 'checker', cell: 0.5 }, extra: EXTRA_WALK };
       const g = await gpuRun(st, data, NP, ROWS);
-      if (g.error) { R.errors.push(`${ch.name}: gpu ${g.error}`); continue; }
+      if (g.error) { gpuFailed(ch.name, g); continue; }
       R.programs.add(GLR.inverseInfo && GLR.inverseInfo.key);
       const px32 = Math.fround(pix);
       const cpuOf = (w) => Inverse.enumerate(plan, prep, w, px32, { K, B, paths: true });
@@ -517,7 +521,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
           pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(pix); });
           const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1, pattern: 'checker', cell: 0.5 }, extra: EXTRA_WALK };
           const g = await gpuRun(st, data, NP, ROWS);
-          if (g.error) { R.errors.push(`anchor ${name}: gpu ${g.error}`); continue; }
+          if (g.error) { gpuFailed(`anchor ${name}`, g); continue; }
           for (let i = 0; i < NP; i++) {
             AN.points++;
             const w = pts[i], cpu = Inverse.enumerate(plan, prep, w, Math.fround(pix), { K: 1, B: 3, paths: true });
@@ -586,7 +590,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
       pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(pix); });
       const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1, pattern: 'checker', cell: 0.5 }, extra: EXTRA_WALK };
       const g = await gpuRun(st, data, NP, ROWS);
-      if (g.error) { R.errors.push(`multiple roots ${name}: gpu ${g.error}`); continue; }
+      if (g.error) { gpuFailed(`multiple roots ${name}`, g); continue; }
       pts.forEach((w, i) => {
         const cpu = Inverse.enumerate(plan, prep, w, Math.fround(pix), { K: 1, B: 3, paths: true }), o = g.out;
         const at = (row) => [o[4 * (row * NP + i)], o[4 * (row * NP + i) + 1]], bad = [];
@@ -647,7 +651,7 @@ void main() {
         pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = px32; });
         const st = { map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha, alphaOwn: alpha, pattern: 'checker', cell: 0.5 }, extra: EXTRA_REPT };
         const g = await gpuRun(st, data, pts.length, 1);
-        if (g.error) { R.errors.push(`rept ${name}: gpu ${g.error}`); continue; }
+        if (g.error) { gpuFailed(`rept ${name}`, g); continue; }
         pts.forEach((w, i) => {
           RP.points++;
           const q = g.out.subarray(4 * i, 4 * i + 4), vg = q[1] > 0 ? 1 : q[2] > 0 ? -1 : 0;
@@ -678,7 +682,7 @@ void main() {
         GLR.setReptPoison(poison);
         const g = await gpuRun({ map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1 }, extra: EXTRA_REPT }, data, pts.length, 1);
         GLR.setReptPoison(null);
-        if (g.error) { R.errors.push(`rept ${name} ${poison}: gpu ${g.error}`); continue; }
+        if (g.error) { gpuFailed(`rept ${name} ${poison}`, g); continue; }
         let unres = 0;
         for (let i = 0; i < pts.length; i++) if (g.out[4 * i + 1] === 0 && g.out[4 * i + 2] > 0) unres++;
         RP.poison[poison] = `${unres}/${pts.length} unresolved`;
@@ -739,7 +743,7 @@ void main() {
     const data = new Float32Array(1024 * 2 * 4);
     all.forEach(([v, dv], i) => { data[4 * i] = v.re; data[4 * i + 1] = v.im; data[4 * i + 2] = dv; });
     const g = await gpuRun({ map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1 }, direct: true, extra: { pre: 'uniform highp sampler2D uW;\n', main: MAIN_NODE } }, data, all.length, 4);
-    if (g.error) R.errors.push(`rept certificate: gpu ${g.error}`);
+    if (g.error) gpuFailed('rept certificate', g);
     else {
       const n = all.length, at = (row, i) => g.out.subarray(4 * (row * n + i), 4 * (row * n + i) + 4);
       all.forEach(([v], i) => {
@@ -790,7 +794,7 @@ void main() {
       }
       const st = { map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1 }, extra: EXTRA_CLIP };
       const g = await gpuRun(st, data, N, 1);
-      if (g.error) { R.errors.push('clip gpu ' + g.error); break; }
+      if (g.error) { gpuFailed('clip', g, ' gpu '); break; }
       for (let i = 0; i < N; i++) {
         CL.lines++;
         const { z0, q, m } = lines[i];
