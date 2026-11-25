@@ -6,7 +6,8 @@
 //         formulas of SPEC 12.1 (a)) x random shapes x random view points: a recording program (the production
 //         lib, INV_HEAD and walker, with the IX_RECORD hook) writes the first 8 visited leaves of each test point
 //         (z, range level in px, sqrt|det dz/dw|), the visited / covering counts and the front keys; compared with
-//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl|, coverage to 0.03,
+//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl| (+ lvlTol's float32 term for a
+//         chain with a Complex power step of |alpha| < 1), coverage to 0.03,
 //         the same visited count; |J| to 5e-3 and the keys D to 2e-3 where float32 resolves them (D <= 16 and
 //         1e-15 < |J| < 1e15; the deeper leaves are counted in skipped.deepLeaves). A point is skipped when the CPU's leaf paths change within
 //         2e-4 (1 + |w|) of it (a cut, a window or a range boundary: float32 decides those differently) or when a
@@ -287,6 +288,15 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   const isF = (z) => z && Number.isFinite(z.re) && Number.isFinite(z.im);
   const cabs = (z) => Math.hypot(z.re, z.im);
+  // The level's tolerance in px: 0.05 + 1e-4 |lvl|, and for a chain whose inverse raises to a power 1/|alpha| > 1 (a Complex power
+  // step with |alpha| < 1) the float32 resolution of the points that power amplifies: (cond - 1) ulps of |w| in the output
+  // plane, in px (pix is the px in that plane's units). cond is the product of those 1/|alpha| over the chain; 1 for every other
+  // chain, whose tolerance is the plain one. A step that is off (on: false) is no part of the chain. WARP (Direct3D 11's software renderer)
+  // gave gaps of 0.43 and 0.44 px at levels of 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): about 85 ulps of
+  // w, where SwiftShader's gap is one ulp of the level (6e-5 px)
+  const F32_ULP = 2 ** -23;
+  const lvlTol = (cl, w, pix, cond) => 0.05 + 1e-4 * Math.abs(cl) + (cond - 1) * F32_ULP * cabs(w) / pix;
+  const condOf = (steps, built) => steps.reduce((c, st, i) => (st.type === 'powa' && st.on !== false && built[i] && built[i].vals && built[i].vals.alpha ? c * Math.max(1, 1 / cabs(built[i].vals.alpha)) : c), 1);
   // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
   // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
   // member its residual |H_t(z) - w| / (1 + |w|)
@@ -363,6 +373,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
     prevCh = ch.name; prevT = performance.now();
     const steps = ch.steps, built = steps.map(Funcs.build);
+    const cond = condOf(steps, built);
     const RA = /^(rational|rand-rational)/.test(ch.name) ? R.rational : null;
     const plan = Inverse.planChain(steps, built);
     if (!plan.ok) { R.skipped.ineligible++; continue; }
@@ -436,7 +447,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
           const dz = Math.hypot(q[0] - c.z.re, q[1] - c.z.im);
           if (!(dz <= 2e-3 * (1 + cabs(c.z)))) bad.push(`leaf ${r} z gpu ${q[0]},${q[1]} cpu ${c.z.re},${c.z.im} (${c.path})`);
           const cl = Number.isFinite(c.lvl) ? c.lvl : 1e38;
-          if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= 0.05 + 1e-4 * Math.abs(cl))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl}`);
+          if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= lvlTol(cl, w, pix, cond))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl} (allowed ${lvlTol(cl, w, pix, cond).toFixed(3)}, cond ${cond.toFixed(1)})`);
           // |J| and D only where float32 resolves them: keys D <= 16 (deeper sheets lie 2^16 window radii away or within
           // ~1e-6 rs of an accumulation point, and are never visible) and 1e-15 < |dz/dw| < 1e15
           const cj = Math.sqrt(Math.abs(c.J[0] * c.J[3] - c.J[1] * c.J[2]));
@@ -592,6 +603,162 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     if (MR.failCount) R.failCount += MR.failCount;
     for (const f of MR.fails) { const k = 'multiple roots ' + f.chain; R.byChain[k] = (R.byChain[k] || 0) + 1; R.fails.unshift(Object.assign({ multi: true }, f)); }
   }
+  // ---- Repeat chains (#1472): the REPT walker's coverage against its CPU twin's (Inverse.enumerate) on the scenes of
+  // test/steps_parked_repeat_cmd.js (Newton's step for z^3 - 1: the gallery square at Repeat x 20, the bite box at x 2 and,
+  // pruned through its forward enclosures, at x 20), on a grid over the plane and over the bite box: at every point the
+  // verdict is the same (covered, empty, unresolved; a coverage below the leaves' 0.03 counts as either side of the edge)
+  // and U is within the leaves' 0.03 ----
+  if (opts.rept !== false) {
+    const RP = R.rept = { points: 0, compared: 0, failCount: 0, byScene: {}, fails: [], verdicts: { covered: 0, empty: 0, unresolved: 0 } };
+    const MAIN_REPT = `
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
+  ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
+  nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
+  if (ixRepKeep()) discard;
+  invWalk(t.xy);
+  if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
+  o = vec4(U, nCov > 0 ? 1.0 : 0.0, ixRepFail || ixRepCap || ixRepUnres ? 1.0 : 0.0, ixRepFull > 0 ? 1.0 : 0.0);
+}
+`;
+    const EXTRA_REPT = { pre: 'uniform highp sampler2D uW;\n', main: MAIN_REPT };
+    const PASS_B_FAST = 5;   // root solves of the first pass in the second run: the gallery's 20 go on in the second
+    const EDGE_U = 0.03, PIX = 1 / 140, VIEW = { x0: -4.3, x1: 4.3, y0: -2.9, y1: 2.9 }, BOX = { x0: 0.5, x1: 1.7, y0: -0.6, y1: 0.6 };
+    const NEWTON = 'z-(z^3-1)/(3*z^2)';
+    const grid = (b, k) => { const out = []; for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) out.push(C(Math.fround(b.x0 + (i + 0.5) * (b.x1 - b.x0) / k), Math.fround(b.y0 + (j + 0.5) * (b.y1 - b.y0) / k))); return out; };
+    const SCENES = [['gallery square x 20', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32)],
+      ['bite x 2', 2, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(BOX, 22).concat(grid(VIEW, 23)).slice(0, 1024)],
+      ['bite x 20', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32)]];
+    // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
+    for (const fastN of [0, PASS_B_FAST]) {
+      GLR.setReptFastNodes(fastN);
+      for (const [name0, nRep, shape, pts] of SCENES) {
+        const name = name0 + (fastN ? ` (first pass ${fastN} solves)` : '');
+        const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } })];
+        const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built);
+        if (!plan.ok || plan.ops[0].kind !== 'REPT') { RP.failCount++; RP.fails.push({ chain: name, bad: ['plan ' + (plan.reason || plan.ops.map((o) => o.kind).join('>'))] }); continue; }
+        GLR.setChain(GLChain.build(steps, built));
+        const prep = Inverse.prepare(plan, { win: VIEW, shape });
+        GLR.packShapes([shape], { debounce: false });
+        const px32 = Math.fround(PIX), alpha = 1, B = GLR.inverseB(alpha), K = Math.min(B, GLR.inverseK(alpha));
+        const data = new Float32Array(1024 * 2 * 4);
+        pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = px32; });
+        const st = { map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha, alphaOwn: alpha, pattern: 'checker', cell: 0.5 }, extra: EXTRA_REPT };
+        const g = await gpuRun(st, data, pts.length, 1);
+        if (g.error) { R.errors.push(`rept ${name}: gpu ${g.error}`); continue; }
+        pts.forEach((w, i) => {
+          RP.points++;
+          const q = g.out.subarray(4 * i, 4 * i + 4), vg = q[1] > 0 ? 1 : q[2] > 0 ? -1 : 0;
+          const cpu = Inverse.enumerate(plan, prep, w, px32, { K, B, leaves: false }), vc = cpu.rept.verdict;
+          RP.verdicts[vc > 0 ? 'covered' : vc < 0 ? 'unresolved' : 'empty']++;
+          RP.compared++;
+          const bad = [];
+          if (vg !== vc && !(vg >= 0 && vc >= 0 && Math.max(q[0], cpu.U) <= EDGE_U)) bad.push(`verdict gpu ${vg} cpu ${vc} (U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)})`);
+          if (Math.abs(q[0] - cpu.U) > EDGE_U) bad.push(`U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)}`);
+          if (bad.length) { RP.failCount++; RP.byScene[name] = (RP.byScene[name] || 0) + 1; if (RP.fails.length < 30) RP.fails.push({ chain: name, w: [w.re, w.im], bad }); }
+        });
+      }
+    }
+    GLR.setReptFastNodes(0);
+    // control: a non-finite root (NaN, then an infinity) forced into every first node (GLR.setReptPoison) reads
+    // unresolved at every point of the gallery scene, never covered or empty
+    {
+      const [name, nRep, shape, pts] = SCENES[0];
+      const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } })];
+      const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built);
+      GLR.setChain(GLChain.build(steps, built));
+      const prep = Inverse.prepare(plan, { win: VIEW, shape });
+      GLR.packShapes([shape], { debounce: false });
+      const data = new Float32Array(1024 * 2 * 4);
+      pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(PIX); });
+      RP.poison = {};
+      for (const poison of ['nan', 'inf']) {
+        GLR.setReptPoison(poison);
+        const g = await gpuRun({ map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1 }, extra: EXTRA_REPT }, data, pts.length, 1);
+        GLR.setReptPoison(null);
+        if (g.error) { R.errors.push(`rept ${name} ${poison}: gpu ${g.error}`); continue; }
+        let unres = 0;
+        for (let i = 0; i < pts.length; i++) if (g.out[4 * i + 1] === 0 && g.out[4 * i + 2] > 0) unres++;
+        RP.poison[poison] = `${unres}/${pts.length} unresolved`;
+        if (unres !== pts.length) { RP.failCount++; RP.fails.push({ chain: name, bad: [`a ${poison} root: ${unres} of ${pts.length} points unresolved`] }); }
+      }
+    }
+    // the certificate on the GPU itself: the GPU's roots z_i, refined radii rho_i and crude radii of one node at each
+    // (v, dv), read back; every float64 Durand-Kerner root of the true P - v Q lies within the GPU's rho_i of its z_i.
+    // The v: the CPU twin's nodes of the scenes' pixels, and adversarial ones (near the double roots at the cube roots of
+    // unity, where |p'| meets its slack and the discs nearly touch; far out; near 0), with chain errors up to the
+    // roots' separation. Control: rho scaled by CERT_CONTROL must show misses
+    const CERT_CONTROL = 1e-3, DK_ITER = 400, DK_TOL = 1e-13, NODE_PIX = 40;
+    const MAIN_NODE = `
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
+  ixPix = 1.0; ixRepCrude = vec3(-1.0);
+  bool ok = ix0_node(t.xy, t.z, 0);
+  if (c.y == 0) o = vec4(ixRZ[0], ixRZ[1]);
+  else if (c.y == 1) o = vec4(ixRZ[2], ok ? 1.0 : 0.0, 0.0);
+  else if (c.y == 2) o = vec4(ixRR[0], ixRR[1], ixRR[2], 0.0);
+  else o = vec4(ixRepCrude, 0.0);
+}
+`;
+    const dkRoots = (a) => {
+      const m = a.map((x) => CX.div(x, a[0])), p = (z) => CX.add(CX.mul(CX.add(CX.mul(CX.add(z, m[1]), z), m[2]), z), m[3]);
+      let z = [C(0.4, 0.9), C(-0.9, 0.3), C(0.7, -0.6)].map((s) => CX.scale(s, 1 + CX.abs(m[1]) + Math.cbrt(CX.abs(m[3]))));
+      for (let it = 0; it < DK_ITER; it++) {
+        const nz = z.map((zi, i) => { let d = C(1, 0); z.forEach((zj, j) => { if (j !== i) d = CX.mul(d, CX.sub(zi, zj)); }); return CX.sub(zi, CX.div(p(zi), d)); });
+        const mv = Math.max(...nz.map((x, i) => CX.abs(CX.sub(x, z[i]))));
+        z = nz;
+        if (mv < DK_TOL * (1 + Math.max(...z.map(CX.abs)))) break;
+      }
+      return z;
+    };
+    const CERT = RP.cert = { nodes: 0, certified: 0, misses: 0, controlMisses: 0, refinedAboveCrude: 0, fails: [] };
+    const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: 20, len: 1 } })];
+    const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built), op = plan.ops[0];
+    // the nodes: the twin's search at NODE_PIX pixels of each scene (InvOps' reptNode, the v and chain error of each node)
+    const nodes = [];
+    const walk = (v, dv, depth) => {
+      if (nodes.length >= 700) return;
+      nodes.push([v, dv]);
+      const nd = depth < 20 ? InvOps.reptNode(op.p.P, op.p.Q, v, dv) : null;
+      if (nd) for (let i = 0; i < 3 && depth < 3; i++) walk(nd.z[i], nd.rho[i], depth + 1);
+      if (nd && depth >= 3) walk(nd.z[0], nd.rho[0], depth + 1);
+    };
+    for (const w of grid(VIEW, 7).slice(0, NODE_PIX)) walk(w, 0, 0);
+    const adv = [];
+    for (const r0 of [C(1, 0), C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)]) for (let k = 1; k <= 8; k++) for (let a = 0; a < 8; a++) adv.push([CX.add(r0, C(10 ** -k * Math.cos(a * 0.785 + 0.1), 10 ** -k * Math.sin(a * 0.785 + 0.1))), 0]);
+    for (const R0 of [1e-6, 1e-3, 30, 1e3, 1e5]) for (let a = 0; a < 8; a++) adv.push([C(R0 * Math.cos(a * 0.785 + 0.3), R0 * Math.sin(a * 0.785 + 0.3)), 0]);
+    for (const dv of [1e-7, 1e-5, 1e-3, 1e-2, 0.1, 0.3]) for (let a = 0; a < 8; a++) adv.push([C(0.8 * Math.cos(a * 0.785), 0.8 * Math.sin(a * 0.785)), dv]);
+    const all = nodes.concat(adv).slice(0, 1024).map(([v, dv]) => [C(Math.fround(v.re), Math.fround(v.im)), Math.fround(dv)]);
+    GLR.setChain(GLChain.build(steps, built));
+    const shape = { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] };
+    const prep = Inverse.prepare(plan, { win: VIEW, shape });
+    GLR.packShapes([shape], { debounce: false });
+    const data = new Float32Array(1024 * 2 * 4);
+    all.forEach(([v, dv], i) => { data[4 * i] = v.re; data[4 * i + 1] = v.im; data[4 * i + 2] = dv; });
+    const g = await gpuRun({ map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1 }, direct: true, extra: { pre: 'uniform highp sampler2D uW;\n', main: MAIN_NODE } }, data, all.length, 4);
+    if (g.error) R.errors.push(`rept certificate: gpu ${g.error}`);
+    else {
+      const n = all.length, at = (row, i) => g.out.subarray(4 * (row * n + i), 4 * (row * n + i) + 4);
+      all.forEach(([v], i) => {
+        CERT.nodes++;
+        const r0 = at(0, i), r1 = at(1, i), rr = at(2, i), rc = at(3, i);
+        if (r1[2] !== 1) return;
+        CERT.certified++;
+        const z = [C(r0[0], r0[1]), C(r0[2], r0[3]), C(r1[0], r1[1])], rho = [rr[0], rr[1], rr[2]];
+        const ref = dkRoots(op.p.P.map((pk, k) => CX.sub(pk, CX.mul(v, op.p.Q[k]))));
+        const within = (s) => z.every((zi, k) => ref.some((r) => CX.abs(CX.sub(zi, r)) <= s * rho[k]));
+        if (!within(1)) { CERT.misses++; if (CERT.fails.length < 10) CERT.fails.push({ v: [v.re, v.im], z: z.map((q) => [q.re, q.im]), rho, ref: ref.map((q) => [q.re, q.im]) }); }
+        if (!within(CERT_CONTROL)) CERT.controlMisses++;
+        if (rho.some((r, k) => !(r <= rc[k]))) CERT.refinedAboveCrude++;
+      });
+      if (CERT.misses || CERT.refinedAboveCrude) RP.failCount++;
+      if (!(CERT.controlMisses > 0)) { RP.failCount++; CERT.fails.push({ control: `rho x ${CERT_CONTROL} shows no miss` }); }
+    }
+    if (RP.failCount) R.failCount += RP.failCount;
+  }
   // ---- shapeClip vs Region.shapeClip ----
   {
     const steps = [St('mul', { c: '1' })], built = steps.map(Funcs.build);
@@ -666,6 +833,28 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   // ---- 12.1 (l): program identity under eligibility flips ----
   if (opts.flip !== false) R.flip = await flipTest();
+  // ---- the level tolerance and the gaps WARP produced on rand#172 (GitHub job 137195994579: powa alpha 0.008, cut 90, k 2) ----
+  // each gap is inside the rule for its chain (cond 125), the plain rule would have rejected it (control), and a chain with no
+  // Complex power step keeps the plain rule
+  {
+    const WARP = [{ cl: 810.7226543436661, gpu: 811.1634521484375, w: C(1.0038121938705444, 0.09487950801849365) },
+      { cl: 953.5565243774365, gpu: 953.9886474609375, w: C(1.0055485963821411, 0.09170592576265335) }];
+    const WPIX = 0.000023453630650284904;
+    const wst = [St('recip'), St('recip'), St('powa', { alpha: '0.008', cut: 90, k: 2 })], plainSt = [St('recip'), St('exp')];
+    const T = R.tolCheck = { cond: condOf(wst, wst.map(Funcs.build)), plainCond: condOf(plainSt, plainSt.map(Funcs.build)), rows: [], bad: [] };
+    if (!(Math.abs(T.cond - 125) < 1e-9)) T.bad.push(`cond of the powa chain ${T.cond}, not 125`);
+    if (T.plainCond !== 1) T.bad.push(`cond of a chain without a Complex power step ${T.plainCond}, not 1`);
+    const offSt = [St('recip'), Object.assign(St('powa', { alpha: '0.008', cut: 90, k: 2 }), { on: false })];
+    if (condOf(offSt, offSt.map(Funcs.build)) !== 1) T.bad.push('a Complex power step that is off counts in cond');
+    for (const x of WARP) {
+      const gap = Math.abs(x.gpu - x.cl), tol = lvlTol(x.cl, x.w, WPIX, T.cond), plain = lvlTol(x.cl, x.w, WPIX, 1);
+      T.rows.push({ gap, tol, plain });
+      if (!(gap <= tol)) T.bad.push(`gap ${gap.toFixed(3)} px is over the allowed ${tol.toFixed(3)} (level ${x.cl.toFixed(1)})`);
+      if (!(gap > plain)) T.bad.push(`gap ${gap.toFixed(3)} px is inside the plain ${plain.toFixed(3)}: the control is not one`);
+      if (plain !== 0.05 + 1e-4 * x.cl) T.bad.push('the plain rule is not 0.05 px + 1e-4 |lvl|');
+    }
+    if (T.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the level tolerance', bad: T.bad }); }
+  }
   R.programs = R.programs.size;
   R.ms = Math.round(performance.now() - t0);
   R.done = true;

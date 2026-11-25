@@ -29,7 +29,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .top > #tourHeadSlot:not([hidden]) { order: 20; flex: 1 1 260px; min-width: 0; align-self: stretch; display: flex; }
 /* (and under the header in portrait, or in a 48 px row when the header has no room: the stage's first child) */
 :root.ph .stage > #tourSlot:not([hidden]) { flex: 0 0 var(--ph-tour, 0px); height: var(--ph-tour, 0px); position: relative; z-index: 16; }
-/* (r3 review: the tour's row under a landscape header keeps the full width while a sheet takes the right 360 px of the
+/* (the tour's row under a landscape header keeps the full width while a sheet takes the right 360 px of the
    layout under it; its slot still reserves the row) */
 :root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
 :root.ph .top > #hdrMoreBtn { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }
@@ -107,6 +107,12 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-col { display: none; }
 :root.ph .pane:not(.ph-inset) .ph-col { position: absolute; z-index: 13; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(64px + var(--ph-lift)); }
+/* on the Stack the column also holds the Tilt key (19-stack.js), first. On a landscape phone, where the column's two keys
+   already reach up to the head, it stands to the left of the column's second key (Display) instead of above them, so the
+   column is no taller; left of the first key is the folded colour key's place (the legend chip) */
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) { display: grid; grid-template-columns: 44px 44px; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) > :not(.ph-tilt) { grid-column: 2; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col > .ph-tilt { grid-column: 1; grid-row: 2; }
 .ph-key { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--overlay); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-1); }
 .ph-key[hidden] { display: none; }
 .ph-key svg { width: 18px; height: 18px; }
@@ -144,7 +150,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land .plot:has(> .ld-key.over-readout:not(.folded):not([hidden])) > .chip.readout { visibility: hidden; }
 :root.ph .ld-key { left: calc(var(--ruler) + 6px); bottom: calc(var(--ruler) + 6px + var(--ph-lift)); max-width: min(calc(100% - var(--ruler) - 6px - 60px - 6px), 320px); padding: 0 10px 6px; z-index: 14; transition: bottom 220ms var(--ease-out); }
 :root.ph .ld-key.folded { padding-bottom: 0; }
-:root.ph .ld-key.folded > .ld-list { display: none; }
+:root.ph .ld-key.folded > .ld-list, :root.ph .ld-key.folded > .ld-links-row { display: none; }
+:root.ph .ld-links { height: auto; min-height: 44px; }
+:root.ph .ld-links > button { min-height: 44px; }
 /* (a mark's words wrap under its swatch's line where the plane is narrow: a landscape phone's plane beside a sheet is about 200 px) */
 :root.ph .ld-it { white-space: normal; min-width: 0; }
 :root.ph .ld-key > .ld-ttl { flex: 1 0 100%; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; font: var(--t-label); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
@@ -542,12 +550,20 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
+  /* (on the Stack the row has the Tilt key too, at its left: Fit view and the chip move 52 px further in) */
+  :root.ph.ph-land.sv-stack:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) { grid-template-columns: repeat(3, 44px); }
+  :root.ph.ph-land.sv-stack:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) > * { grid-column: auto; grid-row: 1; }
+  :root.ph.ph-land.sv-stack:has(.ph-ctx.in.tall:not(.under)):has(.ph-tilt:not([hidden])) .pane:not(.ph-inset) .viewstack { right: 164px; }
+  :root.ph.ph-land.sv-stack:has(.ph-ctx.in.tall:not(.under)):has(.ph-tilt:not([hidden])) .draft-chip.cm-on { max-width: calc(100% - 224px); }
 }
 /* (a landscape phone under 390 px tall: the classic view's plane is half the screen, and the chip's words lack room: 52 to 172 px wide beside the keys'
    row at 320 px tall, a letter or two a line; at 360 and 375 px, planes 276 to 326 px wide, two lines that lose the tool's name, their end. The context bar
    says the same sentence whole, so the words fold away and the chip keeps its × and ?. From 390 px tall, and in the steps view's wide plane, they fit) */
 @media (max-height: 389.98px) {
   :root.ph.ph-land:not(.sv):has(.ph-ctx.in:not(.under)) .draft-chip.cm-on .cm-chip > .cm-t { display: none; }
+  /* (the folded chip's × is 32 px and its ? 20, each with a 44 px tap: 18 px between them put their centres 44 px apart, side by side or stacked, so
+     a finger between them is in one tap only and never cancels the construction by landing between the two) */
+  :root.ph.ph-land:not(.sv):has(.ph-ctx.in:not(.under)) .draft-chip.cm-on .cm-chip { gap: 18px; }
 }
 /* (an unfolded key is the one the person opened to read: it stands over what it meets, the keys (Fit view, the zoom group, Sphere) at any height where
    it meets them and the end of the construction chip, so its words are not hidden, and opaque, so what is under it does not show through; a tap on it

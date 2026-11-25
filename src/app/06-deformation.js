@@ -278,21 +278,19 @@
     // (its first slice too waits for the frame to end)
     nextMacrotask().then(() => (alive() ? runGenSliced(g, alive, 3) : null)).catch((e) => console.error('deformation paths ahead', e)).finally(() => { if (mfAhead.job === job) mfAhead.job = null; });
   }
-  // The merged globe's live paths (the design's "one plane (or one globe)" both carry them): the
-  // same selection, chosen off the frame in the deformation's own flat frame at the globe pane's size (defFitView,
-  // fixed per chain, focus, path, shapes and pane size, so orbiting never re-chooses), drawn lifted to the sphere
-  // The globe's paths are chosen on the sphere under the camera of the moment (globeSelP); an orbit that turns more than
-  // one kept start (or a quarter of them) away from the camera chooses again (epoch), after the same 150 ms of stillness.
-  // src: the deformation source (default the classic transport's); fit: the flat view the choice is made in (default
-  // the deformation's fitted frame, defFitView; the steps view passes its one camera, S.srcView)
+  // The globe's live paths: the same selection, chosen off the frame in a flat view at the globe pane's size (fit, the
+  // steps view's one camera S.srcView: fixed per chain, focus, path, shapes and pane size, so orbiting never
+  // re-chooses), drawn lifted to the sphere. The globe's paths are chosen on the sphere under the camera of the moment
+  // (globeSelP); an orbit that turns more than one kept start (or a quarter of them) away from the camera chooses again
+  // (epoch), after the same 150 ms of stillness. src: the deformation source (svPathsSource)
   const mfGlobe = { key: '', vp: null, cam: null, epoch: 0 };
-  function morphSelGlobe(pane, cam, src = classicSource(), fit = null) {
+  function morphSelGlobe(pane, cam, src, fit) {
     if (cam) mfGlobe.cam = cam;
-    const k = mfScreenKey(pane, src).key + `|${pane.w}x${pane.h}` + (fit ? `|${fit.cx},${fit.cy},${fit.s}` : '');
+    const k = mfScreenKey(pane, src).key + `|${pane.w}x${pane.h}|${fit.cx},${fit.cy},${fit.s}`;
     if (mfGlobe.key !== k || !mfGlobe.vp) {
       const vp = Object.create(Pane.prototype);
-      vp.view = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
-      vp.view = fit ? { cx: fit.cx, cy: fit.cy, s: fit.s } : defFitView(vp, false);
+      vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
+      vp.view = { cx: fit.cx, cy: fit.cy, s: fit.s };
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
     const sel = morphSelScreen(mfGlobe.vp, src);
@@ -392,7 +390,6 @@
   function morphCaption(...args) { return MP.morphCaption(...args); }
   function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
-  const syncTransport = () => phoneChain();
   function wKeyAvail(...args) { return MP.wKeyAvail(...args); }
   function wKeyOn(...args) { return MP.wKeyOn(...args); }
   function renderRight(...args) { return MP.renderRight(...args); }

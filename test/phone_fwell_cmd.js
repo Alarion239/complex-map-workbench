@@ -1,6 +1,6 @@
 // F's well on the phone's edit sheet (issue #455): the Inspector is built while the sheet is closed, so the well has no
-// width when fitPick first runs; it used to keep the full (expanded) form there, wider than the sheet. Now nothing is
-// decided without a width, and the choice is made again when the well gets one (the sheet opens) or changes it (the
+// width when fitPick first runs. No form is chosen without a width (the full, expanded one is wider than the sheet),
+// and the choice is made again when the well gets one (the sheet opens) or changes it (the
 // phone turns). Two steps (a Möbius square and a long formula with a display form), F selected, the Edit sheet opened:
 // the well is whole (not wider than its box, at 70 % or more), the short form F(z) = w₂ = …, as on the desk; closed and
 // opened again in landscape, still whole. 390 × 844 and 360 × 740 in en, ru and it; then 1440 × 900 (the desk) as a

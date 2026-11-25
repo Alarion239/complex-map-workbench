@@ -60,18 +60,17 @@
   // chip of the mode Esc closes next also shows Esc.
   const modeNext = () => {
     if (S.focus > 0) return 'alone';
-    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view, morphOn())) return 'solo';
-    return morphOn() ? 'morph' : null;
+    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view)) return 'solo';
+    return null;
   };
   function modeClose(m) {
     if (m === 'tool') { Construct.cancel(); setTool('select'); return; }
     if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
     if (m === 'alone') setFocus(0);
     else if (m === 'solo') setSolo(S.solo);
-    else if (m === 'morph') closeTransport();
   }
   function syncModeChips() {
-    const mg = Views.merged(S.view, morphOn()), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
+    const mg = Views.merged(S.view), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
     const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
     if (!head) return;
     let box = $('modeChips');
@@ -79,7 +78,6 @@
     const next = modeNext();
     const want = [];
     if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
-    if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
     // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
     const tc = Construct.toolChip && Construct.toolChip();
     if (tc) want.push(['tool', tc.name, $t('Leave the tool'), '', tc.count || '']);
@@ -326,9 +324,6 @@
     h, openMenu, toast, copyText, saveFile, lsk,
     numbers: figNumbers, numberHold: figNumberHold, numberAt: figNumberAt, numberParse: figNumberParse,
     svIndex: () => SV.i,
-    // Video in the export dialog turns the deformation on, where there is one
-    canDeform: () => morphRange().steps.length > 0,
-    deformOn: () => { if (!morphRange().steps.length) return false; if (!morph.open) openTransport(); return morphOn(); },
     soundDone: () => sndExportDone(), soundError: () => sndError(),
     art: artRender,
     state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
@@ -395,6 +390,10 @@
     // a shape's map from its own plane into a panel's plane (side 'L' or 'R'), F the panel's map of the z-plane's shapes:
     // null where the page does not draw it (a plane after the panel's, a d/dz step between)
     shapeF: (s, side, F) => shapeF(s, F, side === 'L' ? leftStage() : rightStage()),
+    // the plane a shape is drawn on (0 the z-plane), and the window its curves are sampled in there (winOf: X's view of that plane
+    // the last time X showed it, else the shape's own box with room around it); null for a shape of the z-plane
+    shapeStage: (s) => shapeStage(s),
+    shapeWin: (s) => (shapeStage(s) ? winOf(s) : null),
     // a point's name on a panel, the one the page's figure frames give it (pointLabel in the figure's mode: F(z₀), w₂(z₁)),
     // idx its place among the points the panel draws
     pointName: (s, idx, side) => {
@@ -450,7 +449,7 @@
       lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
       morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
       pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, shapeF, shapeStage, stageF,
-      fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
+      fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
       smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt,
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },

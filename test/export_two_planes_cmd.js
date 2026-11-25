@@ -2,7 +2,8 @@
 // name, with the arrow of the map between them named over it. Each panel is the Shown plane export of its plane: on
 // the camera's window (Crop: As on screen) its picture is the one Figure.build({}) makes with that plane shown. The
 // arrow's label is the steps view's own name for the map (F, f_2, f_2∘f_1), real text in the SVG; the caption names the
-// two planes and the map; From and To outside the thread are clamped, To after From.
+// two planes and the map; From and To outside the thread are clamped, To after From. With cross axes a plane's name and its
+// axes' names meet nothing and stay inside the figure, also where a panel's imaginary axis stands at its left edge.
 // A command file for a CDP daemon:  <runner> test/export_two_planes_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -106,6 +107,58 @@ ok('example 18: Fit frames each plane, and the caption says so', r18 && r18.info
 const r18s = await build({ svPic: 'two', crop: 'screen' });
 ok('example 18: As on screen keeps the camera window, with no note', r18s && r18s.info && !r18s.info.ownWin && !/own window/.test(r18s.cap), r18s && r18s.cap);
 
+// the plane names and the axis names meet nothing, and stay in the figure: in the Homework figure (cross axes) a panel's
+// imaginary axis stands at its left edge when its window is right of 0, and its name "Im w" stands over it, centred, where the
+// plane's name heads the panel. The scene: z then z², the disc |z − 3| ≤ 1, Fit (each plane its own window, right of 0), the
+// figures z → w₂, w₁ → w₂ and z → w₁ (Homework) and z → w₂, z → w₁ (Slides), in en and ru; each 'title' box (a plane's name)
+// is clear of every 'axis-name' box, every title, axis name and tick label lies inside the figure's width (the first panel's stand
+// left of its edge), and where the To plane carries the key (past the colour plane) its ring and line meet none of them. The
+// same for the disc |z − 1| ≤ 1, where z's window straddles 0 and its imaginary axis stands a little way into the panel
+// (Homework z → w₂ and z → w₁). (control: example 1 on the camera's window, where the imaginary axes stand mid-panel: each name
+// keeps its place at its panel's top left corner)
+{
+  // how far apart two boxes must be to count as clear, pt; how far a box may sit past the figure's edge, pt
+  const GAP = 0.25, EDGE = 0.01;
+  const meets = (a, b) => a.x0 < b.x1 + GAP && a.x1 > b.x0 - GAP && a.y0 < b.y1 + GAP && a.y1 > b.y0 - GAP;
+  const scene = (c) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image',
+    steps: [{ type: 'custom', params: { expr: 'z', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2', cut: 180 }, on: true }],
+    shapes: [{ id: 'd1', kind: 'disc', c, r: 1, visible: true }] });
+  const labels = (o) => evJson(`await (async () => { try { const f = await Figure.build(${JSON.stringify(o)}); if (!f) return JSON.stringify({ none: true });
+    const imgs = [...f.svg.matchAll(/<image x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.-]+)"/g)].map((m) => ({ x: +m[1], y: +m[2], w: +m[3] }));
+    return JSON.stringify({ W: f.W, ownWin: f.info && f.info.ownWin, keyLine: f.info && f.info.keyLine, imgs, boxes: f.boxes.filter((b) => ['title', 'axis-name', 'tick', 'key', 'ring-mark'].includes(b.kind)).map((b) => ({ kind: b.kind, tex: b.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) });
+  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
+  const r1 = (b) => ({ tex: b.tex, box: [b.x0, b.y0, b.x1, b.y1].map((v) => +v.toFixed(1)) });
+  // (the disc |z − 3| ≤ 1: every window right of 0; |z − 1| ≤ 1: z's window straddles 0, its imaginary axis a little way in)
+  for (const [c, figs] of [[[3, 0], [['homework', 0, 2], ['homework', 1, 2], ['homework', 0, 1], ['slides', 0, 2], ['slides', 0, 1]]], [[1, 0], [['homework', 0, 2], ['homework', 0, 1]]]]) for (const lang of ['en', 'ru']) {
+    const ns = 'xtpr' + lang + Date.now();
+    await seed(ns, scene(c));
+    await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=steps`);
+    await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.Figure && typeof __cmwSteps === "function" && __cmwSteps().planes.length > 2', max: 30000 });
+    for (const [pre, from, to] of figs) {
+      const tag = `disc at ${c[0]}, ${lang}, ${pre}, Fit, plane ${from} → plane ${to}`;
+      const f = await labels({ svPic: 'two', for: pre, crop: 'fit', svFrom: from, svTo: to, capInImage: false });
+      const titles = (f.boxes || []).filter((b) => b.kind === 'title'), names = (f.boxes || []).filter((b) => b.kind === 'axis-name'), ticks = (f.boxes || []).filter((b) => b.kind === 'tick');
+      const hits = titles.flatMap((t) => names.filter((a) => meets(t, a)).map((a) => ({ title: r1(t), axis: r1(a) })));
+      const out = [...titles, ...names, ...ticks].filter((b) => b.x0 < -EDGE || b.x1 > f.W + EDGE).map(r1);
+      info[`labels ${tag}`] = { err: f.err, W: f.W, titles: titles.map(r1), names: names.map(r1) };
+      ok(`${tag}: two plane names and four axis names (control)`, !f.err && titles.length === 2 && names.length === 4, info[`labels ${tag}`]);
+      ok(`${tag}: each plane's name meets no axis name`, !f.err && titles.length === 2 && hits.length === 0, hits);
+      ok(`${tag}: every plane name, axis name and tick label is inside the figure`, !f.err && out.length === 0, { W: f.W, out });
+      // (the key of a To plane past the colour plane: its ring, bounded by its marks 1, i, -1, -i, and its line)
+      const marks = (f.boxes || []).filter((b) => b.kind === 'ring-mark'), keyText = (f.boxes || []).filter((b) => b.kind === 'key');
+      const ring = marks.length ? { tex: 'ring', x0: Math.min(...marks.map((b) => b.x0)), y0: Math.min(...marks.map((b) => b.y0)), x1: Math.max(...marks.map((b) => b.x1)), y1: Math.max(...marks.map((b) => b.y1)) } : null;
+      const keyHits = [...titles, ...names, ...ticks].flatMap((b) => [ring, ...keyText].filter((q) => q && meets(b, q)).map((q) => ({ label: r1(b), key: r1(q) })));
+      if (f.keyLine) ok(`${tag}: the key's ring and line meet no plane name, axis name or tick label`, !f.err && !!ring && keyHits.length === 0, keyHits);
+    }
+  }
+  // (control) example 1 on the camera's window: the imaginary axes mid-panel, each name at its panel's top left corner
+  await ready(1);
+  const c = await labels({ svPic: 'two', for: 'homework', crop: 'screen', capInImage: false });
+  const ct = (c.boxes || []).filter((b) => b.kind === 'title');
+  info['labels control'] = { err: c.err, titles: ct.map(r1), imgs: c.imgs };
+  ok('control, example 1 on the camera\'s window: each plane\'s name stands at its panel\'s top left corner', !c.err && ct.length === 2 && c.imgs.length === 2 && ct.every((t, i) => Math.abs(t.x0 - c.imgs[i].x) < 0.05 && t.y1 < c.imgs[i].y), info['labels control']);
+}
+
 // (node) the text layer of a PDF given in base64: the strings shown in render mode 3 (invisible) in content-stream order,
 // which is reading order, read back through the font's ToUnicode map (the font is embedded with Identity-H, so a string is
 // its glyph ids in hex); whether every font the PDF uses is embedded (no Type 1 font without a file, each font descriptor
@@ -178,5 +231,54 @@ ok('a Russian plane figure\'s PDF builds', !ru.err, ru.err);
 if (!ru.err) {
   const lr = pdfLayer(ru.a);
   ok('a Russian figure\'s PDF shows its key\'s words in Cyrillic, and embeds its font', ['на полосу яркости', '×1,69'].every((w) => lr.shown.join(' ').includes(w)) && lr.embedded, { shown: lr.shown, texts: ru.texts });
+}
+// every tick label stands inside the figure, over its tick: with cross axes (Homework, Slides) a tick near a panel's left edge
+// has its label centred under it, which reached past the figure's few points of margin («−8» in example 1, on the camera's
+// window). A label whose centred place is inside the figure keeps it; one that would start left of the figure slides right
+// just as far as the edge, still over its tick. The steps view's Two planes figure and the classic two-panel Image figure,
+// Homework and Slides in en, Homework in ru. (An x tick label: a 'tick' box just under its panel's real axis; its tick: the
+// label's value through the panel's window.)
+{
+  const EDGE = 0.01, CENTRE = 0.05;
+  const ticksOf = (o) => evJson(`await (async () => { try { const f = await Figure.build(${JSON.stringify(o)}); if (!f) return JSON.stringify({ none: true });
+    const imgs = [...f.svg.matchAll(/<image x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.-]+)" height="([\\d.-]+)"/g)].map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
+    const i = f.info || {}, wins = Array.isArray(i.boxes) ? i.boxes : (i.panels || []).map((sd) => i.boxes && i.boxes[sd]);
+    return JSON.stringify({ W: f.W, imgs, wins, ticks: f.boxes.filter((b) => b.kind === 'tick').map((b) => ({ tex: b.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) });
+  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
+  const num = (tex) => Number(String(tex).replace(/\{,\}/g, '.').replace(/[−-]/g, '-').replace(/[^\d.\-]/g, ''));
+  // -> { outside, off }: the tick labels outside the figure, and the x tick labels not over their tick or moved needlessly
+  const check = (f) => {
+    const outside = (f.ticks || []).filter((b) => b.x0 < -EDGE || b.x1 > f.W + EDGE);
+    const off = [];
+    (f.imgs || []).forEach((im, k) => {
+      const b = f.wins && f.wins[k];
+      if (!b) return;
+      const oy = Math.min(im.y + im.h, Math.max(im.y, im.y + (b.y1 / (b.y1 - b.y0)) * im.h));
+      for (const q of f.ticks || []) {
+        if (q.y0 < oy || q.y0 > oy + 4 || q.x1 < im.x - 20 || q.x0 > im.x + im.w) continue;
+        const px = im.x + (num(q.tex) - b.x0) / (b.x1 - b.x0) * im.w, w = q.x1 - q.x0, mid = (q.x0 + q.x1) / 2;
+        const covers = q.x0 <= px + EDGE && px <= q.x1 + EDGE;
+        const placed = px - w / 2 >= 0 ? Math.abs(mid - px) < CENTRE : Math.abs(q.x0) < CENTRE;
+        if (!covers || !placed) off.push({ tex: q.tex, panel: k, px: +px.toFixed(2), box: [q.x0, q.x1].map((v) => +v.toFixed(2)) });
+      }
+    });
+    return { outside, off };
+  };
+  for (const [pre, lang] of [['homework', 'en'], ['slides', 'en'], ['homework', 'ru']]) {
+    // (Slides labels only ±1, which example 1 puts on the panels' edges: its rows hold no label, a control there is none)
+    const least = pre === 'homework' ? 8 : 0;
+    await ready(1, lang === 'en' ? undefined : lang);
+    const sv = await ticksOf({ svPic: 'two', for: pre, crop: 'screen', capInImage: false }), cs = check(sv);
+    info[`ticks steps two planes ${pre} ${lang}`] = { err: sv.err, W: sv.W, n: (sv.ticks || []).length, ...cs };
+    ok(`steps view, example 1, ${pre} Two planes, ${lang}: every tick label is inside the figure`, !sv.err && (sv.ticks || []).length >= least && cs.outside.length === 0, cs.outside);
+    ok(`steps view, example 1, ${pre} Two planes, ${lang}: each x tick label is over its tick, centred where that fits in the figure`, !sv.err && cs.off.length === 0, cs.off);
+    await go(`${base}/test.html?view=classic&ns=xtpt${Date.now() % 1e7}${lang === 'en' ? '' : `&lang=${lang}`}`);
+    await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.Figure && typeof __cmwExample === "function"', max: 30000 });
+    await ev('(__cmwExample(1), 1)'); await settled();
+    const cl = await ticksOf({ for: pre, cols: 2, crop: 'screen', capInImage: false }), cc = check(cl);
+    info[`ticks classic image ${pre} ${lang}`] = { err: cl.err, W: cl.W, n: (cl.ticks || []).length, ...cc };
+    ok(`classic view, example 1, ${pre} two-panel figure, ${lang}: every tick label is inside the figure`, !cl.err && (cl.ticks || []).length >= least && cc.outside.length === 0, cc.outside);
+    ok(`classic view, example 1, ${pre} two-panel figure, ${lang}: each x tick label is over its tick, centred where that fits in the figure`, !cl.err && cc.off.length === 0, cc.off);
+  }
 }
 return { pass: fails.length === 0, fails, info };

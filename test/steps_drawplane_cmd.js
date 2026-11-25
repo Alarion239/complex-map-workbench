@@ -7,14 +7,9 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ns = 'svdp' + Date.now();
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
-  steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
+const { MOB, EXP, S2, WHOLEMAP_UP, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 const { ctl, quiet, planePixels } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'plane_pixels.js'), 'utf8'));
-await view(1440, 900, false, false);
-await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
-await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
-await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
+await openChain({ ns, w: 1440, h: 900, shapes: [S2], steps: [EXP, MOB], srcView: { cx: 0, cy: 0, s: 80 }, until: WHOLEMAP_UP, max: 30000 });
 // (the colour plane is z, plane 0)
 await ev(`document.querySelector('.sv-cp').click(); 1`);
 await settled({});

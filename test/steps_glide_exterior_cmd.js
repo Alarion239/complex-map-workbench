@@ -37,7 +37,7 @@ const ready = () => settled({ max: READY_MS, until: 'typeof __cmwSteps === "func
 const at = async (x) => {
   await ev(`__cmwSteps({ x: ${x} }), 1`);
   await settled({ max: FRAME_MS, until: `(() => { const g = __cmwSteps().glide; return !!g && Math.abs(g.u - ${x}) < 1e-9; })()` });
-  // (the plane the thread now rounds to has glides of its own, whose programs the gauge counts: read once they have linked)
+  // (the held frame read once its programs have linked and drawn: the kit README's wait for a held frame)
   await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
   await ev(`new Promise((r) => setTimeout(r, ${SETTLE_MS})), 1`);
   return ev('(() => { const g = __cmwSteps().glide; return g ? { b: g.b, u: g.u, path: g.path, reason: g.reason } : null; })()');

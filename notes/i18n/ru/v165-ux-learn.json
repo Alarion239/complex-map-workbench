@@ -20,20 +20,10 @@
   "ru": "Завершить обучение  Esc",
   "note": "Tooltip: label, two spaces, key."
  },
- "tour.menu.help": {
-  "en": "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.",
-  "ru": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство» — всё руководство.",
-  "note": ""
- },
  "tour.newhere": {
   "en": "New here? Take a 2-minute tour",
   "ru": "Впервые здесь? Обучение за две минуты",
   "note": "UX21: the lane's title on a first visit."
- },
- "tour.press.play": {
-  "en": "Press ▶ to turn sound on and listen.",
-  "ru": "Нажмите ▶, чтобы включить звук и послушать.",
-  "note": ""
  },
  "tour.start": {
   "en": "Start the tour",
@@ -73,11 +63,6 @@
  "tour.hearnote": {
   "en": "The tour turns Hear the function on for this step; your setting comes back after it.",
   "ru": "На этом шаге обучение включает «Слушать функцию»; ваша настройка вернётся после него.",
-  "note": ""
- },
- "tour.helpbtn": {
-  "en": "This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.",
-  "ru": "Эта кнопка открывает обучение по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство.",
   "note": ""
  },
  "tour.finished": {
@@ -215,21 +200,6 @@
   "ru": "Стоп",
   "note": "UX71: the listening chip's button."
  },
- "deform.drawoff": {
-  "en": "Drawing is off in the deformation (M).",
-  "ru": "Во время деформации рисовать нельзя (M).",
-  "note": "UX102"
- },
- "deform.turnoff": {
-  "en": "Turn off and draw",
-  "ru": "Выключить и рисовать",
-  "note": "UX102: the chip's button."
- },
- "deform.turnoff.tip": {
-  "en": "Turn the deformation off and draw  M",
-  "ru": "Выключить деформацию и рисовать  M",
-  "note": ""
- },
  "deform.readout": {
   "en": "Step {k} of {m} · {f} · {p} %",
   "ru": "Шаг %{k} из %{m} · %{f} · %{p} %",
@@ -289,21 +259,6 @@
   "en": "Hear the function is on",
   "ru": "Прослушивание функции включено",
   "note": "aria-description of the Sound button."
- },
- "video.on": {
-  "en": "A video records the deformation: it is on now.",
-  "ru": "Видео записывает деформацию: она включена.",
-  "note": "UX60"
- },
- "video.tip": {
-  "en": "A video records the deformation: choosing it turns the deformation on",
-  "ru": "Видео записывает деформацию: при выборе она включится",
-  "note": "UX60"
- },
- "video.tip.none": {
-  "en": "A video records the deformation: add a function to the chain first",
-  "ru": "Видео записывает деформацию: сначала добавьте функцию в цепочку",
-  "note": "UX60"
  },
  "tile.circle": {
   "en": "Circle",
