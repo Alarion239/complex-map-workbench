@@ -1187,13 +1187,20 @@ uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
 // mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster; with uMaskCut 1,
-// the Landscape's Inside regions, the surface is not drawn there at all)
+// the Landscape's Inside regions, the surface is not drawn there at all. A pixel opaque and black in the mask is one a
+// REPT plan left unresolved (svLandMask): noValueAt is 1 there, and the surface draws the no-value hatch)
 uniform sampler2D uMask; uniform float uMaskOn; uniform float uMaskCut; uniform vec4 uMaskBox;
 const float CUT_EDGE_INK = 0.85;     // the outline along the edge of a cut surface: its share of the colour
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
   return texture(uMask, vec2(uv.x, 1.0 - uv.y)).a;
+}
+float noValueAt(vec2 z) {
+  if (uMaskOn < 0.5) return 0.0;
+  vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
+  vec4 m = texture(uMask, vec2(uv.x, 1.0 - uv.y));
+  return clamp(m.a - m.r, 0.0, 1.0);
 }
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
@@ -1262,7 +1269,7 @@ vec2 facetW(vec2 w) {
   if (!(wt > 0.0) || ht.y < 0.5) return w;
   float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
   if (uHMode >= 2) {
-    // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
+    // (the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
     float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * linInv(h) : mu * tan(0.5 * PI * hc);
     if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
@@ -1348,6 +1355,8 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
   }
   // (a carried copy fading in: uFade its transparency, premultiplied; 0 everywhere else)
   o = ${carry ? 'vec4(toSrgb(fogged(c, vPos)) * (1.0 - uFade), 1.0 - uFade)' : 'vec4(toSrgb(fogged(c, vPos)), 1.0)'};
+  // (a point the region mask marks unresolved: the flat planes' no-value hatch, opaque and unlit)
+  o.rgb = mix(o.rgb, nanHatch(gl_FragCoord.xy, uDpr) * o.a, noValueAt(vZ));
 ${carry ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
 `;
   const FLOOR_VS = `

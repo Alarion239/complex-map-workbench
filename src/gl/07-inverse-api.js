@@ -1176,8 +1176,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return true;
   }
   // the pixels the frame's stencil marks unresolved (a REPT plan's region-mask pass, drawInverse), counted by a read-back
-  // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks
-  function reptMarkCount() {
+  // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks. cc: a
+  // 2D context the frame's size (row 0 at its top), where each marked pixel is also drawn opaque black, over what it
+  // holds (the Landscape's region mask: its no-value mark, svLandMask)
+  function reptMarkCount(cc) {
     const Q = ok && program('keepA');
     if (!Q || repMarkFrame !== invFrame) return 0;
     use(Q);
@@ -1193,6 +1195,15 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.readPixels(vpX, vpY, fw, fh, gl.RGBA, gl.UNSIGNED_BYTE, px);
     let n = 0;
     for (let i = 3; i < px.length; i += 4) if (px[i] === 0) n++;
+    if (cc && n) {
+      // (the read-back's rows run bottom up: each one goes to the canvas's row fh - 1 - y)
+      const im = new ImageData(fw, fh), d = im.data;
+      for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (px[4 * (y * fw + x) + 3] === 0) d[4 * ((fh - 1 - y) * fw + x) + 3] = 255;
+      const cv = document.createElement('canvas');
+      cv.width = fw; cv.height = fh;
+      cv.getContext('2d').putImageData(im, 0, 0);
+      cc.drawImage(cv, 0, 0);
+    }
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
     repMarkFrame = -1;
