@@ -1046,7 +1046,8 @@
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map and the shapes are outlined. o.hom: the steps view's glide, its map and F (below). o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried), o.carriedCopies the other sheets' under it (its st.carriedCopies); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried), o.carriedCopies the other sheets' under it (its st.carriedCopies; o.sheetCut: drawn
+  // only where the principal sheet is not opaque, drawSphere's st.sheetCut, for the inverse pass's copies too); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry), or with o.carryBase the colour globe of
   // o.colorMap under it (the arrival plane's rest colour under a glide). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
@@ -1186,7 +1187,7 @@
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
-      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null, carriedCopies: o.carried && o.carriedCopies ? o.carriedCopies : null,
+      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null, carriedCopies: o.carried && o.carriedCopies ? o.carriedCopies : null, sheetCut: !!o.sheetCut,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
     // inverse on the next frame
