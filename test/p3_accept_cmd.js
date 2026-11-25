@@ -1,5 +1,9 @@
-// P3 acceptance (notes/sphere-design/SPEC.md 12.4 (f)-(i), (n); notes/ui-design/panels.md 9.0 and 11): the exact globes,
-// the left plane at a focused stage, the spherical checker on the GPU, the figure export, and the globe orientation.
+// P3 acceptance (notes/sphere-design/SPEC.md 12.4 (f)-(i), (n); notes/ui-design/panels.md 9.0 and 11) in the classic view,
+// on X's pane: the exact globes at stage 0 and at a focused stage (stage 1 of [f, z^2] shows the plane of w = f(z), the
+// images the checks are made on), the left plane at a focused stage, the spherical checker on the GPU, the figure
+// export, and the globe orientation.
+// (standards-ok: the rows on Y's w-globe (z^i(H), the hole cap and annulus, log(H)), the scissor on each side and both
+// globes' orientation are read on X's globe at stage 1, the plane w = f(z), since Y's pane is not drawn (#994): fewer rows, the same truths)
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/p3_accept_cmd.js
 // Prints {pass, fails, results}; pass is true when every check holds.
@@ -10,73 +14,59 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const base = { pattern: 'solid', alpha: 1, lines: false, unit: false };
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
 const ZI = { type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true };
+// X's pane at stage 1 of [f, z^2] (focus on step 2) shows the plane of w = f(z): the checks on f's image are made there
+const POW2 = { type: 'pown', params: { n: 2 }, on: true }, LOG = { type: 'log', params: { cut: 180, k: 0 }, on: true };
 const settle = async (ms = 2500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const { grab, globeCheck, handedness, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'));
 
-// ---- (f) Y Sphere, z^i(H): the hole cap empty, the annulus filled, rims exact; seen from below (the hole) and the side
-await view(1440, 900, false);
-await load('p3acc' + Date.now(), Object.assign({ shapes: [H], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 } }, base));
-await ev('__cmwSetView("R", "sphere"); 1');
-await settle();
-R.pathsZi = await ev('__cmwPaths()');
-ok('(f) z^i(H) on the w-globe draws inverse', R.pathsZi.some((p) => p.role === 'R' && p.viewKind === 'globe' && p.path === 'inverse'), R.pathsZi);
-// the camera under the south pole, zoomed in on the hole cap (|w| < e^-pi is a cap of 5 degrees; closer, the
-// strokes, drawn on a shell 0.4 % above the globe, stand several px off their rims at the view's edges: parallax)
-await ev('__cmwCam("R", { pitch: -1.45, yaw: -0.6, dist: 2.2 }); 1'); await settle(900);
-R.f_hole = await globeCheck('R', ANNULUS);
-ok('(f) hole cap: globe-coloured, >= 400 samples', R.f_hole.outN >= 400 && R.f_hole.outBad === 0, R.f_hole);
-ok('(f) annulus near the hole: fill, >= 400 samples', R.f_hole.inN >= 400 && R.f_hole.inBad === 0, R.f_hole);
-await shot('p3_f_hole');
-await ev('__cmwCam("R", { pitch: -0.35, yaw: -0.9, dist: 8 }); 1'); await settle(900);
-R.f_side = await globeCheck('R', ANNULUS);
-ok('(f) annulus from the side: fill / outside clean', R.f_side.inN >= 400 && R.f_side.inBad === 0 && R.f_side.outBad === 0, R.f_side);
-await shot('p3_f_side');
-
-// ---- (f) the Cayley images: (z - i)/(z + i) of H is |w| < 1 (w = 1 the image of infinity: no notch); of the lower
-// half-plane it is |w| > 1, which covers the north pole (the image of z = -i)
+// ---- (f) the Cayley images on X's globe at stage 1 of [Cayley, z^2] (focus on step 2): (z - i)/(z + i) of H is
+// |w| < 1 (w = 1 the image of infinity: no notch); of the lower half-plane it is |w| > 1, which covers the north pole
+// (the image of z = -i)
 const CAY = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true };
 const DISC_IN = `(w) => (Math.hypot(w[0], w[1]) < 1 ? 1 : -1)`;
-await load('p3cay' + Date.now(), Object.assign({ shapes: [H], steps: [CAY], srcView: { cx: 0, cy: 1, s: 60 } }, base));
-await ev('__cmwSetView("R", "sphere"); 1'); await settle();
+await view(1440, 900, false);
+await load('p3cay' + Date.now(), Object.assign({ shapes: [H], steps: [CAY, POW2], focus: 2, srcView: { cx: 0, cy: 1, s: 60 } }, base));
+await ev('__cmwSetView("L", "sphere"); 1'); await settle();
 R.pathsCay = await ev('__cmwPaths()');
+ok('(f) Cayley(H) on the globe at stage 1 draws inverse', R.pathsCay.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path === 'inverse'), R.pathsCay);
 // looking at w = 1 (the image of infinity) from outside the equator: (1, 0, 0) under the conjugate lift
-await ev('__cmwCam("R", { pitch: 0.05, yaw: 0, dist: 3 }); 1'); await settle(900);
-R.cay_w1 = await globeCheck('R', DISC_IN);
+await ev('__cmwCam("L", { pitch: 0.05, yaw: 0, dist: 3 }); 1'); await settle(900);
+R.cay_w1 = await globeCheck('L', DISC_IN);
 ok('(f) Cayley(H) at w = 1: no notch (fill inside |w| < 1 up to 3 px of the rim)', R.cay_w1.inN >= 400 && R.cay_w1.inBad === 0 && R.cay_w1.outBad === 0, R.cay_w1);
 await shot('p3_f_cayley_w1');
-await load('p3cay2' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'halfplane', a: [1, 0], b: [0, 0] }], steps: [CAY], srcView: { cx: 0, cy: -1, s: 60 } }, base));
-await ev('__cmwSetView("R", "sphere"); 1'); await settle();
-await ev('__cmwCam("R", { pitch: 1.45, yaw: -0.6, dist: 3 }); 1'); await settle(900);
+await load('p3cay2' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'halfplane', a: [1, 0], b: [0, 0] }], steps: [CAY, POW2], focus: 2, srcView: { cx: 0, cy: -1, s: 60 } }, base));
+await ev('__cmwSetView("L", "sphere"); 1'); await settle();
+await ev('__cmwCam("L", { pitch: 1.45, yaw: -0.6, dist: 3 }); 1'); await settle(900);
 const DISC_OUT = `(w) => (Math.hypot(w[0], w[1]) > 1 ? 1 : -1)`;
-R.cay_N = await globeCheck('R', DISC_OUT);
+R.cay_N = await globeCheck('L', DISC_OUT);
 // (the pole pixel itself has no w: the pick returns null at infinity; its neighbours have |w| in the thousands)
-R.cay_N_far = await ev(`(() => { let n = 0, m = 0; const r = document.getElementById('canvasR').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = __cmwSphereW(x, y); if (w && Math.hypot(w[0], w[1]) > 50) n++; } return n; })()`);
+R.cay_N_far = await ev(`(() => { let n = 0; const r = document.getElementById('canvasL').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = __cmwSphereWL(x, y); if (w && Math.hypot(w[0], w[1]) > 50) n++; } return n; })()`);
 ok('(f) Cayley of the lower half-plane covers the north pole', R.cay_N.inN >= 400 && R.cay_N.inBad === 0 && R.cay_N.outBad === 0 && R.cay_N_far > 50, [R.cay_N, R.cay_N_far]);
 await shot('p3_f_cayley_N');
 
-// ---- log(H) on the w-globe reaches the pole: the strip 0 < Im w < pi, filled up to the pole
-await load('p3log' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base));
-await ev('__cmwSetView("R", "sphere"); 1'); await settle();
-await ev('__cmwCam("R", { pitch: 1.2, yaw: -1.57, dist: 3 }); 1'); await settle(900);
+// ---- log(H) on X's globe at stage 1 of [log, z^2] reaches the pole: the strip 0 < Im w < pi, filled up to the pole
+await load('p3log' + Date.now(), Object.assign({ shapes: [H], steps: [LOG, POW2], focus: 2, srcView: { cx: 0, cy: 1, s: 60 } }, base));
+await ev('__cmwSetView("L", "sphere"); 1'); await settle();
+await ev('__cmwCam("L", { pitch: 1.2, yaw: -1.57, dist: 3 }); 1'); await settle(900);
 // (the cusp at the pole, where the strip is under a pixel wide and its pixels are partly covered, is left to logH_far)
 const STRIP = `(w) => (Math.hypot(w[0], w[1]) > 50 ? 0 : w[1] > 0 && w[1] < Math.PI ? 1 : -1)`;
-R.logH = await globeCheck('R', STRIP, 1);
+R.logH = await globeCheck('L', STRIP, 1);
 // the fill pixel nearest the pole: its |w|, and the strip's width there in pixels (pi / footprint): the fill reaches
 // the pole when it ends where the strip is about a pixel wide (a lifted mesh that stopped where the strip is still wide would fail)
 R.logH_far = await ev(`(() => {
-  const cv = document.getElementById('canvasR'), r = cv.getBoundingClientRect(), D1 = window.__p3D1, D0 = window.__p3D0, GW = cv.width, dpr = cv.width / r.width;
+  const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), D1 = window.__p3D1, D0 = window.__p3D0, GW = cv.width, dpr = cv.width / r.width;
   let best = null;
   for (let y = 2; y < r.height - 2; y++) for (let x = 2; x < r.width - 2; x++) {
-    const w = __cmwSphereW(x + 0.5, y + 0.5); if (!w || !(w[1] > 0 && w[1] < Math.PI)) continue;
+    const w = __cmwSphereWL(x + 0.5, y + 0.5); if (!w || !(w[1] > 0 && w[1] < Math.PI)) continue;
     const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
     if (Math.abs(D1[i] - D0[i]) + Math.abs(D1[i + 1] - D0[i + 1]) + Math.abs(D1[i + 2] - D0[i + 2]) <= 24) continue;
     const a = Math.hypot(w[0], w[1]);
-    if (!best || a > best.a) { const w1 = __cmwSphereW(x + 1.5, y + 0.5), w2 = __cmwSphereW(x + 0.5, y + 1.5); const fp = Math.max(Math.hypot(w1[0] - w[0], w1[1] - w[1]), Math.hypot(w2[0] - w[0], w2[1] - w[1])); best = { a: +a.toFixed(2), widthPx: +(Math.PI / fp).toFixed(2), x, y }; }
+    if (!best || a > best.a) { const w1 = __cmwSphereWL(x + 1.5, y + 0.5), w2 = __cmwSphereWL(x + 0.5, y + 1.5); const fp = Math.max(Math.hypot(w1[0] - w[0], w1[1] - w[1]), Math.hypot(w2[0] - w[0], w2[1] - w[1])); best = { a: +a.toFixed(2), widthPx: +(Math.PI / fp).toFixed(2), x, y }; }
   }
   return best;
 })()`, 60000);
 ok('(f) log(H) reaches the pole: the fill ends where the strip is under 2.5 px wide', !!R.logH_far && R.logH_far.widthPx < 2.5, R.logH_far);
-ok('(f) log(H) on the w-globe: the strip filled, nothing outside', R.logH.inN >= 400 && R.logH.inBad === 0 && R.logH.outBad === 0, R.logH);
+ok('(f) log(H) on the globe at stage 1: the strip filled, nothing outside', R.logH.inN >= 400 && R.logH.inBad === 0 && R.logH.outBad === 0, R.logH);
 await shot('p3_f_logH');
 
 // ---- X Sphere at stage 0: an unbounded region covers infinity without a hole (H, and the exterior of a disc)
@@ -98,28 +88,29 @@ R.x0H_far = await ev(`(() => { let n = 0; const r = document.getElementById('can
 ok('X Sphere at stage 0: Im z > 0 exact around the north pole', R.x0H.inN >= 400 && R.x0H.inBad === 0 && R.x0H.outN >= 400 && R.x0H.outBad === 0 && R.x0H_far > 50, [R.x0H, R.x0H_far]);
 await shot('p3_x0_H');
 
-// ---- the globe scissor of bounded shapes (4.8 on the globe): a disc's exact image is not clipped. Y globe: z^i of
-// |z - (0.3+0.8i)| < 0.3 (w is in the image iff -ln|w| lies in (-pi, pi] and z = e^{Arg w} e^{-i ln|w|} is in the
-// disc); X globe at stage 0: the disc itself
+// ---- the globe scissor of bounded shapes (4.8 on the globe): a disc's exact image is not clipped. X's globe at stage 1
+// of [z^i, z^2]: z^i of |z - (0.3+0.8i)| < 0.3 (w is in the image iff -ln|w| lies in (-pi, pi] and
+// z = e^{Arg w} e^{-i ln|w|} is in the disc); at stage 0: the disc itself
 const DISC = { id: 's1', kind: 'disc', c: [0.3, 0.8], r: 0.3 };
-await load('p3sc' + Date.now(), Object.assign({ shapes: [DISC], steps: [ZI], srcView: { cx: 0.3, cy: 0.8, s: 200 } }, base));
-await ev('__cmwSetView("R", "sphere"); __cmwSetView("L", "sphere"); 1'); await settle();
 const DZI = `(w) => { const a = Math.hypot(w[0], w[1]), L = -Math.log(a); if (!(L > -Math.PI && L <= Math.PI)) return -1; const m = Math.exp(Math.atan2(w[1], w[0])), zx = m * Math.cos(-Math.log(a)), zy = m * Math.sin(-Math.log(a)); return Math.hypot(zx - 0.3, zy - 0.8) < 0.3 ? 1 : -1; }`;
-for (const [side, cam, cls, tag] of [['R', { pitch: -0.9, yaw: -1.2, dist: 3.2 }, DZI, 'sc_R'], ['L', { pitch: -0.5, yaw: -1.7, dist: 3.2 }, `(w) => (Math.hypot(w[0] - 0.3, w[1] - 0.8) < 0.3 ? 1 : -1)`, 'sc_L']]) {
+for (const [stage, cam, cls, tag] of [[1, { pitch: -0.9, yaw: -1.2, dist: 3.2 }, DZI, 'sc_1'], [0, { pitch: -0.5, yaw: -1.7, dist: 3.2 }, `(w) => (Math.hypot(w[0] - 0.3, w[1] - 0.8) < 0.3 ? 1 : -1)`, 'sc_0']]) {
+  const side = 'L';
+  await load('p3sc' + stage + Date.now(), Object.assign({ shapes: [DISC], steps: [ZI, POW2], focus: stage + 1, srcView: { cx: 0.3, cy: 0.8, s: 200 } }, base));
+  await ev('__cmwSetView("L", "sphere"); 1'); await settle();
   await ev(`__cmwCam(${JSON.stringify(side)}, ${JSON.stringify(cam)}); 1`); await settle(900);
   R[tag] = await globeCheck(side, cls, 1);
   // the scissor the pass used (the same function, this camera): a real one, smaller than the pane
   const g0 = await ev('GLR.inverseGlobeScissors'); await ev(`__cmwCam(${JSON.stringify(side)}); __cmwSet('alpha', 1); 1`); await settle(400);
   const g1 = await ev('GLR.inverseGlobeScissors');
-  R[tag + '_sc'] = { passes: g1.n - g0.n, avgPx: g1.n > g0.n ? Math.round((g1.px - g0.px) / (g1.n - g0.n)) : 0, panePx: await ev(`(() => { const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}); return cv.width * cv.height; })()`) };
-  ok(`globe scissor (${side}) in use, smaller than the pane`, R[tag + '_sc'].passes > 0 && R[tag + '_sc'].avgPx < 0.6 * R[tag + '_sc'].panePx, R[tag + '_sc']);
-  ok(`globe scissor (${side}): the disc's exact image is whole`, R[tag].inN >= 200 && R[tag].inBad === 0 && R[tag].outBad === 0, R[tag]);
+  R[tag + '_sc'] = { passes: g1.n - g0.n, avgPx: g1.n > g0.n ? Math.round((g1.px - g0.px) / (g1.n - g0.n)) : 0, panePx: await ev(`(() => { const cv = document.getElementById('canvasL'); return cv.width * cv.height; })()`) };
+  ok(`globe scissor (stage ${stage}) in use, smaller than the pane`, R[tag + '_sc'].passes > 0 && R[tag + '_sc'].avgPx < 0.6 * R[tag + '_sc'].panePx, R[tag + '_sc']);
+  ok(`globe scissor (stage ${stage}): the disc's exact image is whole`, R[tag].inN >= 200 && R[tag].inBad === 0 && R[tag].outBad === 0, R[tag]);
   await shot('p3_' + tag);
 }
 R.sc_paths = await ev('__cmwPaths().map((p) => p.role + p.viewKind + ":" + p.path)');
 
 // ---- (n) the left globe at leftStage() = 1 of [z^i, z^2] (focus on step 2): the exact annulus on the z-globe of w1
-await load('p3n' + Date.now(), Object.assign({ shapes: [H], steps: [ZI, { type: 'pown', params: { n: 2 }, on: true }], focus: 2, srcView: { cx: 0, cy: 1, s: 60 } }, base));
+await load('p3n' + Date.now(), Object.assign({ shapes: [H], steps: [ZI, POW2], focus: 2, srcView: { cx: 0, cy: 1, s: 60 } }, base));
 await ev('__cmwSetView("L", "sphere"); 1'); await settle();
 R.pathsN = await ev('__cmwPaths()');
 R.stageN = await ev('__cmwLook("s1", "L").stage');
@@ -128,6 +119,11 @@ await ev('__cmwCam("L", { pitch: -1.45, yaw: -0.6, dist: 2.2 }); 1'); await sett
 R.n_hole = await globeCheck('L', ANNULUS);
 ok('(n) left globe: hole cap empty, annulus filled', R.n_hole.outN >= 400 && R.n_hole.outBad === 0 && R.n_hole.inN >= 400 && R.n_hole.inBad === 0, R.n_hole);
 await shot('p3_n_hole');
+// and from the side
+await ev('__cmwCam("L", { pitch: -0.35, yaw: -0.9, dist: 8 }); 1'); await settle(900);
+R.n_side = await globeCheck('L', ANNULUS);
+ok('(n) left globe: the annulus from the side, fill / outside clean', R.n_side.inN >= 400 && R.n_side.inBad === 0 && R.n_side.outBad === 0, R.n_side);
+await shot('p3_n_side');
 
 // ---- (g) the left plane at stage 1 of [z^i, z^2] is exact: its fill equals the CPU render of z^i(H) (IoU >= 0.999)
 await ev('__cmwSetView("L", "plane"); 1'); await settle();
@@ -157,17 +153,18 @@ R.g = await ev(`(() => {
 ok('(g) left plane at stage 1 = CPU render of z^i(H), IoU >= 0.999', R.g.iou >= 0.999 && R.g.inter > 1000, R.g);
 await shot('p3_g_left');
 
-// ---- (i) the spherical checker on the GPU: log(H) columns at Re w = ln tan(j pi / 16) +- 0.5 px
-await load('p3i' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base, { pattern: 'sphere' }));
+// ---- (i) the spherical checker on the GPU: log(H) columns at Re w = ln tan(j pi / 16) +- 0.5 px, on X's plane at stage 1
+// of [log, z^2]
+await load('p3i' + Date.now(), Object.assign({ shapes: [H], steps: [LOG, POW2], focus: 2, srcView: { cx: 0, cy: 1, s: 60 } }, base, { pattern: 'sphere' }));
 await settle();
 // (#363: the renderer's spherical checker stays, drawn here through the test hook; the user has no pattern menu)
 R.menu = await ev(`document.querySelectorAll('#patternSeg, [data-pat]').length`);
 ok('(i) no pattern menu: the regions are filled by the phase', R.menu === 0, R.menu);
 R.i = await ev(`(() => {
-  const lk = __cmwLook('s1', 'R'), s = lk.view.s * lk.dpr, W = lk.W, Hh = lk.H;
+  const lk = __cmwLook('s1'), s = lk.view.s * lk.dpr, W = lk.W, Hh = lk.H;
   const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const c0 = hex(lk.color), c1 = hex(lk.color2);
-  const cv = document.getElementById('canvasR'), g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height;
+  const cv = document.getElementById('canvasL'), g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height;
   const x = g.getContext('2d'); x.drawImage(cv, 0, 0); const D = x.getImageData(0, 0, g.width, g.height).data;
   const tOf = (k) => { let num = 0, den = 0; for (let q = 0; q < 3; q++) { const d = c1[q] - c0[q]; num += (D[4 * k + q] - c0[q]) * d; den += d * d; } return num / den; };
   const wy = 5 * Math.PI / 16, j = Math.round(Hh / 2 - (wy - lk.view.cy) * s - 0.5);
@@ -188,14 +185,14 @@ R.i = await ev(`(() => {
 ok('(i) GPU sphere checker log(H) columns within 0.5 px', R.i.expected >= 4 && R.i.matched === R.i.expected, R.i);
 await shot('p3_i_logH_sphere');
 
-// ---- (h) the figure export at 300 dpi of z^i(H): exact (the analytic annulus) and equal to the screen scaled;
-// a cancelled export returns at once and never blocks the main thread for more than 50 ms
-await load('p3h' + Date.now(), Object.assign({ shapes: [H], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 } }, base));
+// ---- (h) the figure export at 300 dpi of z^i(H), X's plane at stage 1 of [z^i, z^2]: exact (the analytic annulus) and
+// equal to the screen scaled; a cancelled export returns at once and never blocks the main thread for more than 50 ms
+await load('p3h' + Date.now(), Object.assign({ shapes: [H], steps: [ZI, POW2], focus: 2, srcView: { cx: 0, cy: 1, s: 60 } }, base));
 await settle();
 R.h = await ev(`await (async () => {
-  const lk = __cmwLook('s1', 'R'), cv = document.getElementById('canvasR'), rr = cv.getBoundingClientRect();
+  const lk = __cmwLook('s1'), cv = document.getElementById('canvasL'), rr = cv.getBoundingClientRect();
   const dpr = 300 / 96, w = rr.width, h = rr.height;
-  const url = __cmwRenderOff('R', w, h, dpr);
+  const url = __cmwRenderOff('L', w, h, dpr);
   const img = new Image(); img.src = url; await img.decode();
   const g = document.createElement('canvas'); g.width = img.width; g.height = img.height; const x = g.getContext('2d'); x.drawImage(img, 0, 0);
   const E = x.getImageData(0, 0, g.width, g.height).data, EW = g.width, EH = g.height;
@@ -274,24 +271,28 @@ await key('Escape'); await sleep(300);
 ok('(h) the dialog: the last option wins', R.dlgFirst && R.dlg.last, R.dlg);
 ok('(h) the dialog: no main-thread task over 50 ms while options change', (R.dlg.long || [null]).every((d) => d !== null && d <= 50), R.dlg);
 
-// ---- (c) on the globe: mixed paths keep list order (rev 2): H inverse under a disc drawn forward (forced) gives the
-// same frame as both inverse, but where the forward mesh and the exact image differ (rims): <= 0.5 % of the pane
-await load('p3c' + Date.now(), { shapes: [H, { id: 's2', kind: 'disc', c: [0.3, 0.8], r: 0.3 }], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 }, pattern: 'checker', alpha: 0.85, lines: false, unit: false });
-await ev('__cmwSetView("R", "sphere"); 1'); await settle();
-await ev('__cmwCam("R", { pitch: -0.35, yaw: -0.9, dist: 8 }); 1'); await settle(900);
-await grab('R'); await ev('window.__p3Inv = window.__p3grab.R; __cmwForceForward(["s2"]); 1'); await settle(1500);
-R.c_paths = await ev('__cmwPaths().filter((p) => p.role === "R").map((p) => p.id + ":" + p.path)');
-await grab('R'); await ev('window.__p3Fwd = window.__p3grab.R; __cmwForceForward([]); 1'); await settle(900);
+// ---- (c) on the globe (X's, at stage 1 of [z^i, z^2]): mixed paths keep list order: H inverse under a disc drawn
+// forward (forced) gives the same frame as both inverse, but where the forward mesh and the exact image differ (rims):
+// <= 0.5 % of the pane
+await load('p3c' + Date.now(), { shapes: [H, { id: 's2', kind: 'disc', c: [0.3, 0.8], r: 0.3 }], steps: [ZI, POW2], focus: 2, srcView: { cx: 0, cy: 1, s: 60 }, pattern: 'checker', alpha: 0.85, lines: false, unit: false });
+await ev('__cmwSetView("L", "sphere"); 1'); await settle();
+await ev('__cmwCam("L", { pitch: -0.35, yaw: -0.9, dist: 8 }); 1'); await settle(900);
+await grab('L'); await ev('window.__p3Inv = window.__p3grab.L; __cmwForceForward(["s2"]); 1'); await settle(1500);
+R.c_paths = await ev('__cmwPaths().filter((p) => p.role === "L").map((p) => p.id + ":" + p.path)');
+await grab('L'); await ev('window.__p3Fwd = window.__p3grab.L; __cmwForceForward([]); 1'); await settle(900);
 R.c = await ev(`(() => { const A = window.__p3Inv, B = window.__p3Fwd; let n = 0, d = 0, dd = 0; for (let i = 0; i < A.length; i += 4) { n++; const m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])); if (m > 3) d++; if (m > 0) dd++; } return { n, diff3: d, frac: +(d / n).toFixed(5), anyDiff: dd }; })()`);
 ok('(c) globe: s1 inverse, s2 forced forward', JSON.stringify(R.c_paths) === JSON.stringify(['s1:inverse', 's2:forward']), R.c_paths);
 ok('(c) globe: mixed paths in list order, frame differs <= 0.5 % from all-inverse', R.c.frac <= 0.005 && R.c.anyDiff > 0, R.c);
 
-// ---- the globe orientation (panels.md 9.0): a screen triangle on the w-globe maps to a w triangle of the same
-// handedness (the plain lift would make every globe a mirror image)
+// ---- the globe orientation (panels.md 9.0): a screen triangle on the globe maps to a plane triangle of the same
+// handedness (the plain lift would make every globe a mirror image), at stage 0 and at stage 1 of [z^2, z^2]
 await load('p3o' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'disc', c: [0.5, 0], r: 0.45 }], steps: [], srcView: { cx: 0.5, cy: 0, s: 300 } }, base, { pattern: 'tiles' }));
-await ev('__cmwSetView("L", "sphere"); __cmwSetView("R", "sphere"); 1'); await settle();
-R.hand = { R: await handedness('R'), L: await handedness('L') };
-ok('globe orientation: every picked triangle keeps its handedness (both globes)', R.hand.R[0] > 50 && R.hand.R[1] === 0 && R.hand.L[0] > 50 && R.hand.L[1] === 0, R.hand);
+await ev('__cmwSetView("L", "sphere"); 1'); await settle();
+R.hand = { L0: await handedness('L') };
+await load('p3o1' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'disc', c: [0.5, 0], r: 0.45 }], steps: [POW2, POW2], focus: 2, srcView: { cx: 0.5, cy: 0, s: 300 } }, base, { pattern: 'tiles' }));
+await ev('__cmwSetView("L", "sphere"); 1'); await settle();
+R.hand.L1 = await handedness('L');
+ok('globe orientation: every picked triangle keeps its handedness (stages 0 and 1)', R.hand.L0[0] > 50 && R.hand.L0[1] === 0 && R.hand.L1[0] > 50 && R.hand.L1[1] === 0, R.hand);
 await shot('p3_orient_tiles');
 R.logs = logs().filter((l) => /error|exception/i.test(l.t) && !/404/.test(l.m)).slice(0, 6);
 ok('no console errors', R.logs.length === 0, R.logs);

@@ -785,65 +785,8 @@
       }
     }
   }
-  // images of the two banks of each ray cut, in the plane of stage R (dashed)
-  function drawCutBanks(pane, R) {
-    if (artMode) return;
-    const ctx = pane.ctx;
-    ctx.save();
-    ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.strokeStyle = TH.cut; ctx.globalAlpha = 0.7;
-    for (let k = 1; k <= R; k++) {
-      const b = built[k - 1];
-      // a d/dz step after the cut's step makes the stage no function of the cut's plane: no banks to draw
-      if (!stepFn(k) || !b || derivIn(k - 1, R)) continue;
-      const tail = (z) => { for (let j = k; j <= R; j++) { const f = stepFn(j); if (f) z = f(z); } return z; };
-      for (const c of b.cuts) {
-        if (c.kind !== 'ray') continue;
-        for (const side of [-1, 1]) {
-          const a = c.ang + side * 1e-7;
-          ctx.beginPath();
-          let pen = false;
-          for (let i = 0; i <= 200; i++) {
-            const rr = 1e-3 * Math.pow(1e7, i / 200);
-            const z = C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a));
-            const w = tail(z);
-            if (!CX.isFin(w)) { pen = false; continue; }
-            const [x, y] = pane.w2s(w);
-            if (Math.abs(x) > 1e5 || Math.abs(y) > 1e5) { pen = false; continue; }
-            if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-            pen = true;
-          }
-          ctx.stroke();
-        }
-      }
-    }
-    ctx.restore();
-  }
-  // image of the left viewport rectangle (where the left view lands)
-  function drawFov(pane, F) {
-    if (artMode) return;
-    const b = leftPaneBox();
-    const ctx = pane.ctx;
-    const corners = [C(b.x0, b.y0), C(b.x1, b.y0), C(b.x1, b.y1), C(b.x0, b.y1)];
-    ctx.save();
-    ctx.strokeStyle = TH.fov; ctx.globalAlpha = TH.fovA; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    for (let e = 0; e < 4; e++) {
-      const p = corners[e], q = corners[(e + 1) % 4];
-      let pen = false, lx = 0, ly = 0;
-      for (let i = 0; i <= 64; i++) {
-        const w = F(C(p.re + (q.re - p.re) * i / 64, p.im + (q.im - p.im) * i / 64));
-        if (!CX.isFin(w)) { pen = false; continue; }
-        const [x, y] = pane.w2s(w);
-        if (pen && Math.hypot(x - lx, y - ly) > 200) pen = false;
-        if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-        pen = true; lx = x; ly = y;
-      }
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    for (const c of corners) { const w = F(c); if (!CX.isFin(w)) continue; const [x, y] = pane.w2s(w); ctx.strokeRect(x - 2, y - 2, 4, 4); }
-    ctx.restore();
-  }
+
+
   // orientation chevrons: at mid-length of open curves and at angle 0 of closed boundaries
   function drawChevrons(pane, F0, k) {
     if (artMode) return;
@@ -943,7 +886,7 @@
   // the zeros-and-poles step that acts on the plane X shows (its input plane): step 1 at the whole chain, step k when
   // k is focused. {k, st, items: {zeros, poles}} (values; null where a field does not parse) or null
   function zpStep() {
-    if (!S || !paneL || solo() === 'R' || !lFlat()) return null;
+    if (!S || !paneL || !lFlat()) return null;
     const j = leftStage(), st = S.steps[j];
     if (!st || st.type !== 'zp' || st.on === false) return null;
     const items = {};
@@ -1317,45 +1260,7 @@
     ctx.lineWidth = 1.25; ctx.strokeStyle = color; arms();
     ctx.restore();
   }
-  // derivative gauge: a small circle and tick around the probe, and their images under the map
-  function drawGauge(paneDom, paneImg, z, F) {
-    const rho = 10 / paneDom.view.s;
-    const ctxD = paneDom.octx, ctxI = paneImg.octx;
-    const [x, y] = paneDom.w2s(z);
-    ctxD.save();
-    ctxD.strokeStyle = TH.probe; ctxD.globalAlpha = 0.6; ctxD.lineWidth = 1;
-    ctxD.beginPath(); ctxD.arc(x, y, 10, 0, TAU); ctxD.stroke();
-    ctxD.globalAlpha = 1; ctxD.strokeStyle = TH.accent; ctxD.lineWidth = 1.5;
-    ctxD.beginPath(); ctxD.moveTo(x + 10, y); ctxD.lineTo(x + 16, y); ctxD.stroke();
-    ctxD.restore();
-    const w0 = F(z);
-    if (!CX.isFin(w0)) return null;
-    const h = rho * 1e-3;
-    const d = CX.scale(CX.sub(F(C(z.re + h, z.im)), F(C(z.re - h, z.im))), 1 / (2 * h));
-    if (!CX.isFin(d)) return null;
-    let r = rho, factor = 1;
-    const rimg = CX.abs(d) * rho * paneImg.view.s;
-    if (rimg > 120) { factor = 120 / rimg; } else if (rimg < 3 && rimg > 0) { factor = 3 / rimg; }
-    r = rho * factor;
-    ctxI.save();
-    ctxI.strokeStyle = TH.probe; ctxI.globalAlpha = 0.6; ctxI.lineWidth = 1;
-    ctxI.beginPath();
-    let pen = false;
-    for (let i = 0; i <= 48; i++) {
-      const a = TAU * i / 48;
-      const w = F(C(z.re + r * Math.cos(a), z.im + r * Math.sin(a)));
-      if (!CX.isFin(w)) { pen = false; continue; }
-      const [px, py] = paneImg.w2s(w);
-      if (pen) ctxI.lineTo(px, py); else ctxI.moveTo(px, py);
-      pen = true;
-    }
-    ctxI.stroke();
-    ctxI.globalAlpha = 1; ctxI.strokeStyle = TH.accent; ctxI.lineWidth = 1.5;
-    const t0 = F(C(z.re + r, z.im)), t1 = F(C(z.re + r * 1.6, z.im));
-    if (CX.isFin(t0) && CX.isFin(t1)) { ctxI.beginPath(); ctxI.moveTo(...paneImg.w2s(t0)); ctxI.lineTo(...paneImg.w2s(t1)); ctxI.stroke(); }
-    ctxI.restore();
-    return { d, factor };
-  }
+
   function drawDraft(pane) {
     if (!draft) return;
     const ctx = pane.octx;

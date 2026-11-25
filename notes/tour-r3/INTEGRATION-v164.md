@@ -28,7 +28,6 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 |---|---|---|
 | `view-moved` | `{ pane: 'L' \| 'R' \| 'P', how: 'pan' \| 'zoom' \| 'orbit' }` | the end of the user's pan, zoom (a wheel: 250 ms after its last tick; a pinch: on lift) or orbit (Landscape, sphere); `'P'` is the one wide panel |
 | `layer-opened` | `{ kind: 'catalog' }` | the step catalog opens (the add card, {+}, the palette's Add a step: `openPalette` with `fnOnly`) |
-| `phase-key` | `{ on }` | Phase key is toggled (Y's check, the legend's key check) |
 | `step-replaced` | `{ k, type }` | a step is replaced by its inverse (`invertStep`); `type` is the new step's type |
 | `tex-copied` | `{ what: 'F' }` | F's LaTeX is copied (the Inspector's copy button with the F tile selected) |
 | `listen-ended` | `{ piece, closed, W, heard, full }` | a Listen along ends: played out (`full: true`), stopped, or cut by a scene change; `heard` in seconds; `W` the rounded winding number of a closed curve with no cut, else null |
@@ -50,7 +49,7 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 - `try.then` (at most 60): the result line once the task is done. `try.after`: an earlier step of the chapter whose
   task must have been done in this run (else the step is read).
 - `act: 'listen' | 'sound'`, `hear: true`, `captions: [[seconds, text], …]` (ascending, within the piece's length).
-- Look keys `phaseKey` (Y's Phase key) and `sectors` (8, 12, 16 or 24; the phase sectors of Tiles).
+- Look key `sectors` (8, 12, 16 or 24; the phase sectors of Tiles).
 - A scene with `app: name` is loaded from `api.sceneSpec(name)`; with no answer it is absent and its steps are left out.
 - `Tour.auto(on?)`: Move on by itself, read or set. `Tour.lit()` adds `strip: { l, t, r, b }`, `mode` (`desk`, `port`,
   `head`, `row`), `why`, `done` and `countdown: { left, held: [kinds], state: 'idle' | 'running' | 'held' | 'cancelled' |
