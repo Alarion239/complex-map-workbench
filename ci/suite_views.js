@@ -168,6 +168,7 @@ const VIEWS = {
   'steps_stack_links_cmd.js': steps(),
   'steps_stack_surface_cmd.js': steps(),
   'steps_stack_phone_cmd.js': steps(),
+  'steps_stack_edit_cmd.js': steps(),
   'floor_pick_cmd.js': steps({ pin: true }),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
@@ -202,6 +203,7 @@ const VIEWS = {
   'steps_dh_stop_cmd.js': steps(),
   'steps_bottcher_axis_cmd.js': steps(),
   'steps_parked_repeat_cmd.js': steps(),
+  'steps_rept_outline_cmd.js': steps({ pin: true }),
   'steps_parked_repeat_catalog_cmd.js': steps(),
   'steps_parked_repeat_refusal_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
@@ -375,6 +377,7 @@ const VIEWS = {
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
   'steps_sound_name_cmd.js': steps(),
+  'phone_sound_bar_cmd.js': steps(),
   'v151_cmd.js': steps({ pin: true }),
 
   // to port: export (the shown plane, the filmstrip, the glide)
@@ -413,6 +416,7 @@ const VIEWS = {
   'link_standin_cmd.js': steps({ pin: true }),
   'globe_standin_cmd.js': steps({ pin: true }),
   'land_standin_cmd.js': steps({ pin: true }),
+  'land_carry_standin_cmd.js': steps({ pin: true }),
   'land_sheets_standin_cmd.js': steps({ pin: true }),
   'svready_cmd.js': steps({ pin: true }),
   'svready_inverse_cmd.js': steps({ pin: true }),

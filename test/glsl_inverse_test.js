@@ -630,13 +630,15 @@ void main() {
     const grid = (b, k) => { const out = []; for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) out.push(C(Math.fround(b.x0 + (i + 0.5) * (b.x1 - b.x0) / k), Math.fround(b.y0 + (j + 0.5) * (b.y1 - b.y0) / k))); return out; };
     const SCENES = [['gallery square x 20', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32)],
       ['bite x 2', 2, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(BOX, 22).concat(grid(VIEW, 23)).slice(0, 1024)],
-      ['bite x 20', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32)]];
+      ['bite x 20', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32)],
+      // (z^3 x 20 on a disc tangent to |z| = 1 from inside: E_r's radius bound, the walker's radius test)
+      ['tangent disc z^3 x 20', 20, { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3']];
     // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
     for (const fastN of [0, PASS_B_FAST]) {
       GLR.setReptFastNodes(fastN);
-      for (const [name0, nRep, shape, pts] of SCENES) {
+      for (const [name0, nRep, shape, pts, expr = NEWTON] of SCENES) {
         const name = name0 + (fastN ? ` (first pass ${fastN} solves)` : '');
-        const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } })];
+        const steps = [Object.assign(St('custom', { expr, cut: 180 }), { repeat: { n: nRep, len: 1 } })];
         const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built);
         if (!plan.ok || plan.ops[0].kind !== 'REPT') { RP.failCount++; RP.fails.push({ chain: name, bad: ['plan ' + (plan.reason || plan.ops.map((o) => o.kind).join('>'))] }); continue; }
         GLR.setChain(GLChain.build(steps, built));
