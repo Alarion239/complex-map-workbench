@@ -138,7 +138,16 @@ for (const p of ['article1', 'homework']) {
 await ev(`__cmwSetMain('phase'); 1`); await settled({ until: `__cmwView().main === 'phase'` });
 for (const p of ['article1', 'article2']) {
   const r = await build(`phase-strip-${p}`, PRESETS[p]);
-  if (r && p === 'article1') ok('phase: zeros and poles named, level lines', /Zeros \(dots\) at \$0\$/.test(r.cap) && /Poles/.test(r.cap) && /level sets/.test(r.cap), r.cap);
+  // (example 1's F = (e^z − 1)/(e^z + 1) = tanh(z/2) has its zeros at 2πik, and the caption names those in the figure's window,
+  // the plane's: in the classic view at 1440 × 900, where the empty chain box takes no room, [−9, 9] × [−8, 8], so k = −1, 0, 1,
+  // top to bottom as Calc.zerosPoles sorts the roots on one vertical line)
+  if (r && p === 'article1') {
+    const win = /on \$\[(-?[\d.]+),(-?[\d.]+)\]\\times\[(-?[\d.]+),(-?[\d.]+)\]\$/.exec(r.cap);
+    const zs = ((/Zeros \(dots\) at (.*?)\. Poles/.exec(r.cap) || [])[1] || '').match(/\$[^$]*\$/g) || [];
+    const want = [];
+    if (win) for (let k = Math.floor(+win[4] / (2 * Math.PI)); k >= Math.ceil(+win[3] / (2 * Math.PI)); k--) want.push(k === 0 ? '$0$' : `$${k < 0 ? '-' : ''}${(2 * Math.PI * Math.abs(k)).toFixed(3)}i$`);
+    ok('phase: zeros and poles named, level lines', !!win && want.includes('$0$') && JSON.stringify(zs) === JSON.stringify(want) && /Poles/.test(r.cap) && /level sets/.test(r.cap), { cap: r.cap, zs, want });
+  }
   const b = await build(`phase-strip-${p}-bw`, Object.assign({ ink: 'bw' }, PRESETS[p]));
   if (b) ok('phase B/W: a contour portrait', /drawn as level sets/.test(b.cap) && /dashed: \$\\arg F=\\pi\$/.test(b.cap), b.cap);
 }

@@ -15,7 +15,8 @@
 //   one, else the rows cannot see a missing root; each row records the plane's own path (__cmwSteps().paths).
 // A sample is coloured when its pixel lies nearer the same plane drawn Everywhere (scope 'all') than the paper (the plane
 // with no region); one within AMBIG_TOL of both (the colour plane's own light rings, near the paper) is ambiguous, not
-// scored, counted, and at most FAINT_MAX_SHARE of a row.
+// scored, counted, and at most FAINT_MAX_SHARE of a row. Every plane is read with the shapes' strokes hidden: the fill
+// alone.
 // - the renderer's own unresolved pixels: the gallery plane holds none of the grey no-value hatch (#1444's measure), and,
 //   as its control, a search starved to STARVED_NODES root solves (__cmwRept({ nodes })) hatches most of it, and so does a
 //   non-finite root (NaN, then an infinity) forced into every first node (__cmwRept({ poison })): it reads unresolved,
@@ -95,6 +96,9 @@ const open = async (rect, n) => {
   if (rect) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(stateFor(rect, n)))}); 1`);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}&lang=en`);
   await ready();
+  // (the plane's fill read alone: a region's outline, drawn under a REPT plan while its carried boundary stays resolved
+  // (steps_rept_outline_cmd.js), lies over the fill's edge with its casing, and is not what these rows read)
+  await ev('__cmwHideStrokes(true), 1');
   if (!rect) { await loadGallery(SETTLE_LONG); await ready(); }
   await parkInside(SETTLE_LONG);
   const st = await settleParked(PARKED_SETTLE);
@@ -321,9 +325,14 @@ const hatchCount = () => ev(`(() => {
   const l0 = hooked ? await ev('__cmwRept({ land: true })') : null, lh0 = await hatchCount();
   ok('gallery square, Landscape: the region mask counts no unresolved pixel', !!l0 && l0.unresolved === 0, l0);
   ok('gallery square, Landscape: the surface draws no unresolved hatch', lh0.hatch === 0, lh0);
+  const ls0 = await paneSaid();
+  ok('gallery square, Landscape: no note on the pane, the LED up to date, nothing said of a hatch', !ls0.note && !/\berr\b/.test(ls0.led || '') && ls0.tip !== HATCHED_NOTE && ls0.said !== HATCHED_NOTE, ls0);
   if (hooked) { await ev(`__cmwRept({ nodes: ${STARVED_NODES} }); 1`); await settled({ max: SETTLE_LONG, panes: true }); }
-  const l1 = hooked ? await ev('__cmwRept({ land: true })') : null, lh1 = await hatchCount();
+  const l1 = hooked ? await ev('__cmwRept({ land: true })') : null, lh1 = await hatchCount(), ls1 = await paneSaid();
   if (hooked) { await ev('__cmwRept({ nodes: 0 }); 1'); await settled({ max: SETTLE_LONG, panes: true }); }
+  const ls2 = await paneSaid();
+  ok('starved search, Landscape: it says the plane is hatched as the plane does: a note on the pane, the LED red with the sentence as its tip, and the sentence as the pane\'s description', hooked && !!ls1.note && /\berr\b/.test(ls1.led || '') && ls1.tip === HATCHED_NOTE && ls1.said === HATCHED_NOTE, ls1);
+  ok('starved search, Landscape: the note goes with the hatch (the search restored)', hooked && !ls2.note && !/\berr\b/.test(ls2.led || '') && ls2.said !== HATCHED_NOTE, ls2);
   info['landscape mask'] = { whole: l0, starved: l1, hatch: { whole: lh0, starved: lh1 } };
   ok(`control: the Landscape's mask under a search starved to ${STARVED_NODES} root solves counts unresolved pixels`, !!l1 && l1.unresolved > 0, l1);
   ok('starved search, Landscape: the mask marks each unresolved pixel no-value', !!l1 && l1.marked === l1.unresolved, l1);
