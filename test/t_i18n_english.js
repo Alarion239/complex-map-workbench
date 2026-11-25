@@ -9,8 +9,8 @@ const vm = require('vm'), path = require('path');
 const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does; a snapshot holds it whole)
 const ROOT = path.join(__dirname, '..');
 const BASE = require('../ci/snapshots').snapshotDir('notes/gate-morph-zp-r1');   // (missing: says to run ci/snapshots.js)
-const MODS = ['cx', 'symbolic', 'parse', 'derivs', 'natpaths', 'sheets', 'formulasteps', 'funcs', 'invops', 'invpatterns', 'inverse', 'calc', 'glsl', 'regionlines', 'region', 'curves'];
-const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', curves: 'Curves' };
+const MODS = ['cx', 'symbolic', 'parse', 'derivs', 'natpaths', 'sheets', 'formulasteps', 'funcs', 'invops', 'invpatterns', 'inverse', 'calc', 'glslroots', 'glsl', 'regionlines', 'region', 'curves'];
+const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glslroots: 'GLSLRoots', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', curves: 'Curves' };
 // (src/ does not check whether a module is there: src/'s contexts get the stand-ins of
 // test/module_stubs.js for the modules not loaded, a recognizer that reads nothing, as the base, which has none, so both
 // sides offer the same)
@@ -20,8 +20,8 @@ function load(dir, files) {
   vm.createContext(ctx);
   if (dir !== BASE) vm.runInContext(NO_RECOGNIZER, ctx);
   // (the base's funcs.js, inverse.js, region.js and parse.js still hold derivs.js, natpaths.js, sheets.js, formulasteps.js,
-  // invops.js, invpatterns.js, regionlines.js and symbolic.js, issue #20)
-  for (const f of files.filter((m) => dir !== BASE || !['derivs', 'natpaths', 'invops', 'invpatterns', 'regionlines', 'sheets', 'formulasteps', 'symbolic'].includes(m))) vm.runInContext(source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+  // invops.js, invpatterns.js, regionlines.js and symbolic.js, issue #20, and its glsl.js glslroots.js)
+  for (const f of files.filter((m) => dir !== BASE || !['derivs', 'natpaths', 'invops', 'invpatterns', 'regionlines', 'sheets', 'formulasteps', 'symbolic', 'glslroots'].includes(m))) vm.runInContext(source(f + '.js', dir, { esm: 'strip' }) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
   return ctx;
 }
 // gl.js's friendly() is not exported: its body is taken from the source and run in each context
@@ -148,9 +148,11 @@ const intended = (s) => s.replace(/Custom formula/g, 'Formula');
 // (another intended difference: a half-plane reads in words, "left of the line from a to b", where the base reads
 // Im((z − a)/(b − a)) > 0)
 const inWords = (k, s) => /^tex halfplane /.test(k) && /^\\text\{left of the line from \} \S+ \\text\{ to \} \S+$/.test(s);
+// (and a drawn area is the closed set it is (Region.isOpen): its TeX writes ≤ and ≥ where the base wrote < and >)
+const closedArea = (k, base) => (/^tex (disc|annulus|rect|sector) /.test(k) ? base.replace(/</g, '\\le ').replace(/>/g, '\\ge ') : base);
 if (a.length !== b.length) { console.log('FAIL probe lengths', a.length, b.length); fails++; }
 for (let i = 0; i < Math.min(a.length, b.length); i++) {
-  if (a[i][0] !== b[i][0] || (intended(a[i][1]) !== b[i][1] && !inWords(b[i][0], b[i][1]))) {
+  if (a[i][0] !== b[i][0] || (closedArea(a[i][0], intended(a[i][1])) !== b[i][1] && !inWords(b[i][0], b[i][1]))) {
     fails++;
     if (fails <= 20) console.log('FAIL', a[i][0], '\n  base:', a[i][1].slice(0, 300), '\n  now: ', b[i][1].slice(0, 300));
   }

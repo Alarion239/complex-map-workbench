@@ -6,7 +6,7 @@
   const hasTargets = () => !!(S.targets && S.targets.some((s) => s.visible !== false));
   // targets are drawn and edited in the right plane of Image mode (not while it shows a deformation)
   // (and on the w-globe, P3b: panels.md 9)
-  const targetsEditable = () => (rImage() || rGlobe()) && !morphOn() && solo() !== 'L';
+  const targetsEditable = () => (rImage() || rGlobe()) && solo() !== 'L';
   const findShape = (id) => S.shapes.find((x) => x.id === id) || (S.targets || []).find((x) => x.id === id) || null;
   function targetLabel(s, i) { return s.label || (i < 6 ? 'pqrstu'[i] : 'p' + sub(i + 1)); }
   const paneBox = (pane, v) => ({ x0: v.cx - pane.w / 2 / v.s, x1: v.cx + pane.w / 2 / v.s, y0: v.cy - pane.h / 2 / v.s, y1: v.cy + pane.h / 2 / v.s });
@@ -667,7 +667,7 @@
     if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
     if (labels.length) placeLabels(pane.ctx, pane, labels);
     // (the readout card follows the count as the window moves)
-    if (selected != null && offOf(selected) !== was) requestRender('P');
+    if (selected != null && offOf(selected) !== was) readoutRefresh();
   }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
   function drawPre(pane, side, j) {
@@ -792,7 +792,7 @@
           paneL.setView(leftView());
           return { z: paneL.s2w(x, y), surface: 'flat', plane: 'X', stage: j, s: paneL.view.s };
         }
-        const plane = morphOn() ? 'D' : 'Y', st = rightStage();
+        const plane = 'Y', st = rightStage();
         if (rGlobe()) { const w = pickSphere(paneR, camS, x, y); return w && CX.isFin(w) ? { z: w, surface: 'globe', plane, stage: st } : null; }
         paneR.setView(V.right);
         return { z: paneR.s2w(x, y), surface: 'flat', plane, stage: st, s: paneR.view.s };
@@ -958,7 +958,7 @@
     }
     // the targets' readings, in every view, while there are targets; not over the merged deformation, whose plane is
     // Y's at time t, not X (the z-plane roots would be listed as "in view" over a w-plane picture)
-    const want = hasTargets() && solo() !== 'L' && !(S.view.main === 'xy' && morphOn());
+    const want = hasTargets() && solo() !== 'L';
     let html = '';
     if (want) {
       const pts = S.targets.filter((s) => s.visible !== false && s.kind === 'point');

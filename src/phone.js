@@ -105,9 +105,10 @@ const Phone = (() => {
     // a message (a toast, with its Undo) takes that row for as long as it shows; the planes give it up when no finger is down
     const th = $('toastHost');
     if (th) new MutationObserver(() => barLayout()).observe(th, { childList: true });
-    // the plane's key column and view stack ride up above the context bar and a message, with a transition on `bottom`: the
-    // labels keep off them where they stop, so one full placement follows the lift (liftSettled asks where there is no transition)
-    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.ph-col, .viewstack')) A.relabel(); }, true);
+    // the plane's key column and view stack ride up above the context bar and a message, and a message eases to its place over the plane,
+    // each with a transition on `bottom`: the labels and the plane's note keep off them where they stop, so one full placement follows
+    // the move (liftSettled asks where there is no transition)
+    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.ph-col, .viewstack, #toastHost')) A.relabel(); }, true);
     document.addEventListener('pointerdown', () => { fingers++; }, true);
     for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)
@@ -233,7 +234,7 @@ const Phone = (() => {
     // (the desktop gets each plane's large view back; no view is drawn small while merged or held)
     for (const side of ['L', 'R']) if (keep[side]) grow(side);
     on = false;
-    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
+    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
     $('panes').classList.remove('ph-big-L', 'ph-big-R', 'ph-one');
     unparkAll();
     A.showPanels(false);
@@ -249,7 +250,6 @@ const Phone = (() => {
     p.classList.toggle('ph-big-L', b === 'L');
     p.classList.toggle('ph-big-R', b === 'R');
     p.classList.toggle('ph-one', !!mg);
-    rootEl.classList.toggle('ph-morph', !!A.morphOn());
     const split = twoUp();
     p.classList.toggle('ph-both', both && !land && !mg);
     for (const side of ['L', 'R']) { const bb = els['both' + side]; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
@@ -399,9 +399,6 @@ const Phone = (() => {
     if (!on || !els.ctx) return;
     let st = null;
     try { st = A.ctxState(); } catch (e) { st = null; }
-    // (the deformation's transport has the bottom; a sheet covers the bar but leaves its room, so that opening and closing
-    // one is no second layout change for the planes)
-    if (A.morphOn()) st = null;
     els.ctx.classList.toggle('under', !!kind);
     const key = st ? JSON.stringify(st) : '';
     if (key === ctxKey && !force) return;
@@ -777,7 +774,7 @@ const Phone = (() => {
       { name: $t('Colour style'), label: '#landPaint', rows: [matches('.ph-style'), matches('.sty-seg, #landPaint')] },
       { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
       { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg'), (k) => land && matches('.cam-reset')(k)] },
-      { name: $t('View'), rows: [matches('.cam-reset')] },
+      { name: $t('View'), rows: [matches('.sv-sheet-stack'), matches('.cam-reset')] },
       { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
       { name: $t('Overlays'), rows: [] },
     ];
@@ -799,7 +796,7 @@ const Phone = (() => {
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    const tn = A.targetNote(), scope = A.scopeSeg();
+    const tn = A.targetNote(), scope = A.scopeSeg(), stackv = A.stackSeg();
     // the regions' display and the mesh quality are groups like the rest. One opacity: the regions box's own slider
     // drives the same value as the opacity group's in the steps view, so it is hidden there (the classic views keep it)
     const alpha = reg && $('alphaRange') && /** @type {HTMLElement | null} */ ($('alphaRange').closest('.fader-row'));
@@ -809,7 +806,7 @@ const Phone = (() => {
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...(els.style.hidden ? [] : [els.style]), ...kids, ...(unit ? [unit] : [])]),
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...(stackv ? [stackv] : []), ...(els.style.hidden ? [] : [els.style]), ...kids, ...(unit ? [unit] : [])]),
       ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }

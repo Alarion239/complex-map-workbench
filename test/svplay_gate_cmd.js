@@ -181,10 +181,74 @@ for (const lang of ['en', 'ru']) {
   info.jobsHeld = held;
   ok('a job left: a press of Play starts no glide', held.play === null && !held.anim, held);
   ok('a job left: the wait is under way', await ev('__cmwSteps().moving'), held);
+  // the pointer rests on the waiting button: its open tip says the wait's words, and once the wait ends it says the
+  // button's own (an open tip that kept "Preparing the glide…" through the play was the fault)
+  const at = await ev('(() => { const r = document.querySelector(".sv-play").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()');
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at[0], y: at[1] });
+  const TIP = '(() => { const t = document.getElementById("tip"), b = document.querySelector(".sv-play"); return { shown: !t.hidden, text: t.firstChild ? t.firstChild.textContent : "", own: (b.getAttribute("data-tip") || "").split(/\\s{2,}/)[0] }; })()';
+  await settled({ max: 5000, only: true, until: '!document.getElementById("tip").hidden' });
+  const tipWait = await ev(TIP);
+  info.tipWait = tipWait;
+  ok('the open tip of the waiting button says its words', tipWait.shown && tipWait.text === tipWait.own, tipWait);
   await ev(`(${WATCH_PLAY}, 1)`);
   await ev('(__cmwSteps({ holdJobs: false }), 1)');
   await settled({ max: 20000, only: true, until: 'window.__played === true' });
   ok('the job done: the glide starts', await ev('window.__played'), held);
+  const tipAfter = await ev(TIP);
+  info.tipAfter = tipAfter;
+  ok('the wait over: the open tip says the button\'s own words, not the wait\'s', tipAfter.text !== tipWait.text && (!tipAfter.shown || tipAfter.text === tipAfter.own), { tipWait, tipAfter });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+}
+
+// a change of mind during a wait (#1951): a press on another control ends the wait and waits instead, in both directions; a
+// second press of the control the wait is on only cancels. An arrow waits, then ▶ (by a click), K or M: the arrow is Next
+// plane again and ▶ shows the ring; once the links are released a play starts. ▶ waits, then ›: the arrow's ring, and a
+// glide starts, not a play. ▶ waits, then K: the wait ends and nothing starts (window.__started: a frame loop's first frame
+// with a play or a glide)
+const STARTED = '(window.__started = false, (function f() { const s = __cmwSteps(); if (s.play !== null || s.anim) window.__started = true; else requestAnimationFrame(f); })(), 1)';
+const CLICK = (sel) => `(document.querySelector("${sel}").click(), 1)`;
+for (const [tag, press] of [['▶', () => ev(CLICK('.sv-play'))], ['K', () => key('k')], ['M', () => key('m')]]) {
+  await open(1440, 900);
+  await ev(CLICK('.sv-next'));
+  await settled({ max: 3000, only: true, until: '!!document.querySelector(".sv-next[aria-busy]")' });
+  await press();
+  await settled({ max: 3000, only: true, until: BUSY });
+  const moved = { next: await ev(state('.sv-next')), play: await ev(state('.sv-play')) };
+  info['an arrow waits, then ' + tag] = moved;
+  ok(`an arrow waits, then ${tag}: the arrow's wait ends (Next plane, not busy) and ▶ waits with its ring`, !moved.next.busy && moved.next.label === 'Next plane' && moved.play.busy && moved.play.label === 'Cancel' && moved.play.ring && moved.play.play === null && !moved.play.anim, moved);
+  await ev(`(${WATCH_PLAY}, 1)`);
+  await ev('(GLR.holdLinks(false), 1)');
+  await settled({ max: 40000, only: true, until: 'window.__played === true' });
+  ok(`an arrow waits, then ${tag}: released, a play starts`, await ev('window.__played'), await ev(state('.sv-play')));
+}
+{
+  await open(1440, 900);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: 3000, only: true, until: BUSY });
+  await ev(CLICK('.sv-next'));
+  await settled({ max: 3000, only: true, until: '!!document.querySelector(".sv-next[aria-busy]")' });
+  const moved = { next: await ev(state('.sv-next')), play: await ev(state('.sv-play')) };
+  info['▶ waits, then ›'] = moved;
+  ok('▶ waits, then ›: ▶ is Play again, not busy, and the arrow waits with its ring', !moved.play.busy && moved.play.label === 'Play' && moved.next.busy && moved.next.label === 'Cancel' && moved.next.ring, moved);
+  await ev('(window.__glided = false, window.__playedToo = false, (function f() { const s = __cmwSteps(); if (s.play !== null) window.__playedToo = true; if (s.anim) window.__glided = true; if (!window.__glided) requestAnimationFrame(f); })(), 1)');
+  await ev('(GLR.holdLinks(false), 1)');
+  await settled({ max: 40000, only: true, until: 'window.__glided === true' });
+  const ran = { glided: await ev('window.__glided'), played: await ev('window.__playedToo') };
+  ok('▶ waits, then ›: released, the arrow\'s glide starts, not a play', ran.glided && !ran.played, ran);
+}
+{
+  await open(1440, 900);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: 3000, only: true, until: BUSY });
+  await key('k');
+  await ev(STARTED);
+  const ended = await ev(state('.sv-play'));
+  await ev('(GLR.holdLinks(false), 1)');
+  await settled({ max: 60000, only: true, until: '__cmwSteps().ready.ready' });
+  const after = Object.assign(await ev(state('.sv-play')), { started: await ev('window.__started') });
+  info['▶ waits, then K'] = { ended, after };
+  ok('▶ waits, then K: the wait ends (Play, not busy)', !ended.busy && ended.label === 'Play' && ended.play === null, ended);
+  ok('▶ waits, then K: nothing starts once the chain is prepared', !after.started && after.play === null && !after.anim, after);
 }
 
 // a wait ends when another chain is loaded under it (an example, a link, an undo): ▶ or an arrow pressed behind the held

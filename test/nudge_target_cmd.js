@@ -1,6 +1,6 @@
 // A target (a point of the w-plane, the row "Point p") is nudged by the arrow keys the way a shape is (#1907): one press is one step of the
 // grid of the plane shown, ten with Shift, and the toast the run ends with names it as its row does and gives its place as one complex number
-// ("Moved Point p to 0.500 + 0.000i."; in Russian «Точка p перемещена в 0,500 + 0,000i.», in Italian the same with «spostata in»: the decimal comma,
+// ("Moved Point p to 0.500 + 0.000i."; in Russian «Объект «Точка p» перемещён в 0,500 + 0,000i.», in Italian «Oggetto «Punto p» spostato in …»: the decimal comma,
 // never two numbers apart), not another shape's name ("Moved z₀."). The selected row says "Arrow keys move it; Shift for ten steps" where a keyboard is
 // the input (a laptop), and says nothing of it on a touch phone, which has no arrow keys. In the steps view the plane on screen is the one camera every plane shares
 // (S.srcView); in the classic view a target is in Y's pane, with its own view. The step is read as what the plane's own scale says
@@ -13,7 +13,9 @@ const WARM_MS = 120000, SAID_MS = 8000;
 const HINT = 'Arrow keys move it; Shift for ten steps';
 // the place as the page writes it: one complex number, three decimals, the decimal comma and the minus sign of the language
 const cx = (p, lang) => { const f = (v) => { const t = Math.abs(v).toFixed(3); return lang === 'en' ? t : t.replace('.', ','); }; return `${p[0] < 0 ? '−' : ''}${f(p[0])} ${p[1] < 0 ? '−' : '+'} ${f(p[1])}i`; };
-const MOVED = { en: (n, z) => `Moved ${n} to ${z}.`, ru: (n, z) => `${n} перемещена в ${z}.`, it: (n, z) => `${n} spostata in ${z}.` };
+// (ru and it: the name in «» after «Объект» and «Oggetto», with a participle that agrees with that noun, whatever the shape is: a target,
+// a point, a circle or a segment)
+const MOVED = { en: (n, z) => `Moved ${n} to ${z}.`, ru: (n, z) => `Объект «${n}» перемещён в ${z}.`, it: (n, z) => `Oggetto «${n}» spostato in ${z}.` };
 const ROW = `document.querySelector('#shapeList .shape[data-id="t1"] .shape-name')`;
 const STATE = { v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], targets: [{ id: 't1', kind: 'point', p: [0, 0], ci: 2, visible: true }],
   steps: [{ type: 'pown', params: { n: 2 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 40 } };
