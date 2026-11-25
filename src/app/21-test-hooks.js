@@ -617,9 +617,9 @@
   // seams (SV.glideSeams, svGlideSeams); glideFade: the copies' alpha, fixed over the glide (SV.glideFade; null:
   // the fade over u); restPaint: 0 leaves out the arrival plane's picture under a glide's carried colour (SV.restPaint);
   // landBranches: 0 draws the carried Landscape without its patches about the map's branch points (SV.landBranches,
-  // svLandPatches); ahead: { ms, waitMs, cap }, the render-ahead frames' cost at most which a motion plays live, their
-  // longest wait and their memory budget in bytes, each null for the app's own); glide: the last glide frame's record
-  // (svGlideRec), ahead: the render-ahead frames' state (svAheadHook), aheadCost: the chain's measured frame cost
+  // svLandPatches); ahead: { ms, waitMs, cap, cost }, the render-ahead frames' cost at most which a motion plays live, their
+  // longest wait and their memory budget in bytes, each null for the app's own, and the chain's frame cost, set once); glide: the last glide frame's record
+  // (svGlideRec), ahead: the render-ahead frames' state (svAheadHook), aheadCost: the chain's frame cost (its probe's, raised by a fill)
   // (svAheadCostNow), aheadProbe: how its last probe went (svAheadProbeLog), aheadPlan: svAheadPlan's decision for the chain's glides at each speed with its inputs (svAheadPlanHook), the four read only when asked (getters: the
   // chain's key, svAheadKey, is long to make, and a suite may read the glide once a pixel), hold: the plane whose glide waits for its pole
   // tracks (svHoldB), rest: the last plane at rest's (svRestRec);
