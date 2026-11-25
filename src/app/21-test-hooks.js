@@ -303,9 +303,9 @@
   window.__cmwDraft = () => (draft ? { kind: draft.kind, pts: (draft.pts || []).map((p) => p.slice()) } : null);
   window.__cmwHandles = () => ({ size: fingerNow() ? 12 : 7, touch: ptrTouch });
   window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
 
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // a Repeat chain's exact plane (#1472): o.nodes sets the GPU's node budget of a REPT search (GLR.setReptNodes; 0: its
   // own), o.poison a non-finite root at every first node ('nan' | 'inf'; null: none; GLR.setReptPoison), for the
