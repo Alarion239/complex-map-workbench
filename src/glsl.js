@@ -3250,11 +3250,11 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
   }
   // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
   const invTextCache = new Map();
-  function buildInverse(steps, built) {
+  function buildInverse(steps, built, opts = Inverse.chainOpts(steps, built)) {
     if (!IX_FIN.RAT5) ixRatTables();
-    // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step with the
-    // chain's options, Inverse.chainOpts, as the chain's plans take them)
-    const ops = [], sigs = [], opts = Inverse.chainOpts(steps, built);
+    // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step with opts:
+    // the chain's, Inverse.chainOpts, for the chain's program; a plan's own, plan.opts, for a plane range's)
+    const ops = [], sigs = [];
     steps.forEach((st, i) => {
       const b = built[i];
       if (!st || st.on === false) { sigs.push('off'); return; }
