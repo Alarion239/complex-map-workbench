@@ -178,6 +178,8 @@
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
+      // (the Pick tool on the Landscape's sheets: its gestures, 19-land-pick.js)
+      else if (tool === 'pick' && landPickOn() && solo() !== 'R') msg = fingerNow() ? $t('Tap to pick · hold and slide to read · drag to orbit') : $t('Click to pick · hold and slide to read · drag to orbit');
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
       // listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
@@ -897,12 +899,13 @@
     const p = at(t1);
     return Math.abs(p[2] - z0) < 1e-6 * Math.max(1, Math.abs(z0)) + 1e-9 ? toZ(p) : null;
   }
-  // The point under pane pixel (x, y) of a carried Landscape at rest on a plane k past its source plane s (render3D.pick
-  // with fibre: a sheet over w for each point of s carried to w), on whichever sheet the pointer's ray meets first:
-  // {z, w, h}, z the point of plane s, w its image, the point of plane k under it, and h its height; null where the ray
-  // meets no sheet. The ray is marched as pickLand's. Each sample's sheets are followed from the last sample's (the
-  // nearest point of s; the fibre's grid looked at every LAND_RAY_SEED samples), a sheet is met where the ray passes from
-  // above it to below it, and that crossing is bisected on that sheet. A sheet that first shows below the ray (the ray passes under its edge) is not met there
+  // The point under pane pixel (x, y) of a carried Landscape at rest on a plane k past its source plane s
+  // (render3D.pick with fibre: a sheet over w for each point of s carried to w), on whichever sheet the pointer's ray
+  // meets first: {z, w, h}, z the point of plane s, w its image, the point of plane k under it, and h its height; null
+  // where the ray meets no sheet. The ray is marched as pickLand's. Each sample's sheets are followed from the last
+  // sample's (the nearest point of s; the fibre's grid looked at every LAND_RAY_SEED samples), a sheet is met where the
+  // ray passes from above it to below it, and that crossing is bisected on that sheet. A sheet that first shows below
+  // the ray (the ray passes under its edge) is not met there
   function pickLandSheet(x, y) {
     const pk = render3D.pick;
     if (!pk || !pk.fibre || !(pk.w > 0 && pk.h > 0) || !pk.info || !pk.info.heightOf) return null;

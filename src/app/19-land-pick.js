@@ -1,23 +1,30 @@
-  // ---------------- the pick on the Landscape's sheets (#1995) ----------------
-  // A carried Landscape at rest on a plane k past its source plane s (svLandRest: plane s's points carried to k) has a sheet
-  // over each point w of plane k for each point of s carried to w: s's preimages of w in its box, each at its own height
-  // (render3D.pick.fibre). With the Pick tool, a press on one sheet picks its point z of plane s (pickLandSheet), and its
-  // twins, every point of s with the same image w, light on their own sheets. They are the floor picker's lit twins
-  // (pickLight(s, k, z), floorPick), so a pick here is the pick of z on plane s that the floor picker and the Stack make.
-  // The gestures are the Stack's (19-stack-pick.js) on the Landscape's camera, which a drag turns:
+  // ---------------- the pick on the Landscape's sheets ----------------
+  // A carried Landscape at rest on a plane k past its source plane s (svLandRest: plane s's points carried to k) has a
+  // sheet over each point w of plane k for each point of s carried to w: s's preimages of w in its box, each at its own
+  // height (render3D.pick.fibre). With the Pick tool, a press on one sheet picks its point z of plane s
+  // (pickLandSheet), and its twins, every point of s with the same image w, light on their own sheets. They are the
+  // floor picker's lit twins (pickLight(s, k, z), floorPick), so a pick here is the pick of z on plane s that the floor
+  // picker and the Stack make. The gestures are the Stack's (19-stack-pick.js) on the Landscape's camera, which a drag
+  // turns:
   // - a click or a tap (a press that moves less than STACK_PICK_SLOP, or STACK_PICK_SLOP_TOUCH for a finger, and lifts
   //   before STACK_HOLD_MS) lights the twins of the point under the pointer and says how many in the live region;
   // - a press held STACK_HOLD_MS follows the pointer over the sheets, the twins lit as it moves, and says them where it
   //   lifts (the page's "hold and slide" grammar);
   // - a press that moves before that turns the camera, as with any tool; the right or middle button and Shift pan it.
   // The pressed point is a dot and its twins rings, at their points on their sheets, a ring dashed where a nearer sheet
-  // hides its point (found once the camera keeps still). Esc puts the twins out; Enter, with the plane focused, lights the twins of the point under the
-  // pane's centre (pickKey).
+  // hides its point (found once the camera keeps still); marks within LAND_PICK_NEAR of each other are one, with the
+  // count of the points it stands for beside it. Esc puts the twins out; Enter, with the plane focused, lights the twins of the point under
+  // the pane's centre (pickKey).
   const LAND_PICK_DASH = [3, 3];       // css px: the dashes of a twin's ring that a nearer sheet hides
-  const LAND_PICK_HIDE = 1e-6;         // a twin is hidden when the ray to it meets a point of s this far (of the box's size) from it
-  const LAND_PICK_STILL_MS = 200;      // the hidden flags are found once the camera has kept still this long (a ray's march each)
-  let landPickHide = null;             // the lit twins' hidden flags, kept while the twins and the camera stay: {key, hidden}
-  let landPickCam = null;              // the camera's last key and when it changed, and the redraw that waits for it to settle: {key, at, wait}
+  const LAND_PICK_NEAR = 2 * PICK_RING; // css px: marks nearer than this on the screen are drawn as one, ×n
+  // (a twin is hidden when the ray to it meets a point of s further from it than this, of the box's size)
+  const LAND_PICK_HIDE = 1e-6;
+  // (the hidden flags, a ray's march each, are found once the camera has kept still this long)
+  const LAND_PICK_STILL_MS = 200;
+  // (the lit twins' hidden flags, kept while the twins and the camera stay: {key, hidden})
+  let landPickHide = null;
+  // (the camera's last key, when it changed, and the redraw that waits for it to settle: {key, at, wait})
+  let landPickCam = null;
 
   // whether the Pick tool picks on the Landscape's sheets: the steps view's Landscape at rest on a plane past its source
   // plane, whose last frame drew its sheets
@@ -26,8 +33,9 @@
     const pk = render3D.pick;
     return !!(pk && pk.fibre);
   }
-  // A press on the Landscape (its orbit drag d, at (x, y) of pane; touch: a finger's): with the Pick tool, a click lights the
-  // twins of the point under it and a hold follows the pointer (d.landPick); a move before the hold leaves d to turn the camera
+  // A press on the Landscape (its orbit drag d, at (x, y) of pane; touch: a finger's): with the Pick tool, a click
+  // lights the twins of the point under it and a hold follows the pointer (d.landPick); a move before the hold leaves d
+  // to turn the camera
   function landPickArm(d, pane, x, y, touch) {
     if (tool !== 'pick' || !landPickOn()) return;
     const lp = { x0: x, y0: y, slop: touch ? STACK_PICK_SLOP_TOUCH : STACK_PICK_SLOP, held: false, z: null };
@@ -56,18 +64,17 @@
     return false;
   }
   // a press of d lifted: a click lights the twins of the point under it; a held press leaves them lit where it lifted,
-  // and says how many; true when the pick took the press
+  // and says how many
   function landPickUp(d) {
     const lp = d.landPick;
-    if (!lp) return false;
+    if (!lp) return;
     clearTimeout(lp.timer);
     d.landPick = null;
-    if (!landPickOn()) return true;
+    if (!landPickOn()) return;
     const s = render3D.pick.fibre.s, k = leftStage();
-    if (lp.held) { if (lp.z) pickLight(s, k, lp.z); return true; }
+    if (lp.held) { if (lp.z) pickLight(s, k, lp.z); return; }
     const hit = pickLandSheet(lp.x0, lp.y0);
     if (hit) { probe = hit.w; setReadouts(hit.w); pickLight(s, k, hit.z); }
-    return true;
   }
   // Esc on the Landscape: puts out the lit twins; true when it did
   function landPickOff() {
@@ -101,9 +108,9 @@
       if (!q) continue;
       marks.push({ z, x: q[0], y: q[1], own: CX.abs(CX.sub(z, lit.z0)) <= 1e-6 * (1 + CX.abs(lit.z0)) });
     }
-    // (a twin is hidden where the ray to its point meets another sheet's point first. The flags are kept while the twins and
-    // the camera stay; while the camera turns the marks are drawn plain, and the flags are found once it has kept still
-    // LAND_PICK_STILL_MS)
+    // (a twin is hidden where the ray to its point meets another sheet's point first. The flags are kept while the
+    // twins and the camera stay; while the camera turns the marks are drawn plain, and the flags are found once it has
+    // kept still LAND_PICK_STILL_MS)
     const now = performance.now();
     // (a camera seen for the first time has kept still: the twins of a first pick are found at once)
     if (!landPickCam || landPickCam.key !== camKey) landPickCam = { key: camKey, at: landPickCam ? now : -Infinity, wait: landPickCam && landPickCam.wait };
@@ -111,28 +118,46 @@
       if (now - landPickCam.at < LAND_PICK_STILL_MS) {
         if (!landPickCam.wait) landPickCam.wait = setTimeout(() => { if (landPickCam) landPickCam.wait = null; requestRender('L'); }, LAND_PICK_STILL_MS);
         marks.forEach((m) => { m.hidden = false; });
-        return marks;
+        return landPickNear(marks);
       }
       landPickHide = { key, hidden: marks.map((m) => { const hit = pickLandSheet(m.x, m.y); return !hit || CX.abs(CX.sub(hit.z, m.z)) > LAND_PICK_HIDE * size + 1e-9; }) };
     }
     marks.forEach((m, i) => { m.hidden = !!landPickHide.hidden[i]; });
+    return landPickNear(marks);
+  }
+  // marks nearer than LAND_PICK_NEAR on the screen as one, with n, the points it stands for: twins near the pressed point
+  // go under its dot, and twins' rings near each other under the first of them, drawn whole when any of them shows; a
+  // mark under another is not drawn
+  function landPickNear(marks) {
+    const own = marks.find((m) => m.own);
+    if (own) {
+      const near = marks.filter((q) => !q.own && Math.hypot(q.x - own.x, q.y - own.y) < LAND_PICK_NEAR);
+      own.n = 1 + near.length;
+      for (const q of near) q.under = true;
+    }
+    for (const m of marks) {
+      if (m.own || m.under) continue;
+      const near = marks.filter((q) => q !== m && !q.own && !q.under && Math.hypot(q.x - m.x, q.y - m.y) < LAND_PICK_NEAR);
+      m.n = 1 + near.length;
+      for (const q of near) { q.under = true; if (!q.hidden) m.hidden = false; }
+    }
     return marks;
   }
-  // the lit twins over the Landscape's sheets on pane's 2D context: the pressed point a dot, its twins rings, a ring dashed
-  // where a nearer sheet hides its point (the floor picker's marks, drawFloorPick, at the points on their sheets)
+  // the lit twins over the Landscape's sheets on pane's 2D context: the floor picker's marks (pickMark) at the points on
+  // their sheets, the pressed point a dot and its twins rings, a ring dashed where a nearer sheet hides its point, and
+  // ×n beside a mark that stands for n points
   function drawLandPicks(pane) {
     const marks = landPickMarks(pane);
     if (!marks) return;
     const ctx = pane.ctx;
     ctx.save();
     for (const m of marks) {
-      const r = m.own ? PICK_DOT : PICK_RING;
-      ctx.setLineDash(m.hidden && !m.own ? LAND_PICK_DASH : []);
-      ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo;
-      ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, TAU); ctx.stroke();
-      ctx.lineWidth = 1.75; ctx.strokeStyle = TH.probe; ctx.fillStyle = TH.probe;
-      ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, TAU);
-      if (m.own) ctx.fill(); else ctx.stroke();
+      if (m.under) continue;
+      pickMark(ctx, m.x, m.y, m.own, { dash: m.hidden && !m.own ? LAND_PICK_DASH : null });
+      if (m.n > 1) {
+        ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = TH.probe;
+        haloText(ctx, `×${m.n}`, m.x + PICK_RING + 4, m.y, TH.halo);
+      }
     }
     ctx.restore();
   }
@@ -140,6 +165,6 @@
   // under (x, y) when asked, the pane's size the pick measures in (Enter's centre is half of it), and the lit twins' marks
   window.__cmwLandPick = (x, y) => {
     const hit = x != null ? pickLandSheet(x, y) : null, pk = render3D.pick;
-    return { on: landPickOn(), s: landPickOn() ? pk.fibre.s : null, size: pk ? [pk.w, pk.h] : null, hit: hit ? { z: [hit.z.re, hit.z.im], w: [hit.w.re, hit.w.im], h: hit.h } : null, marks: (landPickMarks(paneL) || []).map((m) => ({ z: [m.z.re, m.z.im], x: m.x, y: m.y, own: m.own, hidden: m.hidden })) };
+    return { on: landPickOn(), s: landPickOn() ? pk.fibre.s : null, size: pk ? [pk.w, pk.h] : null, hit: hit ? { z: [hit.z.re, hit.z.im], w: [hit.w.re, hit.w.im], h: hit.h } : null, marks: (landPickMarks(paneL) || []).map((m) => ({ z: [m.z.re, m.z.im], x: m.x, y: m.y, own: m.own, hidden: m.hidden, n: m.n || 1, under: !!m.under })) };
   };
   // TEST-HOOK

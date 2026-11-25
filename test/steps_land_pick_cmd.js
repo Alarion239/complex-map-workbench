@@ -1,21 +1,21 @@
-// The pick on the Landscape's sheets (19-land-pick.js, #1995): the steps view's Landscape parked on w₁ and coloured from z
-// carries plane z's points to w₁, so over each w it draws a sheet for each preimage of w in z's box, at its height (Re z).
-// On M3, z³ − 1.2z + 0.3, with real pointer events:
-//  - the Pick tool picks here, and choosing it says nothing about drawing being off;
+// The pick on the Landscape's sheets (19-land-pick.js): the steps view's Landscape parked on w₁ and coloured from z
+// carries plane z's points to w₁, so over each w it draws a sheet for each preimage of w in z's box, at its height (Re
+// z). On M3, z³ − 1.2z + 0.3, with real pointer events:
+//  - the Pick tool picks here, and the plane says its gestures, not that drawing is off or elsewhere (en, ru, it);
 //  - the point under the pointer is a sheet's: over a grid of the pane, each pixel where the pick meets a sheet gives a
 //    point z of plane z with M3(z) = w, the point of w₁ under it; the pick meets sheets on both sides of the real axis;
 //  - a click lights the twins of the point it picked: the three preimages of its w (M3's roots, to 1e-9), said in the
 //    live region, the pressed point a mark at the click and each twin a mark on its own sheet, one shown whole being
-//    the sheet's point under it; they are the floor picker's lit twins, the very record a click at z on plane z writes
-//    (the same three points, to the click's pixel, 1e-6);
-//  - Esc puts the twins out; a press held lights the twins of the point under it and follows the pointer over the sheets,
-//    and where it lifts the live region says them; a press that moves before the hold turns the camera, with no point
-//    lit; Enter on the focused plane lights the twins of the point under the centre, or says there is none;
+//    the sheet's point under it, marks nearer than NEAR_PX one mark with ×n; they are the floor picker's lit twins, the
+//    very record a click at z on plane z writes (the same three points, to the click's pixel, 1e-6);
+//  - Esc puts the twins out; a press held lights the twins of the point under it and follows the pointer over the
+//    sheets, and where it lifts the live region says them; a press that moves before the hold turns the camera, with no
+//    point lit; Enter on the focused plane lights the twins of the point under the centre, or says there is none;
 //  - z² lights two twins, z and −z; sin z (no exact inverse: Newton's method from a grid) lights twins that each map to
 //    the picked point's image, the picked point among them;
 //  - no page exception or console error.
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
-// Prints {pass, fails, info}.
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js). Prints
+// {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return !!cond; };
@@ -27,7 +27,13 @@ const Z_TOL = 1e-6;           // the same point of z found two ways (a pick, a m
 const PX_TOL = 0.5;           // css px: the pressed point's mark against the pixel clicked
 const GRID = 16;              // the grid of the pane the pick is tried at, GRID − 1 a side
 const MIN_HITS = 20;          // the grid's pixels where the pick meets a sheet, at least (M3; half of it for z², sin z)
-const HOLD_WAIT = 4000;       // ms: a held press's twins light within this (the hold is STACK_HOLD_MS, 450)
+const NEAR_PX = 12;           // css px: twins' rings nearer than this are drawn as one (LAND_PICK_NEAR, twice PICK_RING)
+const HOLD_WAIT = 4000;
+const HINTS = {
+  en: { chip: 'Click to pick · hold and slide to read · drag to orbit', off: ['Drawing is off', 'Draw in X → Y (1)'] },
+  ru: { chip: 'Щелчок выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает', off: ['Рисуйте в виде X → Y (1)'] },
+  it: { chip: 'Fai clic per scegliere · tieni premuto e scorri per leggere · trascina per ruotare', off: ['Disegna in X → Y (1)'] },
+};       // ms: a held press's twins light within this (the hold is STACK_HOLD_MS, 450)
 const TURN = 0.05;            // rad: a quick drag turns the camera at least this much
 // the chains' maps of plane z to w₁ ([re, im] points)
 const mul = ([a, b], [c, d]) => [a * c - b * d, a * d + b * c];
@@ -54,13 +60,13 @@ const roots3 = (w) => {
 const sameSet = (a, b, tol = REL) => !!a && !!b && a.length === b.length && a.every((p) => b.some((q) => close(p, q, tol)));
 const pts = (l) => (l ? l.zs.map((q) => [q[0], q[1]]) : null);
 
-const open = async (expr) => {
+const open = async (expr, lang = 'en') => {
   const ns = `lpick-${Date.now()}`;
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [{ type: 'custom', params: { expr }, on: true }], nextId: 50 };
   await view(1440, 900, false, false);
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+  await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')", 40000);
   await until('__cmwSteps().ready.ready');
   await ev(`__cmwSteps({ T: 0, surf: 'land' }); 1`);
@@ -96,8 +102,12 @@ await open('z^3-1.2z+0.3');
 const lp0 = await LP(), pk0 = await ev('__cmwPick()');
 ok('the Landscape on w₁ coloured from z picks on its sheets, of plane z', lp0.on && lp0.s === 0, lp0);
 ok('the Pick tool picks here, and its button shows', pk0.avail && pk0.shown, pk0);
-const chip = await ev(`(document.getElementById('sphereChipL') || {}).textContent || ''`);
-ok('choosing the Pick tool on the sheets says nothing about drawing being off', !/Drawing is off/.test(chip), chip);
+// the plane's hints with the Pick tool on the sheets: the chip says its gestures, and the idle readout says how the camera
+// turns, as with Select, not where to draw (HINTS: en, ru, it)
+const hints = () => ev(`({ chip: (document.getElementById('sphereChipL') || {}).textContent || '', readout: (document.getElementById('leftReadout') || {}).textContent || '' })`);
+const hintsOk = (h, l) => !HINTS[l].off.some((t) => h.chip.includes(t) || h.readout.includes(t)) && h.chip.includes(HINTS[l].chip);
+const h0 = await hints();
+ok('choosing the Pick tool on the sheets: the plane says its gestures, and nothing about drawing being off or elsewhere', hintsOk(h0, 'en'), h0);
 
 const hits = await grid();
 info.hits = hits.length;
@@ -118,7 +128,10 @@ ok('a click lights the twins of the point it picked: the three preimages of its 
 ok('the live region says how many', /3 preimages on z/.test(live1 || ''), live1);
 const m1 = (await LP()).marks, own = m1.find((m) => m.own);
 ok('the pressed point is a mark at the click, shown whole, and each twin a mark', m1.length === 3 && !!own && Math.hypot(own.x - h.x, own.y - h.y) <= PX_TOL && !own.hidden, m1);
-for (const m of m1.filter((q) => !q.own && !q.hidden)) {
+const drawn = m1.filter((m) => !m.under), twins = drawn.filter((m) => !m.own);
+ok(`marks nearer than ${NEAR_PX} css px are one, with the count of the points it stands for (×n): the drawn marks stand for all three, none of them that near`,
+  drawn.reduce((a, m) => a + m.n, 0) === 3 && drawn.every((m, i) => drawn.every((q, j) => i === j || Math.hypot(q.x - m.x, q.y - m.y) >= NEAR_PX)), m1);
+for (const m of twins.filter((q) => !q.hidden && q.n === 1)) {
   const q = (await LP(m.x, m.y)).hit;
   ok(`a twin's mark shown whole is its sheet's point under it (${m.z.map((v) => v.toFixed(3))})`, !!q && close(q.z, m.z, Z_TOL), { m, q });
 }
@@ -205,6 +218,13 @@ if (ok('sin z: the pick meets its sheets', hs.length >= MIN_HITS / 2, hs.length)
   const l = await lit(), z = pts(l);
   info.sin = l;
   ok('sin z: a click lights twins that each map to the picked point\'s image, the picked point among them', !!z && z.length >= 1 && z.every((q) => close(SIN(q), l.w, MAP_TOL)) && z.some((q) => close(q, p.z, Z_TOL)), l);
+}
+
+// ---- the hints in Russian and Italian
+for (const l of ['ru', 'it']) {
+  await open('z^3-1.2z+0.3', l);
+  const hl = await hints();
+  ok(`${l}: the plane says the Pick tool's gestures on the sheets, and nothing about drawing elsewhere`, hintsOk(hl, l), hl);
 }
 
 const bad = logs(true).filter((e) => e.t === 'EXC' || e.t === 'error');

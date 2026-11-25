@@ -248,13 +248,7 @@
     // a point of the flat plane's css px at height t, through the levels' maps
     const at = (p, t) => { const m = F.map((v, i) => v + t * (G[i] - v)); return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; };
     const flat = (q) => pane.w2s(q), inside = (p) => p[0] >= 0 && p[0] <= pane.w && p[1] >= 0 && p[1] <= pane.h;
-    const ring = (p, r, colour, fill) => {
-      const x = p[0], y = p[1];
-      ctx.setLineDash([]);
-      ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
-      ctx.lineWidth = 1.75; ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
-      if (fill) ctx.fill(); else ctx.stroke();
-    };
+    const ring = (p, r, colour, fill) => pickMark(ctx, p[0], p[1], fill, { r, colour });
     // the strand from the floor's point a to the glass's point b (flat css px), as far as it is inside the box
     const strand = (a, b, colour, w, dash) => {
       const clip = stackClipPath(pane, [[a[0], a[1], 0], [b[0], b[1], 1]]);

@@ -527,12 +527,12 @@
       return best;
     };
   }
-  // The sheets of a carried Landscape at rest on plane k past its source plane s (the pick on its sheets, pickLandSheet):
-  // fibre(w, seeds, grid) -> [{z, v}], every point z of plane s's box src that the carry takes to w, with its image v in
-  // the height plane (carry.hmap). They are the exact preimages where the steps (s, k] have them (exactPre), else Newton's
-  // method from seeds (the points of a nearby w, as a ray's march passes them on) and, unless grid is false, from the
-  // LAND_PICK_FIBRE grid points whose images are nearest w, one point for points within LAND_PICK_SAME of the box's size. fibre.H is the height map,
-  // fibre.s the plane s
+  // The sheets of a carried Landscape at rest on plane k past its source plane s (the pick on its sheets,
+  // pickLandSheet): fibre(w, seeds, grid) -> [{z, v}], every point z of plane s's box src that the carry takes to w,
+  // with its image v in the height plane (carry.hmap). They are the exact preimages where the steps (s, k] have them
+  // (exactPre), else Newton's method from seeds (the points of a nearby w, as a ray's march passes them on) and, unless
+  // grid is false, from the LAND_PICK_FIBRE grid points whose images are nearest w, one point for points within
+  // LAND_PICK_SAME of the box's size. fibre.H is the height map, fibre.s the plane s
   const LAND_PICK_FIBRE = 16, LAND_PICK_SAME = 1e-7;
   function svLandFibreF(carry, src, k) {
     const F = cpuMap(carry.map), H = cpuMap(carry.hmap);
