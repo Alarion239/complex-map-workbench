@@ -1,4 +1,4 @@
-// A pane head's open pop-up follows its button when the head lays its row out again (#2454): the pop-up hangs under the head with its
+// A pane head's open pop-up follows its button when the head lays its row out again: the pop-up hangs under the head with its
 // right edge on the head's (the Regions button's, or ⋯'s, when that lies further right), as the opening rule places it, and does not
 // reach the Inspector's column. Classic X → Y, the Regions pop-up open at 1440 × 900, the window then narrowed to 1425 and 1380 and widened
 // again; and the steps view's ⋯ pop-up over the same change.
@@ -44,6 +44,18 @@ for (const w of [1425, 1380, 1440]) {
   ok(`the head's width changed for ${w}`, g.ok, g);
   await frames(20);
   stands(`classic X → Y, ${w}`, await ev(BOXES(BTN, '.pat-pop')));
+}
+// narrowed in small steps (4 px at a time, from 1436 to 1360): the head keeps the same controls through most of them, and the pop-up
+// follows it all the same
+await resize(1440, 900);
+await settled({ max: 8000, until: `${HEADW} > 850`, only: true });
+for (let w = 1436; w >= 1360; w -= 4) {
+  const w0 = await ev(HEADW);
+  await resize(w, 900);
+  const g = await settled({ max: 8000, until: `Math.abs(${HEADW} - ${w0}) > 1`, only: true });
+  ok(`the head's width changed for ${w}`, g.ok, g);
+  await frames(4);
+  if (w % 24 === 0 || w === 1360) stands(`classic X → Y, in small steps, ${w}`, await ev(BOXES(BTN, '.pat-pop')));
 }
 // the steps view's ⋯ pop-up
 const OPT = '.pane-head .opts-btn:not(.pat-btn)';
