@@ -84,7 +84,8 @@
   // the Landscape's, and its
   // nodes, its evaluations, CPU ms, slices, the first slice and the longest after it (ms) and why it stopped (null while
   // it runs); null when none
-  /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, globe: !!j.globe, land: !!j.land, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
+  /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, globe: !!j.globe, land: !!j.land, carry: !!j.H, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
+  /** @type {any} */ (window).__cmwCarryStandIn = (n = 9) => { const j = standInJob, g = j && j.H ? j.grid : null; if (!g) return null; const out = []; for (let b = 0; b < n; b++) for (let a = 0; a < n; a++) { const i = 2 * (Math.round(b * (g.ny - 1) / (n - 1)) * g.nx + Math.round(a * (g.nx - 1) / (n - 1))); out.push({ fx: Math.round(a * (g.nx - 1) / (n - 1)) / (g.nx - 1), fy: Math.round(b * (g.ny - 1) / (n - 1)) / (g.ny - 1), w: [g.w[i], g.w[i + 1]], q: [g.q[i], g.q[i + 1]] }); } return { box: j.land, nx: g.nx, nodes: out }; };   // (tests) the finest level done of a carried Landscape's stand-in, n x n of its nodes: the box's fractions, the value w and the place q
   window.__cmwPaths = () => {
     const views = [], out = [];
     if (SV.on) views.push(['L', SV.surf === 'sphere' ? 'globe' : 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L, a globe on the Sphere surface)
