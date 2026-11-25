@@ -1,8 +1,9 @@
 // ci/glsl.js's settlePending: the inverse page's programs that had not linked when its wait ran out (the page's
 // result's pending: the cases' names). On WARP (Direct3D 11's software renderer, the hosted Windows runner) a link
 // takes from seconds to minutes, so up to PENDING_MAX cases pending there are named in the page's note and decide
-// nothing; more than that on WARP (the page's coverage lost, as an FXC compile blown up past the wait would lose it), or
-// any on another renderer, is a fault, and each pending case is an error, as before. Node, no browser.
+// nothing; more than that on WARP (the page's coverage lost, as an FXC compile blown up past the wait would lose it), the
+// clip test or the REPT certificate pending (one program for a whole check), or any on another renderer, is a fault, and
+// each pending case is an error, as before. Node, no browser.
 // Run: node test/t_glsl_pending.js
 'use strict';
 const { settlePending, PENDING_MAX } = require('../ci/glsl');
@@ -46,6 +47,12 @@ ok(`WARP: more than ${PENDING_MAX} pending cases are a fault, each an error`, s.
 ok('WARP past the cap: the note says so, names the first five and counts the rest', /^; 9 not linked/.test(s.note) && s.note.includes(`more than ${PENDING_MAX}`) && s.note.includes('rand#4 recip') && !s.note.includes('rand#5 recip') && /4 more/.test(s.note), s.note);
 r = page(WARP, names(PENDING_MAX + 1)); s = settlePending(r);
 ok(`WARP: ${PENDING_MAX + 1} pending cases (one past the cap) are a fault`, s.fault === true && r.errors.length === PENDING_MAX + 2, { s, e: r.errors });
+
+// WARP, a whole check pending (one program for all of the clip test, or the REPT certificate): a fault, under the cap too
+for (const whole of ['clip', 'rept certificate']) {
+  r = page(WARP, [whole]); s = settlePending(r);
+  ok(`WARP: ${whole} pending alone is a fault, an error`, s.fault === true && r.errors.length === 2 && r.errors[1] === `${whole}: gpu pending` && s.note.includes('a whole check'), { s, e: r.errors });
+}
 
 console.log(`t_glsl_pending: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
