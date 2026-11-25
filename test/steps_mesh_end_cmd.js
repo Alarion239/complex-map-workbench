@@ -1,18 +1,16 @@
-// Why the steps view's whole-plane meshes end (#2363, step 1: the measure, not a fix). z³ then cos about 0, Everywhere,
-// plane w₂ at rest at a phone's size, its colour plane the last plane: the pre-mapped meshes the plane's frame takes over
-// with are __svAll (the pane's) and __svRing (its outer ring). Each is a SphereMesh job with a deterministic budget (the
-// evaluations and nodes: it ends on 'work' or 'nodes') and a safety stop in CPU milliseconds (cap, SM_MS_CAP: 'budgetMs'),
-// a stop whose mesh is partial and depends on how slow the machine is. The page reports each mesh's end reason in
-// __cmwSphere().entries (end). The same scene with the CPU slowed 1, 3, 4 and 6 times (CDP Emulation.setCPUThrottlingRate;
-// a phone is taken as about 3 times slower than the CI runner's lavapipe, as #2363 does):
-// - recorded: at each rate, both meshes are published, each with a reason (done, work, nodes or budgetMs); info.rates has
-//   them, and info.capped which mesh ends on the cap at which slowing (the measure the issue asks for, not a verdict);
-// - a stop on the cap is a stop on the cap: a mesh that ends on budgetMs has spent about the cap's milliseconds;
-// - the deterministic budgets are: meshes of one key (the content and the meshing window the pane's box gave when the mesh
-//   was built: it can differ from one run to the next) that end on 'work', 'nodes' or complete are one mesh (its nodes,
-//   evaluations and triangles) at every slowing that ends so, whatever the machine's speed;
+// Why the steps view's whole-plane meshes end (#2363). z³ then cos about 0, Everywhere, plane w₂ at rest at a phone's
+// size, its colour plane the last plane: the pre-mapped meshes the plane's frame takes over with are __svAll (the pane's)
+// and __svRing (its outer ring). Each is a SphereMesh job with a deterministic budget (the evaluations and nodes: it ends
+// on 'work' or 'nodes'); the page adopts them as a pair, and only a mesh that ended so (steps_mesh_adopt_cmd.js), however
+// slow the machine: a job that SM_MS_CAP CPU ms would have ended on a partial mesh runs on in idle slices (its own stop
+// is much later, smRunawayMs). The page reports each mesh's end reason in __cmwSphere().entries (end). The same scene
+// with the CPU slowed 1, 3, 4 and 6 times (CDP Emulation.setCPUThrottlingRate; a phone is taken as about 3 times slower
+// than the CI runner's lavapipe, as #2363 does):
+// - at each rate, both meshes are published, each ended on a deterministic budget (done, work or nodes), never the cap;
+// - those of one key (the content and the meshing window the pane's box gave when the mesh was built: it can differ from
+//   one run to the next) are one mesh (its nodes, evaluations and triangles) at every slowing, whatever the machine's
+//   speed;
 // - the slowing is felt: each mesh at 6 spends at least SLOW_MIN times the CPU per evaluation that it spends at 1.
-// Nothing asserts which mesh ends on the cap: that depends on the machine, and is what the issue measures.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = { rates: {} };
@@ -22,8 +20,7 @@ const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js')
 const RATES = [1, 3, 4, 6];
 const BUILT_MAX_MS = 400000;     // the meshes are built within this at the slowest rate
 const SLOW_MIN = 3;              // the least factor by which a mesh's CPU per evaluation grows from rate 1 to 6: about 6 times throttled, about 2.1 to 2.2 at most unthrottled (a cold run to a warm one)
-const CAP_SHARE = 0.9;           // the share of the cap's milliseconds a mesh that ended on it has spent at least
-const ENDS = ['done', 'work', 'nodes', 'budgetMs'];
+const ENDS = ['done', 'work', 'nodes'];
 const MESHES = { all: /^__svAll\|/, ring: /^__svRing\|/ };
 const CHAIN = [K.CUBE, { type: 'cos', params: {}, on: true }];
 // both meshes published, none building or asked for
@@ -42,13 +39,12 @@ const run = async (rate) => {
 };
 for (const rate of RATES) {
   const rec = info.rates[rate] = await run(rate);
-  ok(`slowed ${rate} times: both meshes are published, each with an end reason`, rec.built && Object.keys(MESHES).every((t) => rec[t] && ENDS.includes(rec[t].end)), rec);
+  ok(`slowed ${rate} times: both meshes are published, each ended on a deterministic budget`, rec.built && Object.keys(MESHES).every((t) => rec[t] && ENDS.includes(rec[t].end)), rec);
 }
 const base = info.rates[1], slow = info.rates[6];
 for (const tag of Object.keys(MESHES)) {
   const at = RATES.map((r) => info.rates[r][tag]).filter(Boolean);
-  const capped = at.filter((e) => e.end === 'budgetMs'), fixed = at.filter((e) => e.end !== 'budgetMs');
-  ok(`the ${tag} mesh: one that ends on the ${base.cap} ms cap has spent about its milliseconds (at least ${CAP_SHARE * 100} %)`, capped.every((e) => e.ms >= CAP_SHARE * base.cap), capped);
+  const fixed = at;
   // (one key: the meshing window follows the pane's box when the mesh is built, so two runs can mesh two windows)
   const byKey = new Map();
   for (const e of fixed) byKey.set(e.key, (byKey.get(e.key) || []).concat(e));
@@ -58,6 +54,4 @@ for (const tag of Object.keys(MESHES)) {
   const per = (e) => e.ms / Math.max(1, e.work);
   ok(`the ${tag} mesh at 6 times spends at least ${SLOW_MIN} times the CPU per evaluation that it spends at 1 (the slowing is felt)`, !!base[tag] && !!slow[tag] && per(slow[tag]) >= SLOW_MIN * per(base[tag]), { one: base[tag] && base[tag].ms / base[tag].work, six: slow[tag] && slow[tag].ms / slow[tag].work });
 }
-// (the measure: which mesh ends on the cap at which slowing)
-info.capped = Object.fromEntries(RATES.map((r) => [r, Object.keys(MESHES).filter((t) => info.rates[r][t] && info.rates[r][t].end === 'budgetMs')]));
 return { pass: fails.length === 0, fails, info };

@@ -185,6 +185,7 @@ const VIEWS = {
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_mesh_end_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
+  'steps_mesh_adopt_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
   'steps_mesh_tie_cmd.js': steps(),
   'steps_mesh_tie_newt_cmd.js': steps(),
   'steps_mesh_arc_cmd.js': steps(),

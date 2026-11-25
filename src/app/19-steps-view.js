@@ -2033,6 +2033,11 @@
     svTieMemo.set(key, tie);
     return tie;
   }
+  // whether the shown plane (the nearest one) takes a carried colour: past the colour plane; the pre-mapped meshes of
+  // the carried colour are built in the background only while it does (smPump)
+  function svCarryWanted() {
+    try { return !svColoured(svBetween(SV.g.x).near); } catch (e) { return true; }
+  }
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion) return false;
@@ -2041,6 +2046,7 @@
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
+    smKeepPaired(shapes.map((x) => `${x.id}|SV|flat`));
     for (const x of shapes) {
       const r = x === ring ? svRingGPU(ring) : svCarryGPU(x);
       if (!r || !r.meshRes) return false;
