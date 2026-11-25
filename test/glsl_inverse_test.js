@@ -294,10 +294,12 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   // chain, whose tolerance is the plain one. A step that is off (on: false) is no part of the chain. WARP (Direct3D 11's software renderer)
   // gave gaps of 0.43 and 0.44 px at levels of 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): about 85 ulps of
   // w, where SwiftShader's gap is one ulp of the level (6e-5 px)
-  // LVL_REL is 3e-4: WARP's level carries a relative error of up to 2.1e-4 (a gap of 0.123, 0.122 and 0.119 px at levels of 594, 613 and
-  // 599 on a chain with a Complex power step of alpha -0.2+0.8i and a sine: cond 1.2, so no float32 term of the point's position;
-  // about 2^-12, an approximate reciprocal's), and 6e-5 at most on every other chain at levels from 50 px (R.lvlRelTop); SwiftShader's
-  // is one ulp of the level. That leaves a margin of 40 % over what WARP shows
+  // LVL_REL is 3e-4, one approximate reciprocal's relative error (2^-12 = 2.4e-4) with 23 % over it. WARP's level (Direct3D 11's software
+  // renderer) is off by 2.1e-4 of the level on a chain with a Complex power step of alpha -0.2+0.8i and a sine, rand#293 (gaps of 0.123,
+  // 0.122 and 0.119 px at levels of 594, 613 and 599; cond 1.2, whose float32 term is 8e-6 px there), by 5.9e-5 on rational \sqrt{z^2-1}
+  // at a level of 66098 and by 3.1e-5 or less on every other chain at levels from LVL_REL_MIN (R.lvlRelTop); below that the gaps WARP
+  // shows (up to 7e-4 of a level of 51 to 62) are inside the 0.05 px, or the conditioning term, of the rule. SwiftShader's gap is one
+  // ulp of the level
   const LVL_REL = 3e-4;
   const F32_ULP = 2 ** -23;
   const condTol = (w, pix, cond) => (cond - 1) * F32_ULP * cabs(w) / pix;
@@ -307,8 +309,8 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   // coverage of 0.144 where the CPU's is 0 (s -0.356 and -0.626 px) on the chain with alpha 0.008 (cond 125, pix 3.8e-5, |w| 1.0):
   // 0.27 px, inside the 0.39 px that term allows there
   const cvTol = (w, pix, cond) => 0.03 + condTol(w, pix, cond);
-  // (levels from LVL_REL_MIN px are listed by their relative gap, per chain; the result keeps the twelve worst chains, R.lvlRelTop)
-  const LVL_REL_MIN = 50;
+  // (levels from LVL_REL_MIN px are listed by their relative gap, per chain: above the floor of 0.05 px the gaps are relative; the result keeps the twelve worst chains, R.lvlRelTop)
+  const LVL_REL_MIN = 500;
   const condOf = (steps, built) => steps.reduce((c, st, i) => (st.type === 'powa' && st.on !== false && built[i] && built[i].vals && built[i].vals.alpha ? c * Math.max(1, 1 / cabs(built[i].vals.alpha)) : c), 1);
   // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
   // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
@@ -885,10 +887,10 @@ void main() {
       const Q = R.relCheck = { cond: rcond, rows: [], bad: [] };
       if (!(Math.abs(rcond - 1 / Math.hypot(-0.2, 0.8)) < 1e-9)) Q.bad.push(`cond of the powa and sin chain ${rcond}, not 1 / |alpha|`);
       for (const x of RW) {
-        const gap = Math.abs(x.gpu - x.cl), tol = lvlTol(x.cl, x.w, RPIX, rcond), early = lvlTol(x.cl, x.w, RPIX, rcond, 1e-4);
-        Q.rows.push({ gap, tol, early });
+        const gap = Math.abs(x.gpu - x.cl), tol = lvlTol(x.cl, x.w, RPIX, rcond), rel1e4 = lvlTol(x.cl, x.w, RPIX, rcond, 1e-4);
+        Q.rows.push({ gap, tol, rel1e4 });
         if (!(gap <= tol)) Q.bad.push(`gap ${gap.toFixed(3)} px is over the allowed ${tol.toFixed(3)} (level ${x.cl.toFixed(1)})`);
-        if (!(gap > early)) Q.bad.push(`gap ${gap.toFixed(3)} px is inside ${early.toFixed(3)}, the rule with 1e-4: the control is not one`);
+        if (!(gap > rel1e4)) Q.bad.push(`gap ${gap.toFixed(3)} px is inside ${rel1e4.toFixed(3)}, the rule with 1e-4: the control is not one`);
       }
       if (Q.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the level tolerance, relative term', bad: Q.bad }); }
     }
