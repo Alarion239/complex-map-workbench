@@ -424,6 +424,7 @@ const VIEWS = {
   'link_standin_cmd.js': steps({ pin: true }),
   'globe_standin_cmd.js': steps({ pin: true }),
   'land_standin_cmd.js': steps({ pin: true }),
+  'land_carry_standin_cmd.js': steps({ pin: true }),
   'land_sheets_standin_cmd.js': steps({ pin: true }),
   'svready_cmd.js': steps({ pin: true }),
   'svready_inverse_cmd.js': steps({ pin: true }),
