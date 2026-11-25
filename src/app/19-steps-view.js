@@ -3889,23 +3889,26 @@
   // svLinkHold; no part while a frame is held between planes or a glide runs); while a pane's last frame had a REPT
   // draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a part not done; while svRedrawDue, the left
   // pane's frame that draws with the program that landed, a part not done. The programs of a view no pane shows are no
-  // part of it (GLR's offView). total is 0 only while the GPU layer or the chain is not up; ready is true only when
-  // done = total > 0; rest: the same without the inverse part. Programs counted that no job asks for any more (the jobs
-  // were dropped when what svInvKey names changed, or a program was evicted after its job) are queued again, unless peek
-  // (a read that starts no work: the test hook's) (test hook: the idle jobs count as unfinished while set)
-  let svJobsHold = false;
+  // part of it (GLR's offView). The warm draw, the REPT draw and the redraw are parts with nothing counted inside them,
+  // one unit done or not, marked whole (the Play gate's ring shows them as unknown, svGateFill). total is 0 only while
+  // the GPU layer or the chain is not up; ready is true only when done = total > 0; rest: the same without the inverse
+  // part. Programs counted that no job asks for any more (the jobs were dropped when what svInvKey names changed, or a
+  // program was evicted after its job) are queued again, unless peek (a read that starts no work: the test hook's)
+  // (test hooks: the idle jobs count as unfinished while svJobsHold is set, the warm draw while svWarmHold is)
+  let svJobsHold = false, svWarmHold = false;
   const svJobsHoldSet = (on) => { svJobsHold = !!on; };
+  const svWarmHoldSet = (on) => { svWarmHold = !!on; };
   function svReady(M, peek = false) {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
     parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
-    parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
+    parts.warm = { done: !svWarmHold && svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1, whole: true };
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
     if (svJobsHold) jobs = 3;
     parts.jobs = { done: 3 - jobs, total: 3 };
-    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1 };
-    if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
+    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1, whole: true };
+    if (svRedrawDue) parts.redraw = { done: 0, total: 1, whole: true };
     // (M: the motion the gate is about to start, whose frames may be drawn ahead once all else is ready, svAheadPart)
     const ahead = M ? svAheadPart(M) : null;
     if (ahead) parts.ahead = ahead;

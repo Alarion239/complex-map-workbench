@@ -80,6 +80,7 @@ const VIEWS = {
   'steps_ahead_ring_cmd.js': steps(),
   'steps_ahead_plan_cmd.js': steps(),
   'steps_wait_say_cmd.js': steps(),
+  'steps_wait_unknown_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_negpow_glide_cmd.js': steps({ pin: true }),
