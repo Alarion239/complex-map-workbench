@@ -80,12 +80,13 @@
   window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
   window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
-  // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn): the cell of its finest
-  // level done (css px; null before one; 0 on the globe and the Landscape, whose levels have no cell), whether it is the globe's or
-  // the Landscape's, and its
+  // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn, and landCarryStandIn for
+  // a carried frame at rest): the cell of its finest level done (css px; null before one; 0 on the globe and the Landscape, whose
+  // levels have no cell), whether it is the globe's or the Landscape's, whether it is a carried frame's (carry), and its
   // nodes, its evaluations, CPU ms, slices, the first slice and the longest after it (ms) and why it stopped (null while
   // it runs); null when none
-  /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, globe: !!j.globe, land: !!j.land, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
+  /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, globe: !!j.globe, land: !!j.land, carry: !!j.H, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
+  /** @type {any} */ (window).__cmwCarryStandIn = (n = 9) => { const j = standInJob, g = j && j.H ? j.grid : null; if (!g) return null; const out = []; for (let b = 0; b < n; b++) for (let a = 0; a < n; a++) { const i = 2 * (Math.round(b * (g.ny - 1) / (n - 1)) * g.nx + Math.round(a * (g.nx - 1) / (n - 1))); out.push({ fx: Math.round(a * (g.nx - 1) / (n - 1)) / (g.nx - 1), fy: Math.round(b * (g.ny - 1) / (n - 1)) / (g.ny - 1), w: [g.w[i], g.w[i + 1]], q: [g.q[i], g.q[i + 1]] }); } return { box: j.land, nx: g.nx, nodes: out }; };   // (tests) the finest level done of a carried Landscape's stand-in, n x n of its nodes: the box's fractions, the value w and the place q
   window.__cmwPaths = () => {
     const views = [], out = [];
     if (SV.on) views.push(['L', SV.surf === 'sphere' ? 'globe' : 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L, a globe on the Sphere surface)
@@ -315,6 +316,8 @@
   // o.fast its first pass's budget (GLR.setReptFastNodes; 0: its own), o.holdB its second pass held (GLR.holdReptB);
   // o.tileStats: the tile account since the last read (GLR.reptTiles); o.lose: the GL context lost, then restored at
   // the next task (WEBGL_lose_context); o.ci: the first shape's colour index (a look change, the cache's control);
+  // o.outline: the refinements of a REPT plan's outlines run so far, and the last one's vertices
+  // (outlineRes);
   // o.land: the Landscape mask's unresolved pixels (null: no mask) and the mask's pixels marked no-value (opaque and
   // dark, svLandMask); o.ws [[re, im]]: the CPU twin of the left plane's
   // REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the most and the total root
@@ -336,6 +339,7 @@
       if ('tiles' in o) GLR.setReptTileSolves(o.tiles);
       svLandMaskC = null; requestRender('L', 'R');
     }
+    if (o && o.outline) return { runs: reptOutlineRuns, verts: reptOutlineVerts };
     if (o && o.land) {
       if (!svLandMaskC) return { unresolved: null, marked: null };
       const cv = svLandMaskC.cv, d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
@@ -533,10 +537,11 @@
   // and where the point (re, im) of the glide's plane a is at the glide's u (H_u of svBetween; the point itself at
   // rest); H: that map ({re, im} -> {re, im}, the identity at rest); eye and key: the last frame's camera position and
   // key light direction (drawSphere's, world coordinates); meshWin: the window of the sheet key the last carried mesh
-  // was built with (svGlobeMesh), and clipWin, the tiling's
+  // was built with (svGlobeMesh), and clipWin, the tiling's; sheets: the sheet combos the last glide frame drew, the
+  // principal one counted (null: no carried colour)
   window.__cmwSvGlobe = (re, im) => {
     const g = svBetween(), z = C(re, im), w = g.H ? g.H(z) : z, si = leftSphereInfo;
-    return { carried: !!(si && si.carried), path: (si && si.carryPath) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null, H: g.H || ((q) => q), eye: si ? si.eye : null, key: si ? si.key : null, meshWin: svGlobeKeyRec ? Object.assign({}, svGlobeKeyRec.win) : null, clipWin: Object.assign({}, clipWin) };
+    return { carried: !!(si && si.carried), path: (si && si.carryPath) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null, H: g.H || ((q) => q), eye: si ? si.eye : null, key: si ? si.key : null, meshWin: svGlobeKeyRec ? Object.assign({}, svGlobeKeyRec.win) : null, clipWin: Object.assign({}, clipWin), sheets: svGlobeSheetsRec };
   };
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
   // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe; globeError: what
