@@ -47,7 +47,7 @@ ok('while the links are held: each shape\'s outline is a stand-in at the lines\'
 ok('timing: each outline\'s stand-in takes at most the real budget here (25 ms; the page\'s own budget is set)', held.made.length === SHAPES.length && held.made.every((r) => r.ms <= 25), info.made);
 // an expensive series: its stand-in is refused (the first segment's evaluations show it would not fit), not made
 const ns2 = 'slx' + Date.now();
-await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 1, T: 0, scope: 'all', surf: 'plane' } });
+await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 1, T: 0, scope: 'all', surf: 'plane' }, clipWin: CLIP_WIN });
 await go(`${base}/test.html?ns=${ns2}&view=steps&glhold`);
 await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'function' && !!window.GLR && GLR.ok" });
 const exWait = await settled({ only: true, max: 30000, until: `GLR.lineStandIns().length >= ${SHAPES.length}` });
