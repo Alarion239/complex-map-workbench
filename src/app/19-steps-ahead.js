@@ -121,7 +121,7 @@
     if (R.n < AHEAD_EARLY) return;
     const c = svAheadCost.get(R.ckey), rate = svAheadRate(R);
     const f = cut ? Math.max(rate, (performance.now() - R.t0 + rate * (R.N - R.n)) / R.N) : rate;
-    if (c != null && f > c) svAheadCost.set(R.ckey, +f.toFixed(2));
+    if (c != null && f > c) svAheadCost.set(R.ckey, Math.ceil(f * 100) / 100);
   }
   // -> whether another frame is to be drawn. The fill is cut (the motion plays live, why 'time') before a frame that would end
   // past the draw wait at the rate so far, and after a kept frame from which the rest of the frames would end past it
@@ -278,12 +278,12 @@
   }
   // TEST-HOOK (dropped from the published page by build.py)
   // the frames' state: null, or { state, why, n, N, shown, rejects, live, recs: each slot made's glide path, slots: how many
-  // are held, fillMs: the fill's time from its start to its end (null while it fills), frameMs: the ms each slot made took,
-  // from the one before it, the first from the fill's start }; the chain's
+  // are held, fillMs: the fill's time from its start to its end (null while it fills), rate: its rate so far (svAheadRate),
+  // frameMs: the ms each slot made took, from the one before it, the first from the fill's start }; the chain's
   // frame cost (ms), null while it is not measured; the last probe's log (svAheadProbeLog); and svAheadTest set ({ ms,
   // waitMs, cap }, a key's null the app's own; cost: the chain's cost, set once)
   const svAheadCostNow = () => { const c = svAheadCost.get(svAheadKey(paneL, null)); return c == null ? null : +c.toFixed(2); };
-  const svAheadHook = () => { const R = svAhead; return R && { state: R.state, why: R.why, n: R.n, N: R.N, shown: R.shown, rejects: R.rejects, live: R.live, recs: R.kept.slice(), slots: R.slots.filter(Boolean).length, fillMs: R.t1 == null ? null : +(R.t1 - R.t0).toFixed(1), frameMs: R.ends.map((t, i) => +(t - (i ? R.ends[i - 1] : R.t0)).toFixed(1)) }; };
+  const svAheadHook = () => { const R = svAhead; return R && { state: R.state, why: R.why, n: R.n, N: R.N, shown: R.shown, rejects: R.rejects, live: R.live, recs: R.kept.slice(), slots: R.slots.filter(Boolean).length, fillMs: R.t1 == null ? null : +(R.t1 - R.t0).toFixed(1), rate: svAheadRate(R), frameMs: R.ends.map((t, i) => +(t - (i ? R.ends[i - 1] : R.t0)).toFixed(1)) }; };
   const svAheadProbeHook = () => svAheadProbeLog && Object.assign({}, svAheadProbeLog, { rejects: svAheadProbeLog.rejects.slice() });
   // what svAheadPlan says of the chain's glides at each speed over one and over two planes (svGo's time: the speed's a plane times the planes), with the inputs
   // it reads: the chain's cost, the pane's frame size, the three limits; null while the cost is not measured
