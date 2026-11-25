@@ -15,8 +15,6 @@
   // the steps, as a share of the ring, in which a waiting control's description gives the ring's fill (svWaitLook): it
   // changes at most 1 / SV_WAIT_SAY_STEP times a wait
   const SV_WAIT_SAY_STEP = 0.1;
-  // svReady's parts with nothing counted inside them: done or not, one unit each (svGateFill)
-  const SV_GATE_WHOLE = ['warm', 'rept', 'redraw'];
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
@@ -65,17 +63,17 @@
   }
   // The Play gate's gauge for its wait g: the share of what svReady(g.M) counts that is done, or null while it is not
   // measured: while svReady has no total, and while the counted parts (the programs, the jobs) are done and only parts
-  // with nothing counted inside them are left (SV_GATE_WHOLE: the warm draw, a REPT draw's tiles, a pane's redraw; on
-  // a REPT chain the warm draw's machine code takes seconds, and one unit of eighteen would stand the ring at 94 %).
-  // Unknown, the ring keeps its arc and shows the rest as unknown (svWaitLook). With frames drawn ahead (the part
-  // ahead), which are made only once all else is ready, all else fills the ring up to SV_GATE_PREP_SHARE and the
+  // with nothing counted inside them are left (svReady's whole parts: the warm draw, a REPT draw's tiles, a pane's
+  // redraw; on a REPT chain the warm draw's machine code takes seconds, and one unit of eighteen would stand the ring
+  // at 94 %). Unknown, the ring keeps its arc and shows the rest as unknown (svWaitLook). With frames drawn ahead (the
+  // part ahead), which are made only once all else is ready, all else fills the ring up to SV_GATE_PREP_SHARE and the
   // frames fill what is left of it, from where it stood when they started (g.aheadFrom): from 0 when all else was
   // ready at once, so that the ring reads the share of the frames made
   function svGateFill(g) {
     const r = svReady(g.M), a = r.parts.ahead;
     if (!r.total) return null;
     let whole = 0, wholeDone = 0;
-    for (const k of SV_GATE_WHOLE) if (r.parts[k]) { whole += r.parts[k].total; wholeDone += r.parts[k].done; }
+    for (const k in r.parts) if (r.parts[k].whole) { whole += r.parts[k].total; wholeDone += r.parts[k].done; }
     const counted = r.total - whole - (a ? a.total : 0), countedDone = r.done - wholeDone - (a ? a.done : 0);
     if (wholeDone < whole && countedDone === counted) return null;
     if (!a) return r.done / r.total;
