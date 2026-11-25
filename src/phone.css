@@ -541,6 +541,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] > .ph-col { flex-direction: row; }
 :root.ph.ph-land:not(.view-land) .pane:not(.ph-inset) .plot[data-keys="side"] > .legend-chip { top: max(12px, calc(100% - 97px - var(--ph-lift))); right: 112px; }
 :root.ph.ph-land:not(.view-land) .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on { max-width: calc(100% - 162px); }
+/* (and the Look down key, open at the plane's foot from its left, stops short of the colour key's hit area: 112 + 30 + 8 px from the
+   plane's right edge, and on the Stack, where the colour key is a lane further in for the Tilt key, 164 + 30 + 8) */
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] .ld-key { max-width: min(calc(100% - var(--ruler) - 6px - 150px), 320px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key { max-width: min(calc(100% - var(--ruler) - 6px - 202px), 320px); }
 /* (every landscape plane under the tall context bar ("low"): Fit view stands left of Display, in the 60 px lane
    right of the 44 px key (8 + 44 + 8), and Sphere and Display stand on its level, so the column is two keys high; the colour key
    moves up to the top row, clear of the construction chip below it and of Fit view, and the readout stops short of it, except the

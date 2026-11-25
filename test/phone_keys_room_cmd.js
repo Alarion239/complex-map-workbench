@@ -7,7 +7,7 @@
 // and not the colour key above it: where that key stands then is #2407. On the Stack (#2415's Tilt key in the column), with a
 // selected disc's bar, in Tilt, at 568 x 320, 600 x 320, 640 x 360 and 740 x 360: the same rows, the Tilt key among the keys,
 // the folded colour key the topmost element at its centre (beside the column's grid, whose empty cell takes no tap), and the
-// Look down key, unfolded, lies inside the plane above the bar and meets no key.
+// Look down key, unfolded, lies inside the plane above the bar and meets no key, nor the folded colour key.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -106,5 +106,7 @@ for (const [w, h] of [[568, 320], [600, 320], [640, 360], [740, 360]]) {
   ok(`${tag}: the Look down key unfolded lies inside the plane, above the ${g2.bar ? "bar's top" : "plane's foot"}`, ld.t >= g2.plot.t - SLACK && ld.l >= g2.plot.l - SLACK && ld.r <= g2.plot.r + SLACK && ld.b <= (g2.bar ? Math.min(g2.plot.b, g2.bar.t) : g2.plot.b) + SLACK, { ld, plot: g2.plot });
   const hit = g2.keys.filter((k) => meets(k, ld));
   ok(`${tag}: the Look down key unfolded meets no plane key`, hit.length === 0, hit.map((k) => k.id));
+  // (nor the folded colour key, one lane in from the keys: rvA on #2449)
+  if (g.legend) ok(`${tag}: the Look down key unfolded meets not the folded colour key`, !meets(ld, g.legend), { ld, legend: g.legend });
 }
 return { pass: fails.length === 0, fails: fails.slice(0, 60), info };
