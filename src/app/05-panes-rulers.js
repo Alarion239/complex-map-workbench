@@ -661,6 +661,7 @@
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
   }
   function render3D(pane, carry) {
+    pane.noteBox = null;   // (no note drawn yet in this frame, as renderColor's)
     pane.begin(artRelief ? 'rgba(255,255,255,0)' : TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     backdrop(pane);
@@ -754,6 +755,8 @@
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
     const mask = SV.on ? (carry ? (carry.plain ? svLandPlainMask() : svLandMask(carry.s, src)) : svLandMask(svStage(), box)) : null;
+    // (a hatched surface says why, as the plane does: glStatusNote)
+    if (mask && mask.unres > 0) hatchNotes.set(pane, mask.refused ? refusedNote() : hatchedNote());
     GLR.begin(pane.pw, pane.ph);
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];

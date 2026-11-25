@@ -83,7 +83,7 @@
   // mask's pass leaves them uncovered and marks them (drawScene's opt.fills, GLR.drawInverse), so the picture painted
   // through the mask shows them here
   function reptHatch(pane, map) {
-    if (reptExact(map) && GLR.reptHatchFill && GLR.reptHatchFill(pane.dpr) === true) hatchNotes.set(pane, $t('Where the plane is hatched, the exact image could not be found.'));
+    if (reptExact(map) && GLR.reptHatchFill && GLR.reptHatchFill(pane.dpr) === true) hatchNotes.set(pane, hatchedNote());
   }
   // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
   // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
@@ -96,10 +96,13 @@
   // what a pane's open frame says of the no-value hatch it drew (reptHatch, refusedHatch), by pane: glStatusNote says it at the
   // frame's end
   const hatchNotes = new Map();
+  // the two things a hatch says: a refused repeat's, and a REPT plan's own unresolved pixels (the Plane and the Landscape say them the same)
+  const refusedNote = () => $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.');
+  const hatchedNote = () => $t('Where the plane is hatched, the exact image could not be found.');
   // the no-value hatch over the whole plane drawn in pane for map when its repeat is refused (no image of the regions is known
   // anywhere), after the picture painted through the regions' mask
   function refusedHatch(pane, map) {
-    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) hatchNotes.set(pane, $t('This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.'));
+    if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) hatchNotes.set(pane, refusedNote());
   }
   // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
   // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;

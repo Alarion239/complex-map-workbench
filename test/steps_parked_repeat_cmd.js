@@ -321,9 +321,14 @@ const hatchCount = () => ev(`(() => {
   const l0 = hooked ? await ev('__cmwRept({ land: true })') : null, lh0 = await hatchCount();
   ok('gallery square, Landscape: the region mask counts no unresolved pixel', !!l0 && l0.unresolved === 0, l0);
   ok('gallery square, Landscape: the surface draws no unresolved hatch', lh0.hatch === 0, lh0);
+  const ls0 = await paneSaid();
+  ok('gallery square, Landscape: no note on the pane, the LED up to date, nothing said of a hatch', !ls0.note && !/\berr\b/.test(ls0.led || '') && ls0.tip !== HATCHED_NOTE && ls0.said !== HATCHED_NOTE, ls0);
   if (hooked) { await ev(`__cmwRept({ nodes: ${STARVED_NODES} }); 1`); await settled({ max: SETTLE_LONG, panes: true }); }
-  const l1 = hooked ? await ev('__cmwRept({ land: true })') : null, lh1 = await hatchCount();
+  const l1 = hooked ? await ev('__cmwRept({ land: true })') : null, lh1 = await hatchCount(), ls1 = await paneSaid();
   if (hooked) { await ev('__cmwRept({ nodes: 0 }); 1'); await settled({ max: SETTLE_LONG, panes: true }); }
+  const ls2 = await paneSaid();
+  ok('starved search, Landscape: it says the plane is hatched as the plane does: a note on the pane, the LED red with the sentence as its tip, and the sentence as the pane\'s description', hooked && !!ls1.note && /\berr\b/.test(ls1.led || '') && ls1.tip === HATCHED_NOTE && ls1.said === HATCHED_NOTE, ls1);
+  ok('starved search, Landscape: the note goes with the hatch (the search restored)', hooked && !ls2.note && !/\berr\b/.test(ls2.led || '') && ls2.said !== HATCHED_NOTE, ls2);
   info['landscape mask'] = { whole: l0, starved: l1, hatch: { whole: lh0, starved: lh1 } };
   ok(`control: the Landscape's mask under a search starved to ${STARVED_NODES} root solves counts unresolved pixels`, !!l1 && l1.unresolved > 0, l1);
   ok('starved search, Landscape: the mask marks each unresolved pixel no-value', !!l1 && l1.marked === l1.unresolved, l1);

@@ -49,6 +49,13 @@ for (const sc of SCENES) {
   ok(`${sc.name} ×${COPIES}: the parked plane is covered by the grey no-value hatch`, a.share >= HATCH_MIN_SHARE, a.share);
   ok(`${sc.name} ×${COPIES}: a note on the pane, and the LED's tip, say why`, !!a.note && a.tip === NOTE && /\berr\b/.test(a.led || ''), { note: a.note, tip: a.tip, led: a.led });
   ok(`${sc.name} ×${COPIES}: the sentence is the pane's description for a screen reader`, a.said === NOTE && a.described === 'overlayLSay', { said: a.said, described: a.described });
+  // the Landscape: its region mask is the no-value mark everywhere (__cmwRept({ land: true }): every pixel unresolved and marked), the
+  // surface hatched, and the pane says why as the plane does
+  await ev("__cmwSteps({ surf: 'land' }); 1"); await settled({ max: SETTLE_LONG, panes: true });
+  const lm = await ev('__cmwRept({ land: true })'), ld = await look();
+  info[sc.name + ' landscape'] = { mask: lm, look: ld };
+  ok(`${sc.name} ×${COPIES}, Landscape: the region mask marks every pixel no-value`, !!lm && lm.unresolved > 0 && lm.marked === lm.unresolved, lm);
+  ok(`${sc.name} ×${COPIES}, Landscape: a note on the pane, the LED red with the sentence as its tip, and the sentence as the pane's description`, !!ld.note && /\berr\b/.test(ld.led || '') && ld.tip === NOTE && ld.said === NOTE, { note: ld.note, led: ld.led, tip: ld.tip, said: ld.said });
   await open(sc, FEW, false);
   const b = await look();
   info[sc.name + ' few'] = b;
