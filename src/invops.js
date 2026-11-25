@@ -1177,7 +1177,7 @@ const InvOps = (() => {
   const INEL = (reason) => ({ ok: false, reason });
   const OK = (ops) => ({ ok: true, ops });
   // Inverse.stepOps(b) -> {ok: true, ops} | {ok: false, reason}; b: a Funcs.build() result
-  function stepOps(b) {
+  function stepOps(b, opts = {}) {
     if (!b || b.error || !b.def) return INEL(b && b.error ? b.error : 'no step');
     // a step standing for its homotopy at a time t (Inverse.homBuilt): its homotopy's ops
     if (b.__homOps) return b.__homOps();
@@ -1249,8 +1249,8 @@ const InvOps = (() => {
         return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ ${NEWT_POLY_MAX})`);
       }
       case 'custom': {
-        // a Repeat of one step of degree REPT_DEG: one REPT op for every copy
-        const rf = b.repeat ? reptForm(b) : null;
+        // a Repeat of one step of degree REPT_DEG: one REPT op for every copy, unless opts.rept is false (the copies' ops)
+        const rf = b.repeat && opts.rept !== false ? reptForm(b) : null;
         if (rf) return OK([opRept(rf.P, rf.Q, b.repeat.n, b.f)]);
         // a formula recognized as catalog steps (Funcs, src/recognize.js): their ops, when every one has them
         if (b.rec) {

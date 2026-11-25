@@ -19,13 +19,13 @@ const fresh = async (w, h, mobile, lang, main = 'phase', state = ST) => {
   await load(ns, state);
   if (lang) { await go(`${U}?ns=${ns}&lang=${lang}`); await sleep(2500); }
   await ev(`__cmwSetMain('${main}'); 1`); await settle(1200);
-  // (a slow shared machine may still be laying the heads out: wait for both option rows, up to 5 s)
-  for (let i = 0; i < 25 && !(await ev(`!!document.querySelector('#paneL .pane-head .options') && !!document.querySelector('#paneR .pane-head .options')`)); i++) await sleep(200);
+  // (a slow shared machine may still be laying the head out: wait for X's option row, up to 5 s)
+  for (let i = 0; i < 25 && !(await ev(`!!document.querySelector('#paneL .pane-head .options')`)); i++) await sleep(200);
 };
 const pops = () => ev(`document.querySelectorAll('#popHost .pop').length`);
 // the head of pane side: its row's controls, whether anything in it is cut or overflows, and the title's state
-const head = (side) => ev(`(() => {
-  const p = document.getElementById('${side === 'L' ? 'paneL' : 'paneR'}'), hd = p.querySelector('.pane-head'), f = hd.querySelector('.options');
+const head = () => ev(`(() => {
+  const p = document.getElementById('paneL'), hd = p.querySelector('.pane-head'), f = hd.querySelector('.options');
   const vis = (e) => !!e && e.getClientRects().length > 0 && e.getBoundingClientRect().width > 0;
   const hr = hd.getBoundingClientRect(), t = hd.querySelector('.pane-title'), pt = t && t.querySelector('.ptitle');
   const kids = [...f.children].filter(vis).map((e) => { const r = e.getBoundingClientRect(); return { id: e.id || e.querySelector('input,select')?.id || e.className.split(' ').slice(-1)[0], l: r.left, r: r.right, w: r.width, h: r.height, cut: e.scrollWidth > e.clientWidth + 1 && !e.matches('.seg') }; });
@@ -52,7 +52,7 @@ const clickId = (id) => ev(`(() => { const i = document.getElementById('${id}');
   await view(1280, 800, false, false);
   await go(`${U}?ns=dinlfirst${Date.now() % 1000000}`); await sleep(3000);
   await ev(`__cmwSetMain('phase'); 1`); await settle(1500);
-  const hd = await head('L');
+  const hd = await head();
   ok(`1280 en first scene, Phase: the title is whole (the toggles give way first) and the head does not overflow`, hd && !hd.__exc && hd.title && hd.title.shown && !/\b(short|terse|notag)\b/.test(hd.title.cls) && !hd.over && !hd.outside.length, hd);
 }
 
@@ -64,7 +64,7 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   // head short of room has its designed fallbacks: controls behind ⋯ (reachable, no title), the style's word dropped,
   // the title cut by fitTitle; never an overflow)
   const strict = w === 1440 && !lang;
-  let hd = await head('L');
+  let hd = await head();
   if (!hd || hd.__exc) { ok(`${tag} Phase: X's head reads`, false, hd); continue; }
   ok(`${tag} Phase: no Display button, no pop-up open`, !hd.disp && (await pops()) === 0, hd);
   ok(`${tag} Phase: the head neither overflows nor cuts a control`, !hd.over && !hd.outside.length && !hd.kids.some((k) => k.cut), hd);
@@ -128,20 +128,18 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   await ev(`document.querySelector('#dcSeg button[data-v="enhanced"]').click()`); await settle(300);
 }
 
-// ---- laptop, the X → Y view (the default example's view)
+// ---- laptop, the X → Y view (the default example's view): X's head (Y's pane is not drawn)
 for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [1440, 900, 'ru']]) {
   const XY = { shapes: [{ type: 'disc', cx: 0, cy: 0, r: 1 }], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
   await fresh(w, h, false, lang, 'xy', XY);
   const tag = `${w} ${lang || 'en'} X → Y`;
-  for (const side of ['L', 'R']) {
-    const hd = await head(side);
-    ok(`${tag} ${side}: no Display button; a Regions button; nothing overflows or is cut`, !hd.disp && hd.pat && !hd.over && !hd.outside.length && !hd.kids.some((k) => k.cut), hd);
-    if (w === 1440 && !lang) ok(`${tag} ${side}: the title shows`, hd.title && hd.title.shown, hd.title);
-  }
-  const pb = await ev(`(() => { const b = document.querySelector('#rightFoot .pat-btn'); return { name: b.getAttribute('aria-label'), tip: b.dataset.tip, h: b.getBoundingClientRect().height }; })()`);
+  const hd = await head();
+  ok(`${tag}: no Display button; a Regions button; nothing overflows or is cut`, !hd.disp && hd.pat && !hd.over && !hd.outside.length && !hd.kids.some((k) => k.cut), hd);
+  if (w === 1440 && !lang) ok(`${tag}: the title shows`, hd.title && hd.title.shown, hd.title);
+  const pb = await ev(`(() => { const b = document.querySelector('#leftFoot .pat-btn'); return { name: b.getAttribute('aria-label'), tip: b.dataset.tip, h: b.getBoundingClientRect().height }; })()`);
   ok(`${tag}: the Regions button is named Regions`, /^(Regions|Области)$/.test(pb.name) && pb.tip === pb.name, pb);
-  await ev(`document.querySelector('#rightFoot .pat-btn').click()`); await settle(500);
-  let p = await ev(`(() => { const p = document.querySelector('#popHost .pat-pop'); if (!p) return null; const b = p.getBoundingClientRect(), hd = document.querySelector('#paneR .pane-head').getBoundingClientRect(); return { swatches: p.querySelectorAll('#patternSeg, .pat, [data-pat], #regionsBox canvas').length, ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => p.querySelector('#' + id)), titles: p.querySelectorAll('.opts-h').length, under: b.top >= hd.bottom - 1, exp: document.querySelector('#rightFoot .pat-btn').getAttribute('aria-expanded') }; })()`);
+  await ev(`document.querySelector('#leftFoot .pat-btn').click()`); await settle(500);
+  let p = await ev(`(() => { const p = document.querySelector('#popHost .pat-pop'); if (!p) return null; const b = p.getBoundingClientRect(), hd = document.querySelector('#paneL .pane-head').getBoundingClientRect(); return { swatches: p.querySelectorAll('#patternSeg, .pat, [data-pat], #regionsBox canvas').length, ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => p.querySelector('#' + id)), titles: p.querySelectorAll('.opts-h').length, under: b.top >= hd.bottom - 1, exp: document.querySelector('#leftFoot .pat-btn').getAttribute('aria-expanded') }; })()`);
   ok(`${tag}: the Regions button opens the regions' options (grid lines, their step, chevrons, opacity), no pattern swatches, under the head, with no title`, p && p.swatches === 0 && p.ids.length === 4 && p.titles === 0 && p.under && p.exp === 'true', p);
   const lines0 = await ev(`document.getElementById('linesChk').checked`);
   await ev(`document.getElementById('linesChk').click()`); await settle(500);
@@ -149,16 +147,17 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   await ev(`document.getElementById('linesChk').click()`); await settle(300);
   await key('Escape'); await settle(300);
   ok(`${tag}: Escape closes it, and the regions' box goes home`, (await pops()) === 0 && (await ev(`document.getElementById('regionsBox').parentElement.id`)) === 'regionsHome', await ev(`document.getElementById('regionsBox').parentElement.id`));
-  // View outline, Phase key, Unit circle: inline in Y's head, or behind its ⋯ (with no title); with nothing inline, in
-  // the Regions button's pop-up above the regions' options (one button, #247 option 1)
-  for (const id of ['fovChk', 'wKeyChkR', 'unitChk']) {
+  // Unit circle: inline in X's head, or behind its ⋯ (with no title); with nothing inline, in the Regions button's
+  // pop-up above the regions' options (one button, #247 option 1). (standards-ok: View outline and Phase key were Y's,
+  // whose pane is not drawn since #994; so are the tour's Phase key step and the zoom over Y's plane)
+  for (const id of ['unitChk']) {
     let c = await ctl(id);
     let opened = false;
     if (!(c && c.vis && c.inHead)) {
-      await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400);
+      await ev(`(document.querySelector('#leftFoot .opts-btn:not(.pat-btn)') || document.querySelector('#leftFoot .pat-btn')).click()`); await settle(400);
       opened = true; c = await ctl(id);
       ok(`${tag}: ${id} not in the head is in the ⋯ or Regions pop-up, with no title`, c && c.vis && c.inPop && (await ev(`document.querySelectorAll('#popHost .opts-h').length`)) === 0, c);
-    } else ok(`${tag}: ${id} in Y's head is an icon toggle named for screen readers`, c.w <= 30 && c.name.length > 2, c);
+    } else ok(`${tag}: ${id} in X's head is an icon toggle named for screen readers`, c.w <= 30 && c.name.length > 2, c);
     const was = c && c.checked;
     await clickId(id); await settle(400);
     ok(`${tag}: ${id} toggles`, (await ev(`(document.getElementById('${id}') || {}).checked`)) === !was, was);
@@ -255,49 +254,20 @@ for (const lang of ['', 'ru']) {
   ok(`${tag}: each style ≥ 44 × 44 px with its word, inside the sheet, none broken`, sh && sh.btns && sh.btns.every((b) => b.w >= 44 && b.h >= 44 && b.in && b.word && !b.broken.length), sh && sh.btns);
   await ev(`Phone.close(true)`); await settle(300);
 }
-// the tour's Phase key step where Y's head holds no toggle (they are merged into the Regions button's pop-up): the step
-// is visited, not skipped as missing, and it lights the control that holds the key. The runners' wider fonts merged
-// them at 1440 px, where the tour shard runs; here the step is run at four narrower widths with wider titles, and at
-// one of them at least the key must be behind the Regions button, so the merged case is the one checked
-{
-  const runs = [];
-  for (const w of [1280, 1180, 1100, 1024]) {
-    await view(w, 800, false, false);
-    await go(`${U}?ns=dinlkey${w}${Date.now() % 1000000}`); await sleep(2500);
-    await ev(`__cmwSetMain('xy'); 1`); await settle(1200);
-    // (the runners' wider fonts, emulated: titles that need more room, so the toggles give way as they did there)
-    await ev(`(() => { const st = document.createElement('style'); st.textContent = '.pane-title { letter-spacing: ${w > 1200 ? 4 : 2}px; }'; document.head.append(st); return 1; })()`); await settle(600);
-    await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'views' }); return 1; })()`); await settle(1500);
-    const ids = [];
-    let lit = null;
-    for (let k = 0; k < 10 && (await ev('Tour.isActive()')); k++) {
-      const c = await ev('Tour.current()');
-      if (!c || c.chapter !== 'views') break;
-      ids.push(c.id);
-      if (c.id === 'key') lit = await ev(`(() => { const L = Tour.lit(), a = L && L.anchor, b = document.querySelector('#wKeyChkR'), k = b && document.body.contains(b) ? (b.closest('label') || b) : document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn'), r = k && k.getBoundingClientRect(); return { a, k: r && { l: r.left, r: r.right }, pat: !!k && k.classList.contains('pat-btn') }; })()`);
-      await ev('Tour.next(); 1'); await settle(900);
-    }
-    await ev('Tour.isActive() ? Tour.stop() : 0; 1'); await settle(300);
-    runs.push({ w, ids, lit });
-    ok(`${w} en X → Y: the tour visits the Phase key step (not skipped as missing)`, ids.includes('key'), ids);
-    ok(`${w} en X → Y: the Phase key step lights the control that holds the key`, lit && lit.a && lit.k && Math.abs(lit.a.l - lit.k.l) < 2 && Math.abs(lit.a.r - lit.k.r) < 2, lit);
-  }
-  ok('the Phase key step was checked with the key behind the Regions button at one width at least', runs.some((r) => r.lit && r.lit.pat), runs.map((r) => [r.w, r.lit && r.lit.pat]));
-}
-// the per-frame path (#320): MP.renderRight lays the heads out every pan or zoom frame. With nothing changed, a frame
-// touches nothing in either pane head (no class written, no child moved) and forces no layout: Chrome's own counter over
-// 20 wheel-zoom frames over Y's plane (the heads must not lay out per frame: clearing the title's classes and reading widths would force a layout each)
+// the per-frame path (#320): a pan or zoom frame of X's plane. With nothing changed, a frame touches nothing in the pane
+// head (no class written, no child moved) and forces no layout: Chrome's own counter over 20 wheel-zoom frames over the
+// plane (the head must not lay out per frame: clearing the title's classes and reading widths would force a layout each)
 {
   await fresh(1440, 900, false, '', 'xy');
   await settle(1200);
-  const r = await ev(`(() => { const b = document.getElementById('paneR').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+  const r = await ev(`(() => { const b = document.getElementById('paneL').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r[0], y: r[1] }); await settle(400);
   // (what the strips' layout writes: the strip's children and classes, the title's classes, the pane's 'tiny'; the scale
   // readout's text, which a zoom changes, is not the layout's)
   await ev(`(() => { window.__hdMut = 0; window.__hdWhat = []; const mo = new MutationObserver((ms) => { window.__hdMut += ms.length; for (const m of ms) if (window.__hdWhat.length < 6) window.__hdWhat.push(m.type + ' ' + (m.target.id || m.target.className)); });
     for (const f of document.querySelectorAll('.pane-head > .options')) mo.observe(f, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'] });
     for (const t of document.querySelectorAll('.pane-head > .pane-title')) mo.observe(t, { attributes: true, attributeFilter: ['class'] });
-    for (const p of [document.getElementById('paneL'), document.getElementById('paneR')]) mo.observe(p, { attributes: true, attributeFilter: ['class'] });
+    for (const p of [document.getElementById('paneL')]) mo.observe(p, { attributes: true, attributeFilter: ['class'] });
     window.__hdMO = mo; return 1; })()`);
   await send('Performance.enable', {});
   const lc = async () => (await send('Performance.getMetrics', {})).metrics.find((m) => m.name === 'LayoutCount').value;

@@ -66,7 +66,7 @@
   };
   // TEST-HOOK
   // cameras: 28° telephoto. dist is the fit distance for the bounding sphere at the pane's aspect; render3D and
-  // renderSphere refit it every frame (refitCam), so zoom limits (0.4–4 × dist) and resets stay relative to the fit.
+  // renderSphereLeft refit it every frame (refitCam), so zoom limits (0.4–4 × dist) and resets stay relative to the fit.
   const CAM3 = { yaw: -38 * DEG, pitch: 30 * DEG, dist: 1.77 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: -0.04, fov: 28 * DEG };
   const CAMS = { yaw: -60 * DEG, pitch: 18 * DEG, dist: 1.16 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: 0, fov: 28 * DEG };
   const cam = Object.assign({ vyaw: 0, vpitch: 0 }, CAM3);
@@ -158,8 +158,8 @@
     const leg = dirty.G || dirty.R; // the legend repaints only when its key or the needle changed
     dirty.G = false;
     // (each plane drawn says, after it, what its canvas shows only in words: paneSays … paneSaid)
-    if (dirty.L) { dirty.L = false; if (solo() !== 'R') { paneSays(paneL); try { renderLeft(); } catch (e) { console.error(e); } paneSaid(paneL); } }
-    if (dirty.R) { dirty.R = false; if (solo() !== 'L') { paneSays(paneR); try { renderRight(); } catch (e) { console.error(e); } paneSaid(paneR); } }
+    if (dirty.L) { dirty.L = false; paneSays(paneL); try { renderLeft(); } catch (e) { console.error(e); } paneSaid(paneL); }
+    dirty.R = false;
     dirty.OL = dirty.OR = false;
     if (invPaneQ.drew.L && invPaneQ.drew.R) for (const k of ['L', 'R']) if (invPaneQ[k]) invPaneQ[k].share = 0.5;
     invPaneQ.L = invPaneQ.R = null; invPaneQ.drew.L = invPaneQ.drew.R = false;
@@ -220,16 +220,7 @@
     if (rightAuto) Object.assign(V.right, fittedView(paneR, k, [k - 1]));
     requestRender('R');
   }
-  function transState() {
-    // (the glide's t is the spring's own, already eased)
-    const u = trans.glide ? glide.x - Math.floor(glide.x - 1e-6) : Math.min(1, (performance.now() - trans.t0) / trans.dur);
-    const t = trans.glide ? u : u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
-    const k = trans.k, Fprev = stageF(k - 1);
-    // a new d/dz step slides from G_{k−1} to G_k along the straight line
-    if (isDeriv(k)) return { map: { mode: 1, hi: k, t }, F: lerpF(Fprev, stageF(k), t), u };
-    const Ht = homF(k, t);
-    return { map: { mode: 1, hi: k, t }, F: (z) => Ht(Fprev(z)), u };
-  }
+
   // smooth view transitions
   const tweens = [];
   function tweenView(view, target, ms = 260, onDone) {

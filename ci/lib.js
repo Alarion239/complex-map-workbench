@@ -53,4 +53,7 @@ function runAsync(cmd, args, opts = {}) {
 // would end the cell, and newlines that would end the row
 const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-module.exports = { ROOT, PY, serve, summary, run, runAsync, esc };
+// a string made literal inside a RegExp source: every metacharacter (and the backslash) escaped
+const reEscape = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+module.exports = { ROOT, PY, serve, summary, run, runAsync, esc, reEscape };
