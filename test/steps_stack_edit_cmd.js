@@ -7,7 +7,12 @@
 //  - the arrows, with the plane focused, nudge the target; a run of three presses is one undo step;
 //  - a point pinned on the glass (Shift+Enter) stays pinned while the camera turns and through Tilt ⇄ Look down;
 //  - the edits survive a reload of the saved state and a link opened fresh;
-//  - on a phone (390 × 844, touch) a finger's press 18 px off the square drags it, where a mouse's press there does not.
+//  - over the square the cursor is the resize cursor along the line from the centre to it on screen (ns-resize where that
+//    line is upright), and the lit square goes out when the pointer jumps off the plane;
+//  - a radius bound to a point (s.at.r) has no square, and a drag where it would be leaves r following its point;
+//  - on a phone (390 × 844, touch) a finger's press 18 px off the square drags it, where a mouse's press there does not;
+//    where the ring is drawn smaller than a finger's reach (s = 40), a finger on the ring's far side drags the disc, not
+//    the square.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -17,7 +22,7 @@ const until = (expr, max = 60000) => settled({ until: expr, max });
 const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
 const DEG = Math.PI / 180;
 const STEPS = [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }];
-const STATE = () => ({ v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: STEPS, nextId: 50, focus: 0, srcView: { cx: 0.6, cy: 0, s: 110 }, sv: { at: 0, T: -1, scope: 'all', surf: 'stack', cam: [-30, 35] } });
+const STATE = (s = 110) => ({ v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: STEPS, nextId: 50, focus: 0, srcView: { cx: 0.6, cy: 0, s }, sv: { at: 0, T: -1, scope: 'all', surf: 'stack', cam: [-30, 35] } });
 let NS = '';
 // the page on state st (or a link's hash), the target selected and the Pick tool chosen
 const open = async (w, h, phone, { st = STATE(), hash = '', ns = `sedit-${Date.now()}` } = {}) => {
@@ -159,6 +164,41 @@ await cam(-30, 35);
   } else ok('the link encodes', false, payload);
 }
 
+// ---- the cursor over the square, along the line from the centre to it, and the lit square put out off the plane
+for (const yaw of [-30, 90]) {
+  await open(1440, 900, false);
+  await cam(yaw, 35);
+  const sq = await square(), o = await onGlass([1.1, 0]);
+  if (!sq) { ok(`yaw ${yaw}: the square to hover`, false, sq); continue; }
+  for (const dx of [2, 1, 0]) await mouse('mouseMoved', sq[0] + dx, sq[1]);
+  await frames();
+  const a = Math.atan2(sq[1] - o[1], sq[0] - o[0]), k = Math.round((((a % Math.PI) + Math.PI) % Math.PI) / (Math.PI / 4)) % 4;
+  const want = ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][k];
+  const cur = await ev(`document.getElementById('overlayL').style.cursor`), lit = (await ev('__cmwStack()')).drawn.picks.squareLit;
+  info[`cursor ${yaw}`] = { sq, o, cur, want, lit };
+  ok(`yaw ${yaw}: over the square the cursor is ${want}, along the centre's line to it, and the square is lit`, cur === want && lit === true, info[`cursor ${yaw}`]);
+  if (yaw === 90) ok('at yaw 90 the line from the centre to the square is upright on screen: ns-resize', want === 'ns-resize', info[`cursor ${yaw}`]);
+  await mouse('mouseMoved', 4, 4);
+  await frames();
+  const off = (await ev('__cmwStack()')).drawn.picks.squareLit;
+  ok(`yaw ${yaw}: a jump of the pointer off the plane puts the lit square out`, off === false, { off });
+}
+
+// ---- a radius bound to a point: no square, and r keeps following the point
+{
+  const st = STATE();
+  st.shapes = [{ id: 'p', kind: 'point', p: [1.35, 0], stage: 1 }, { id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1, at: { r: { s: 'p' } } }];
+  await open(1440, 900, false, { st });
+  await cam(-30, 35);
+  const sq = await square(), a = await onGlass([1.35, 0]), b = await onGlass([1.55, 0]), d0 = await disc();
+  info.bound = { sq, d0 };
+  ok('a radius bound to a point has no square on the glass', !sq && !!d0 && !!d0.at && !!d0.at.r, info.bound);
+  await dragTo(false, a, b);
+  const d1 = await disc();
+  info.bound.d1 = d1;
+  ok('a drag where its square would be leaves r following its point', !!d1 && near(d1.r, Math.hypot(1.35 - d1.c[0], d1.c[1]), 1e-6) && !near(d1.r, 0.45, 0.01), info.bound);
+}
+
 // ---- a phone: a finger reaches the square 18 px off it, a mouse does not
 for (const finger of [true, false]) {
   const who = finger ? 'a finger' : 'a mouse';
@@ -173,6 +213,20 @@ for (const finger of [true, false]) {
   info[`phone ${who}`] = { sq, d0, d1 };
   if (finger) ok('phone: a finger\'s press 18 px off the square drags it: r grows, the centre stays', d1.r > d0.r + 0.01 && d1.c[0] === d0.c[0] && d1.c[1] === d0.c[1], info[`phone ${who}`]);
   else ok('phone: a mouse\'s press 18 px off the square leaves r as it was', d1.r === d0.r, info[`phone ${who}`]);
+}
+
+// ---- a phone, the ring drawn smaller than a finger's reach: a finger on its far side drags the disc, not the square
+{
+  await open(390, 844, true, { st: STATE(40) });
+  await cam(-30, 35);
+  const sq = await square(), o = await onGlass([1.1, 0]), west = await onGlass([0.85, 0]), d0 = await disc();
+  info.small = { sq, o, west, gap: sq && Math.hypot(sq[0] - west[0], sq[1] - west[1]) };
+  if (sq && info.small.gap <= 22) {
+    await dragTo(true, west, [west[0] - 24, west[1]]);
+    const d1 = await disc();
+    info.small.d1 = d1;
+    ok('phone, a small ring: a finger on its far side, within a finger\'s reach of the square, drags the disc, not the square', d1.r === d0.r && Math.abs(d1.c[0] - d0.c[0]) > 0.05, info.small);
+  } else ok('phone, a small ring: its far side within a finger\'s reach of the square', false, info.small);
 }
 
 return { pass: fails.length === 0, passed: pass, fails, info };
