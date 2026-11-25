@@ -404,9 +404,11 @@ Files: `src/tour.js`, `src/app.js` (the adapter, two event lines, the guide text
 `showPlane(pane)` (the large plane on a phone). Before a step without a `panel` action the tour calls `closeSheet()`.
 On a phone `showPanel('right')` opens the Editor sheet. `restore()` closes a sheet and puts the large plane back.
 
-**The guide** (`openGuide`): the intro says "shown alone"; the chain paragraph names the Inspector, the indexed
-coefficients and double-click; new paragraphs on the cards' pictures, Shared numbers (links and scene files) and the
-planes' menu; zeros and poles name Add zero / Add pole; inverses live in the ⋯ menu; Guarantees describe the F tile.
+**The guide** (`openGuide`): the intro says the view shows one plane at a time and the thread holds a dot for each; the
+chain paragraph names the Inspector, the indexed coefficients and double-click; Planes and surfaces describes the colour
+plane, Inside regions and the surface button; Preimages and roots describes targets on a later plane; Shared numbers
+(links and scene files) and the planes' menu have paragraphs; zeros and poles name Add zero / Add pole; inverses live in the
+⋯ menu; Guarantees describe the F tile.
 
 **Checks:** `node test/t_tour.js` 1084/1084 (the v14 copy in the main tree still 933/933: the v15 names are in their
 own tables). `t_i18n_keys`, `t_i18n`, `t_i18n_english`, `t_params` pass. A walk of every step at 1440 and 390 px
