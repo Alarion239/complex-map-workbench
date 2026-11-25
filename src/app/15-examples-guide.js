@@ -439,7 +439,7 @@
     if (a || b) {
       // (a merged view widens one pane: its options strip re-flows at the new width; a hidden pane is not fitted)
       layoutFoot();
-      sourceViewChanged();
+      sourceViewChanged(true);
       if (rightAuto && rImage() && solo() !== 'L') fitRight();
       requestRender('L', 'R');
       sndRelayout();   // (sound: the plane under a still pointer moved)

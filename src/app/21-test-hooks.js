@@ -56,9 +56,9 @@
   // the old layout's other pane for that picture (the shapes plane beside an old Phase or Landscape view): null when
   // the view is one merged panel here (the perf suite then measures X's plane in X → Y, the same picture)
   window.__cmwOtherPane = (mode, sphereMode) => (Views.merged(S.view) ? null : Views.paneOf(mode, sphereMode) === 'L' ? 'R' : 'L');
-  // exact images (SPEC 10.1): the path of every visible area shape in every visible view: [{id, role, viewKind, path, reason}]
   // (the z-plane's meshing window, the left pane's size and the source view it is the window of: tests compare them)
   window.__cmwClipWin = () => ({ win: Object.assign({}, clipWin), pane: [paneL.w, paneL.h], srcView: Object.assign({}, S.srcView), pending: !!sourceViewChanged.pending, dflt: clipDefault });
+  // exact images (SPEC 10.1): the path of every visible area shape in every visible view: [{id, role, viewKind, path, reason}]
   // (entries: each published mesh, its slot `<shape id>|<role>|<kind>` and what its job spent; end: why the job ended,
   // 'done', 'work' or 'nodes' (its deterministic budgets) or 'budgetMs' (the safety stop, cap ms of CPU: a partial mesh
   // that depends on the machine's speed))
