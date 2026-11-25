@@ -547,7 +547,7 @@
  "Try: hover near a pole: |Γ| grows without bound.": "Попробуйте: наведите на полюс: |Γ| неограниченно растёт.",
  "Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.": "Попробуйте: приблизьте место, где луч касается M, или нажмите f₁ и добавьте свой луч (θ = 1/7, 2/7, …).",
  "Go to {p}": "Перейти к %{p}",
- "key line\u0004colour carried from {p}": "цвет перенесён из\u00a0%{p}",
+ "key line\u0004colour carried from {p}": "цвет перенесён из %{p}",
  "Planes": "Плоскости",
  "Two planes": "Две плоскости",
  "Paths is for the Plane and Sphere surfaces": "Пути — только для поверхностей «Плоскость» и «Сфера»",
@@ -877,5 +877,9 @@
  "No sheet under the centre of the view": "Под центром вида нет листа",
  "Click to pick · hold and slide to read": "Щелчок выбирает точку · удерживайте и ведите, чтобы прочитать",
  "Tap to pick · hold and slide to read": "Касание выбирает точку · удерживайте и ведите, чтобы прочитать",
- "Tap to pick · hold and slide to read · drag to orbit · pinch to zoom": "Касание выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает · двумя пальцами — масштаб"
+ "Tap to pick · hold and slide to read · drag to orbit · pinch to zoom": "Касание выбирает точку · удерживайте и ведите, чтобы прочитать · перетаскивание вращает · двумя пальцами — масштаб",
+ "This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own chip and plane: the glide then plays them one by one. Undo brings the formula back.": "Эта формула — цепочка шагов каталога, и её редактор показывает, из чего она составлена. Разложите её, и у каждого шага появится своя метка и плоскость: переход пройдёт их один за другим. «Отменить» вернёт формулу.",
+ "This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own chip and plane: the glide then plays them one by one. Undo brings the formula back.": "Эта формула — цепочка шагов каталога, и инспектор показывает, из чего она составлена. Разложите её, и у каждого шага появится своя метка и плоскость: переход пройдёт их один за другим. «Отменить» вернёт формулу.",
+ "A chip and a plane for each transform; undo brings it back.": "Метка и плоскость на каждый шаг; отмена вернёт формулу.",
+ "Each step gets its own chip and plane; the glide plays them one by one.": "У каждого шага будет своя метка и плоскость; переход пройдёт их по очереди."
 }
