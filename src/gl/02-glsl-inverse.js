@@ -906,9 +906,11 @@ float invLeaf(Lf L, out bool cov) {
   // a globe program's pixel is anisotropic: the walk's range levels are converted to pixels along the footprint vectors
   // (GLChain's ixFoot under IX_ANISO; set by INV_MAIN(globe))
   const INV_GLOBE_PRE = '#define IX_ANISO 1\nvec2 ixAwX, ixAwY;\n';
-  // B: compile-time buffer size; globe: Sphere view geometry (P3)
+  // B: compile-time buffer size; globe: Sphere view geometry (P3). A globe program's uOpaqueOnly = 1 discards a pixel the
+  // composite does not cover opaquely, so the pass draws (and marks the stencil) only where it hides everything behind it
+  // (sphereRegions' sheet copies under the principal sheet)
   const INV_MAIN = (globe) => glsl`
-${globe ? 'in vec3 vP; uniform vec3 uEye;' : ''}
+${globe ? 'in vec3 vP; uniform vec3 uEye; uniform int uOpaqueOnly;' : ''}
 void main() {
 ${globe ? glsl`  vec3 P = normalize(vP);
   // S = 0, N = infinity, the conjugate lift's inverse w = (P.x - i P.y) / (1 - P.z); near the north pole w = 1 / u
@@ -967,6 +969,7 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * u
     if (ixTailInf || uLastOpaque == 1) { C += T * mc; T = 0.0; }
   }
 ${globe ? `  float a = U * (1.0 - T);
+  if (uOpaqueOnly == 1 && a < 1.0 - 0.5 / 255.0) discard;
   if (!(a > 0.0)) { o = vec4(0.0); return; }
   vec3 v = normalize(uEye - vP);
   o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}

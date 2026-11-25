@@ -832,6 +832,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         invGlobeSc++; invGlobeScPx += (x1 - x0) * (y1 - y0);
       }
       uM4(P, 'uMVP', st.sphere.MVP); u3(P, 'uEye', st.sphere.eye);
+      // (st.opaqueOnly: only the pixels the composite covers opaquely; the stencil the caller set marks them)
+      u1i(P, 'uOpaqueOnly', st.opaqueOnly ? 1 : 0);
       globeLight(P, st.sphere);
       const g = sphere();
       const dt = gl.isEnabled(gl.DEPTH_TEST);
