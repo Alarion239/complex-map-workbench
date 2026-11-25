@@ -29,22 +29,25 @@
   // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
   const svGateDraws = () => !!SV.gate && svFlatSurf() && lFlat() && svT() === 0 && Math.round(SV.g.x) === 0 && Math.abs(SV.g.x) < SV_REST_U;
   // start() now, or once the chain is prepared; btn is the control the wait shows on, M the motion start() starts from
-  // rest (its frames drawn ahead, svAheadPart), or none
-  function svGated(btn, start, M) {
+  // rest (its frames drawn ahead, svAheadPart), or none; was: the wait this one starts again (Retry), whose ring it keeps
+  // (svWaitLook's fill and said, and the frames' start, aheadFrom)
+  function svGated(btn, start, M, was = null) {
     if (SV.gate) return;
     if (!svGateNeeded(M)) { start(); return; }
     SV.gate = { btn, start, M, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
+    if (was) Object.assign(SV.gate, { fill: was.fill, said: was.said, aheadFrom: was.aheadFrom });
     svPrestartSoon(0);
     if (svGateDraws()) requestRender('L');
     svGateTick();
   }
-  // (restart: Retry keeps the ring shown, with no pause before it, and says the live region's line again)
+  // (restart: Retry keeps the ring shown, as far as it had filled, with no pause before it, and says the live region's
+  // line again)
   function svGateRetry() {
     const g = SV.gate;
     if (!g) return;
     const { btn, start, M } = g;
     svGateEnd(true);
-    svGated(btn, start, M);
+    svGated(btn, start, M, g);
     // (its line is said on the next poll, a task after svGateEnd emptied the live region, so the write is a change a screen
     // reader announces)
     if (SV.gate) { SV.gate.shown = true; SV.gate.sayAgain = true; svGateSync(); }
