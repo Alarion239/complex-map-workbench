@@ -2,7 +2,7 @@
 // (landCarryTF and landCarry) link, on a cold load with ?glhold (which keeps every chain program's link pending, GLR.holdLinks),
 // in the steps view: z → z²+1 → exp, T = w₁, the Landscape of plane w₂, Everywhere. The carried frame is plane w₁'s points
 // moved by exp (the glide's map from plane s = T), each at its height and colour in T, which are w₁'s own:
-// - a job in the stand-in engine (standInOf) evaluates plane s's grid over its box, and ends with a level done (its nodes kept:
+// - a job in the stand-in engine (standInOf) evaluates plane s's grid over its box, and ends with a level done (its nodes held:
 //   __cmwStandIn, carry: true);
 // - each node of it holds the place of its point (q: exp of the point) and its value in the height plane (w: the point itself, the
 //   stages (s, T] being none), read against the box's point and exp, not against the app's own evaluators;
@@ -25,7 +25,7 @@ await run(2, 'w2');
 const w = await settled({ only: true, max: 60000, panes: false, until: '!!__cmwStandIn() && __cmwStandIn().carry && __cmwStandIn().end !== null' });
 const si = await ev('__cmwStandIn()'), cs = await ev('typeof __cmwCarryStandIn === "function" ? __cmwCarryStandIn(9) : null');
 info.w2 = { wait: w, standIn: si, nodes: cs ? cs.nodes.length : null, box: cs ? cs.box : null };
-ok('plane w₂ past T: a carried job runs and ends with a level done kept (the job ended, its nodes drawn)', w.ok && !!si && si.carry && si.land && si.nodes >= MIN_NODES && (si.end === 'done' || si.end === 'budget'), info.w2);
+ok('plane w₂ past T: a carried job runs over the box grid and ends with a level done kept (the job ended, its nodes held)', w.ok && !!si && si.carry && si.land && si.nodes >= MIN_NODES && (si.end === 'done' || si.end === 'budget'), info.w2);
 if (cs) {
   const { box } = cs, bad = [];
   for (const n of cs.nodes) {

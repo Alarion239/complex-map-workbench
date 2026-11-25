@@ -63,8 +63,10 @@
     if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
     return standInOf({ vkey: `carry|${carry.s}|${carry.T}|${carry.hT}|${src.x0},${src.x1},${src.y0},${src.y1}`, name: 'landCarry', names, map: carry.map, hmap: carry.hmap, land: src });
   }
-  // the job's grid for what a stand-in is of (key: the map, vkey: its view; the fields colourStandIn and globeStandIn
-  // give), started when there is none for it: -> the finest level done, else the same map's from an earlier view
+  // the job's grid for what a stand-in is of (key: standInKey, the map and a carried frame's height map; vkey: its view; the fields
+  // colourStandIn, globeStandIn, landStandIn and landCarryStandIn give), started when there is none for it: -> the finest level done,
+  // else the same map's from an earlier view
+  // the key of the maps a job evaluates: the map, and with a carried frame's hmap the height map after it
   const standInKey = (o) => (o.hmap ? `${mapKeyOf(o.map)}|${mapKeyOf(o.hmap)}` : mapKeyOf(o.map));
   function standInOf(o) {
     const key = standInKey(o);

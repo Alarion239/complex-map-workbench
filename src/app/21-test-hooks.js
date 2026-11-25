@@ -79,9 +79,9 @@
   window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
   window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
-  // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn): the cell of its finest
-  // level done (css px; null before one; 0 on the globe and the Landscape, whose levels have no cell), whether it is the globe's or
-  // the Landscape's, and its
+  // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn, and landCarryStandIn for
+  // a carried frame at rest): the cell of its finest level done (css px; null before one; 0 on the globe and the Landscape, whose
+  // levels have no cell), whether it is the globe's or the Landscape's, whether it is a carried frame's (carry), and its
   // nodes, its evaluations, CPU ms, slices, the first slice and the longest after it (ms) and why it stopped (null while
   // it runs); null when none
   /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, globe: !!j.globe, land: !!j.land, carry: !!j.H, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
