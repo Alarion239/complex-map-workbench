@@ -1,9 +1,9 @@
 // The phone's parts of the classic view, checked on a phone (412 × 860, 360 × 780 and 915 × 412, Android emulation, real touch events through
-// Input.dispatchTouchEvent) and on a laptop (1366 × 768, the mouse): Undo in every sheet head and in the Deformation bar, tips that never stick,
+// Input.dispatchTouchEvent) and on a laptop (1366 × 768, the mouse): Undo in every sheet head, tips that never stick,
 // Back closing the top layer, the function list, a rotation keeping the open sheet and field, the on-screen keyboard, the fixed key column,
-// the speed key, the Shapes list and the ⋯ sheet, the Deformation bar in two rows, the Both key, the context bar, the
-// last pick of a construction on touch, and a pinch on the app's own controls. They test the chain bar and its sheet, the Deformation bar and its
-// dock, the Both key, and the Editor, keyboard and construction touches as the classic view reaches them. The Tools sheet's tabs,
+// the Shapes list and the ⋯ sheet, one plane (no Both key, no inset), the context bar, the
+// last pick of a construction on touch, and a pinch on the app's own controls. They test the chain bar and its sheet, and the Editor,
+// keyboard and construction touches as the classic view reaches them. The Tools sheet's tabs,
 // the tips in the Display and Editor sheets, a slow tap and the touch wording, which the steps view has, are test/ux165_phone_cmd.js.
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/ux165_phone_classic_cmd.js
@@ -49,7 +49,7 @@ const tipText = () => ev(`(() => { const t = document.getElementById('tip'); ret
 const phSt = () => ev('Phone._state()');
 const STEPS2 = [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }];
 
-// ---------------- Undo in every sheet head and in the deformation bar ----------------
+// ---------------- Undo in every sheet head ----------------
 await fresh('undo', 412, 860, false, true);
 for (const k of ['edit', 'tools', 'display', 'more']) {
   await ev(`Phone.open('${k}')`); await settle();
@@ -237,13 +237,13 @@ await fresh('keys', 412, 860, false, true);
 const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.ph-col .ph-key, .viewstack .vbtn')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-both-key') ? 'both' : e.classList.contains('ph-sph') ? 'sphere' : e.classList.contains('ph-dsp') ? 'display' : 'fit'] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
 const kv = {};
 kv.xy = await keys();
-await ev('Phone.swap()'); await settle(); kv.swap = await keys(); await ev('Phone.swap()'); await settle();
 await ev(`__cmwSetMain('phase'); 1`); await settle(); kv.phase = await keys();
 await ev(`__cmwSetMain('land'); 1`); await settle(); kv.land = await keys();
 info.keys = kv;
-for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
-for (const v of ['swap', 'phase']) ok(`sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
-ok('D8 Both is the column\'s top key', kv.xy.both && kv.xy.both[1] < kv.xy.sphere[1] && kv.xy.both[0] === kv.xy.sphere[0], kv.xy);
+for (const v of ['phase', 'land']) for (const k of ['display', 'fit']) ok(`${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
+for (const v of ['phase']) ok(`sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
+// (standards-ok: the Both key, Swap and Y's inset went with Y's pane, not drawn since #994: the classic phone shows X alone)
+ok('no Both key: Sphere is the column\'s top key', !kv.xy.both, kv.xy);
 ok('the column is at the bottom right, Sphere over Display over Fit', kv.xy.sphere[1] < kv.xy.display[1] && kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] > 600 && kv.xy.fit[0] > 340, kv.xy);
 // Landscape on a portrait phone: the surface uses more of the plane than the bounding sphere's fit
 const lb = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return [c.left, c.top, c.width, c.height]; })()`);
@@ -257,7 +257,7 @@ ok('the Landscape surface spans most of a portrait phone plane', (x1 - x0) / im.
 await ev(`__cmwSetMain('xy'); 1`); await settle();
 await view(915, 412, false, true); await settle();
 const k915 = await ev(`[...document.querySelectorAll('.ph-col')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(), p = e.closest('.plot').getBoundingClientRect(); return Math.round(p.bottom - b.bottom); })`);
-ok('915 × 412: each plane\'s column sits at the same height above the bottom', k915.length === 2 && k915[0] === k915[1] && k915[0] <= 64, k915);
+ok('915 × 412: the plane\'s column sits at most 64 px above the bottom', k915.length === 1 && k915[0] <= 64, k915);
 await grab();
 
 // ---------------- the Shapes list, the ⋯ sheet, the long-press tips ----------------
@@ -282,36 +282,11 @@ ok('V02 the links and scene files are rows of the ⋯ sheet', ['Copy link to thi
 ok('V02 no key shortcuts and no "again" rows before a first export', !/⌘|Ctrl E|again/.test(more.text), more.text);
 await grab();
 
-// ---------------- the Both key shows X above Y; remembered ----------------
+// ---------------- one plane: no Both key and no inset ----------------
 await withState('both', 412, 860, true, { shapes: [], steps: STEPS2 });
-const bx = () => ev(`(() => { const r = (id) => { const b = document.getElementById(id).getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), inset: document.getElementById(id).classList.contains('ph-inset') }; }; const k = document.querySelector('#paneL .ph-both-key'); const kb = k && k.getBoundingClientRect(); return { L: r('paneL'), R: r('paneR'), key: k && { w: Math.round(kb.width), h: Math.round(kb.height), vis: k.getClientRects().length > 0, pressed: k.getAttribute('aria-pressed') }, saved: (() => { try { return Object.keys(localStorage).filter((x) => /^cmw-ph-both/.test(x)).map((x) => localStorage.getItem(x)); } catch (e) { return null; } })() }; })()`);
-const b0 = await bx();
-ok('D8 the Both key: 44 px, off by default, the inset is the default', b0.key && b0.key.vis && b0.key.w >= 44 && b0.key.h >= 44 && b0.key.pressed === 'false' && b0.R.inset && b0.L.h > 500, b0);
-await tap('#paneL .ph-both-key');
-const b1 = await bx();
-ok('D8 Both: X above Y, each about half the stage, no inset', b1.key.pressed === 'true' && !b1.L.inset && !b1.R.inset && b1.L.w >= 400 && b1.R.w >= 400 && b1.R.t >= b1.L.t + b1.L.h - 2 && Math.abs(b1.L.h - b1.R.h) <= 4 && b1.L.h >= 300, b1);
-ok('D8 the choice is remembered', b1.saved && b1.saved.includes('1'), b1.saved);
-await ev(`Phone.open('display')`); await settle();
-const b2 = await ev(`(() => { const a = document.getElementById('paneL').getBoundingClientRect(), b = document.getElementById('paneR').getBoundingClientRect(); return { sideBySide: Math.abs(a.top - b.top) < 4 && b.left > a.left }; })()`);
-ok('D8 an open sheet takes over with X | Y side by side', b2.sideBySide, b2);
-await ev(`Phone.close(true)`); await settle();
-const b3 = await bx();
-ok('D8 … and Both is back when the sheet closes', !b3.L.inset && !b3.R.inset && b3.R.t >= b3.L.t + b3.L.h - 2, b3);
-await tap('#paneR .ph-both-key');
-const b4 = await bx();
-ok('D8 Both off: the large plane and the inset again', b4.key.pressed === 'false' && (b4.L.inset !== b4.R.inset) && b4.saved.includes('0'), b4);
-// probing X draws on the inset's overlay (the image point's dot and the gauge; the dot itself is judged on a screenshot)
-await withState('probe', 412, 860, true, { shapes: [], steps: STEPS2 });
-const ovPx = () => ev(`(() => { let n = 0; for (const c of document.querySelectorAll('#paneR canvas')) { let g = null; try { g = c.getContext('2d'); } catch (e) { /* */ } if (!g || !c.width) continue; const d = g.getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; } return n; })()`);
-const px0 = await ovPx();
-await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 230, y: 300, id: 1 }] }); await sleep(750);
-for (let i = 1; i <= 4; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 230 + i * 6, y: 300 - i * 5, id: 1 }] }); await sleep(80); }
-await settle();
-const px1 = await ovPx();
-await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle();
-ok('D8 probing X draws on the phone\'s Y inset overlay', px1 > px0 + 20, [px0, px1]);
+ok('one plane on the phone: no Both key, no inset', await ev(`[...document.querySelectorAll('.ph-both-key')].every((k) => !k.getClientRects().length) && !document.querySelector('.ph-inset')`));
 await withState('bothl', 915, 412, true, { shapes: [], steps: STEPS2 });
-ok('D8 landscape has both planes already: no Both key', await ev(`[...document.querySelectorAll('.ph-both-key')].every((k) => !k.getClientRects().length)`));
+ok('D8 landscape: no Both key', await ev(`[...document.querySelectorAll('.ph-both-key')].every((k) => !k.getClientRects().length)`));
 
 // ---------------- the context bar for what is selected or under way ----------------
 await withState('d3', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: STEPS2 });

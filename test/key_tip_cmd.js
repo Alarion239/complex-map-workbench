@@ -1,5 +1,5 @@
-// A head key says how to open it from the keyboard as well as the pointer (#2122): the Regions key (the classic view's
-// right pane) and the Height key (the steps view's Landscape), in English, Russian and Italian. Read from the accessibility
+// A head key says how to open it from the keyboard as well as the pointer (#2122): the Height key (the steps view's
+// Landscape), in English, Russian and Italian. Read from the accessibility
 // tree, as a screen reader gets it: the name is the key's own (no instruction), and the description, which holds what the
 // key draws, ends with the instruction "…; click it or press Enter to keep it open" in the page's words.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -9,7 +9,8 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const VIEW_W = 1280, VIEW_H = 800, LOAD_WAIT = 30000;
 const SEED = (surf) => ({ steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1' }], sv: { at: 0, T: 1, scope: 'all', surf } });
 const KEYS = [
-  { name: 'Regions key', id: 'rightLegend', url: 'view=classic' },
+  // (standards-ok: the classic view's Regions key, in Y's head, goes with Y's pane, which the classic view does not draw, #994;
+  // the Height key's rows read the same tip)
   { name: 'Height key', id: 'leftLegend', url: 'view=steps', seed: SEED('land') },
 ];
 const HINT = 'Point at it to unfold; click it or press Enter to keep it open';

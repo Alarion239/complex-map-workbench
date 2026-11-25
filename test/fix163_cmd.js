@@ -97,8 +97,8 @@ await view(1440, 900, false, false);
   // (a chip that would wrap keeps one line without its keyboard tail; this one in X at 1440 does.
   // The wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
   const u6 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
-  // (the chip names its tool in full on the steps view's wide plane, by its tile label on the classic left pane)
-  const u6tn = (await ev(`document.documentElement.classList.contains('sv')`)) ? 'Touching circle' : 'Touching';
+  // (the chip names its tool in full: X is the wide plane in both views)
+  const u6tn = 'Touching circle';
   const u6base = 'Pick the touching point on the unit circle, or a ring for a tangent · 2 of 2 · ' + u6tn;
   ok('U6 the chip after P with the rings', !!u6 && (u6.text === u6base + ' · ⌫ undo pick · Esc' || (u6.text === u6base.slice(0, -(' · ' + u6tn).length) + ' · ⌫ undo pick · Esc' && u6.lines === 1) || (u6.text === u6base && u6.lines === 1)), u6);
   const r0 = d.rings[0], r1 = d.rings[1], z0 = await W(r0.tp[0], r0.tp[1]);

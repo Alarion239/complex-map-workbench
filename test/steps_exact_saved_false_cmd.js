@@ -2,7 +2,8 @@
 // views: the page of a state that carries it is the page of the state without it.
 // - the steps view: at rest on a plane past the colour plane the frame is the frame without the key, and a glide frame is the same,
 //   drawn by the inverse pass ('inverse');
-// - the classic view: a region is drawn by the inverse pass ('inverse'), and the key is not kept in the figure's state.
+// - the classic view: a region's image on X at a focused stage is drawn by the inverse pass ('inverse'), and the key is
+//   not kept in the figure's state.
 // A control: the measure tells two different frames apart (plane 0's rest frame against plane 1's).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -74,15 +75,16 @@ ok('a glide is drawn by the inverse pass with the saved key, as without it', bas
 ok(`control: the measure tells plane 1's rest frame from plane 0's (over ${SAME_SHARE * 100} % of the points differ)`, ctl.share > SAME_SHARE, ctl);
 // the classic view: a region's path with the saved key
 const classicPath = async (extra) => {
-  const st = state(Object.assign({ shapes: [{ id: 's1', kind: 'disc', c: [0.3, 0.1], r: 1, ci: 0, visible: true }], steps: [{ type: 'pown', params: { n: 2 }, on: true }] }, extra));
+  // (X at stage 1 of [z², z²], focus 2: the plane w = z², where the region's image is drawn)
+  const st = state(Object.assign({ shapes: [{ id: 's1', kind: 'disc', c: [0.3, 0.1], r: 1, ci: 0, visible: true }], steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'pown', params: { n: 2 }, on: true }], focus: 2 }, extra));
   await open(st, '&view=classic');
   await settled({ max: START_WAIT, until: `typeof __cmwPaths === 'function'` });
   await drawn();
   return { paths: await evJson(`JSON.stringify(__cmwPaths())`), kept: await ev(`'exactImages' in (__cmwFigureState() || {})`) };
 };
 const cBase = await classicPath({}), cSaved = await classicPath({ exactImages: false });
-// (the classic left pane draws the source plane, an identity map that is always forward: the image is the right pane's)
-const pick = (r) => r.paths.filter((e) => e.id === 's1' && e.role === 'R').map((e) => ({ role: e.role, path: e.path, reason: e.reason }));
+// (X at stage 0 draws the source plane, an identity map that is always forward: the image is X's at the focused stage)
+const pick = (r) => r.paths.filter((e) => e.id === 's1' && e.role === 'L').map((e) => ({ role: e.role, path: e.path, reason: e.reason }));
 info.classic = { base: pick(cBase), saved: pick(cSaved), kept: cSaved.kept };
 ok('classic: a region is drawn by the inverse pass (the control: no key)', pick(cBase).length > 0 && pick(cBase).every((e) => e.path === 'inverse'), info.classic.base);
 ok('classic: with a saved exactImages: false the same region is drawn by the inverse pass too', pick(cSaved).length > 0 && pick(cSaved).every((e) => e.path === 'inverse'), info.classic.saved);

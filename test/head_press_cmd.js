@@ -4,7 +4,7 @@
 // 1.06:1). The mark is the strongest of the trigger's border colour, its inset ring and its fill, against the head's own background.
 // A laptop, light and dark. Each scene lists the triggers that must be there (a missing one fails, and every one of them is
 // checked, in every head that shows it): the steps view's Landscape has the ⋯, the key and the two menu buttons; the classic X → Y
-// view has the Regions button in each of its two heads, the ⋯ and the key (the left head's key is hidden there).
+// view, which draws X alone, has the Regions button in X's head.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -74,11 +74,16 @@ await ev(`(__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }), 1)`);
 await settled({ max: 30000, until: 'window.__cmwSteps && !__cmwSteps().moving' });
 ok('the page shows the steps view', await isSteps(), null);
 await scene('steps view', true, { 'Display options ⋯': 1, 'colour key': 1, 'Where colour shows': 1, Surface: 1 });
-// the classic X → Y view: both pane heads
+// the classic X → Y view: X's head, the one the view draws, with the Regions button
+// (standards-ok: Y's head and its ⋯, colour key and Regions button go with Y's pane, which the classic view does not draw, #994;
+// X's Regions button is read here, and the ⋯ and the key in the steps view's scene above)
 await load('headpressxy' + Date.now(), ST, '', 'classic');
 ok('the page shows the classic view', !(await isSteps()), null);
 await ev(`__cmwSetMain('xy'), 1`);
-await settled({ max: 15000, until: `!!document.querySelector('#paneR .pane-head .pat-btn')` });
-await scene('classic X → Y', false, { 'Display options ⋯': 1, 'Regions button': 2, 'colour key': 1 });
+await settled({ max: 15000, until: `!!document.querySelector('#paneL .pane-head .pat-btn')` });
+// (and the page at rest: pressed while the page is still settling after the switch, the pop-up closes again on its own
+// before its look is read, #2432; this wait goes when that is fixed)
+await settled({ max: 30000 });
+await scene('classic X → Y', false, { 'Regions button': 1 });
 await ev(`document.documentElement.removeAttribute('data-theme'), 1`);
 return { pass: fails.length === 0, fails, info };

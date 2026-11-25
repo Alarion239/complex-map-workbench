@@ -70,10 +70,11 @@
   // a press with the Pick tool at z (x, y in the pane): Look down's ring of the target, then a lit patch, then a line of
   // Look down drags its disc, anywhere else the twins light and a drag draws a disc; true when the press is the picker's.
   // The ring and the lines are drawn in the target's own coordinates at the floor's places, so they drag the target with
-  // the pointer (F the identity); a patch drags its area so that the area's point under the pointer stays under it
-  function pickDown(pane, z, x, y) {
+  // the pointer (F the identity); a patch drags its area so that the area's point under the pointer stays under it.
+  // finger: the press is a finger's or a pen's, which reaches the ring and the lines farther (lookHit)
+  function pickDown(pane, z, x, y, finger = false) {
     if (tool !== 'pick' || !pickAvail()) return false;
-    const k = leftStage(), patch = !lookHit(x, y, false) && pickPatch(k, z), s = patch || lookHit(x, y);
+    const k = leftStage(), patch = !lookHit(x, y, false, finger) && pickPatch(k, z), s = patch || lookHit(x, y, true, finger);
     if (s) {
       const F = patch ? rangeF(k, shapeStage(s)) : (w) => w;
       selected = s.id; zpSel = null; buildShapeList();
