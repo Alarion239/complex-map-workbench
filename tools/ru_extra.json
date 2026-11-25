@@ -878,5 +878,6 @@
  "out of the window from here up": "вне окна отсюда и выше",
  "the pieces cross here, not a join": "части здесь пересекаются, это не слияние",
  "the glide brings the pieces together from here, not a join": "переход сводит части вместе отсюда, это не слияние",
- "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Этот повтор слишком длинный, чтобы нарисовать его точно: образ областей здесь неизвестен, и плоскость заштрихована. С меньшим числом копий рисунок получается точным."
+ "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Этот повтор слишком длинный, чтобы нарисовать его точно: образ областей здесь неизвестен, и плоскость заштрихована. С меньшим числом копий рисунок получается точным.",
+ "Where the plane is hatched, the exact image could not be found.": "Там, где плоскость заштрихована, точный образ найти не удалось."
 }

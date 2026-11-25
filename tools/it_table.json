@@ -3527,5 +3527,7 @@
  "out of the window from here to height {s}": "fuori dalla finestra da qui fino all’altezza {s}",
  "out of the window from here up": "fuori dalla finestra da qui in su",
  "the pieces cross here, not a join": "i pezzi qui si incrociano, non è un’unione",
- "the glide brings the pieces together from here, not a join": "la transizione unisce i pezzi da qui, non è un’unione"
+ "the glide brings the pieces together from here, not a join": "la transizione unisce i pezzi da qui, non è un’unione",
+ "This repeated step is too long to draw exactly, so the image of the regions is not known here and the plane is hatched. Fewer copies draw exactly.": "Questo passo ripetuto è troppo lungo per essere disegnato esattamente: l’immagine delle regioni qui non è nota e il piano è tratteggiato. Con meno copie il disegno è esatto.",
+ "Where the plane is hatched, the exact image could not be found.": "Dove il piano è tratteggiato, non è stato possibile trovare l’immagine esatta."
 }
