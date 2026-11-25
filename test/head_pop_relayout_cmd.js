@@ -1,6 +1,7 @@
 // The Regions pop-up of a classic pane head (X → Y) stays open, and its button stays pressed, when the head lays its row out again
 // while the pop-up is open (#2432): right after the switch to X → Y, while the page settles, and when the head's width changes.
-// The button the pop-up hangs from is the one the head keeps, so a press on it closes the pop-up (the anchor's re-click).
+// The button the pop-up hangs from is the one the head keeps: a press on it closes the pop-up (the anchor's re-click) and Escape
+// gives the focus back to it. The relayouts are forced by a width change, so each row fails the same way every run.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -22,15 +23,22 @@ await settled({ max: 15000, until: `!!${BTN}` });
 await ev(`${BTN}.click(), 1`);
 const w = await settled({ max: 8000, until: `${STATE}.pop`, only: true });
 ok('pressed right after the switch: it opens', w.ok, w);
-await frames(40);
-await stands('right after the switch, once the page has settled');
-// at rest, the head's width changes: its row is laid out again with the pop-up open
-await ev(`${BTN}.click(), 1`);
-await settled({ max: 8000, until: `!document.querySelector('.pat-pop')`, only: true });
+// (the head laid out again by a width change while the pop-up is open, right after the switch: forced, not left to the page's own settling)
+const HEADW = `document.querySelector('#paneL .pane-head').getBoundingClientRect().width`;
+const wSw = await ev(HEADW);
+await view(1400, 900, false, false);
+const nSw = await settled({ max: 8000, until: `${HEADW} < ${wSw} - 1`, only: true });
+ok('right after the switch: the head narrowed', nSw.ok, { wSw, nSw });
+await frames(20);
+await stands('right after the switch, the head laid out again');
+// Escape (here, after that relayout) closes it and gives the focus back to the head's button, the one the head shows
+await ev(`document.querySelector('.pat-pop').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), 1`);
+const esc = await settled({ max: 8000, until: `!document.querySelector('.pat-pop') && document.activeElement === ${BTN}`, only: true });
+ok('Escape closes it and the focus is on the head\'s button', esc.ok, esc);
 await ev(`${BTN}.click(), 1`);
 await settled({ max: 8000, until: `${STATE}.pop`, only: true });
+// at rest, the head's width changes: its row is laid out again with the pop-up open
 await stands('at rest');
-const HEADW = `document.querySelector('#paneL .pane-head').getBoundingClientRect().width`;
 const w0 = await ev(HEADW);
 await view(1380, 900, false, false);
 const nw = await settled({ max: 8000, until: `${HEADW} < ${w0} - 1`, only: true });
