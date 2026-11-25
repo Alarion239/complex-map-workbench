@@ -38,14 +38,16 @@
     if (svGateDraws()) requestRender('L');
     svGateTick();
   }
-  // (restart: Retry keeps the ring shown, with no pause before it)
+  // (restart: Retry keeps the ring shown, with no pause before it, and says the live region's line again)
   function svGateRetry() {
     const g = SV.gate;
     if (!g) return;
     const { btn, start, M } = g;
     svGateEnd(true);
     svGated(btn, start, M);
-    if (SV.gate) { SV.gate.shown = true; svGateSync(); }
+    // (its line is said on the next poll, a task after svGateEnd emptied the live region, so the write is a change a screen
+    // reader announces)
+    if (SV.gate) { SV.gate.shown = true; SV.gate.sayAgain = true; svGateSync(); }
   }
   // (keep: the wait ends to start the motion, or to wait again (Retry), and the frames drawn ahead stay; else it is cancelled,
   // and they go)
@@ -59,6 +61,9 @@
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
     requestRender('L');
+    // (the live region's "Preparing the glide…" goes with the wait: a cancelled wait leaves no stale line, and the next wait
+    // on another control says the line again as a change, which a screen reader announces; anything else the region says stays)
+    if (g.shown && SV.els && SV.els.live && SV.els.live.textContent === $t('Preparing the glide…')) SV.els.live.textContent = '';
     svWaitRestore(g);
   }
   // The Play gate's gauge for its wait g: the share of what svReady(g.M) counts that is done, or null while it is not
@@ -187,7 +192,7 @@
     if (!g.shown && t >= SV_GATE_SHOW_MS) {
       g.shown = true;
       if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
-    }
+    } else if (g.sayAgain && SV.els.live) { g.sayAgain = false; SV.els.live.textContent = $t('Preparing the glide…'); }
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
       g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
