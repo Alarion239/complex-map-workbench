@@ -104,14 +104,85 @@
   function refusedHatch(pane, map) {
     if (repeatRefused(map) && GLR.hatchAll && GLR.hatchAll(pane.dpr)) hatchNotes.set(pane, refusedNote());
   }
-  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
-  // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;
-  // the exact fill's own edge is the outline (svOutlines, the colour plot's outlines)
+  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search)
   function reptExact(map) {
     const m = normalizeMap(map);
     if ((m.mode || 0) !== 0) return false;
     const plan = invPlan(m.a || 0, m.b || 0);
     return plan.ok && plan.ops.some((o) => o.kind === 'REPT');
+  }
+  // The pieces GLR.drawLines draws each segment of an outline in (its st.M); the most CSS px a piece may span on a
+  // pane under a REPT plan; the halvings a segment may take to get there; the vertices a refined outline may have
+  const OUTLINE_M = 8, REPT_PIECE_PX = 4, REPT_DEPTH = 10, REPT_VERTS = 65536;
+  // (for the test hook: the refinements outlineRes has run, a pan within a cell runs none, and the last one's
+  // vertices)
+  let reptOutlineRuns = 0, reptOutlineVerts = 0;
+  // The lines a shape's outline is drawn by on pane under map (r: its shapeGPU record), with the record openDash reads
+  // for them: {res, rec}, or null for none. r's own lines, but under a REPT plan, whose copies' expansion can
+  // scatter the boundary carried forward: there the drawn polylines (r.lpolys) are refined for the view, each segment
+  // halved (at most REPT_DEPTH times) until every one of its pieces maps, on the CPU twin, to finite ends at most
+  // REPT_PIECE_PX px apart, or lies with both ends past the same side of a box around the pane, where it draws nothing
+  // on it. A segment that does not get there (the gallery's Repeat ×20), or more than REPT_VERTS vertices, and the
+  // shape has no outline: the exact fill's own edge is its only one. The rule is the resolution at the view, not the
+  // number of copies: the bite at ×2 keeps its outline, zoomed in as at rest. A Repeat no exact plan takes
+  // (repeatRefused) has no outline either: its boundary carried through every copy is as scattered, over the hatch.
+  // Cached on r per pane by its lines and map, the scale's half octave (refined for its largest scale, so the pieces
+  // stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a pane: the box is the view at the
+  // half octave's smallest scale about that place, widened by a pane on each side, so a pan refines again only once it
+  // crosses a pane
+  function outlineRes(map, r, pane) {
+    // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves REPT)
+    const slot = pane === paneR ? 'R' : 'L', had = r.rept && r.rept[slot];
+    if (!reptExact(map)) {
+      if (had) { GLR.destroy(had.res); r.rept[slot] = null; }
+      return r.lineRes && !repeatRefused(map) ? { res: r.lineRes, rec: r } : null;
+    }
+    const ps = r.lpolys, v = pane.view;
+    if (!ps || !ps.length) return null;
+    const oct = Math.floor(2 * Math.log2(v.s)), sHi = 2 ** ((oct + 1) / 2), sLo = 2 ** (oct / 2);
+    const hw = pane.w / 2 / sLo, hh = pane.h / 2 / sLo, gx = Math.round(v.cx / (2 * hw)), gy = Math.round(v.cy / (2 * hh));
+    const key = `${r.lineKey}|${r.refKey}|${mapKeyOf(map)}|${oct}|${pane.w}x${pane.h}|${gx},${gy}`;
+    if (had && had.key === key) return had.out;
+    reptOutlineRuns++;
+    if (had) GLR.destroy(had.res);
+    const F = cpuMap(map), lim = REPT_PIECE_PX / sHi, cx = 2 * gx * hw, cy = 2 * gy * hh;
+    const x0 = cx - 3 * hw, x1 = cx + 3 * hw, y0 = cy - 3 * hh, y1 = cy + 3 * hh;
+    // (the sides of the box a point lies past, one bit each)
+    const past = (w) => (w.re < x0 ? 1 : 0) | (w.re > x1 ? 2 : 0) | (w.im < y0 ? 4 : 0) | (w.im > y1 ? 8 : 0);
+    let verts = 0;
+    // the segment a-b (source points, ws their images) into out, halved until its pieces pass; false when it cannot
+    const refineSeg = (ax, ay, wa, bx, by, wb, depth, out) => {
+      const dx = bx - ax, dy = by - ay;
+      let ok = true, p = wa;
+      for (let k = 1; k <= OUTLINE_M && ok; k++) {
+        const q = k === OUTLINE_M ? wb : F(CX.C(ax + dx * k / OUTLINE_M, ay + dy * k / OUTLINE_M));
+        if (!Number.isFinite(p.re + p.im + q.re + q.im)) return false;
+        if (!(past(p) & past(q)) && Math.hypot(q.re - p.re, q.im - p.im) > lim) ok = false;
+        p = q;
+      }
+      if (ok) { out.push(bx, by); return ++verts <= REPT_VERTS; }
+      if (depth >= REPT_DEPTH) return false;
+      const mx = ax + dx / 2, my = ay + dy / 2, wm = F(CX.C(mx, my));
+      return refineSeg(ax, ay, wa, mx, my, wm, depth + 1, out) && refineSeg(mx, my, wm, bx, by, wb, depth + 1, out);
+    };
+    const polys = [];
+    let ok = true;
+    for (const p of ps) {
+      const out = [p[0], p[1]];
+      let wa = F(CX.C(p[0], p[1]));
+      for (let i = 2; i + 1 < p.length && ok; i += 2) {
+        const wb = F(CX.C(p[i], p[i + 1]));
+        ok = refineSeg(p[i - 2], p[i - 1], wa, p[i], p[i + 1], wb, 0, out);
+        wa = wb;
+      }
+      if (!ok) break;
+      polys.push(Float64Array.from(out));
+    }
+    reptOutlineVerts = verts;
+    const res = ok && polys.length && GLR.ok ? GLR.createLines(polys, r.lorigin) : null;
+    const rec = { open: r.open, lpolys: polys, lorigin: r.lorigin, lineKey: key, arcs: null };
+    (r.rept || (r.rept = {}))[slot] = { key, res, out: res ? { res, rec } : null };
+    return r.rept[slot].out;
   }
   // the shape-level preparation (SPEC 3.6) and the image box of the scissor (4.8), cached by plan, clipWin and shape;
   // prepMs: the preparation work of the current frame (SPEC 10.2: past 4 ms, an uncached bounded shape waits a frame)

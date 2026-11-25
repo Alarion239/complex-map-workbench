@@ -15,7 +15,8 @@
 //   one, else the rows cannot see a missing root; each row records the plane's own path (__cmwSteps().paths).
 // A sample is coloured when its pixel lies nearer the same plane drawn Everywhere (scope 'all') than the paper (the plane
 // with no region); one within AMBIG_TOL of both (the colour plane's own light rings, near the paper) is ambiguous, not
-// scored, counted, and at most FAINT_MAX_SHARE of a row.
+// scored, counted, and at most FAINT_MAX_SHARE of a row. Every plane is read with the shapes' strokes hidden: the fill
+// alone.
 // - the renderer's own unresolved pixels: the gallery plane holds none of the grey no-value hatch (#1444's measure), and,
 //   as its control, a search starved to STARVED_NODES root solves (__cmwRept({ nodes })) hatches most of it, and so does a
 //   non-finite root (NaN, then an infinity) forced into every first node (__cmwRept({ poison })): it reads unresolved,
@@ -95,6 +96,9 @@ const open = async (rect, n) => {
   if (rect) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(stateFor(rect, n)))}); 1`);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}&lang=en`);
   await ready();
+  // (the plane's fill read alone: a region's outline, drawn under a REPT plan while its carried boundary stays resolved
+  // (steps_rept_outline_cmd.js), lies over the fill's edge with its casing, and is not what these rows read)
+  await ev('__cmwHideStrokes(true), 1');
   if (!rect) { await loadGallery(SETTLE_LONG); await ready(); }
   await parkInside(SETTLE_LONG);
   const st = await settleParked(PARKED_SETTLE);

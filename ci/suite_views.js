@@ -203,6 +203,7 @@ const VIEWS = {
   'steps_dh_stop_cmd.js': steps(),
   'steps_bottcher_axis_cmd.js': steps(),
   'steps_parked_repeat_cmd.js': steps(),
+  'steps_rept_outline_cmd.js': steps({ pin: true }),
   'steps_parked_repeat_catalog_cmd.js': steps(),
   'steps_parked_repeat_refusal_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
