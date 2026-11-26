@@ -117,6 +117,7 @@ const Phone = (() => {
     // each plane: Sphere and Display at the right; the inset's swap cover
     for (const side of ['L', 'R']) {
       const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
+      if (!plot || !pane) continue;   // (Y's pane is not in the page: no keys for it)
       const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
       const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
       const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
@@ -150,7 +151,7 @@ const Phone = (() => {
     // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
-    for (const id of ['leftTabs', 'rightTabs']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    for (const id of ['leftTabs', 'rightTabs']) if ($(id)) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
     // (the room a landscape plane leaves its keys: as the plane changes size, and as the bar and a message come and go, which lift them)
     try {
       const ro = new ResizeObserver(keysRoom);
@@ -260,10 +261,11 @@ const Phone = (() => {
     p.classList.toggle('ph-one', !!mg);
     const split = twoUp();
     p.classList.toggle('ph-both', both && !land && !mg);
-    for (const side of ['L', 'R']) { const bb = els['both' + side]; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
-    for (const side of ['L', 'R']) $(side === 'L' ? 'paneL' : 'paneR').classList.toggle('ph-inset', !mg && !split && side !== b);
+    for (const side of ['L', 'R']) { const bb = els['both' + side]; if (!bb) continue; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
+    for (const side of ['L', 'R']) { const pn = $(side === 'L' ? 'paneL' : 'paneR'); if (pn) pn.classList.toggle('ph-inset', !mg && !split && side !== b); }
     for (const side of ['L', 'R']) {
       const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs'), sph = els['sph' + side];
+      if (!sph) continue;
       const sb = tabs && tabs.querySelector('button[data-mode="sphere"]');
       sph.hidden = !sb || tabs.offsetParent === null && !tabs.closest('.pane-head');
       const svS = side === 'L' && A.svOnSphere ? A.svOnSphere() : null;

@@ -1,25 +1,16 @@
   // ---------------- pane titles & option strips ----------------
-  // the right plane says what it shows beside its mode control (icon-only below 520px): the whole title when it
-  // fits the free head, the math part alone when the role text would be cut short, nothing when even that does not fit
   // Each pane says what it shows after its view control (icon-only below 520px): the whole title when it fits the
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
-  function fitTitle(side, noNote, noDisp, noEmpty) {
+  function fitTitle(side, noDisp) {
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && /** @type {HTMLElement | null} */ (t.nextElementSibling);
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
-    // (the head's Regions button shows its caret unless the title needs that room: then its swatch alone,
-    // e.g. Y's head at 1366 px with the chain empty and Add function there)
+    // (the head's Regions button shows its caret unless the title needs that room: then its swatch alone)
     const disp = pane.querySelector('.pane-head .pat-btn');
     if (disp && !noDisp) disp.classList.remove('tight');
-    // (and Y's Add function button, in the head while the chain is empty, shrinks to its plus after the Display button)
-    const emp = side === 'R' ? $('emptyRight') : null;
-    if (emp && !noEmpty) emp.classList.remove('tight');
-    // (Y's one-time note in the head gives way before the title itself does; never cut)
-    const note = side === 'R' ? $('rightNote') : null;
-    if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-    // ("Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (Y's head at 1024
+    // ("Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (a head at 1024
     // px beside the Inspector), folds its key chip to the glyph first, then the head packs closer (the tabs' padding,
     // its gaps), and last its status light goes (Russian at 1024 px)
     const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
@@ -37,13 +28,10 @@
     const pt = t.querySelector('.ptitle'), pr = t.querySelector('.prole');
     let ptw = pt ? pt.scrollWidth : 0;
     if (pt && ptw > room) {
-      if (note && !note.hidden && !noNote) { fitTitle(side, true); return; }
-      // then the plane's "Y · " tag gives way, before the title itself: with the chain empty, Y's
-      // head also holds Add function, and at 1366 px the tagged title would not fit and would vanish
+      // then the plane's "X · " tag gives way, before the title itself
       const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
       if (!(tag && ptw - tw <= room)) {
-        if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, noNote, true); return; }
-        if (emp && !emp.hidden && emp.parentNode === pane.querySelector('.pane-head') && !noEmpty) { emp.classList.add('tight'); fitTitle(side, noNote, true, true); return; }
+        if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, true); return; }
         pane.classList.add('tiny'); return;
       }
       t.classList.add('notag'); ptw -= tw;
@@ -62,16 +50,16 @@
   // (a title in a pane head is fitted by its strip's layout, layoutFootSide, only when what it depends on changed;
   // the others, a phone's, are fitted here. force: the fonts settled, which no key can see)
   function fitRightTitle(force) {
-    if (paneR) layoutFoot(force);
+    if (paneL) layoutFoot(force);
     // (whether the strip is in a head now, not as of its last layout: a switch to the phone layout moves it out first)
-    const headed = (side) => { const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'); return !!(f && f.parentElement && f.parentElement.classList.contains('pane-head')); };
-    for (const side of ['L', 'R']) if (!paneR || !headed(side)) fitTitle(side);
+    const f = $('leftFoot'), headed = !!(f && f.parentElement && f.parentElement.classList.contains('pane-head'));
+    if (!paneL || !headed) fitTitle('L');
   }
   // the words of the landscape's height (S.height)
   const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `${I18N.fnName('log')}|${Fh}|`);
   // the pane titles (panels.md 2): X is the domain of the map in focus, Y its codomain
   function paneTitles() {
-    const n = nSteps(), lk = leftStage(), rk = rightStage(), dk = focusDeriv();
+    const lk = leftStage(), dk = focusDeriv();
     const Fh = fnHtml();
     // the role, with its short form for a narrow head (fitTitle): the words before the formula ("landscape",
     // "phase", "Cauchy integral", "image"), plus ", deforming"
@@ -89,23 +77,11 @@
     else if (lColor() && S.dc === 'cauchy') { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
-    // (one name per plane everywhere: "X · z-plane, domain of F", "Y · w = F(z), image")
-    const XT = '<span class="ptag"><i>X</i> · </span>', YT = '<span class="ptag"><i>Y</i> · </span>';
+    // (one name per plane everywhere: "X · z-plane, domain of F")
+    const XT = '<span class="ptag"><i>X</i> · </span>';
     // (the steps view's plane: "w₁ · phase of f₂", the shown plane and the map from it into the colour plane, 19)
     const left = SV.on ? ((tp) => T(tp.name, tp.role))(svTitleParts()) : T(XT + xName, roleL, shortL);
-    let right;
-    // (the right titles carry the "Y · " tag)
-    if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
-    else if (S.focus === 0) {
-      // (Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
-      const j = parkedAt(), steps = j >= 0 ? j : n;
-      const pf = j === 0 ? '<i>z</i>' : j === 1 ? `<i>f</i>${sub(1)}(<i>z</i>)` : `<i>f</i>${sub(j)}(…<i>f</i>${sub(1)}(<i>z</i>))`;
-      const map = j >= 0 ? `${j === 0 ? '<i>w</i>' + sub(0) : wHtml(j)} = ${pf}` : n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>';
-      right = T(YT + map, $tn('image, after {n} step', 'image, after {n} steps', steps), $tx('role', 'image'));
-    }
-    else if (dk) right = T(YT + `${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, $tx('role', 'image'), '');
-    else right = T(YT + `${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, $tx('role', 'image'), '');
-    return { left, right };
+    return { left };
   }
   // where a bracket's deformation starts, H_0 = Q applied to w_{a-1} (w_0 = z): 'html', 'text' (Unicode subscripts,
   // the menu's key slot) or 'tex'. One post step f3(w1), two (f4 o f3)(w1), three or more
@@ -134,15 +110,12 @@
     return [words(d.querySelector('.ptitle')), words(d.querySelector('.rf') || d.querySelector('.prole'))].filter(Boolean).join(', ');
   }
   function nameCanvases(t) {
-    for (const [id, html] of [['overlayL', t.left], ['overlayR', t.right]]) {
-      const el = $(id), name = titleName(html);
-      if (el && name && el.getAttribute('aria-label') !== name) el.setAttribute('aria-label', name);
-    }
+    const el = $('overlayL'), name = titleName(t.left);
+    if (el && name && el.getAttribute('aria-label') !== name) el.setAttribute('aria-label', name);
   }
   function updateFocusUI() {
     const t = paneTitles();
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
-    if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     nameCanvases(t);
     syncAloneChip();
     syncModeChips();
@@ -151,7 +124,6 @@
     if (Views.merged(S.view) !== layoutMg) applyLayout();
     syncViewControls();
     fitRightTitle();
-    $('paneR').classList.toggle('no-rulers', !rImage());
     buildRightFoot();
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
@@ -313,14 +285,6 @@
   };
   const idleLeft = () => (lGlobe() ? `<span class="rhint rglobe">${globeHint('L')}</span>`
     : lLand() ? `<span class="rhint">${tool === 'pick' && landPickOn() && document.documentElement.classList.contains('ph') ? landPickPhrases($t('Tap to pick · hold and slide to read · drag to orbit · pinch to zoom')) : tool !== 'select' && tool !== 'formula' && !(tool === 'pick' && landPickOn()) ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
-  // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
-  function idleRight() {
-    // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
-    const v = rGlobe() ? { hint: globeHint('R') }
-      : document.documentElement.classList.contains('ph') && hasTargets() && targetText() ? { hint: targetText({ phone: true }) }
-        : targetsEditable() && tool !== 'select' && tool !== 'formula' ? { hint: $t('Draw a target in Y (the {x}-plane)', { x: yHtml() }) } : scaleText(paneR);
-    return v && v.hint ? `<span class="rhint">${v.hint}</span>` : rk('', v);
-  }
   function scaleText(pane) { return pane ? $t('{x} / div', { x: I18N.num(CX.fmtNum(Axes.niceStep(110 / pane.view.s), 4).replace('-', '−')) }) : ''; }
   // Mode options (spec 5.8): one 32px row. Controls that do not fit beside the view stack move, in order, behind
   // a sliders button into a popover; on a phone all of them do.
@@ -328,8 +292,8 @@
   // one options strip per pane (panels.md 4): foot.L in X, foot.R in Y
   const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null, pat: null });
   const foot = { L: footOf(), R: footOf() };
-  phoneMQ.addEventListener('change', () => { if (S && paneR) layoutFoot(true); });
-  function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
+  phoneMQ.addEventListener('change', () => { if (S && paneL) layoutFoot(true); });
+  function layoutFoot(force) { layoutFootSide('L', force); }
   // on a desktop the unit circle's check (page.html's #unitBox) sits in X's pane head; a phone's Display sheet lends it
   // itself. The classic X → Y view puts the regions' button in the head too
   // (the steps view has one head and one colour panel on every plane: its ⋯ pop-up holds the regions' display)
@@ -742,8 +706,8 @@
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
     if (on) tourEmit('sheets-shown', {});
   }
-  // both panes' options strips (the name is kept from when only the right pane had one)
-  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
+  // X's options strip
+  function buildRightFoot() { buildFoot('L'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
   // X's paint changed (style, sectors, grid step): X redraws
   const paintChanged = () => requestRender('L', 'T');
   function buildFoot(side) {
@@ -756,11 +720,7 @@
     ft.kids = []; ft.widths = null; ft.n = -1;
     // (a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
     const headed = () => !!(f.parentElement && f.parentElement.classList.contains('pane-head'));
-    if (side === 'L') { buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
-    // (Y's strip: the right pane draws nothing, so its strip has no options)
-    f.hidden = !f.children.length && !headed();
-    ft.kids = [...f.children]; layoutFootSide('R', true);
-    drawLegend();
+    buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend();
   }
   // a Paths toggle's state (the deformation's and the steps view's): pressed while the paths show, its tip saying what a
   // press does; off, with the reason, when there are no paths to draw (noPaths: a d/dz)
@@ -906,16 +866,15 @@
   // (Hc: the key's height when it is one line of text with no ring)
   const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8,
     Wk: 144 };   // Wk: the width of the carried-colour key, whose lines hold the widest word of any language (≤ 58 px) right of the wheel
-  // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
-  // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
-  const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
+  // X's legend chip (U-b): its colour key while Phase is on (wheel and modulus strip; the landscape's height).
+  // legendKind(side): 'color' | 'sphere' | '3d' | null
+  const legendState = { L: { key: '', drawn: '', cv: null, strip: false } };
   // the steps view on a plane other than the colour plane: the colour wheel, with the plane its colour is carried from
   const svCarriedKey = () => SV.on && !!svCarriedFrom();
   // the Landscape's key under Plaster: the height and the contours, with no hue
   const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
     if (!GLR.ok) return null;
-    if (side === 'R') return rImage() ? 'image' : null;
     // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
     if (lLand()) return '3d';
     if (svCarriedKey()) return 'color';
@@ -931,57 +890,49 @@
   function placeKeys() {
     const ph = document.documentElement.classList.contains('ph');
     let moved = false;
-    for (const side of ['L', 'R']) {
-      const pane = side === 'L' ? $('paneL') : $('paneR'), head = pane && pane.querySelector('.pane-head'), plot = $(side === 'L' ? 'plotL' : 'plotR');
-      const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend'), ft = $(side === 'L' ? 'leftFoot' : 'rightFoot'), led = $(side === 'L' ? 'leftLed' : 'rightLed');
-      if (!head || !plot || !leg || !ft) continue;
-      // (#365: Phase's colour key is always on the plot, top right: no hover, no toggle. The Landscape's height key and
-      // Y's pattern key stay chips in the head)
-      const onPlot = side === 'L' && !ph && keyOnPlot();
-      if (!ph) delete leg.dataset.phKey;
-      if (onPlot) {
-        if (leg.parentNode !== plot) {
-          leg.classList.remove('open', 'collapsed'); plot.insertBefore(leg, plot.querySelector(':scope > .viewstack'));
-          const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
-          leg.removeAttribute('aria-label'); moved = true;
-        }
-        if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
-      } else if (!ph) {
-        if (leg.parentNode !== head) { head.insertBefore(leg, led && led.parentNode === head ? led : null); leg.classList.remove('collapsed'); moved = true; }
-        if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
-        // (the empty chain's call to action too: "Add function" in Y's head, not over the picture)
-        const er = side === 'R' ? $('emptyRight') : null;
-        if (er && er.parentNode !== head) head.insertBefore(er, leg);
-      } else {
-        const ro = $(side === 'L' ? 'leftReadout' : 'rightReadout'), vs = plot.querySelector(':scope > .viewstack');
-        // (data-ph-key marks a legend this branch has placed: one the desktop's branch left on the plot is placed again, folded)
-        if (leg.parentNode !== plot || !leg.dataset.phKey) {
-          leg.dataset.phKey = '1';
-          // (the head's words and tooltip go: on the plane the key is the folded glyph, a tap unfolds it)
-          leg.classList.remove('open'); plot.insertBefore(leg, ro ? ro.nextSibling : vs);
-          const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
-          leg.removeAttribute('aria-label');
-          try { if (matchMedia('(pointer: coarse)').matches) leg.classList.add('collapsed'); } catch (e) { /* */ }
-        }
-        if (ft.parentNode !== plot) plot.insertBefore(ft, vs);
-        const er = side === 'R' ? $('emptyRight') : null;
-        if (er && er.parentNode !== plot) plot.insertBefore(er, $('draftChipR'));
+    const pane = $('paneL'), head = pane && pane.querySelector('.pane-head'), plot = $('plotL');
+    const leg = $('leftLegend'), ft = $('leftFoot'), led = $('leftLed');
+    if (!head || !plot || !leg || !ft) return;
+    // (#365: Phase's colour key is always on the plot, top right: no hover, no toggle. The Landscape's height key stays
+    // a chip in the head)
+    const onPlot = !ph && keyOnPlot();
+    if (!ph) delete leg.dataset.phKey;
+    if (onPlot) {
+      if (leg.parentNode !== plot) {
+        leg.classList.remove('open', 'collapsed'); plot.insertBefore(leg, plot.querySelector(':scope > .viewstack'));
+        const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
+        leg.removeAttribute('aria-label'); moved = true;
       }
+      if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
+    } else if (!ph) {
+      if (leg.parentNode !== head) { head.insertBefore(leg, led && led.parentNode === head ? led : null); leg.classList.remove('collapsed'); moved = true; }
+      if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
+    } else {
+      const ro = $('leftReadout'), vs = plot.querySelector(':scope > .viewstack');
+      // (data-ph-key marks a legend this branch has placed: one the desktop's branch left on the plot is placed again, folded)
+      if (leg.parentNode !== plot || !leg.dataset.phKey) {
+        leg.dataset.phKey = '1';
+        // (the head's words and tooltip go: on the plane the key is the folded glyph, a tap unfolds it)
+        leg.classList.remove('open'); plot.insertBefore(leg, ro ? ro.nextSibling : vs);
+        const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
+        leg.removeAttribute('aria-label');
+        try { if (matchMedia('(pointer: coarse)').matches) leg.classList.add('collapsed'); } catch (e) { /* */ }
+      }
+      if (ft.parentNode !== plot) plot.insertBefore(ft, vs);
     }
-    if (foot.L.kids.length || foot.R.kids.length) layoutFoot(true);
+    if (foot.L.kids.length) layoutFoot(true);
     if (moved) drawLegend();   // (the chip's words, written when it is in the head)
   }
   // the key chip's words in the pane head: the grid's cell while the regions' grid lines are drawn, else their fill, the
   // phase of z (Y), or what X's colours show
   function legendSum(kind) {
-    if (kind === 'image') return S.lines ? $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) }) : $t('Phase of z');
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
   function drawLegend() {
     // (the view changed under a laptop: Phase's key goes to the plot, the others' back to the head)
     const L = $('leftLegend'), pl = $('plotL');
     if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
-    drawLegendSide('L'); drawLegendSide('R');
+    drawLegendKey();
   }
   const KEY_GUTTER = 4;   // px between an unfolded key and its plane's edge
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
@@ -1078,15 +1029,14 @@
     }
   }
   // the key's canvas has no words a screen reader reaches: what it draws (paintLegend's st.say) is the key box's
-  // description (srSay), in a hidden span inside the box (#leftLegendSay, #rightLegendSay; inside, so it moves with the
+  // description (srSay), in a hidden span inside the box (#leftLegendSay; inside, so it moves with the
   // box and is never an item of a pane head's row)
   function legendSaid(box, text) { srSay(box, text, (sp) => box.append(sp)); }
-  function drawLegendSide(side) {
-    const box = $(side === 'L' ? 'leftLegend' : 'rightLegend');
-    const cv = $(side === 'L' ? 'legendCanvasL' : 'legendCanvas');
+  function drawLegendKey() {
+    const box = $('leftLegend'), cv = $('legendCanvasL');
     if (!box || !cv) return;
     // no legend without WebGL: the plane shows nothing it could explain
-    const kind = legendKind(side);
+    const kind = legendKind('L');
     const want = !!kind;
     if (box.hidden === want) box.hidden = !want;
     // (the folded chip on a phone shows a glyph of its key: the hue wheel, arg increasing counterclockwise from red at
@@ -1099,7 +1049,7 @@
     }
     // (the phone's key button is named for its kind, "Regions key" as "Height key" and "Colour key": what the key
     // shows, its fill among it, is its description's (legendSaid), so a screen reader says it once)
-    legendKeyButton(box, !kind ? '' : kind === 'image' ? $t('Regions key') : legendSum(kind));
+    legendKeyButton(box, !kind ? '' : legendSum(kind));
     // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
     if (kind && box.parentElement && box.parentElement.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
       const nm = $t('Colour key');
@@ -1111,7 +1061,7 @@
       box.dataset.kind = kind; box.dataset.pal = GLR.palette(); box.dataset.hueless = String(hueless);
       if (hueless) box.style.removeProperty('--wheel'); else box.style.setProperty('--wheel', keyConic());
     }
-    if (side === 'L') {
+    {
       // the Key switch: X's colour key painted in the Y plane (the user's decision for item 1: not a view of Y)
       const ks = $('wKeyRow');
       // (the key shows only in X → Y, so its switch is the "Phase key" check in Y's strip)
@@ -1124,36 +1074,32 @@
       if (kl && kl.innerHTML !== kt) kl.innerHTML = kt;
     }
     if (!want) return;
-    const st = legendState[side];
+    const st = legendState.L;
     // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
     const compact = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     const { dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H, W = kind === 'color' && svCarriedKey() ? LEG.Wk : LEG.W;
     if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.closest('.legend-chip').parentElement.style.setProperty('--lg-w', W + 'px'); st.drawn = ''; }
     st.h = Hh; st.w = W;
-    const img = kind === 'image';
-    const k = rightStage();
-    const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
       off.width = W * dpr; off.height = Hh * dpr;
       const octx = off.getContext('2d');
       octx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      paintLegend(octx, anyCut, kind, st);
+      paintLegend(octx, kind, st);
       st.key = key; st.drawn = '';
     }
     // (a head's key opens by pointing and by keys, which its name does not say: the instruction ends its description)
     const inHead = !!box.parentNode && /** @type {HTMLElement} */ (box.parentNode).classList.contains('pane-head');
     legendSaid(box, [(st.say || []).join('; '), inHead ? $t('Point at it to unfold; click it or press Enter to keep it open') : ''].filter(Boolean).join('. '));
-    const dyn = img ? '' : `${legendNeedle == null ? '' : legendNeedle.toFixed(3)}|${legendMod == null ? '' : legendMod.toPrecision(4)}`;
+    const dyn = `${legendNeedle == null ? '' : legendNeedle.toFixed(3)}|${legendMod == null ? '' : legendMod.toPrecision(4)}`;
     if (st.drawn === key + dyn) return;
     st.drawn = key + dyn;
     const ctx = cv.getContext('2d');
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cv.width, cv.height);
     ctx.drawImage(st.cv, 0, 0);
-    if (img) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const { cx, cy, R, sx, sy, sw, sh } = LEG;
     if (legendNeedle != null && !compact) {
@@ -1172,39 +1118,13 @@
   const keyStops = (dark) => (dark ? ['#3a4650', '#c9d2d8'] : ['#9aa4ab', '#eef2f4']);
   const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
   const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
-  function paintLegend(ctx, anyCut, kind, st) {
+  function paintLegend(ctx, kind, st) {
     const W = st.w || LEG.W, Hh = st.h || LEG.H;
     ctx.clearRect(0, 0, W, Hh);
     ctx.textBaseline = 'middle';
     st.strip = false;
     // (what the key draws, in words, in its order with the caption first: the key box's description, legendSaid)
     const say = st.say = [];
-    if (kind === 'image') {
-      // the regions' key: their fill, the phase of z, and the grid's cell in z while its lines are drawn, plus
-      // markers present in the plane
-      ctx.font = `600 11px ${TH.ui}`; ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
-      ctx.fillText($t('Regions'), 8, 13);
-      // "cell 0.5 in z" as one run: words in the interface face, the number in the mono face, z in STIX italic
-      let x = 8;
-      const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
-      // Russian: «клетка 0,125 в плоскости z» can be wider than the chip; then the run is narrowed to fit it, so
-      // the plane's name is never cut. English draws unchanged
-      const parts = S.lines
-        ? [[$t('cell '), `11px ${TH.ui}`, TH.muted], [I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')), `11px ${TH.mono}`, TH.ink], [$tx('legend', ' in '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]]
-        : [[$t('phase of '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]];
-      let k = 1;
-      if (I18N.lang !== 'en') { let w = 0; for (const [t, f] of parts) { ctx.font = f; w += ctx.measureText(t).width; } k = Math.min(1, (W - 8 - 4) / w); }
-      if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
-      for (const [t, f, c] of parts) run(t, f, c);
-      if (k < 1) ctx.restore();
-      say.push($t('Regions') + ': ' + parts.map((q) => q[0]).join(''));
-      // only marks that this plane actually draws
-      let y = 52;
-      ctx.font = `11px ${TH.ui}`; ctx.lineWidth = 1;
-      if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('image of a cut'), 30, y); y += 15; say.push($t('dashed: {x}', { x: $t('image of a cut') })); }
-      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); say.push($t('dashed: {x}', { x: $t('edge of X\'s view') })); }
-      return;
-    }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
     const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)

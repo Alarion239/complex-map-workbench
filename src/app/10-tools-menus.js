@@ -88,8 +88,6 @@
     Construct.toolChanged();
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     updateToolHint();
-    // the right readout's idle hint names the tool (drawing a target, or the scale)
-    if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
     // the left readout's idle hint names the tool on a globe and on the landscape (panels.md 3, 9.1)
     if (!probe && !hov.w && (lGlobe() || lLand())) { const lr = $('leftReadout'); if (lr && !lr.classList.contains('copied')) lr.innerHTML = idleLeft(); }
     // an editable globe's graticule is the snap net of the tool (P3b): it is redrawn

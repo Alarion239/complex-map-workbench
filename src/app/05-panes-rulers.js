@@ -68,7 +68,9 @@
   }
 
   // ---------------- panes ----------------
-  let paneL, paneR;
+  // (paneR: Y's pane, which the page does not have; null, for the readers of it still to go: sound's, the phone's and test
+  // hooks', each asked only for Y)
+  let paneL, paneR = null;
   let cutHandlesL = [];
   let cutMarksL = [];   // the cuts' handles on a frame between two planes: drawn like the editable ones, never hit-tested
 
@@ -308,12 +310,12 @@
     const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
     if (!rx || !ry) return;
     const seen = rulerSeen[side];
-    const show = side === 'R' ? rImage() : lFlat();
+    const show = lFlat();
     if (seen.vis !== show) { rx.style.visibility = ry.style.visibility = show ? '' : 'hidden'; seen.vis = show; }
-    const corner = $(side === 'L' ? 'cornerL' : 'cornerR');
+    const corner = $('cornerL');
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
     // (the steps view's plane name with a real subscript: the corner is 18 px wide, which cut the Unicode one)
-    const cornerHtml = !show ? '' : side === 'L' ? (SV.on ? svNameHtml(leftStage()) : wHtml(leftStage())) : (yAtF() ? '<i>w</i>' : wHtml(rightStage()));
+    const cornerHtml = !show ? '' : SV.on ? svNameHtml(leftStage()) : wHtml(leftStage());
     if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml ? `<span>${cornerHtml}</span>` : ''; seen.corner = cornerHtml; }   // (one grid item: the letter and its subscript share a line, not a row each)
     if (!show) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -448,18 +450,12 @@
   }
   function ledFlush() {
     const parts = [];
-    // (a pane that is shown: its LED may not be, on a phone, whose pane heads show none, and its words are heard all the same)
-    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'), pane = el && el.closest('.pane'); return !!pane && pane.getClientRects().length > 0; };
-    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two panes are shown:
-    // the words alone would not say which pane they are about)
-    const two = shown('L') && shown('R');
-    for (const side of ['L', 'R']) {
-      const n = ledNow[side];
-      if (!n || !shown(side) || (ledSaid[side] === undefined ? 'ok' : ledSaid[side]) === n.key) continue;
-      ledSaid[side] = n.key;
-      const t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'), title = t && t.getClientRects().length ? t.textContent.trim() : '';
-      const name = title || (two ? (side === 'L' ? 'X' : 'Y') : '');
-      parts.push(name ? `${name}: ${n.tip}` : n.tip);
+    // (X's pane, when it is shown: its LED may not be, on a phone, whose pane heads show none, and its words are heard all the same)
+    const el = $('leftLed'), pane = el && el.closest('.pane'), n = ledNow.L;
+    if (n && pane && pane.getClientRects().length > 0 && (ledSaid.L === undefined ? 'ok' : ledSaid.L) !== n.key) {
+      ledSaid.L = n.key;
+      const t = document.querySelector('#leftTitle .ptitle'), title = t && t.getClientRects().length ? t.textContent.trim() : '';
+      parts.push(title ? `${title}: ${n.tip}` : n.tip);
     }
     const live = $('ledLive');
     if (live && parts.length) live.textContent = parts.join('. ');
@@ -468,10 +464,10 @@
   let hairTimer = 0;
   function setHairline(on) {
     if (on) {
-      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, 300);
+      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; }, 300);
     } else {
       clearTimeout(hairTimer); hairTimer = 0;
-      $('hairL').hidden = true; $('hairR').hidden = true;
+      $('hairL').hidden = true;
     }
   }
   function updateLeds() {
@@ -479,16 +475,15 @@
     const busy = fixJob.running || !!lineJob.running || sm.running;
     setHairline(!!busy);
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
-    // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
-    if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
+    // without WebGL2 the plane cannot show its regions: its LED reports the failure (spec 5.14)
+    if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
     // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
     const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
-    // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
+    // (its LED also reports a step that fails to build)
     if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
     else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
-    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -561,7 +556,7 @@
     if (cauchyWhy) paneNote(pane, cauchyWhy);
     else if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     else if (cz && cz.plan && cz.plan.why === 'onCurve') paneNote(pane, $t('Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.'));
-    drawRulers(pane, pane === paneL ? 'L' : 'R');
+    drawRulers(pane, 'L');
     return handles;
   }
   function dcGridStep() { return S.dcGrid || 0.5; }
@@ -1473,17 +1468,15 @@
     requestRender('L', 'R'); save();
   }
   function setupViewControls() {
-    // the panes' Plane | Sphere radios (U4)
-    for (const side of ['L', 'R']) {
-      const el = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-      for (const [v, l, k] of SURF[side]) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView(side, v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
-      el.addEventListener('keydown', (e) => {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const list = SURF[side], i = list.findIndex((x) => x[0] === (side === 'L' ? xView() : S.view.R).surf);
-        const j = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setView(side, list[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
-      });
-    }
+    // X's Plane | Sphere radios (U4)
+    const el = $('leftTabs');
+    for (const [v, l, k] of SURF.L) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView('L', v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const list = SURF.L, i = list.findIndex((x) => x[0] === xView().surf);
+      const j = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+      setView('L', list[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
+    });
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
     if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
@@ -1493,10 +1486,9 @@
     $('alphaRange').addEventListener('input', (e) => setFillOpacity(+/** @type {HTMLInputElement} */ (e.target).value));
     $('meshRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); showMeshVal(posToMesh(+tg.value)); });
     $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R'); save(); });
-    $('leftReadout').addEventListener('click', () => copyReadout('L'));
-    $('rightReadout').addEventListener('click', () => copyReadout('R'));
+    $('leftReadout').addEventListener('click', () => copyReadout());
     // (where the primary pointer is coarse the chip is not a target, page.html's `.chip.readout` rule, so its "Click to copy" promises nothing a touch can do)
-    try { if (matchMedia('(pointer: coarse)').matches) for (const id of ['leftReadout', 'rightReadout']) $(id).removeAttribute('title'); } catch (e) { /* no matchMedia: the title stays */ }
+    try { if (matchMedia('(pointer: coarse)').matches) $('leftReadout').removeAttribute('title'); } catch (e) { /* no matchMedia: the title stays */ }
   }
   // the panes' buttons: Fit, the legend chips, zoom (init: after applyLayout)
   function setupPaneButtons() {

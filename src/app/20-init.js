@@ -200,7 +200,6 @@
     GLR.setPalette(palPref());
     readTheme();
     paneL = new Pane($('canvasL'), $('overlayL'));
-    paneR = new Pane($('canvasR'), $('overlayR'));
     warmKick();
     const loaded = load();
     let svMorphT = null;   // a link's figMorph time, for the steps view to take as its place
@@ -215,7 +214,7 @@
     // (1024 to 1279: one panel docks; the Inspector when the chain has steps, the tools on an empty canvas)
     if (oneDock()) { if (S.steps.length) { setHidden('L', true); setHidden('R', false); } else { setHidden('L', false); setHidden('R', true); } }
     if (S.clipWin) clipWin = S.clipWin;
-    paneL.resize(); paneR.resize();
+    paneL.resize();
     paneL.setView(S.srcView);
     // a saved state without its window (older saves, hand-made states) meshes and samples in
     // the window of its view, as a scene opened from a file does, never in a fixed -4…4 that a deep view lies inside
@@ -249,7 +248,7 @@
     setupEscSound();
     setupKeys();
     const ro = new ResizeObserver(() => onPaneResize());
-    ro.observe(paneL.canvas); ro.observe(paneR.canvas);
+    ro.observe(paneL.canvas);
     // (a notice whose theme is the one already read is skipped: the export's one-off read of the light tokens)
     const themeKey = () => `${document.documentElement.getAttribute('data-theme')}|${document.documentElement.className}|${matchMedia('(prefers-color-scheme: dark)').matches}`;
     let themeSeen = themeKey();

@@ -183,14 +183,14 @@ const SoundHooks = (() => {
     // Notes / Glide (a preference the tour never holds: not through tourSndMine)
     for (const [id, gl] of /** @type {[string, boolean][]} */ ([['sndNotes', false], ['sndGlide', true]])) { const r = $(id); if (r) r.addEventListener('change', (e) => { if ((/** @type {HTMLInputElement} */ (e.target)).checked) soundMode(gl); }); }
     // the last pointer's type on a plane (the rope: 5 px behind a finger, 3 px behind a mouse or pen)
-    for (const p of [A.paneL, A.paneR]) for (const ev of ['pointerdown', 'pointermove']) p.ocanvas.addEventListener(ev, (e) => { snd.ptype = e.pointerType || ''; }, { capture: true, passive: true });
+    for (const p of [A.paneL, A.paneR].filter(Boolean)) for (const ev of ['pointerdown', 'pointermove']) p.ocanvas.addEventListener(ev, (e) => { snd.ptype = e.pointerType || ''; }, { capture: true, passive: true });
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) $('sndIos').hidden = false;
     // the keyboard probe on the X plane (focusable while sound is on), only when the plane got the focus from the
     // keyboard: after a click in it, V, L, D, O, Z … stay the tool and fit shortcuts
     A.paneL.ocanvas.addEventListener('pointerdown', () => { snd.ptrT = performance.now(); snd.kbd = false; }, true);
     // a press of a mouse or pen: where it began (sndPtr ends the rest when it becomes a drag or a pan). A pointer that
     // arrives over a plane without moving: the plane changed under it (the panes merged or split): re-pick
-    for (const p of [A.paneL, A.paneR]) {
+    for (const p of [A.paneL, A.paneR].filter(Boolean)) {
       p.ocanvas.addEventListener('pointerdown', (e) => { snd.press = e.pointerType !== 'touch' ? [e.clientX, e.clientY] : null; }, true);
       p.ocanvas.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch' && !e.buttons) sndRelayout(); });
     }
@@ -199,7 +199,7 @@ const SoundHooks = (() => {
     A.paneL.ocanvas.addEventListener('blur', () => { snd.kbd = false; if (snd.kz && !snd.kloop) { snd.kz = null; A.probe = null; setReadouts(null); sndRender(); sndVoiceOff(false); } });
     // a wheel zoom moves the plane under a still pointer: probe-driven event cues wait 250 ms (pans, pinches, orbits
     // and tweens are caught by the view key in sndHover)
-    for (const p of [A.paneL, A.paneR]) p.ocanvas.addEventListener('wheel', () => { if (A.sndP.on) snd.gestT = performance.now(); }, { passive: true });
+    for (const p of [A.paneL, A.paneR].filter(Boolean)) p.ocanvas.addEventListener('wheel', () => { if (A.sndP.on) snd.gestT = performance.now(); }, { passive: true });
   }
   const sndRender = () => requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null);
 
@@ -429,7 +429,7 @@ const SoundHooks = (() => {
     if (!q) return;
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.cxy) { snd.rp = null; return; }
     const el = document.elementFromPoint(snd.cxy[0], snd.cxy[1]);
-    const pane = el && el === A.paneL.ocanvas ? A.paneL : el && el === A.paneR.ocanvas ? A.paneR : null;
+    const pane = el && el === A.paneL.ocanvas ? A.paneL : el && A.paneR && el === A.paneR.ocanvas ? A.paneR : null;
     let ready = true;
     if (pane) {
       const b = pane.canvas.getBoundingClientRect();
@@ -443,7 +443,7 @@ const SoundHooks = (() => {
   function sndRepick() {
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.cxy || snd.play || A.drag || snd.kz || snd.press) return;
     const el = document.elementFromPoint(snd.cxy[0], snd.cxy[1]);
-    const pane = el && el === A.paneL.ocanvas ? A.paneL : el && el === A.paneR.ocanvas ? A.paneR : null;
+    const pane = el && el === A.paneL.ocanvas ? A.paneL : el && A.paneR && el === A.paneR.ocanvas ? A.paneR : null;
     if (!pane) return;
     const b = pane.ocanvas.getBoundingClientRect(), x = snd.cxy[0] - b.left, y = snd.cxy[1] - b.top;
     const r = snd.rest, src = pane === A.paneL ? 'pointer' : 'merged';

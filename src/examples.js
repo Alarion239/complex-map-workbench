@@ -111,7 +111,7 @@ const Examples = (() => {
     const laned = !spec && (ex.song || ex.shapes.some((sh) => sh.listen)) && sndPieceHint(true);
     applyLayout();
     // (the planes take their new height at once, as for a merge, not at the next ResizeObserver callback)
-    if (laned && A.paneL && A.paneR) onPaneResize();
+    if (laned && A.paneL) onPaneResize();
     setOpt('srcView', Object.assign({}, ex.view));
     // an example's box that must be in view (a phone's narrow plane): its view's scale at most, centred on the box
     exFitTo(ex);
