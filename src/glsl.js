@@ -2959,20 +2959,22 @@ bool ixRepKeep() {
   return !(p.r == 0.0 && p.g > 0.5 && p.b == 0.0 && p.a == 0.0);
 }
 vec3 ixRepCrude;   // the crude radii of the last node solved (the GLSL page's read-back)
-// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 the mark (1, 0, 0, 0) (a
-// region mask's pass: it is not covered, and drawInverse's composite marks it in the stencil for GLR.reptHatchFill)
+// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 the mark (1, 0, 0, 0), or
+// (1, 0, 1, 0) on the image's rim (ixRepRim) (a region mask's pass: it is not covered, and drawInverse's composite marks it
+// in the stencil for GLR.reptHatchFill)
 uniform int uIxRepHatch;
 // uIxRepCf, uIxRepCg, uIxRepCc: the closed form of a monomial step on a disc (Inverse.prepare's rept.cf, each offset
 // rounded outward for the test that reads it): (log R, M, |c| / R up, dI down), (dP down, dP up, dM down, dM up), (the
 // disc's centre c, 1 on or 0 off)
 uniform vec4 uIxRepCf; uniform vec4 uIxRepCg; uniform vec3 uIxRepCc;
 // the closed form's verdict at w, pixel px (Inverse's reptClosed): 1 covered, 0 empty, -1 the search decides; dz:
-// |dz/dw| at every preimage, rho / (M |w|)
+// |dz/dw| at every preimage, rho / (M |w|). ixRepRim (with -1): the pixel lies on the image's rim (Inverse.REPT_RIM)
+bool ixRepRim;
 int ixRepClosed(vec2 w, float px, out float dz) {
   dz = 0.0;
   if (uIxRepCc.z < 0.5) return -1;
   float a = cx_abs(w);
-  if (!(a > 0.0) || !(a < IX_REP_FIN)) return -1;
+  if (!(a > 0.0) || !(a < IX_REP_FIN)) { ixRepRim = a == 0.0; return -1; }
   float tol = ${glf(Inverse.REPT_ROUND)} * IX_REP_U, lR = uIxRepCf.x, M = uIxRepCf.y;
   float la = log(a), eta = (la - lR) / M;
   bool sm = abs(eta) < ${glf(Inverse.REPT_CF_TAYLOR)};
@@ -2984,6 +2986,9 @@ int ixRepClosed(vec2 w, float px, out float dz) {
   if (x < uIxRepCf.w - f - sl) return 1;
   float u = uIxRepCg.x - f - x - sl, v = x - uIxRepCg.w - f - sl, h = ${glf(Math.PI)} / (2.0 * M);
   if (u > 0.0 && v > 0.0 && uIxRepCf.z > 0.0 && u * v / (4.0 * (1.0 + abs(x) + sl) * uIxRepCf.z) > h * h * (1.0 + tol)) return 1;
+  float g = ${glf(Inverse.REPT_RIM)} * px * (1.0 + abs(x)) / (M * a) + f + sl;
+  float oP = max(max(uIxRepCg.x - x, x - uIxRepCg.y), 0.0), oM = max(max(uIxRepCg.z - x, x - uIxRepCg.w), 0.0);
+  ixRepRim = a <= ${glf(Inverse.REPT_RIM)} * px || min(oP, oM) <= g;
   return -1;
 }
 `;

@@ -1177,9 +1177,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (mark) {
       reptMarked = sig === null ? null : E;
       if (repMarkFrame !== invFrame) { repMarkFrame = invFrame; gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); }
+      // (the marks: 1, then 2 over those on the image's rim)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       gl.colorMask(false, false, false, false);
       u1i(Q, 'uAccMode', 2);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.stencilFunc(gl.ALWAYS, 2, 0xff);
+      u1i(Q, 'uAccMode', 4);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
       gl.disable(gl.STENCIL_TEST);
@@ -1191,15 +1195,15 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     reptStat.composites++;
     return 'drawn';
   }
-  // the frame (invFrame) whose stencil holds REPT marks, and the hatch over the marked pixels: the grey no-value hatch,
-  // opaque, then the marks cleared. False when its program is not ready
+  // the frame (invFrame) whose stencil holds REPT marks: 1, or 2 on the image's rim
   let repMarkFrame = -1;
-  // the grey no-value hatch of program Q over the frame open, opaque: where the stencil holds the marks (marked), else everywhere
+  // the grey no-value hatch of program Q over the frame open, opaque: where the stencil holds the mark `marked` (1 or 2),
+  // else (0) everywhere
   function hatchPass(Q, dpr, marked) {
     use(Q);
     u1f(Q, 'uDpr', dpr || 1);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    if (marked) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); }
+    if (marked) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, marked, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); }
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
@@ -1209,15 +1213,16 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function hatchAll(dpr) {
     const Q = ok && program('reptHatch');
     if (!Q) return false;
-    hatchPass(Q, dpr, false);
+    hatchPass(Q, dpr, 0);
     return true;
   }
   // the accumulation entry whose picture the frame's mark pass composited (a cacheable draw's), for reptHatchFill
   let reptMarked = null;
-  // The hatch over the marked pixels, then the marks cleared. -> whether the picture's hatch covers any pixel: an occlusion
-  // query over the hatch's draw, asked once for a picture (its accumulation entry) and answered, as WebGL answers, by a later
-  // frame, which is asked for (reptKick) until it finds the entry's answer; true or false once it is known, else undefined, as for
-  // an uncacheable picture. null when the frame has no mark pass to hatch or the program is not ready
+  // The hatch over the marked pixels, then the marks cleared. -> whether the picture's hatch covers any pixel off the image's
+  // rim (stencil 1: a hairline along the rim, stencil 2, is hatched but not counted): an occlusion query over that hatch's
+  // draw, asked once for a picture (its accumulation entry) and answered, as WebGL answers, by a later frame, which is asked
+  // for (reptKick) until it finds the entry's answer; true or false once it is known, else undefined, as for an uncacheable
+  // picture. null when the frame has no mark pass to hatch or the program is not ready
   function reptHatchFill(dpr) {
     const Q = ok && program('reptHatch');
     if (!Q || repMarkFrame !== invFrame) return null;
@@ -1225,8 +1230,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     reptMarked = null;
     const q = E && E.hatched === undefined && !E.hq ? gl.createQuery() : null;
     if (q) gl.beginQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE, q);
-    hatchPass(Q, dpr, true);
+    hatchPass(Q, dpr, 1);
     if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); E.hq = q; reptKick(); }
+    hatchPass(Q, dpr, 2);
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     repMarkFrame = -1;
     if (E && E.hq) {
@@ -1235,10 +1241,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     return E ? E.hatched : undefined;
   }
-  // the pixels the frame's stencil marks unresolved (a REPT plan's region-mask pass, drawInverse), counted by a read-back
-  // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks. cc: a
-  // 2D context the frame's size (row 0 at its top), where each marked pixel is also drawn opaque black, over what it
-  // holds (the Landscape's region mask: its no-value mark, svLandMask)
+  // the pixels the frame's stencil marks unresolved off the image's rim (a REPT plan's region-mask pass, drawInverse),
+  // counted by a read-back of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0
+  // without such marks. cc: a 2D context the frame's size (row 0 at its top), where each marked pixel, on the rim too, is
+  // also drawn opaque black, over what it holds (the Landscape's region mask: its no-value mark, svLandMask)
   function reptMarkCount(cc) {
     const Q = ok && program('keepA');
     if (!Q || repMarkFrame !== invFrame) return 0;
@@ -1246,19 +1252,23 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true);
     gl.clearColor(1, 1, 1, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.clearColor(0, 0, 0, 0);
     gl.disable(gl.BLEND);
+    // (the marks off the rim read (0, 0, 0, 0), those on it (0, 1, 1, 1), the rest (1, 1, 1, 1))
     gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.stencilFunc(gl.EQUAL, 2, 0xff); gl.colorMask(true, false, false, false);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.colorMask(true, true, true, true);
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     const px = new Uint8Array(4 * fw * fh);
     gl.readPixels(vpX, vpY, fw, fh, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    let n = 0;
-    for (let i = 3; i < px.length; i += 4) if (px[i] === 0) n++;
-    if (cc && n) {
+    let n = 0, rim = 0;
+    for (let i = 0; i < px.length; i += 4) { if (px[i + 3] === 0) n++; else if (px[i] === 0) rim++; }
+    if (cc && n + rim) {
       // (the read-back's rows run bottom up: each one goes to the canvas's row fh - 1 - y)
       const im = new ImageData(fw, fh), d = im.data;
-      for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (px[4 * (y * fw + x) + 3] === 0) d[4 * ((fh - 1 - y) * fw + x) + 3] = 255;
+      for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (px[4 * (y * fw + x)] === 0) d[4 * ((fh - 1 - y) * fw + x) + 3] = 255;
       const cv = document.createElement('canvas');
       cv.width = fw; cv.height = fh;
       cv.getContext('2d').putImageData(im, 0, 0);

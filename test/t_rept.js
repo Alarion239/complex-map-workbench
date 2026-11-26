@@ -389,10 +389,11 @@ const bruteN = (o, L, w, n) => {
     const p = planOf(repOf(cs.expr, 20)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape });
     // (a circle |z| = rho near R meets the disc from inside R when |c| - r < R, from outside when |c| + r > R)
     const cl = Math.hypot(cs.shape.c[0], cs.shape.c[1]), vIn = cl - cs.shape.r < cs.R ? 1 : 0, vOut = cl + cs.shape.r > cs.R ? 1 : 0;
-    const t = { inn: 0, inRight0: 0, out: 0, outRight0: 0, ring: 0, unres: 0, solves: 0, wide: 0, searched: 0, agree: 0 };
+    const t = { inn: 0, inRight0: 0, out: 0, outRight0: 0, ring: 0, unres: 0, solves: 0, wide: 0, searched: 0, agree: 0, offRim: 0 };
     for (const w of pts) {
       const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, a = CX.abs(w);
       t.solves += e.nodes;
+      if (e.verdict === -1 && !e.rim) t.offRim++;
       if (a < PIX) continue;   // (the pixel at the critical value 0, whose one preimage is 0: its verdict is its ramp's)
       if (e.verdict === -1 && Math.abs(a - cs.R) > BAND * PIX) t.wide++;
       // (the search alone, where it resolves the pixel)
@@ -405,7 +406,19 @@ const bruteN = (o, L, w, n) => {
     check(`${cs.name}: every pixel inside the circle (past the pixel's reach) is ${vIn ? 'covered' : 'empty'}, with no root solved`, t.inn > 100 && t.inRight0 === t.inn, JSON.stringify(t));
     check(`... every pixel outside it is ${vOut ? 'covered' : 'empty'}, with no root solved`, t.out > 100 && t.outRight0 === t.out, JSON.stringify(t));
     check(`... every unresolved pixel lies within ${BAND} px of the circle (the reach band)`, t.wide === 0, JSON.stringify(t));
+    check('... and every one, the critical value 0\'s too, is on the image\'s rim (rim: a hairline, which the pane says nothing of)', t.offRim === 0, JSON.stringify(t));
     check('... wherever the search alone resolves a pixel, its verdict is the closed form\'s', t.searched > 300 && t.agree === t.searched, JSON.stringify(t));
+  }
+  // (control: a search starved to one root solve on z^3 x 3, where the closed form leaves most pixels to the search, reads
+  // unresolved away from the boundary circles too, and there off the rim: the rim is the edge, not every unresolved pixel)
+  {
+    const cs = CASES[1], p = planOf(repOf(cs.expr, 3)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape });
+    let unres = 0, offRim = 0;
+    for (const w of pts) {
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false, reptNodes: 1 }).rept;
+      if (e.verdict === -1) { unres++; if (!e.rim) offRim++; }
+    }
+    check(`control: z^3 x 3 on a disc across |z| = 1, starved to one root solve: unresolved pixels off the rim`, offRim > 0 && offRim < unres, `${offRim} of ${unres} unresolved off the rim`);
   }
   // (within half a pixel of each boundary circle |w| = R ((|c| +- r) / R)^M, where a preimage meets the disc's edge, at
   // x 2 and x 3: wherever the search alone resolves a point, its verdict and its coverage U (a partial cover there) are

@@ -609,18 +609,18 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   // verdict is the same (covered, empty, unresolved; a coverage below the leaves' 0.03 counts as either side of the edge)
   // and U is within the leaves' 0.03 ----
   if (opts.rept !== false) {
-    const RP = R.rept = { points: 0, compared: 0, failCount: 0, byScene: {}, fails: [], verdicts: { covered: 0, empty: 0, unresolved: 0 } };
+    const RP = R.rept = { points: 0, compared: 0, failCount: 0, byScene: {}, fails: [], verdicts: { covered: 0, empty: 0, unresolved: 0 }, rim: 0 };
     const MAIN_REPT = `
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
   vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
   ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
-  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepRim = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
   if (ixRepKeep()) discard;
   invWalk(t.xy);
   if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
-  o = vec4(U, nCov > 0 ? 1.0 : 0.0, ixRepFail || ixRepCap || ixRepUnres ? 1.0 : 0.0, ixRepFull > 0 ? 1.0 : 0.0);
+  o = vec4(U, nCov > 0 ? 1.0 : 0.0, ixRepFail || ixRepCap || ixRepUnres ? (ixRepRim ? 2.0 : 1.0) : 0.0, ixRepFull > 0 ? 1.0 : 0.0);
 }
 `;
     const EXTRA_REPT = { pre: 'uniform highp sampler2D uW;\n', main: MAIN_REPT };
@@ -664,11 +664,15 @@ void main() {
           const bad = [];
           if (vg !== vc && !(vg >= 0 && vc >= 0 && Math.max(q[0], cpu.U) <= EDGE_U)) bad.push(`verdict gpu ${vg} cpu ${vc} (U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)})`);
           if (Math.abs(q[0] - cpu.U) > EDGE_U) bad.push(`U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)}`);
+          // (an unresolved pixel on the image's rim, Inverse.REPT_RIM: the GPU's mark is the CPU twin's)
+          if (vg === -1 && vc === -1) { RP.rim += cpu.rept.rim ? 1 : 0; if ((q[2] > 1.5) !== !!cpu.rept.rim) bad.push(`rim gpu ${q[2] > 1.5} cpu ${!!cpu.rept.rim}`); }
           if (bad.length) { RP.failCount++; RP.byScene[name] = (RP.byScene[name] || 0) + 1; if (RP.fails.length < 30) RP.fails.push({ chain: name, w: [w.re, w.im], bad }); }
         });
       }
     }
     GLR.setReptFastNodes(0);
+    // (the rim's comparison saw some: the tangent scenes leave unresolved pixels on it)
+    if (!RP.rim) R.errors.push('rept: no unresolved pixel on the image\'s rim was compared');
     // control: a non-finite root (NaN, then an infinity) forced into every first node (GLR.setReptPoison) reads
     // unresolved at every point of the gallery scene, never covered or empty
     {
