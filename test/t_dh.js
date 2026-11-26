@@ -199,6 +199,15 @@ check('the level 1.02 lies inside the level 2', EQ[0].every((z) => wind(EQ[3], z
   check('async: a quick equipotential\'s points are on it (|φ_c| = 1.05 to 1e−12)', wq < 1e-12, wq);
   await new Promise((res) => setTimeout(res, 3000));
   check('async: and once c rests again, the full traces', sh.every((x) => Region.dhStamp(x) === 'f'), sh.map(Region.dhStamp).join(''));
+  // (c at rest while the page keeps asking for the same curves, every 50 ms, as its redraws and line jobs do: the
+  // trace of a key already waiting or under way keeps its progress, so the full traces still land)
+  for (const x of sh) x.c = [-0.9, 0.05];
+  const tAsk = Date.now();
+  while (Date.now() - tAsk < 4000 && !sh.every((x) => Region.dhStamp(x) === 'f')) {
+    for (const x of sh) Region.curvesOf(x, win);
+    await new Promise((res) => setTimeout(res, 50));
+  }
+  check('async: c at rest, the same curves asked every 50 ms: the full traces land', sh.every((x) => Region.dhStamp(x) === 'f'), sh.map(Region.dhStamp).join(''));
   console.log(`${n - bad}/${n} passed`);
   process.exit(bad ? 1 : 0);
 })();
