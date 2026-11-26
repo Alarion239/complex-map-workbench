@@ -661,17 +661,26 @@ void main() {
       // options, GLChain.buildInverse(steps, built, plan.opts), beside the chain's)
       ['bite x 20, then x 2, on plane 1', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { after: [St('mul', { c: '2' })] }],
       // (the repeat second: x 2, then the repeat, on the stages (1, 2], the walker's ops active from the second step)
-      ['x 2, then bite x 20, on (1, 2]', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { before: [St('mul', { c: '2' })] }]];
+      ['x 2, then bite x 20, on (1, 2]', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { before: [St('mul', { c: '2' })] }],
+      // (a glide frame of the repeat at x copies (#2510): the copies passed and the gliding one as one REPT op whose first
+      // level solves the gliding copy's homotopy, its head; planned and drawn as the app's glide frames are, by
+      // Inverse.homBuilt and the program of that chain)
+      ['glide frame x 3 at 1.75, bite', 3, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { glideX: 1.75 }],
+      ['glide frame x 20 at 10.5, gallery square', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32), NEWTON, { glideX: 10.5 }],
+      ['glide frame x 20 at 10.0001, gallery square', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32), NEWTON, { glideX: 10.0001 }]];
     // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
     for (const fastN of [0, PASS_B_FAST]) {
       GLR.setReptFastNodes(fastN);
-      for (const [name0, nRep, shape, pts, expr = NEWTON, { before = [], after = [] } = {}] of SCENES) {
+      for (const [name0, nRep, shape, pts, expr = NEWTON, { before = [], after = [], glideX = null } = {}] of SCENES) {
         const name = name0 + (fastN ? ` (first pass ${fastN} solves)` : '');
         const steps = [...before, Object.assign(St('custom', { expr, cut: 180 }), { repeat: { n: nRep, len: 1 } }), ...after];
         const a = before.length, b = a + 1;
-        const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built, a, b);
+        const built = Funcs.applyRepeats(steps, steps.map(Funcs.build));
+        // (a glide frame: the repeat standing for its homotopy at glideX / nRep, with its own program, as invHomPath's)
+        const bh = glideX == null ? built : built.map((bb, k) => (k === a ? Inverse.homBuilt(bb, Inverse.homOps(bb, glideX / nRep, { rept: true })) : bb));
+        const plan = Inverse.planChain(steps, bh, a, b);
         // (a plan whose options are not the chain's draws by the program of its own, as the app's invPlan pairs them)
-        const own = plan.ok && plan.opts.rept && !Inverse.chainOpts(steps, built).rept ? GLChain.buildInverse(steps, built, plan.opts) : undefined;
+        const own = glideX != null ? GLChain.buildInverse(steps, bh) : plan.ok && plan.opts.rept && !Inverse.chainOpts(steps, built).rept ? GLChain.buildInverse(steps, built, plan.opts) : undefined;
         if (steps.length > 1 && !own) { RP.failCount++; RP.fails.push({ chain: name, bad: ['no program of the plan\'s own options'] }); continue; }
         if (!plan.ok || plan.ops[0].kind !== 'REPT') { RP.failCount++; RP.fails.push({ chain: name, bad: ['plan ' + (plan.reason || plan.ops.map((o) => o.kind).join('>'))] }); continue; }
         GLR.setChain(GLChain.build(steps, built));

@@ -41,7 +41,7 @@ const Inverse = (() => {
     opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    reptNode, reptEnclose, reptDisc
+    reptNode, reptEnclose, reptDisc, reptForm, reptHead, opRept
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -965,7 +965,7 @@ const Inverse = (() => {
       }
       case 'REPT': {
         // the disc pushed through every copy (InvOps.reptDisc), widened to stay centred on the op's own value
-        const d = reptDisc(o.p.P, o.p.Q, o.p.n, c, rho);
+        const d = reptDisc(o.p.P, o.p.Q, o.p.n, c, rho, o.p.head);
         if (d) r = d.r + abs(sub(d.c, fe));
         break;
       }
@@ -1346,8 +1346,10 @@ const Inverse = (() => {
     // unbounded shape (no prune)
     prep.rept = null;
     if (!reason && N === 1 && ops[0].kind === 'REPT') {
-      const rp = ops[0].p, bb = shape.complement ? null : boundsOf(shape);
-      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb, rp.escR, shape.kind === 'disc' ? { c: shape.c, r: shape.r } : null) : Array.from({ length: rp.n + 1 }, () => null);
+      // (with a head, E_0 .. E_{n-1} are the copies' and E_n is the whole plane: the pixel's own node is solved, and its
+      // children are pruned against E_{n-1})
+      const rp = ops[0].p, bb = shape.complement ? null : boundsOf(shape), nc = rp.head ? rp.n - 1 : rp.n;
+      const E = (bb ? reptEnclose(rp.P, rp.Q, nc, bb, rp.escR, shape.kind === 'disc' ? { c: shape.c, r: shape.r } : null) : Array.from({ length: nc + 1 }, () => null)).concat(rp.head ? [null] : []);
       prep.rept = {
         E: E.map((e) => {
           if (!e) return null;
@@ -1496,18 +1498,19 @@ const Inverse = (() => {
     // REPT (the plan's only op): the depth-first search of the chains of backward roots (InvOps' REPT section; the GLSL
     // walker's REPT loop is the same). At each node the certified roots in the solver's order; a child at r copies from
     // the shape is pruned when its point lies outside E_r grown by its chain error and REPT_AA_REACH pixels (|dz/dw|
-    // pix each), the root pixel too (r = n, error 0); a leaf goes on with its chain error (rdel) to the leaf, and the
+    // pix each), the root pixel too (r = n, error 0); the first level solves the op's head where it has one (a glide
+    // frame's gliding copy, InvOps.reptHead); a leaf goes on with its chain error (rdel) to the leaf, and the
     // search ends at the first leaf that covers in full. A node whose certificate fails is not searched further
     // (rst.fail); REPEAT_NODES_MAX solves end the search (rst.cap)
     const reptRec = (j, Lf) => {
-      const o = ops[j], { P, Q, n } = o.p, E = prep.rept ? prep.rept.E : null;
+      const o = ops[j], { P, Q, n, head } = o.p, E = prep.rept ? prep.rept.E : null;
       const pruned = (v, dv, r, J) => reptPruned(E && E[r], v, dv, pix * Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])));
       if (pruned(Lf.u, 0, n, Lf.J)) { rst.pruned++; return null; }
       const full0 = nFull;
       const go = (v, dv, depth, J, path) => {
         if (rst.nodes >= Math.min(REPEAT_NODES_MAX, opts.reptNodes || Infinity)) { rst.cap = true; return true; }
         rst.nodes++;
-        const nd = reptNode(P, Q, v, dv);
+        const nd = depth === 0 && head ? reptNode(head.P, head.Q, v, dv) : reptNode(P, Q, v, dv);
         if (!nd) { rst.fail = true; return false; }
         for (let i = 0; i < REPT_DEG; i++) {
           const d = nd.d[i], J2 = [d.re * J[0] - d.im * J[2], d.re * J[1] - d.im * J[3], d.im * J[0] + d.re * J[2], d.im * J[1] + d.re * J[3]];
@@ -1887,7 +1890,19 @@ const Inverse = (() => {
       for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1, opts); if (!r.ok) return r; ops.push(...mark(r, i)); }
       const r = homOps(sub[j], x - j, opts);
       if (!r.ok) return r;
-      return { ok: true, ops: ops.concat(mark(r, j)) };
+      const all = ops.concat(mark(r, j));
+      // (a Repeat that its plane plans as one REPT op, opts.rept or the step's own ops (Inverse.homBuilt's, a glide's
+      // skeleton: the chain's options, Inverse.chainOpts): the copies passed and the copy gliding as one REPT op of their
+      // levels, the gliding copy its head (reptHead), once it has passed a copy; the ops above where the gliding copy's
+      // homotopy is not the copy between affine maps)
+      const whole = b.__homOps ? b.__homOps() : null;
+      const asRept = opts.rept === true || !!(whole && whole.ok && whole.ops.length === 1 && whole.ops[0].kind === 'REPT');
+      const rf = b.repeat && asRept ? reptForm(b) : null;
+      if (rf && j >= 1) {
+        const head = r.ops.length ? reptHead(rf.P, rf.Q, r.ops) : null, levels = j + (head ? 1 : 0);
+        if (levels >= 2 && (head || !r.ops.length)) return { ok: true, ops: [opRept(rf.P, rf.Q, levels, (z) => all.reduce((u, o) => o.fwd(u), z), head)] };
+      }
+      return { ok: true, ops: all };
     }
     const own = stepOps(b, opts);
     if (!own.ok) return newtOps(b, t, own.reason);

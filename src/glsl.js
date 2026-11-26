@@ -2381,7 +2381,7 @@ void ixAncTan(vec2 w) {
 `;
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
-  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3, RAT3: 4, RAT4: 6, REPT: 5 };
+  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3, RAT3: 4, RAT4: 6, REPT: 9 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
   // the bound the DH / Böttcher orbit's early stop certifies on H, relative to 1 + |H|; a NEWT op whose step stops
@@ -2964,12 +2964,16 @@ vec3 ixRepCrude;   // the crude radii of the last node solved (the GLSL page's r
 uniform int uIxRepHatch;
 `;
   };
-  // the op's cells: (n, -, -, -), then P and Q high-first, two coefficients to a cell. _eval: Horner's p(z), p'(z);
-  // _node(v, dv, l): the certified roots of P - v Q at level l (InvOps.reptNode: reptSolve's closed form and polish,
-  // reptCert's certificate), false when it fails; _dudv: 1 / R'(z); _out: the prune (Inverse.enumerate's, reptMargin)
+  // the op's cells: (n, -, -, -), then P and Q high-first, two coefficients to a cell, then the head's P and Q the same
+  // way (the op's own P and Q where it has no head). _eval: Horner's p(z), p'(z); _node(v, dv, l): the certified roots
+  // of P - v Q at level l, the head's at level 0 (InvOps.reptNode: reptSolve's closed form and polish, reptCert's
+  // certificate), false when it fails; _dudv(z, l): 1 / R'(z) for level l's map; _out: the prune (Inverse.enumerate's,
+  // reptMargin)
   function reptFns(P, c) {
     const U = (i) => `uInv[${c + i}]`, R = (x) => glf(x);
-    const co = `vec2 P0 = ${U(1)}.xy, P1 = ${U(1)}.zw, P2 = ${U(2)}.xy, P3 = ${U(2)}.zw, Q0 = ${U(3)}.xy, Q1 = ${U(3)}.zw, Q2 = ${U(4)}.xy, Q3 = ${U(4)}.zw;`;
+    const cell = (i) => `(l == 0 ? ${U(i + 4)} : ${U(i)})`;
+    const co = `vec4 k1 = ${cell(1)}, k2 = ${cell(2)}, k3 = ${cell(3)}, k4 = ${cell(4)};
+  vec2 P0 = k1.xy, P1 = k1.zw, P2 = k2.xy, P3 = k2.zw, Q0 = k3.xy, Q1 = k3.zw, Q2 = k4.xy, Q3 = k4.zw;`;
     return glsl`void ${P}_eval(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec2 z, out vec2 p, out vec2 d) {
   p = a0; d = vec2(0.0);
   d = cmul(d, z) + p; p = cmul(p, z) + a1;
@@ -3052,7 +3056,7 @@ bool ${P}_node(vec2 v, float dv, int l) {
   ixRZ[k] = z0; ixRZ[k + 1] = z1; ixRZ[k + 2] = z2; ixRR[k] = r0; ixRR[k + 1] = r1; ixRR[k + 2] = r2;
   return true;
 }
-vec2 ${P}_dudv(vec2 z) {
+vec2 ${P}_dudv(vec2 z, int l) {
   ${co}
   vec2 p, dp, q, dq;
   ${P}_eval(P0, P1, P2, P3, z, p, dp);
@@ -3105,7 +3109,7 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       `${i2}else {`,
       `${i3}int ${s('ri')} = ixRI[${s('rsp')}], ${s('ci')} = 3 * ${s('rsp')} + ${s('ri')};`,
       `${i3}ixRI[${s('rsp')}] = ${s('ri')} + 1;`,
-      `${i3}vec2 ${s('jc')} = cmul(ixRJ[${s('rsp')}], ${P}_dudv(ixRZ[${s('ci')}]));`,
+      `${i3}vec2 ${s('jc')} = cmul(ixRJ[${s('rsp')}], ${P}_dudv(ixRZ[${s('ci')}], ${s('rsp')}));`,
       `${i3}if (${s('rsp')} + 1 >= ${s('rn')}) {`,
       `${i4}${R}.u = ixRZ[${s('ci')}]; ${R}.J = vec4(${s('jc')}.x, -${s('jc')}.y, ${s('jc')}.y, ${s('jc')}.x); ixRepDel = ixRR[${s('ci')}]; ${s('leaf')} = true;`,
       `${i3}} else if (!${P}_out(ixRZ[${s('ci')}], ixRR[${s('ci')}], ${s('rn')} - ${s('rsp')} - 1, cx_abs(${s('jc')}))) {`,
@@ -3239,7 +3243,10 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       case 'QUAD': case 'RAT2': GLSLRoots.closedValues(o, put, c); break;
       case 'REPT': {
         put(c, p.n, 0, 0, 0);
-        for (let i = 0; i < 4; i += 2) { put(c + 1 + i / 2, p.P[i].re, p.P[i].im, p.P[i + 1].re, p.P[i + 1].im); put(c + 3 + i / 2, p.Q[i].re, p.Q[i].im, p.Q[i + 1].re, p.Q[i + 1].im); }
+        const hd = p.head || p;
+        for (const [at, A, B] of [[c + 1, p.P, p.Q], [c + 5, hd.P, hd.Q]]) {
+          for (let i = 0; i < 4; i += 2) { put(at + i / 2, A[i].re, A[i].im, A[i + 1].re, A[i + 1].im); put(at + 2 + i / 2, B[i].re, B[i].im, B[i + 1].re, B[i + 1].im); }
+        }
         break;
       }
       default: {
