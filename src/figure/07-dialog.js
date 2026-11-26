@@ -22,7 +22,7 @@
       ink: s.ink, crop: cropOf(s), svPic: s.svPic === 'two' && A.svSurf() === 'land' ? 'plane' : s.svPic, svFrom: s.svFrom, svTo: s.svTo, axes: s.axes[s.for] || null, deform: s.deform,
       // (a filmstrip over a Number: its name, first and last values ({re, im}) and frames)
       film: s.film === 'number' && A.numbers && A.numbers().some((q) => q.name === s.numName) ? 'number' : 'planes', numName: s.numName, numFrom: A.numberParse ? A.numberParse(s.numFrom) : null, numTo: A.numberParse ? A.numberParse(s.numTo) : null, numN: s.numN,
-      panels: s.panels || 'both', lang: capLangOf(s),
+      lang: capLangOf(s),
     }, extra || {});
   }
   const ICON = {
@@ -190,8 +190,8 @@
     // unchanged); remembered with the settings. An edited caption is dropped: it is in the other language
     const capLangRow = uiLang() !== 'en' ? row($t('Caption'), segB('xfCapLang', set.capLang === 'en' || set.capLang === 'ru' || set.capLang === 'it' ? set.capLang : 'ui', [['ui', $t('Interface language')], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => { set.capLang = v; capEdited = null; regen.hidden = true; changed(); }, $t('Caption language'))) : null;
     if (capLangRow) capLangRow.classList.add('wide');
-    // (round 3) the deformation is a deformation in every view that shows it: the filmstrip, the paths (plane and
-    // globe), or one frame at the current t (the one-panel figure of Phase, Landscape and the globes)
+    // (round 3) the deformation is a deformation in every view that shows it: the filmstrip, or one frame at the current
+    // t (the one-panel figure of Phase, Landscape and Phase on the sphere)
     const defo = defoOf(view);
     // the steps view's glide along its thread: a video of it wherever it has a step, on the plane, the sphere and the Landscape
     const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
@@ -200,8 +200,7 @@
     // the classic view without the deformation: no motion to record, so Video is unavailable, with the reason as its tip
     const noMotion = !A.svOn() && !defo ? $t('A video records a glide along the chain, which only the steps view has') : null;
     const dOpts = [['film', $t('Filmstrip')]];
-    if (defo && PATHS_OK.has(defo)) dOpts.push(['paths', $t('Paths')]);
-    if (defo && defo !== 'plane') dOpts.push(['frame', $t('One frame')]);
+    if (defo) dOpts.push(['frame', $t('One frame')]);
     const deformOf = () => (dOpts.some((q) => q[0] === set.deform) ? set.deform : 'film');
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
@@ -315,8 +314,8 @@
       vfr($t('Speed'), h('div', { class: 'xf-fmtrow' }, vseg('xfVFps', 'fps', [['30', $t('{n} fps', { n: 30 })], ['60', $t('{n} fps', { n: 60 })]], $t('Frame rate'), true), vLen)),
       vfr($t('Ends'), vseg('xfVEnds', 'ends', [['once', $t('Once')], ['loop', $t('Loop')], ['bounce', $t('Bounce')]], $t('Ends'))),
       vfr($t('Look'), vseg('xfVLook', 'look', [['light', $tx('video look', 'Light')], ['print', $tx('video look', 'Print')]], $t('Look'))),
-      ...(defo === 'plane' || defo === 'deriv' || defo === 'phase' ? [vfr($t('Window'), vseg('xfVWin', 'win', [['screen', $t('As on screen')], ['fit', $t('Fit the motion')]], $t('Window')))] : []),
-      h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', glide ? $t('Label') : $t('t label'))));
+      ...(defo === 'phase' ? [vfr($t('Window'), vseg('xfVWin', 'win', [['screen', $t('As on screen')], ['fit', $t('Fit the motion')]], $t('Window')))] : []),
+      h('div', { class: 'xf-checks' }, vck('tlabel', glide ? $t('Label') : $t('t label'))));
     // (the steps view: where the video goes and how long it is, kept current by posterSoon)
     const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
     const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = $t('{from} → {to} · {secs} s', { from: glide.from, to: glide.to, secs: I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1) }); };
@@ -325,14 +324,13 @@
     // Fine-tune
     const ftBody = h('div', { class: 'xf-ft', hidden: !set.fine });
     const ftBtn = h('button', { type: 'button', class: 'xf-disc', 'aria-expanded': String(!!set.fine), onclick: () => { set.fine = !set.fine; ftBody.hidden = !set.fine; ftBtn.setAttribute('aria-expanded', String(set.fine)); ftBtn.querySelector('.xf-chev').innerHTML = set.fine ? ICON.down : ICON.right; saveSet(set); } });
-    ftBtn.append(h('span', { class: 'xf-chev', html: set.fine ? ICON.down : ICON.right }), h('span', null, $t('Fine-tune')), h('small', null, view === 'xy' ? $t('Crop · Axes · Panels') : view === 'land' ? $t('Crop') : $t('Crop · Axes')));
+    ftBtn.append(h('span', { class: 'xf-chev', html: set.fine ? ICON.down : ICON.right }), h('span', null, $t('Fine-tune')), h('small', null, view === 'land' ? $t('Crop') : $t('Crop · Axes')));
     const fr = (label, el) => h('div', { class: 'xf-fr' }, h('span', null, label), el);
     ftBody.append(fr($t('Crop'), segB('xfCrop', cropOf(set), [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { if (A.svOn()) set.svCrop = v; else set.crop = v; changed(); }, $t('Crop'))));
     const axesSeg = () => segB('xfAxes', set.axes[set.for] || PRESET[set.for].axes, [['box', $t('Box')], ['cross', $t('Cross')], ['none', $t('None')]], (v) => { set.axes[set.for] = v; changed(); }, $t('Axes'));
     let axesEl = axesSeg();
     const axesRow = fr($t('Axes'), axesEl);
     if (view !== 'land') ftBody.append(axesRow);
-    if (view === 'xy') ftBody.append(fr($t('Panels'), segB('xfPanels', set.panels || 'both', [['both', $t('Both')], ['L', $t('X only')], ['R', $t('Y only')]], (v) => { set.panels = v; changed(); }, $t('Panels'))));
     const ftWrap = h('div', { class: 'xf-ftwrap' }, ftBtn, ftBody);
     // On a phone the print settings (what the figure is for, its size, ink, caption language, the LaTeX) are folded
     // behind one button, so the sheet opens on the format and the buttons; elsewhere the rows sit in the grid as before.

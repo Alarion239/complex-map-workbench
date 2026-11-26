@@ -1204,7 +1204,6 @@
   const PRIMES = ['', '′', '″', '‴'];
   const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
   let figMode = false; // set while a figure is drawn: image points read F(z₀) rather than z₀″
-  let figVec = false; // the figure draws the deformation's outline, paths and labels as vectors (the morph figure)
   // a formula as plain text for a tooltip outside English: Tour's reading of TeX, the screen's comma
   const texTitle = (tex) => {
     try {
@@ -1271,7 +1270,7 @@
     const st = shapeStage(s), num = sub(Number.isInteger(s.num) ? s.num : idx);
     const base = exLabel(s.label) || (bn ? Params.display(bn) : (st > 0 ? `w${sub(st)},` : 'z') + num);
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
-    if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
+    if (figMode && primes > 0 && morphOn()) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
     // (a figure's carried point reads as the image on the plane it is shown on: primes counts the maps from the point's own plane, so
     // that plane is stage + primes; F is the whole map from z)

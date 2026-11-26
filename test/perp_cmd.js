@@ -1154,7 +1154,7 @@ await section('J', async () => {
   const tri = scene([UC, pt('p0', [0.1, 0.6]), pt('p1', [-0.5, -0.3]), pt('p2', [0.55, -0.25]), Kd('k1', 'p0', 'p1', 1), Kd('k2', 'p1', 'p2', 1), Kd('k3', 'p2', 'p0', 1)]);
   await load(NS + 'j1', tri); await settle(900);
   info.jEn = await capF();
-  info.jScreen = await ev(`__cmwCapText(['L', 'R'])`);
+  info.jScreen = await ev(`__cmwCapText()`);
   info.jHw = await capF({ for: 'homework', cols: 1 });
   ok('J1 EN caption (user-3): "…in the domain |z|<1, in the z-plane", no stray comma', /in the domain \$\|z\|<1\$, in the \$z\$-plane/.test(info.jEn || '') && !stray(info.jEn) && !stray(info.jScreen) && !stray(info.jHw), [info.jEn, info.jHw]);
   await nav(`${U}?ns=${NS}j1&lang=ru`);
@@ -1220,7 +1220,7 @@ await section('J', async () => {
   // steps view also says ", and the shading steps": the list's own ", and" is the one before "the intersection"
   const mt = { id: 'm', kind: 'point', p: [-0.5, -0.3], visible: true, def: { op: 'meet', args: [{ s: 'k1', part: 0 }, { s: 'k2', part: 0 }], index: 0 } };
   await load(NS + 'j8', scene([UC, pt('p0', [0.1, 0.6]), pt('p1', [-0.5, -0.3]), pt('p2', [0.55, -0.25]), Kd('k1', 'p0', 'p1', 1), Kd('k2', 'p1', 'p2', 1), mt])); await settle(900);
-  info.jMeet = await capF(); info.jMeetScreen = await ev(`__cmwCapText(['L', 'R'])`);
+  info.jMeet = await capF(); info.jMeetScreen = await ev(`__cmwCapText()`);
   await nav(`${U}?ns=${NS}j8&lang=ru`);
   info.jMeetRu = await capF();
   await nav(`${U}?ns=${NS}j8`);
