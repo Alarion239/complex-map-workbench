@@ -23,9 +23,11 @@
 // (v) B at u = .5 and C keep the same triangles, grid by grid, with and without the rule: it leaves out nothing where the
 //     carry's map has no jump.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
-// jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin), and its pixel row: the share of
-// the surface's pixels (a pixel coloured in either frame, its channels more than SAT apart) more than PX_TOL apart in a
-// channel from the fine-ring frame.
+// jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
+// a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
+// kept triangle may bridge one: a lower J would come within reach of the continuous edges' ratios), and its pixel row:
+// the share of the surface's pixels (a pixel coloured in either frame, its channels more than SAT apart) more than PX_TOL
+// apart in a channel from the fine-ring frame.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = { A: {}, B: {} };
