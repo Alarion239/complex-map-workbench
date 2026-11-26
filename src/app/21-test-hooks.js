@@ -70,12 +70,15 @@
   window.__cmwSumRun = (role = 'L', work) => { if (work) { sumWork = work; sumRuns.clear(); requestRender('L', 'R'); } const r = sumRuns.get(role === 'R' ? paneR : paneL); return r ? { taken: r.view !== null, hit: r.hit, spent: r.spent, tried: r.tried } : null; };   // (the pane's last sample of infinite sums that do not converge, sumWatch; work: the terms a sample may evaluate from now on, and a new sample)
   // the glide tile (#1533): shown, its box and the plane's (page px), what it keeps clear of, the spot it takes for
   // its size now (svTileSpot), or null, and the morph it shows (#2409), or null
-  window.__cmwTile = (sync) => {
-    if (sync) svTileSync(true);
+  // (sync: laid out at once, as svTileLater's job does; trace: true starts a record of each layout and typesetting, with
+  // whether it was made where a layout may be (now), false ends it; the record so far is the result's trace)
+  window.__cmwTile = (sync, trace) => {
+    if (trace != null) svTile.trace = trace ? [] : null;
+    if (sync) svTileSync(true, true);
     const el = svTile.el, P = $('plotL').getBoundingClientRect(), r = el && !el.hidden ? el.getBoundingClientRect() : null;
     const box = (o) => [Math.round(o.left), Math.round(o.top), Math.round(o.right), Math.round(o.bottom)];
     const obs = svTileObstacles($('plotL'));
-    return { shown: !!r && el.style.visibility !== 'hidden', box: r && box(r), plot: box(P), obstacles: obs.map(box), spot: el ? svTileSpot(P, el.offsetWidth, el.offsetHeight, obs) : null, key: svTile.key, fit: [svTile.a && !svTile.a.hidden, svTile.b && !svTile.b.hidden], offscreen: !!SV.offscreen, q: svTile.q, fits: [svTile.fitA, svTile.fitB],
+    return { shown: !!r && el.style.visibility !== 'hidden', box: r && box(r), plot: box(P), obstacles: obs.map(box), spot: el ? svTileSpot(P, el.offsetWidth, el.offsetHeight, obs) : null, key: svTile.key, fit: [svTile.a && !svTile.a.hidden, svTile.b && !svTile.b.hidden], offscreen: !!SV.offscreen, q: svTile.q, idle: svTile.idle, trace: svTile.trace ? svTile.trace.slice() : null, fits: [svTile.fitA, svTile.fitB],
       // (the morph shown: its glyph pairs and, for each part, its role (a pair, 'out' the first's alone, 'in' the second's,
       // 'nameOut' and 'nameIn' the name's index), its class, its affines at the two ends and now, its opacity now and its
       // box in the page's px)
@@ -197,9 +200,9 @@
   // (the Cauchy style's draw time: n frames of the left pane, each read back so the GPU has finished; ms per frame)
   /** @type {any} */ (window).__cmwCauchyBench = (n) => { const g = GLR.gl, px = new Uint8Array(4), t0 = performance.now(); for (let i = 0; i < n; i++) { renderColor(paneL); g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px); } return (performance.now() - t0) / n; };
   /** @type {any} */ (window).__cmwCauchyOpt = (show, plus) => { setOpt('cauchyShow', show); setOpt('cauchyPlus', !!plus); requestRender('L'); save(); };
-  // (SPEC 10.6, 12.4 (h)) the figure export as the dialog runs it (opt: {panels, widthIn, caption, alive}), and one
-  // panel drawn off-screen at print size (a PNG data URL)
-  window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ panels: ['L'], widthIn: 7, caption: false }, opt || {}));
+  // (SPEC 10.6, 12.4 (h)) the figure export of X's panel (opt: {widthIn, caption, alive}), and X drawn off-screen at
+  // print size (a PNG data URL)
+  window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ widthIn: 7, caption: false }, opt || {}));
   // the deformation's range (__cmwMorph) and the screen's path selection
   // kind 'H' (the image side at T), 'H0', 'F' (the chain), 'cpuMap' (a map spec's
   // CPU twin): pts [[x, y]] -> [[re, im]] (null for a non-finite value)
@@ -228,10 +231,13 @@
   // path, the share of its 3 px samples (away from the paths' ends, the transport and the legend) within 0.7 dTest of
   // another path, in the px it was chosen in (the worst path); heads: the last frame's moving points vs H_T(z) (px)
   window.__cmwPathsCheck = () => {
-    const sel = mfCache.rsel && mfCache.rkey === mfScreenKey(paneR).key ? mfCache.rsel : mfCache.sel;
-    if (!sel) return null;
-    const P = (w) => paneR.w2s(w);
-    const Fc = new Map(), Fat = (T) => { let f = Fc.get(T); if (!f) { f = morphAt(T); Fc.set(T, f); } return f; };
+    // (measured as the paths were chosen: in the view of their pane then (mfCache.v0), under the homotopy they were
+    // traced with (mfCache.src: the steps view's, whose T counts from its segment's first plane))
+    const src = mfCache.src, v0 = mfCache.v0;
+    const sel = mfCache.rsel && src && mfCache.rkey === mfScreenKey(paneL, src).key ? mfCache.rsel : mfCache.sel;
+    if (!sel || !src || !v0) return null;
+    const P = (w) => [v0.w / 2 + (w.re - v0.cx) * v0.s, v0.h / 2 - (w.im - v0.cy) * v0.s];
+    const Fc = new Map(), Fat = (T) => { let f = Fc.get(T); if (!f) { f = src.Fat(T); Fc.set(T, f); } return f; };
     let seg = 0, jump = 0, ang = 0, kink = 0, nSeg = 0, kinkStep = 0;
     const turns = [], polys = [], nodeT = pathMarkTimes(sel.Tend || morphLen()).nodes;
     const g = SegGrid(6);
@@ -255,7 +261,7 @@
       }
       polys.push({ k, ls });
     }
-    const ex = 0.75 * PATHS.sep, d = 0.7 * PATHS.dTest, nogo = mfNogo(paneR);
+    const ex = 0.75 * PATHS.sep, d = 0.7 * PATHS.dTest, nogo = src.nogo ? src.nogo(paneL) : [];
     let sep = 0;
     // (only a path's own start and end are exempt, within ex: the review's measure; another path's end is not.
     // sepLong: the share within 2 dTest, for paths longer than longK dS)
@@ -265,7 +271,7 @@
       const lr = ls[ls.length - 1], ends = [ls[0][0], lr[lr.length - 1]];
       let n = 0, near = 0, far = 0;
       for (const l of ls) for (const p of resamplePx(l, 3)) {
-        if (p[0] < 0 || p[1] < 0 || p[0] > paneR.w || p[1] > paneR.h - 8 || nogo.some((R) => p[0] >= R.x0 && p[0] <= R.x1 && p[1] >= R.y0 && p[1] <= R.y1) || ends.some((q) => mDist(p, q) < ex)) continue;
+        if (p[0] < 0 || p[1] < 0 || p[0] > v0.w || p[1] > v0.h - 8 || nogo.some((R) => p[0] >= R.x0 && p[0] <= R.x1 && p[1] >= R.y0 && p[1] <= R.y1) || ends.some((q) => mDist(p, q) < ex)) continue;
         n++; if (g.near(p, d, k) < d) near++; if (g.near(p, PATHS.longD * PATHS.dTest, k) < PATHS.longD * PATHS.dTest) far++;
       }
       if (n) sep = Math.max(sep, near / n);
@@ -304,8 +310,8 @@
   window.__cmwFig = Figure;
   window.__cmwTeX = TeX;
   /** @type {any} */ (window).__cmwCapParts = () => { const c = figCapParts(); return { Fname: c.Fname, raw: c.raw, formula: c.formula, mapTex: c.mapTex }; };
-  window.__cmwPrepareExport = (panels, alive) => prepareExport(panels || ['L', 'R'], alive);
-  window.__cmwRenderOff = (side, w, h, dpr) => renderOff(side, w, h, dpr).toDataURL('image/png');
+  // (side 'L': X's pane, the only one drawn)
+  window.__cmwRenderOff = (side, w, h, dpr) => { if (side !== 'L') throw new Error('only X (side L) is drawn'); return renderOff(w, h, dpr).toDataURL('image/png'); };
   // client coordinates of plane point (re, im) in the left ('L') or right ('R') plane, as last drawn
   // (test/ux165_plane_cmd.js) the open draft, the handle size in use
   window.__cmwDraft = () => (draft ? { kind: draft.kind, pts: (draft.pts || []).map((p) => p.slice()) } : null);
@@ -380,7 +386,9 @@
   };
   // constructions (INTERFACE): the ring, the draft, the session's Curve | Region; o.fill sets it
   window.__cmwCI = (o) => { if (o && o.gs) { const [side, P] = o.gs, gc = globeCam(side), q = gc && gScreen(gc, P), r = (side === 'R' ? paneR : paneL).ocanvas.getBoundingClientRect(); return q ? [r.left + q[0], r.top + q[1]] : null; } if (o && o.fill) Construct.fill = o.fill; if (o && o.snap) { const [side, x, y, opt] = o.snap; const t = Construct.snapAt(side, x, y, opt || {}); return t ? { cls: t.cls, z: t.z, ref: t.ref } : null; } if (o && o.names) return S.shapes.concat(S.targets).map((s) => ({ id: s.id, kind: s.kind, name: Construct.shapeLabel(s), def: Construct.defText(s), why: s.cundef ? Construct.reasonText(s.cundef) : null })); if (o && o.shapes) return { hi, n: hist.length, tool, selected, zeros: S.steps[0] ? S.steps[0].params.zeros : null, list: S.shapes.concat(S.targets).map((s) => Object.assign(JSON.parse(JSON.stringify(s, noRuntime)), { inf: !!s._atInf, A: s._g ? s._g.A : null })) }; return Construct.debug(); };
-  window.__cmwCapText = (panels) => pcTidy(figureCaption(panels || ['L'])).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
+  // X's figure caption as text, or with 'listGen' its shapes' list in the genitive, the one a plane past the colour plane's
+  // caption names ("the images of …")
+  window.__cmwCapText = (part) => pcTidy(part === 'listGen' ? figCapParts().shapeListGen : figureCaption()).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
   // (#846) the steps view's carried landscape in the last frame: {u, s (plane a), mu, box}, or null for a surface at
   // rest; box: the last frame's block, carried or not
   // the last Landscape frame's height-axis labels, as their screen y (CSS px)
@@ -408,44 +416,66 @@
 
   // TEST-HOOK (dropped from the published page by build.py)
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
-  // the last frame's carried landscape over its block, on the CPU: an nx x ny grid of points over the block, each covered
-  // when it lies in the image of a carried triangle the draw keeps (LAND_CARRY_VS: its corners' images finite, its edges at
-  // most lim long), of the box grid (cells x cells vertices over src), of a pole patch or of the far patch (patchN x patchN vertices,
-  // CARRY_Z; left out with patches false, the far patch left out with patches 'poles'), and of the patches more ([x, y, r0, r1] each, the same parametrisation, on the
-  // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
-  // default). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
-  // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
   // whether the plane point (x, y) lies in the strip of a far ring's copies (ring [x, y, ...] with dup [n.x, n.y, half-width],
   // LAND_CARRY_VS uDup); false for a ring without one
   const landInStrip = (ring, x, y) => !!ring.dup && Math.abs((x - ring[0]) * ring.dup[0] + (y - ring[1]) * ring.dup[1]) < ring.dup[2];
+  // whether the plane point (x, y) lies in the disc of one of the carry c's pole patches ([x, y, r0, r1], out to r1), which
+  // that patch covers
+  const inPoleDisc = (c, x, y) => (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(x - qx, y - qy) < q1);
+  // The triangles the last carried frame's draw keeps (LAND_CARRY_VS), on the CPU, grid by grid: the box ('box', cells x
+  // cells vertices over src, less the triangles whose corners all lie in one seamed patch's disc, which that patch draws),
+  // then as patches says (true: all; 'poles': no far ring; false: none) the pole patches ('pole' k) and the far rings
+  // ('far' k, less the triangles whose corners all lie in the strip of the ring's copies, landInStrip), each n x n vertices
+  // at svPatchZ, then the patches more ('more' k, [x, y, r0, r1], the same parametrisation, on the CPU only). A triangle is
+  // kept when its corners' images under the carry's map F are finite and its edges are at most c.lim long; with step (the
+  // heights' step limit, LAND_CARRY_VS's uStep: 0.3 H for Re F and Im F) and hgt (a plane point's drawn height), also when
+  // its corners' heights are finite and span at most step. visit(g, a, d, e) for each, with its corners' vertices a, d, e
+  // (vertex v at grid place (v % n, floor(v / n))) and g {name, n, place, Z, P, Hv}: place (i, j) -> [x, y], fractional
+  // places too; Z and P, the vertices' points and images (x at 2v, y at 2v + 1); Hv, their heights with hgt, or null
+  const landKeptTris = (c, F, visit, { patches = /** @type {boolean | string} */ (true), more = [], step = Infinity, hgt = null } = {}) => {
+    const lim2 = c.lim * c.lim;
+    const grid = (name, n, place, discs = [], ring = null) => {
+      const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n), Hv = hgt ? new Float64Array(n * n) : null;
+      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+        const z = place(i, j), zc = C(z[0], z[1]), w = F(zc), v = j * n + i;
+        Z[2 * v] = z[0]; Z[2 * v + 1] = z[1];
+        if (CX.isFin(w)) { P[2 * v] = w.re; P[2 * v + 1] = w.im; } else P[2 * v] = P[2 * v + 1] = NaN;
+        if (Hv) Hv[v] = hgt(zc);
+      }
+      const g = { name, n, place, Z, P, Hv };
+      const keep = (a, d, e) => {
+        const o = [2 * a, 2 * d, 2 * e];
+        if (discs.some(([x, y, r]) => o.every((k) => Math.hypot(Z[k] - x, Z[k + 1] - y) < r))) return;
+        if (ring && o.every((k) => landInStrip(ring, Z[k], Z[k + 1]))) return;
+        if (!o.every((k) => Number.isFinite(P[k]))) return;
+        for (let m = 0; m < 3; m++) { const k = o[m], q = o[(m + 1) % 3]; if ((P[k] - P[q]) ** 2 + (P[k + 1] - P[q + 1]) ** 2 > lim2) return; }
+        if (Hv && step < Infinity) { const hs = [Hv[a], Hv[d], Hv[e]]; if (!hs.every(Number.isFinite) || Math.max(...hs) - Math.min(...hs) > step) return; }
+        visit(g, a, d, e);
+      };
+      for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+        const v = j * n + i;
+        keep(v, v + 1, v + n + 1);
+        keep(v, v + n + 1, v + n);
+      }
+    };
+    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    grid('box', n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
+    const ring = (name) => (p, k) => { const m = p[4] || c.patchN || 96; grid(name + k, m, (i, j) => svPatchZ(p, i, j, m), [], p.dup ? p : null); };
+    if (patches) (c.polar || []).slice(0, c.patches || 0).forEach(ring('pole'));
+    if (patches && patches !== 'poles') (c.far || []).forEach(ring('far'));
+    more.forEach(ring('more'));
+  };
+  // the last frame's carried landscape over its block, on the CPU: an nx x ny grid of points over the block, each covered
+  // when it lies in the image of a triangle the draw keeps (landKeptTris, as patches and more say; the heights' step limit,
+  // LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F). where (x, y) -> boolean: the points counted
+  // (all by default). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry
   window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = [], where = null) => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets) return null;
-    const F = cpuMap(c.map), b = c.box, cov = new Uint8Array(nx * ny);
-    const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0), lim2 = c.lim * c.lim;
-    // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell; with discs, a triangle
-    // whose corners all lie in one of them is left out, as LAND_CARRY_VS leaves the box's to a seamed patch; with ring (a far
-    // ring with its copies' strip), one whose corners all lie in that strip, as it leaves the ring's to the box and the inner ring)
-    const grid = (n, place, discs = [], ring = null) => {
-      const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n);
-      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-        const z = place(i, j), w = F(C(z[0], z[1])), o = 2 * (j * n + i);
-        Z[o] = z[0]; Z[o + 1] = z[1];
-        if (CX.isFin(w)) { P[o] = w.re; P[o + 1] = w.im; } else P[o] = P[o + 1] = NaN;
-      }
-      const at = (i, j) => 2 * (j * n + i);
-      const inDisc = (...v) => discs.some(([x, y, r]) => v.every((o) => Math.hypot(Z[o] - x, Z[o + 1] - y) < r));
-      const inDup = (...v) => !!ring && v.every((o) => landInStrip(ring, Z[o], Z[o + 1]));
-      const tri2 = (a, d, e) => { if (!inDisc(a, d, e) && !inDup(a, d, e)) tri(P, a, d, e); };
-      for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
-        tri2(at(i, j), at(i + 1, j), at(i + 1, j + 1));
-        tri2(at(i, j), at(i + 1, j + 1), at(i, j + 1));
-      }
-    };
-    const tri = (P, a, d, e) => {
-      const ax = P[a], ay = P[a + 1], bx = P[d], by = P[d + 1], cx = P[e], cy = P[e + 1];
-      if (!(Number.isFinite(ax) && Number.isFinite(bx) && Number.isFinite(cx))) return;
-      if ((ax - bx) ** 2 + (ay - by) ** 2 > lim2 || (bx - cx) ** 2 + (by - cy) ** 2 > lim2 || (cx - ax) ** 2 + (cy - ay) ** 2 > lim2) return;
+    const b = c.box, cov = new Uint8Array(nx * ny);
+    const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0);
+    landKeptTris(c, cpuMap(c.map), ({ P }, a, d, e) => {
+      const ax = P[2 * a], ay = P[2 * a + 1], bx = P[2 * d], by = P[2 * d + 1], cx = P[2 * e], cy = P[2 * e + 1];
       const i0 = Math.max(0, Math.ceil((Math.min(ax, bx, cx) - b.x0) * kx)), i1 = Math.min(nx - 1, Math.floor((Math.max(ax, bx, cx) - b.x0) * kx));
       const j0 = Math.max(0, Math.ceil((Math.min(ay, by, cy) - b.y0) * ky)), j1 = Math.min(ny - 1, Math.floor((Math.max(ay, by, cy) - b.y0) * ky));
       const D = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
@@ -456,13 +486,7 @@
         const u = ((bx - x) * (cy - y) - (cx - x) * (by - y)) * Math.sign(D), v = ((cx - x) * (ay - y) - (ax - x) * (cy - y)) * Math.sign(D), w = ((ax - x) * (by - y) - (bx - x) * (ay - y)) * Math.sign(D);
         if (u >= eps && v >= eps && w >= eps) cov[j * nx + i] = 1;
       }
-    };
-    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
-    grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
-    for (const p of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
-      const n = p[4] || c.patchN || 96;
-      grid(n, (i, j) => svPatchZ(p, i, j, n), [], p.dup ? p : null);
-    }
+    }, { patches, more });
     let bare = 0, counted = 0;
     const at = [];
     for (let k = 0; k < nx * ny; k++) {
@@ -479,7 +503,8 @@
   // the worst cell's centre and corners' mean and exact L, copies and copiesBad: the cells the outer ring leaves out to the box
   // and the inner ring, all four corners in the strip of its copies (dup, LAND_CARRY_VS uDup), and those of them off by more
   // than tol, not in cells or bad}, per patch of c.far (of 'polar': per pole patch, each at its own resolution, none left
-  // out), or null with no carry
+  // out), or null with no carry. (It reads only the height, at a cell's centre: not where the cell stands in the block, nor
+  // its error on the screen, which __cmwLandChordPx reads)
   window.__cmwLandFarErr = (tol = 0.25, skipPatches = true, of = 'far') => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.far) return null;
@@ -492,7 +517,7 @@
       for (let j = 0; j <= m; j++) for (let i = 0; i <= m; i++) V[j * (m + 1) + i] = L(at(i, j));
       for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
         const zc = at(i + 0.5, j + 0.5), w = F(zc);
-        if (of === 'far' && skipPatches && (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(zc.re - qx, zc.im - qy) < q1)) continue;
+        if (of === 'far' && skipPatches && inPoleDisc(c, zc.re, zc.im)) continue;
         if (!CX.isFin(w) || w.re < b.x0 || w.re > b.x1 || w.im < b.y0 || w.im > b.y1) continue;
         const a0 = V[j * (m + 1) + i], a1 = V[j * (m + 1) + i + 1], a2 = V[(j + 1) * (m + 1) + i], a3 = V[(j + 1) * (m + 1) + i + 1], Lc = L(zc);
         if (!Number.isFinite(a0 + a1 + a2 + a3 + Lc)) continue;
@@ -521,6 +546,54 @@
     if (!pk || !pk.info) return null;
     const w = pk.F(C(x, y));
     return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
+  };
+  // The chord error of the last carried Landscape frame on the screen, on the CPU, per grid the draw keeps triangles of
+  // (landKeptTris, with the draw's height step, c.step): each kept triangle whose centroid's image lies in the block is sampled
+  // at its centroid and its three edges' midpoints, at the same fractional grid place (i, j); there the chord (its
+  // corners' images and drawn heights, interpolated) and the exact surface point (F(z) at the height of h(z), z the
+  // grid's point at that place) are each projected onto the pane (landWorldPx, the frame's floor camera). A triangle's
+  // error is the largest distance between the two, in css px; placement and height, its parts: the exact point against
+  // the chord's place at the exact height, and against the exact place at the chord's height. o {tol: px (3), where:
+  // (x, y) -> boolean on the centroid's point of plane s, the triangles counted (all by default)}. Per grid name
+  // ({box, pole k, far k}): {tris: the triangles counted, off: those over tol, worst: the largest error (px), at: its
+  // centroid's image and point [w.re, w.im, z.re, z.im], place and height: the off triangles whose placement or height
+  // part is over tol, inDisc: a far ring's kept triangles whose centroid lies in a pole patch's disc, which that patch
+  // covers (not counted)}, or null with no carried frame
+  window.__cmwLandChordPx = ({ tol = 3, where = null } = {}) => {
+    const c = render3D.carried, f = render3D.floor;
+    if (!c || !c.map || c.sheets || !f) return null;
+    const F = cpuMap(c.map), h = cpuMap(c.hmap), info = f.info, b = c.box;
+    const hgt = (z) => { const v = h(z); return CX.isFin(v) ? info.heightOf(landValue(v)) : NaN; };
+    // (the draw's own height step for the frame, carryStep: none for ln |F| and |F|)
+    const step = c.step != null && c.step < 1e30 ? c.step : Infinity;
+    const px = (x, y, ht) => landWorldPx(f, x, y, ht), d = (p, q) => (p && q ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 0);
+    const out = {};
+    const SAMPLES = [[1 / 3, 1 / 3, 1 / 3], [0.5, 0.5, 0], [0, 0.5, 0.5], [0.5, 0, 0.5]];
+    landKeptTris(c, F, ({ name, n, place, P, Hv }, ...vs) => {
+      const r = out[name] || (out[name] = { tris: 0, off: 0, worst: 0, at: null, place: 0, height: 0, inDisc: 0 });
+      const hs = vs.map((v) => Hv[v]);
+      if (!hs.every(Number.isFinite)) return;
+      const wx = (P[2 * vs[0]] + P[2 * vs[1]] + P[2 * vs[2]]) / 3, wy = (P[2 * vs[0] + 1] + P[2 * vs[1] + 1] + P[2 * vs[2] + 1]) / 3;
+      if (wx < b.x0 || wx > b.x1 || wy < b.y0 || wy > b.y1) return;
+      const ij = vs.map((v) => [v % n, Math.floor(v / n)]), zAt = (k) => place(...[0, 1].map((m) => k[0] * ij[0][m] + k[1] * ij[1][m] + k[2] * ij[2][m]));
+      const zc = zAt(SAMPLES[0]);
+      if (name.startsWith('far') && inPoleDisc(c, zc[0], zc[1])) { r.inDisc++; return; }
+      if (where && !where(zc[0], zc[1])) return;
+      let e = 0, ep = 0, eh = 0, atW = null;
+      for (const k of SAMPLES) {
+        const z = zAt(k), zz = C(z[0], z[1]), w = F(zz), hx = hgt(zz);
+        if (!CX.isFin(w) || !Number.isFinite(hx)) continue;
+        const cx = k[0] * P[2 * vs[0]] + k[1] * P[2 * vs[1]] + k[2] * P[2 * vs[2]], cy = k[0] * P[2 * vs[0] + 1] + k[1] * P[2 * vs[1] + 1] + k[2] * P[2 * vs[2] + 1];
+        const ch = k[0] * hs[0] + k[1] * hs[1] + k[2] * hs[2], q = px(w.re, w.im, hx);
+        e = Math.max(e, d(px(cx, cy, ch), q)); ep = Math.max(ep, d(px(cx, cy, hx), q)); eh = Math.max(eh, d(px(w.re, w.im, ch), q));
+        if (!atW) atW = [w.re, w.im];
+      }
+      r.tris++;
+      if (e > tol) { r.off++; if (ep > tol) r.place++; if (eh > tol) r.height++; }
+      if (e > r.worst) { r.worst = e; r.at = [...(atW || [wx, wy]), ...zc].map((v) => +v.toFixed(3)); }
+    }, { step, hgt });
+    for (const r of Object.values(out)) r.worst = +r.worst.toFixed(1);
+    return out;
   };
   // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
   // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there
@@ -601,6 +674,8 @@
     }
     return { i: f.i, n: r.kept.length, ims: r.kept.map((k) => k.z[1]).sort((a, b) => a - b), e0, e1, sentence: r.sentenceTex, caption: r.captionTex };
   };
+  // the phase palette as its menu sets it (setPalette: the legend and both panes drawn again), or just read; -> the palette's id
+  /** @type {any} */ (window).__cmwPalette = (id) => { if (id != null) setPalette(id); return GLR.palette(); };
   // the render-ahead frames (#1339) against the screen: frame k drawn ahead, and the left pane drawn live now as the screen
   // draws the motion's frame j (renderLeft in svAheadVisit, with no frame drawn ahead to show, its labels placed at once), its
   // pixels compared -> { n: bytes compared, diff: bytes that differ, first: the first one's index, rec: the live frame's glide
@@ -629,7 +704,7 @@
   };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone; clock: ms of glide time a frame, 0 the wall
-  // clock; holdJobs: the idle jobs of svReady count as unfinished; holdWarm: its warm draw does; warmInv: false stops the warm-up of the glides at rest
+  // clock; holdJobs: true (the idle jobs of svReady) or a list of its part names count as unfinished; holdWarm: its warm draw does; warmInv: false stops the warm-up of the glides at rest
   // (svPrestartInv; true back on); gate: false switches the Play gate off (true back on); play: false
   // ends a wait of the gate too; moving counts a wait; poleFrameMs: a frame's pole search budget; dropTracks: every pole track forgotten; glideSheets: 1 draws a glide's chain as it is alone,
   // without the other sheets' copies (SV.glideSheets); glideStencil: 1 draws the sphere's copies only where the
@@ -652,6 +727,9 @@
   // ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
   // far that ran past their key (SV.fits); ready (svReady, peeked) and invGlides are read only when asked too (getters:
   // svReady's inverse part asks each glide's programs, and a suite may read the glide once a pixel)
+  // the Play gate's 10 s message for a part (null: no part named), and the part it would name now
+  /** @type {any} */ (window).__cmwGateStill = (part) => svGateStill(part);
+  /** @type {any} */ (window).__cmwGateMissing = () => svGateMissing();
   // (x moves the thread's position and nothing else: SV.i stays, so a frame held between planes is drawn with the source view while the labels
   // read the plane's own view, V.left. To read the labels against the picture freeze a glide with clock, as steps_glide_labels does)
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'glideSheets' in o) { SV.glideSheets = o.glideSheets; requestRender('L'); } if (o && 'glideStencil' in o) { SV.glideStencil = o.glideStencil; requestRender('L'); } if (o && 'restPaint' in o) { SV.restPaint = o.restPaint; requestRender('L'); } if (o && 'plotsKeep' in o) { SV.plotsKeep = o.plotsKeep; requestRender('L'); } if (o && 'glideSeams' in o) { SV.glideSeams = o.glideSeams; requestRender('L'); } if (o && 'landBranches' in o) { SV.landBranches = o.landBranches; requestRender('L'); } if (o && 'glideFade' in o) { SV.glideFade = o.glideFade; requestRender('L'); } if (o && 'tieBand' in o) { svTieBandSet = o.tieBand; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && 'holdJobs' in o) svJobsHoldSet(o.holdJobs); if (o && 'holdWarm' in o) svWarmHoldSet(o.holdWarm); if (o && 'warmInv' in o) svInvWarmOffSet(!o.warmInv); if (o && 'ahead' in o) svAheadTune(o.ahead); if (o && 'gate' in o) svGateOffSet(!o.gate); if (o && o.play != null) { if (o.play) svPlay(); else { svGateEnd(); svPause(true); } } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { get ready() { return svReady(null, true); }, on: SV.on, plots: { drawn: svPlotsUse.drawn, kept: svPlotsUse.kept, held: svPlotsKey !== null }, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', playRec: SV.play && !SV.play.slide ? { from: SV.play.from, to: SV.play.to, ms: SV.play.ms, t0: SV.play.t0, el: svElapsed(SV.play) } : null, rebased: SV.rebased || null, rebaseMinSpan: SV_REBASE_MIN_SPAN, loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, fits: SV.fits, homAll: !!S.homAll, moving: svMoving() || svGateWaiting(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, note: paneL.noteBox || null, paths: svPathsHook(), glide: svGlideRec, get ahead() { return svAheadHook(); }, get aheadCost() { return svAheadCostNow(); }, get aheadPlan() { return svAheadPlanHook(); }, get aheadProbe() { return svAheadProbeHook(); }, hold: svHoldB, rest: svRestRec, tieBand: svTieBand(), carryPre: svCarryPre, resolved: GLR.carryResolveFrames ? GLR.carryResolveFrames() : 0, invWarm: svInvWarmKey === svInvKey() && !svInvJobs.length && !svInvFlushing, get invGlides() { return svInvGlides().map((g) => [g.b, g.u]); }, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };

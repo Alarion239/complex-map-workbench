@@ -2,11 +2,9 @@
 // 844 × 390 and 780 × 360 in landscape, English and Russian, touch. Every step: its title and its lead or task show on
 // arrival (no tap); the strip stays in one place; the tool row's buttons and the view switch are not covered by it (the
 // topmost element at their centres, the tour's shade aside, is the button); portrait: the strip is the 68 px row under
-// the header and X fills what is left down to the tool row (the thread lies over X's foot: the steps view has no chain
-// bar); landscape: the strip sits in the header (X keeps its size) or in a 48 px row. Then: the Why panel is at most half
+// the header and X fills what is left down to the tool row (the thread lies over X's foot); landscape: the strip sits in the header (X keeps its size) or in a 48 px row. Then: the Why panel is at most half
 // the screen, scrolls inside, folds on a touch in X and that touch reaches the app (the Planes chapter's first step, whose
-// task is the pan in X). (The classic view's 608 px X under its chain bar and a step's sheet below the strip are
-// tour_phone_classic_cmd.js.)
+// task is the pan in X).
 // (r3 review: the strip keeps one place per chapter; a chapter whose line needs three lines has a 76 px portrait row, or
 // in landscape the row under the header (48 or 56 px); portrait shows × End and a chevron after the count, Next is an
 // arrow named by its label; no lead, task, result, hint or caption of a chapter needs more lines than the strip has)
