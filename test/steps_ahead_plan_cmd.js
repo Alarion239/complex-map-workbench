@@ -147,7 +147,8 @@ for (const rate of RATES) for (const what of list) {
     const B = await ev('__cmwSteps().ahead');
     const said2 = (await ev('__live')).filter((t) => t.includes(SAID));
     // a reason is said once for a chain: a first glide that said it leaves the second silent. One that was silent (an 'ahead' whose fill ran whole,
-    // which fed its cost) leaves a second that says the draw wait's why, once, exactly when its plan is now 'time' or its own fill ends cut for time
+    // which fed its cost) leaves a second that says why, once, exactly when its plan is now 'time' (the draw wait's words) or 'memory' (the memory's),
+    // or its own fill ends cut for time (the draw wait's)
     const second = said2.slice(said1.length), cutB = !!B && B.state === 'live' && B.why === 'time';
     const want = said1.length === 0 && (plan2 === 'time' || plan2 === 'memory' || cutB) ? 1 : 0;
     ok(`${tag}: said: a second glide says why exactly when the first was silent and its plan is now 'time' or 'memory' or its fill ends cut for time, once, in that reason's words`, second.length === want && (want === 0 || second[0].includes(plan2 === 'memory' ? MEMORY : TIME)), { said1: said1.length, second, plan2, cutB, fill: B && { state: B.state, why: B.why, n: B.n } });
