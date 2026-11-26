@@ -78,7 +78,7 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
       const tag = `${w}×${h} ${lang}${v ? ' steps' : ''}`;
       const probe = () => ev(`(() => { const bar = document.querySelector('.ph-ctx'), b = bar && !bar.hidden ? bar.getBoundingClientRect() : null;
         const vis = (e) => { const q = e.getBoundingClientRect(); return q.width > 0 && q.height > 0 && q.bottom > 0 && q.top < innerHeight; };
-        const els = [...document.querySelectorAll('.viewstack .vbtn, .pane:not(.ph-inset) .ph-col .ph-key, .pane.ph-inset > .ph-swap')].filter(vis);
+        const els = [...document.querySelectorAll('.viewstack .vbtn, .pane.ph-inset > .ph-swap')].filter(vis);
         return { bar: b && [Math.round(b.top), Math.round(b.bottom)], items: els.map((e) => { const q = e.getBoundingClientRect(), t = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return { id: e.id || e.className.toString().slice(0, 18), top: Math.round(q.top), bottom: Math.round(q.bottom), hit: !!t && (t === e || e.contains(t)) }; }) }; })()`);
       const closed = await probe();
       await ev(`__cmwSelect('s1'), 1`);

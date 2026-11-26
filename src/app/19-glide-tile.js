@@ -23,7 +23,7 @@
   const svTileOps = (u, step) => (step ? (u < 0.5 ? [1, 0] : [0, 1])
     : [Math.min(1, Math.max(0, (0.5 - u) / SV_TILE_X)), Math.min(1, Math.max(0, (u - 0.5) / SV_TILE_X))]);
   // what the tile keeps clear of, besides the plane's own children (the canvases and the hairline aside) and its note
-  const SV_TILE_AVOID = '#svStrip, .sv-bandx, .sv-playpop, #toastHost > *, .ph-col, .ph-ctx, .ph-keys, .ph-sheet, .ph-scrim, '
+  const SV_TILE_AVOID = '#svStrip, .sv-bandx, .sv-playpop, #toastHost > *, :root.ph .viewstack .vbtn, .ph-ctx, .ph-keys, .ph-sheet, .ph-scrim, '
     + '.sv-sheet, .sv-scrim, #paneL .pane-head, #popHost > *, .pop, dialog[open], .tour-root, .tour-top';
   const svTile = { el: null, a: null, b: null, m: null, key: '', texA: null, texB: null, q: 0, q2: 0, fitA: false, fitB: false, spot: null, shown: -1, morph: undefined };
   // ---- the morph (#2409) ----

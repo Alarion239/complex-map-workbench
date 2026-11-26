@@ -44,7 +44,7 @@ const tabbedKeys = async (fromId) => {
   const out = [];
   for (let i = 0; i < TABS; i++) {
     await key('Tab');
-    const k = await ev(`(() => { const a = document.activeElement; if (!a || !a.closest || !a.closest('.ph-col, .viewstack')) return null;
+    const k = await ev(`(() => { const a = document.activeElement; if (!a || !a.closest || !a.closest('.viewstack')) return null;
       const r = a.getBoundingClientRect(), e = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
       return { name: a.id || String(a.className), top: !!e && a.contains(e), under: e ? (e.id || String(e.className || e.tagName)) : null, visible: a.matches(':focus-visible') }; })()`);
     if (k) out.push(k);
@@ -72,7 +72,7 @@ const chipControls = () => ev(`(() => {
 const geometry = () => ev(`(() => {
   const plot = document.getElementById('plotL').getBoundingClientRect(), bar = document.querySelector('.ph-ctx').getBoundingClientRect();
   const head = document.querySelector('.top').getBoundingClientRect();
-  const keys = [['Sphere', '#plotL .ph-sph'], ['Display', '#plotL .ph-dsp'], ['Fit view', '#leftFit']].map(([name, sel]) => {
+  const keys = [['Sphere', '#leftSph'], ['Display', '#plotL .ph-dsp'], ['Fit view', '#leftFit']].map(([name, sel]) => {
     const b = document.querySelector(sel);
     if (!b || !b.getClientRects().length) return { name, shown: false };
     const r = b.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
