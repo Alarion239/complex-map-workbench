@@ -214,6 +214,7 @@ const VIEWS = {
   'steps_rept_outline_cmd.js': steps({ pin: true }),
   'steps_parked_repeat_catalog_cmd.js': steps(),
   'steps_parked_repeat_refusal_cmd.js': steps(),
+  'steps_rept_rim_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
   'newt_poly_order_cmd.js': steps({ pin: true }),
   'series_limit_cmd.js': steps({ pin: true }),
