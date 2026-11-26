@@ -343,14 +343,14 @@
   }
   function setCursor(pane, side) {
     let c = 'default';
-    const gDraw = (sd) => globeEdit(sd) && tool !== 'select' && !GLOBE_OFF.has(tool) && tool !== 'formula';
+    const gDraw = () => globeEdit('L') && tool !== 'select' && !GLOBE_OFF.has(tool) && tool !== 'formula';
     const gEditDrag = drag && /^g(draw|handle|move)$/.test(drag.mode);
     // the 10 px around ∞ hold no point and no vertex (panels.md 9.7): not-allowed there for the Point and Polygon
     // tools and while a point or a vertex is dragged
-    const gDrawCur = (sd) => (gInf[sd] && (tool === 'point' || tool === 'polygon') ? 'not-allowed' : 'crosshair');
-    const gEditCur = (sd) => (drag.mode === 'gdraw' ? 'crosshair' : gInf[sd] ? 'not-allowed' : 'grabbing');
-    if (lGlobe() && gEditDrag) c = gEditCur('L');
-    else if (lGlobe() && gDraw('L') && !drag) c = gDrawCur('L');
+    const gDrawCur = () => (gInf.L && (tool === 'point' || tool === 'polygon') ? 'not-allowed' : 'crosshair');
+    const gEditCur = () => (drag.mode === 'gdraw' ? 'crosshair' : gInf.L ? 'not-allowed' : 'grabbing');
+    if (lGlobe() && gEditDrag) c = gEditCur();
+    else if (lGlobe() && gDraw() && !drag) c = gDrawCur();
     // the landscape takes no drawing (panels.md 9.1)
     else if (lLand() && tool !== 'select' && tool !== 'formula' && !drag) c = 'not-allowed';
     else if (!lFlat()) c = drag ? 'grabbing' : 'grab';
@@ -1460,8 +1460,8 @@
     if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; probeHover = null; probeHeld = false; setHoverW(null); setReadouts(null); requestRender('OL', 'OR'); return; }
     // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
     // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
-    if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || d.mode === 'panR' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
-    if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (bind a dropped handle; a click picks)
+    if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
+    if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if (d.mode === 'panL' && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }

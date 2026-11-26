@@ -28,7 +28,8 @@ const panBtnM = APP.match(/\n\s*const panBtn = ([^;\n]+);/);
 const upM = APP.match(/\n(\s*if \(e && e\.pointerType !== 'touch'[^\n]*sndQueryClick\(pane, side, qx, qy\);[^\n]*)\n/);
 const holdAt = APP.indexOf('t: setTimeout(() => {');
 check('the app\'s text has the pan button, the click\'s query and the long press\'s timer', !!(panBtnM && upM && holdAt > 0));
-check('a pan-button press on X is a pan marked pb (onDown)', /if \(panBtn\) \{ drag = \{ mode: 'panL',[^\n]*pb: true \}/.test(APP) && /drag = \{ mode: 'panR',[^\n]*pb: panBtn \}/.test(APP));
+// (Y's pane takes no input: X's press is the one pan-button press there is)
+check('a pan-button press on X is a pan marked pb (onDown)', /if \(panBtn\) \{ drag = \{ mode: 'panL',[^\n]*pb: true \}/.test(APP));
 function app() {
   const ctx = { Math, performance: { now: () => 1000 }, queried: [], moved: [], tool: 'select', hold: null, drag: null, d0: null, ring: null, holdMenuT: 0, touches: new Map([[1, [0, 0]]]),
     pane: { id: 'paneL' }, side: 'L', x0: 120, y0: 80, cv: { getBoundingClientRect: () => ({ left: 0, top: 0 }) }, V: { right: {} }, menu: false };

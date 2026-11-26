@@ -283,7 +283,7 @@ const Phone = (() => {
   // the same region (its centre and its units per pane width) at the inset's size; the plane that comes back large
   // shows exactly what it showed before. Nothing is fitted (fitting the new inset would, for an unbounded region, frame
   // the part in its own window plus a margin, so every round trip would multiply the scale). A plane the app fits
-  // itself (Y's auto fit, X's at a focused step) is fitted by the resize as before.
+  // itself (X's at a focused step) is fitted by the resize as before.
   // keep[side], while side is drawn as the inset: {v: its large view, set: the view the inset was given, r: v.s / set.s}.
   // Only the inset's view is ever small: while a merged view (Phase, Landscape, the Deformation) shows, or while the app
   // parks, swaps or saves the views (hold), every plane holds its large view.

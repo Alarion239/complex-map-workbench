@@ -168,8 +168,9 @@
     // (a requestRender during this frame may already have asked for the next one: never two frame chains at once)
     if (again && !rafId) { rafId = requestAnimationFrame(frame); rafReqT = performance.now(); }
   }
-  // (glide: ‹ › on a phone's chain move Y's stage from one step's plane to the next: the panes stay as they are. glide,
-  // the spring, is the position x in steps; trans.at the stage Y rests on between two steps, -1 while it moves and when
+  // (glide: ‹ › on a phone's chain row step the stage that rightStage() names (the chain row's chip, the exports, the
+  // variable's name) from one step's plane to the next; nothing is drawn for it, and the panes stay as they are. glide,
+  // the spring, is the position x in steps; trans.at the stage it rests on between two steps, -1 while it moves and when
   // it rests on F as ever)
   const trans = { glide: false, at: -1 };
   // the active steps of the chain when the deformation's range is all of it, one after another: the planes ‹ › step between

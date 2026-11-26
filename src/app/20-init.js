@@ -293,9 +293,9 @@
           // focus returns to the control that switched: Settings, or the phone's More button
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
-        // (rightView: a classic-era save's camera of Y Plane, which no view draws now, kept as read and written back by a
-        // save and a link; Y's sphere had none)
-        if (!rImage()) S.rightView = null;
+        // (rightView: the camera of Y Plane that a save or a link may carry; no view draws Y, so it is kept as read and
+        // written back by a save and a link; a Y sphere has none)
+        if (!rImage()) setOpt('rightView', null);
         if (loadDropped) toast($tn('{n} saved item could not be restored by this version and was left out.', '{n} saved items could not be restored by this version and were left out.', loadDropped));
       } catch (err) {
         // never a dead app on every reload: fall back to the first example

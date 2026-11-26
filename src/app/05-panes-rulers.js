@@ -24,22 +24,20 @@
   const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
   // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
   const GLOBE_MARK_PX = 13;
-  function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
-  // the same, a step at a time: it yields every 16 samples
-  function* stageSampler(F0, xs, ys, k) {
+  // the images of the visible shapes under a stage's map, as points (xs, ys): what a fit of the plane frames
+  function stageSamples(F0, xs, ys, k) {
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
-    let got = 0;
-    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } return ++got % 16 === 0; };
+    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } };
     for (const s of S.shapes) {
       if (s.visible === false) continue;
       const t = kindType(s);
       // (the curves and points of a construction, and the unit circle or an axis made a shape, are
-      // lines to build with: Y's fit follows the user's own shapes and regions, never a large orthogonal circle's image)
+      // lines to build with: the fit follows the user's own shapes and regions, never a large orthogonal circle's image)
       if ((s.def || s.fixed) && t !== 'area') continue;
       const F = shapeF(s, F0, k);
       if (!F) continue;
-      if (t === 'point') { if (push(F(C(s.p[0], s.p[1])))) yield; continue; }
+      if (t === 'point') { push(F(C(s.p[0], s.p[1]))); continue; }
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
         const src = r.mesh.src, nv = src.length / 2;
@@ -47,7 +45,7 @@
         for (let i = 0; i < nv; i += stride) {
           const x = src[2 * i], y = src[2 * i + 1];
           if (r.mesh.stretched && !inCore(x, y)) continue;
-          if (push(F(C(x, y)))) yield;
+          push(F(C(x, y)));
         }
       }
       // (a traced curve formula, like a formula area, counts by its part in the meshing window: its tails run out to
@@ -56,7 +54,7 @@
       if (t === 'area') { try { unbounded = !Region.bboxOf(s); } catch (e) { unbounded = true; } }
       for (const p of r.polys || []) {
         const n = p.length / 2, stride = Math.max(1, Math.floor(n / POLY_SAMPLE_CAP));
-        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if ((!unbounded || inCore(x, y)) && push(F(C(x, y)))) yield; }
+        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if (!unbounded || inCore(x, y)) push(F(C(x, y))); }
       }
     }
   }

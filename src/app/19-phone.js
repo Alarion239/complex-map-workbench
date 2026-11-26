@@ -25,7 +25,7 @@
         if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); }
         requestRender('L', 'R', 'OL', 'OR');
       },
-      fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
+      fit: () => $('leftFit').click(),   // (X's: Y's pane is not drawn)
       // (#246) the phone's chain row and sheet: the plane it is at, ‹ › (the step glide), the deformation's programs
       // compiled ahead of the first press, a step's sheet, a step moved by the sheet's drag
       chainState: () => chainState(), glide: (d) => glideStep(d), cardClick: (k) => selectStep(k),
