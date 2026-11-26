@@ -18,6 +18,7 @@
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
     glideStencil: 0, // (a test hook's) 1: the sphere draws a glide's sheet copies only where the principal sheet is not opaque (drawSphere's sheetCut)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
+    plotsKeep: 1,    // (a test hook's) 0: a glide frame draws the plots under its carried colour itself, never from the kept layer (svPlotsUnder)
     glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
     glideFade: null, // (a test hook's) the alpha of a Landscape glide's copies, fixed over the glide; null: their fade over u
     landBranches: 1, // (a test hook's) 0: the carried Landscape draws no patches about its map's branch points (svLandPatches); any other value draws them
@@ -2188,7 +2189,7 @@
           SV.restHeld = at;
           const key = ['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
           if (svRestFell !== key || !GLR.pendingLinks) {
-            SV.core = 'still';
+            SV.core = 'still'; svPlotsDrop();
             if (svHeldKept(key, asks)) return;
             const n0 = colourAsks;
             svRestAt(at, pane, still);
@@ -2207,7 +2208,7 @@
     svCheck(); svPolesWatch();
     // (a press waits behind the gate on plane z, the colour plane: the plane is drawn as the first frame of the glide it waits to start)
     if (svGateDraws() || (svPaint() === 'push' && svFlatSurf() && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
-    svHeldOn = null;
+    svHeldOn = null; svPlotsDrop();
     SV.core = 'still'; still(pane);
   }
   // Sheets over a glide: a glide frame onto a plane b coloured by its own variable (at or before the colour plane) is
@@ -2404,6 +2405,33 @@
     svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [], pre: 0 };
     return false;
   }
+  // The plots under a glide's carried colour (plane b's picture at rest, plane a's no-value colour over it) read nothing
+  // of u: every frame of a glide draws the same picture there. Drawn into a fresh frame once, it is kept (GLR.layerKeep)
+  // under the key of what the plots read, and drawn back from there while the key holds; at rest it is dropped. A frame
+  // already open (the regions' mask under the colour) draws the plots itself, and so does a frame of another device
+  // size than the left pane's (an export's: the layer serves the screen and the frames drawn ahead for it, through a
+  // proxy of the pane). svPlotsUse: the frames that drew them and
+  // that drew them back (the tests read it); SV.plotsKeep 0 (a test hook's) draws them every frame
+  const SV_PLOTS = 'svPlots';
+  let svPlotsKey = null;
+  const svPlotsUse = { drawn: 0, kept: 0 };
+  function svPlotsUnder(pane, frame, a, b, draw) {
+    if (frame.open || SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) { draw(); return; }
+    const key = [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
+      GLR.palette(), TH.planeRGB, TH.inkRGB, TH.dark, SV.restPaint, svColoured(a), svColoured(b)].join('|');
+    GLR.begin(pane.pw, pane.ph);
+    frame.open = true;
+    if (key === svPlotsKey && GLR.layerDraw(SV_PLOTS)) { svPlotsUse.kept++; return; }
+    draw();
+    svPlotsUse.drawn++;
+    // (a plot whose program still links drew a stand-in or nothing: not a picture to keep)
+    svPlotsKey = !GLR.frameStatus().pending && GLR.layerKeep(SV_PLOTS) ? key : null;
+  }
+  function svPlotsDrop() {
+    if (svPlotsKey === null) return;
+    svPlotsKey = null;
+    GLR.layerDrop(SV_PLOTS);
+  }
   // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's svLinkHold), or null; asks: the
   // frames asked for (renderAsks) before that hold asked for its own
   function svRenderMoving(pane, hold = null, asks = renderAsks) {
@@ -2432,6 +2460,7 @@
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), still = u <= SV_REST_U || b === a;
+    if (still) svPlotsDrop();
     // (in both scopes: the regions of later planes pulled back, a layer of their own over the colour, under the outlines,
     // as a coloured plane draws them (renderColor): at rest on plane a by drawPreimage, between two planes by the inverse
     // pass (svStagedLayer); into the open frame, else a frame of its own; left out with the strokes, hideStrokes)
@@ -2458,7 +2487,7 @@
       // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
       // arrive. Inside regions only under the regions' mask, which keeps them inside the regions. SV.restPaint
       // 0 (a test hook's) leaves plane b's picture out, so that a pixel no point reaches shows the paper)
-      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); }
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) svPlotsUnder(pane, frame, a, b, () => { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); });
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan, or, all at
       // once, each step of the span at its own time (svSpanPaths): the exact picture of the map at u, with nothing
       // blended in; else the carried meshes below, with the planes' plots)
