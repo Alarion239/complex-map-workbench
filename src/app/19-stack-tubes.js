@@ -42,8 +42,8 @@
     return out;
   }
   // The tubes of disc s over the plane shown, in the plane's coordinates, or null where its pieces are not counted:
-  // {pieces: [{ink: index into TH.c, loops: [{z: C[]}] (each loop's points)}],
-  //  narrows: [{z, d, s, p, a, b}]}, kept per plane, stage, chain, disc and All at once. A narrowing is where the straight
+  // {pieces: [{ink: index into TH.c, covers: how many times it covers the disc, loops: [{z: C[]}] (each loop's points)}],
+  //  narrows: [{z, d, s, p, a, b, piece}]}, kept per plane, stage, chain, disc and All at once. A narrowing is where the straight
   //  connectors from a preimage z₀ of the centre narrow to a point: on the part from level a to level b of the planes
   //  between (stackLevelStages; the floor and the glass alone when there are none), at z, z₀'s image on level a, where
   //  the step's map f from a to b has f′(z) = d a negative real number, at the height s, where it passes the plane point p
@@ -55,7 +55,7 @@
     if (pc.counted) {
       const { L, G, m } = stackLevelMaps(k, T), f = L.slice(1).map((b, n) => rangeF(L[n], b));
       const dF = (g, z) => { const h = 1e-6 * (1 + CX.abs(z)); return CX.scale(CX.sub(g(CX.add(z, C(h, 0))), g(CX.sub(z, C(h, 0)))), 0.5 / h); };
-      const pieces = pc.pieces.map((P, i) => ({ ink: TUBE_INKS[i % TUBE_INKS.length], loops: P.loops.map((li) => {
+      const pieces = pc.pieces.map((P, i) => ({ ink: TUBE_INKS[i % TUBE_INKS.length], covers: P.covers, loops: P.loops.map((li) => {
         const z = tubeResample(pc.loops[li].path, TUBE_PTS);
         return { z };
       }) }));
@@ -66,7 +66,7 @@
           const z = G[n](r.z), dz = dF(f[n], z);
           if (!(dz.re < 0 && Math.abs(dz.im) <= NARROW_TOL * CX.abs(dz))) continue;
           const u = 1 / (1 - dz.re), w = G[n + 1](r.z);
-          narrows.push({ z, d: C(dz.re, 0), s: (n + u) / m, p: tubeMix(z, w, u), a: L[n], b: L[n + 1] });
+          narrows.push({ z, d: C(dz.re, 0), s: (n + u) / m, p: tubeMix(z, w, u), a: L[n], b: L[n + 1], piece: r.piece });
         }
       }
       d = { pieces, narrows };
@@ -78,6 +78,31 @@
   // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
   // one number) and a true minus sign
   const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
+  // whether the point z lies inside the closed polygon of points path (C[]): the ray to the right crosses it an odd number of times
+  function tubeInside(path, z) {
+    let c = false;
+    for (let i = 0, j = path.length - 1; i < path.length; j = i++) {
+      const a = path[i], b = path[j];
+      if ((a.im > z.im) !== (b.im > z.im) && z.re < a.re + ((z.im - a.im) * (b.re - a.re)) / (b.im - a.im)) c = !c;
+    }
+    return c;
+  }
+  // The tubes that cover the disc more than once, by their critical points whose values lie in the disc (the connectors' critical
+  // strands, ln.crit): [{piece, crit, z, text}], the words "covers the disc twice: its critical point 0" (k times: "covers the disc
+  // 3 times: …"). A piece's critical point is the one inside its outer loop; where two such pieces nest, the smaller
+  function tubeCovers(d, ln, s) {
+    const out = [];
+    ln.crit.forEach((lev, k) => {
+      const z = lev[0], w = lev[LINK_N];
+      if (!CX.isFin(w) || Math.hypot(w.re - s.c[0], w.im - s.c[1]) >= s.r) return;
+      let best = -1;
+      d.pieces.forEach((P, n) => { if (P.covers > 1 && P.loops.length && tubeInside(P.loops[0].z, z) && (best < 0 || P.covers < d.pieces[best].covers)) best = n; });
+      if (best < 0) return;
+      const zt = tubeNum(z), cv = d.pieces[best].covers;
+      out.push({ piece: best, crit: k, z, text: cv === 2 ? $t('covers the disc twice: its critical point {z}', { z: zt }) : $t('covers the disc {k} times: its critical point {z}', { k: cv, z: zt }) });
+    });
+    return out;
+  }
   // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map from its part's lower level to its upper one,
   // named as the plane's title names it)
   function tubeNarrowText(n) {
@@ -172,7 +197,8 @@
     const exits = tubeExits(pane, ln), num = (x) => I18N.num(x.toFixed(2));
     const labels = (ln.mode === 'curved'
       ? ln.tears.map((r) => ({ text: linkTearText(), kind: 'tear', piece: r.piece, z: [r.z.re, r.z.im], s: r.s, at: at(r.z, r.s) }))
-      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(n.p, n.s) })))
+      : d.narrows.filter((n) => d.pieces[n.piece].covers < 2).map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(n.p, n.s) })))
+      .concat(tubeCovers(d, ln, s).map((x) => ({ text: x.text, kind: 'covers', piece: x.piece, z: [x.z.re, x.z.im], s: 0.5, at: at(ln.crit[x.crit][Math.round(LINK_N / 2)], 0.5) })))
       .concat(exits.map((x) => ({ text: x.s1 < 1 ? $t('out of the window from here to height {s}', { s: num(x.s1) }) : $t('out of the window from here up'), kind: 'exit', piece: x.piece, s: x.s0, s1: x.s1, at: lift(x.at, x.at[2]) })))
       .concat(ln.crosses.filter((x, i) => x.kind === 'cross' || ln.crosses.findIndex((y) => y.kind === 'sooner') === i)
         .map((x) => ({ text: x.kind === 'cross' ? $t('the pieces cross here, not a join') : $t('the glide brings the pieces together from here, not a join'), kind: x.kind, pieces: x.pieces, z: [x.z.re, x.z.im], s: x.s, s1: x.s1, at: at(x.z, x.s) })));
