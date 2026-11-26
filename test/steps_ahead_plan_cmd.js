@@ -8,7 +8,7 @@
 // - rule: every row's decision is the rule applied to the row's own inputs (cost, N, frame size, the three limits);
 // - said: a glide from rest at the page's speed says why it plays live, once (the live region's words), when its plan is 'time' or
 //   'memory'; with the plan 'live' it says nothing; with 'ahead' it says the draw wait's why exactly when its fill (which times
-//   itself) ended cut for time, by the fill's own record; a second glide repeats nothing (it says the draw wait's why for the first time only after a first glide that was silent);
+//   itself) ended cut for time, by the fill's own record; a second glide says why exactly when the first was silent and its plan is now 'time' or 'memory' or its fill ends cut for time;
 // - cut: such a fill ends within the draw wait and a frame of its start, and its glide started within that of the press.
 // info.glide has each map's estimate (cost times frames) beside the wait it made and its fill's record (each frame's ms).
 // - the fill times itself (z^-2 at normal speed): a fill is drawn whole first, with a draw wait that holds, to see what it takes (its frames
@@ -18,6 +18,8 @@
 //   rate and the chain then plans live; the next glide starts at once and says nothing more. A fill made whole feeds as well: a cost far over
 //   its rate stays, one far under it comes to its rate. Each fill is judged by its own rate (read from its record), as fills of one chain
 //   differ by a factor of two on a fast machine.
+//   Forced: a first glide whose fill ran whole is silent and feeds its cost; with the draw wait then lowered to a quarter of that fill's time the
+//   plan of the chain is 'time', and the second glide says the draw wait's why, once, and plays live at once.
 // It asserts nothing about which side of a limit a map lands on: that depends on the machine. Run with CMW_AHEAD_PLAN_ALL=1 the
 // suite measures the whole gallery, at the page's device pixel ratio (CMW_DPR) and at each CPU slowing in
 // CMW_AHEAD_PLAN_RATES (a list such as '1,4', by default 1; Emulation.setCPUThrottlingRate slows the page's thread, not the GPU
@@ -139,13 +141,17 @@ for (const rate of RATES) for (const what of list) {
       ok(`${tag}: cut: an 'ahead' fill that ended cut did so within the draw wait and a frame of its start, and the glide started within that and the test's slack of the press`,
         !cut || (A.fillMs <= P.waitMs + maxFrame && up.ms <= P.waitMs + maxFrame + WAIT_SLACK_MS), { fillMs: A && A.fillMs, maxFrame, waitMs: P.waitMs, pressMs: up.ms });
     }
+    const plan2 = await ev(`(() => { const P = __cmwSteps().aheadPlan; const r = P && P.rows.find((x) => x.speed === ${JSON.stringify(m.speed)} && x.planes === 1); return r ? r.plan : null; })()`);
     await ev('__cmwSteps({ clock: 1000 / 60, go: 1 }), 1');
     await settled({ only: true, max: WAIT_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 1' });
+    const B = await ev('__cmwSteps().ahead');
     const said2 = (await ev('__live')).filter((t) => t.includes(SAID));
-    // (a reason is said once for a chain: a first glide that said it leaves the second silent; one that was silent, an 'ahead' whose fill ran
-    // whole, may leave a second whose own fill is cut, or whose plan the first fill's cost made 'time', to say it for the first time)
-    const second = said2.slice(said1.length);
-    ok(`${tag}: said: a second glide repeats nothing: it says the draw wait's why only when the first was silent, once, and never the memory's`, (second.length === 0 || (said1.length === 0 && row.plan === 'ahead' && second.length === 1 && second[0].includes(TIME))), { said1: said1.length, said2: said2.length, second });
+    // a reason is said once for a chain: a first glide that said it leaves the second silent. One that was silent (an 'ahead' whose fill ran whole,
+    // which fed its cost) leaves a second that says why, once, exactly when its plan is now 'time' (the draw wait's words) or 'memory' (the memory's),
+    // or its own fill ends cut for time (the draw wait's)
+    const second = said2.slice(said1.length), cutB = !!B && B.state === 'live' && B.why === 'time';
+    const want = said1.length === 0 && (plan2 === 'time' || plan2 === 'memory' || cutB) ? 1 : 0;
+    ok(`${tag}: said: a second glide says why exactly when the first was silent and its plan is now 'time' or 'memory' or its fill ends cut for time, once, in that reason's words`, second.length === want && (want === 0 || second[0].includes(plan2 === 'memory' ? MEMORY : TIME)), { said1: said1.length, second, plan2, cutB, fill: B && { state: B.state, why: B.why, n: B.n } });
   } catch (e) {
     ok(`${what.name}: ran`, false, String(e && e.message || e).slice(0, 400));
   }
@@ -210,13 +216,26 @@ if (!ALL) {
       const fill = await ev('__cmwSteps().ahead');
       await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
       await settled({ only: true, max: WAIT_MS, until: `!__cmwSteps().moving && __cmwSteps().x === ${to}` });
-      return { fill, cost: await ev('__cmwSteps().aheadCost') };
+      return { fill, said: (await ev('__live')).filter((t) => t.includes(SAID)), cost: await ev('__cmwSteps().aheadCost') };
     };
     const e = await whole(0, 20 * rate), g = await whole(1, rate / 8);
     info.cut.e = e; info.cut.g = g;
     const ran = (x) => !!x.fill && x.fill.state === 'done' && x.fill.n === x.fill.N;
     ok('cut: a fill made whole leaves a cost far over its rate unchanged', ran(e) && Math.abs(e.cost - 20 * rate) < 0.01, { cost: e.cost, seeded: 20 * rate, fill: e.fill && { state: e.fill.state, n: e.fill.n, rate: e.fill.rate } });
     ok('cut: a fill made whole raises a cost far under its rate to that fill\'s own rate', ran(g) && g.cost >= g.fill.rate - 0.001 && g.cost <= g.fill.rate + 0.011, { cost: g.cost, fill: g.fill && { state: g.fill.state, n: g.fill.n, rate: g.fill.rate } });
+    // forced: a first glide whose fill ran whole is silent and feeds its cost; with the draw wait then lowered to a quarter of that fill's time
+    // (a probe that had said the chain cheap, and a fill that shows it dearer), the plan of the same chain is 'time' and the second glide says why, once, and plays live at once
+    // (on a page of its own: a reason is said once for a chain, and this chain's was said above)
+    await open({ scene: SCENE });
+    await measure(1);
+    const f1 = await whole(0, rate / 8);
+    await ev(`__cmwSteps({ ahead: { waitMs: ${Math.round(f1.fill.fillMs / 4)} } }), 1`);
+    const plan2 = await planOf();
+    const f2 = await press(1);
+    info.cut.forced = { f1: { rate: f1.fill.rate, fillMs: f1.fill.fillMs, said: f1.said.length }, plan2, f2 };
+    ok('cut: forced: the first glide, its fill made whole, is silent', ran(f1) && f1.said.length === 0, { said: f1.said, fill: f1.fill && { state: f1.fill.state, n: f1.fill.n } });
+    ok('cut: forced: its cost fed, the plan of the chain at the lowered draw wait is time', plan2 === 'time', plan2);
+    ok('cut: forced: the second glide says the draw wait\'s why once and plays live at once', f2.said.length === 1 && f2.said[0].includes(TIME) && f2.ms < 300, { said: f2.said, ms: f2.ms });
   } catch (e) {
     ok('cut: ran', false, String(e && e.message || e).slice(0, 400));
   }

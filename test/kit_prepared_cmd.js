@@ -3,7 +3,7 @@
 // or an arrow waits for it behind the gate), with its extra condition `also`.
 //   - the chain prepared: it returns ok and records no failure;
 //   - a part not done (the test hook holdJobs counts the idle jobs unfinished): it gives up at its bound and records one failure
-//     that names the part and how far it is (jobs 0/3), and when the part is released it is ok again;
+//     that names the part and how far it is (poles 0/1, ring 0/1, meshes 0/1), and when the part is released it is ok again;
 //   - a chain that is not up (ready.total 0, as in the classic view): the failure says so;
 //   - an extra condition that does not hold while the chain is prepared: the failure names that condition, and no part.
 // It runs in the steps view (its last leg opens the classic view). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -37,7 +37,7 @@ const legKit = () => { const own = []; return { own, kit: eval(fs.readFileSync(p
   info.held = { r: r && r.ok, took, own };
   ok('a held part: prepared() gives up and says so (ok false)', !!r && r.ok === false, info.held);
   ok('a held part: it gave up near its bound, not at the kit\'s default', took < GIVE_UP_MS * 6, took);
-  ok('a held part: one failure, naming the chain as not prepared and the part (jobs 0/3)', own.length === 1 && /not prepared/.test(own[0].name) && /jobs 0\/3/.test(String(own[0].got)), own);
+  ok('a held part: one failure, naming the chain as not prepared and the part (poles 0/1, ring 0/1, meshes 0/1)', own.length === 1 && /not prepared/.test(own[0].name) && /poles 0\/1, ring 0\/1, meshes 0\/1/.test(String(own[0].got)), own);
   await ev('(__cmwSteps({ holdJobs: false }), 1)');
   const { own: own2, kit: kit2 } = legKit();
   const r2 = await kit2.prepared('true', WARM_MS);
