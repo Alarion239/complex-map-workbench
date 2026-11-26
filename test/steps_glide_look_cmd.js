@@ -5,8 +5,8 @@
 // whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions, and the logarithm Everywhere, of an annulus and its sheets (its glide's inverse a
 // branch of a power and an affine map); the zeros of the zeta function Inside regions, for the parked camera alone; and,
 // Everywhere over a disc, the steps whose glide is inverted by a closed form (an n-th root, a complex power, cos, cosh,
-// arccos, arcosh, a rational formula of degree 5: their ops have no NEWT op) and a polynomial of degree 5 (every root by
-// Aberth's iteration). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// arccos, arcosh, a rational formula of degree 5: their ops have no NEWT op) and a polynomial of degree 5 (every root
+// by Aberth's iteration). Paths are off: the glide's paths are drawn over the colour, which is what is read.
 // Each case checks these things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U, or a case's lookU) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
@@ -131,13 +131,12 @@ const CASES = [
   // (the steps whose glide the inverse pass draws by a closed form, Everywhere, over a disc: an n-th root and a complex power
   // (ROOTPOW), cos, cosh, arccos and arcosh (their zoom paths: an affine map, the inverse function, an affine map), a
   // rational formula of degree 5 (RAT5 between affine maps); and a polynomial of degree 5, every root by Aberth's
-  // iteration (NEWT^5). noNewt: the glide's ops have no NEWT op. step: where
-  // H_u's image of the window shrinks with u (the roots, the powers, arcosh, the polynomial and the rational), fewer than MIN_COMPARED
-  // pixels every 10 px lie in it, so it samples every 5 px; end: cos's and cosh's zoom paths turn the plane by pi t about
-  // their point, a pixel at the window's edge at u = 0.001, and the polynomial's and the rational's paths move a point by
-  // about u |f(z) - z|, so their ends are a tenth as far from the planes. Their view is 270 px a unit: plane z colours
-  // f(z), whose bands crowd the patch the window's preimages lie in, and at 90 nearly every sample's preimage is by a
-  // colour line)
+  // iteration (NEWT^5). noNewt: the glide's ops have no NEWT op. step: where H_u's image of the window shrinks with u
+  // (the roots, the powers, arcosh, the polynomial and the rational), fewer than MIN_COMPARED pixels every 10 px lie in
+  // it, so it samples every 5 px; end: cos's and cosh's zoom paths turn the plane by pi t about their point, a pixel at
+  // the window's edge at u = 0.001, and the polynomial's and the rational's paths move a point by about u |f(z) - z|, so
+  // their ends are a tenth as far from the planes. Their view is 270 px a unit: plane z colours f(z), whose bands crowd
+  // the patch the window's preimages lie in, and at 90 nearly every sample's preimage is by a colour line)
   ...[
     ['n-th root, Everywhere', { type: 'root', params: { n: 3 } }, 90, { noNewt: true, step: 5 }],
     ['complex power, Everywhere', { type: 'powa', params: { alpha: '0.5+0.3i' } }, 90, { noNewt: true, step: 5 }],
