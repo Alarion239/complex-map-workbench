@@ -816,7 +816,8 @@
   }
   // st: {map, view, dpr, M, width (device px), color, alpha, casing:{color, alpha, width}, fade, cacheKey, sphere,
   //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}, cpu}
-  // cpu (2D only): () => the map's CPU twin, which evaluates the stand-in while the chain's first version links (stand)
+  // cpu (2D and the globe, not the floor): () => the map's CPU twin, which evaluates the stand-in while the chain's
+  // first version links (stand)
   // arc.data: per segment (in createLines order) the arc length of the mapped curve at the segment start and the
   // segment's length, in plane units (the dash phase follows the curve across pieces and segments).
   function drawLines(res, st) {
@@ -830,7 +831,7 @@
       if (pend) e = null;
       const nameOf = () => (flo ? (ident ? 'lineF' : e ? 'lineFC' : 'lineFM') : sph ? (e ? 'lineSC' : 'lineS') : (ident ? 'line0' : e ? 'lineC' : 'line'));
       let P = pend ? readyProg(nameOf(), st.map, 'tfLine') : program(nameOf(), st.map);
-      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf(), sph || flo ? null : st.cpu))) P = program(nameOf(), st.map);
+      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf(), flo ? null : st.cpu))) P = program(nameOf(), st.map);
       if (!P) return;
       use(P, st.map);
       if (e) bindCache(P, e);

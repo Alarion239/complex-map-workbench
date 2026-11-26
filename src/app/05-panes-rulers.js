@@ -1223,7 +1223,7 @@
         // dc line colour on a white casing)
         const sk = shapeStroke(s, pane.dpr, { still: true });
         if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
-        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8, cpu: () => cpuMap(sm) }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
@@ -1234,7 +1234,7 @@
       for (const s of S.shapes) {
         if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
         const r = shapeGPU(s), rl = linesOf(r, r);
-        if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}` } });
+        if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}`, cpu: () => cpuMap(bm) } });
       }
     }
     const colorMap = o.colorMap || (hom ? hom.map : focusMap()), colorGlobe = !imageMode && (!o.carryRegions || !!o.carryBase);
