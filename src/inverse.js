@@ -80,8 +80,9 @@ const Inverse = (() => {
     const r = programOps(steps, built, { rept: true });
     return r.n <= OPS_MAX && r.rept.length === 1 && !(r.rept[0] > a && r.rept[0] <= b) ? { rept: true } : ch;
   }
-  // the ops of a GLSL inverse program of the chain with opts, as GLChain.buildInverse counts them (every live step's, none
-  // for a step it cannot invert): {n, rept: the steps whose op is a REPT op}
+  // Inverse.programOps(steps, built, opts) -> the ops of a GLSL inverse program of the chain with opts, as
+  // GLChain.buildInverse counts them (every live step's, none for a step it cannot invert), which builds it when n is at
+  // most OPS_MAX: {n, rept: the steps whose op is a REPT op}
   function programOps(steps, built, opts) {
     let n = 0;
     const rept = [];
@@ -2192,7 +2193,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH, REPT_CF_TAYLOR, REPT_RIM,
-    stepOps, chainOpts, rangeOpts, REPT_RANGE, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
+    stepOps, chainOpts, rangeOpts, REPT_RANGE, programOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

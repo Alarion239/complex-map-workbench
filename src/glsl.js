@@ -2419,7 +2419,6 @@ void ixAncTan(vec2 w) {
     return bk ? 1 + bk.seeds : o.kind === 'NEWT' ? 2 + Inverse.NEWT_LADDER.length : IX_FIN[o.kind];
   };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
-  const IX_OPS_MAX = 16;
   // the NEWT roots pass's mark of a target entry with no root
   const IX_NR_NONE = '3.0e38';
   // (GLSL literals of the Newton passes: a coordinate below NEWT_FINITE is a root; NEWT_NO_LEVEL is the level of an op's
@@ -3302,7 +3301,8 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       r.ops.forEach((o, n) => ops.push({ kind: o.kind, step: i + 1, node: n, op: o }));
     });
     const key = JSON.stringify(['inv2', sigs]);
-    if (ops.filter((o) => o.kind !== 'X').length > IX_OPS_MAX) return { ok: false, reason: 'chain too long', key };
+    // (the limit and the count are Inverse's: Inverse.programOps counts the same ops, and its plans hold at most OPS_MAX)
+    if (ops.filter((o) => o.kind !== 'X').length > Inverse.OPS_MAX) return { ok: false, reason: 'chain too long', key };
     let slots = 0;
     ops.forEach((o, j) => { o.j = j; o.cell = slots; slots += ixSlots(o); });
     const S = Math.max(1, slots), N = Math.max(1, ops.length);

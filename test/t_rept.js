@@ -178,6 +178,17 @@ check('Integer power z^3 x 20 alone plans as REPT', planKinds([St('pown', { n: 3
     }
   }
   check('control: the chains\' own programs cannot be built (chain too long)', own.every((o) => !o), own);
+  // (Inverse.programOps counts a program's ops as GLChain.buildInverse does, which builds it exactly when the count is at
+  // most Inverse.OPS_MAX: rangeOpts decides by it)
+  const counts = [];
+  for (const [name, steps] of chains.concat([['x 2, then z^3 x 3', [TIMES2, St('pown', { n: 3 }, { n: 3, len: 1 })]]])) {
+    const c = chainOf(steps);
+    for (const opts of [Inverse.chainOpts(c.steps, c.built), { rept: true }]) {
+      const count = Inverse.programOps(c.steps, c.built, opts).n, inv = GLChain.buildInverse(c.steps, c.built, opts);
+      if (inv.ok !== (count <= Inverse.OPS_MAX) || (inv.ok && inv.ops.filter((o) => o.kind !== 'X').length !== count)) counts.push(`${name} ${JSON.stringify(opts)}: ${count}, ${inv.ok ? inv.ops.length : inv.reason}`);
+    }
+  }
+  check('Inverse.programOps counts a program\'s ops as GLChain.buildInverse does: it builds exactly when the count is at most OPS_MAX', counts.length === 0, counts);
   check('a chain whose own program cannot be built: each of its plans has a program that builds and holds the plan\'s ops', plans === 7 && wrong.length === 0, `${plans} plans, ${JSON.stringify(wrong)}`);
   const p01 = Inverse.planChain(AN.steps, AN.built, 0, 1);
   check('x 2, then Newton x 20: plane 1 (x 2 alone) plans AFF with the REPT options; plane 2 stays too long for a plan', p01.ok && p01.ops.map((o) => o.kind).join('>') === 'AFF' && p01.opts.rept === true && !planAN.ok && planAN.tooLong === true, [p01.ok ? p01.ops.map((o) => o.kind).join('>') : p01.reason, p01.opts]);
