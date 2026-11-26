@@ -193,7 +193,7 @@
   function svGateStill(part) {
     switch (part) {
       case 'programs': return $t('Still preparing the glide: the drawing programs are not ready yet.');
-      case 'warm': return $t('Still preparing the glide: the colour is not drawn yet.');
+      case 'warm': return $t('Still preparing the glide: its colouring is not ready yet.');
       case 'poles': return $t('Still preparing the glide: the paths of the poles are not computed yet.');
       case 'ring': return $t('Still preparing the glide: the outer part of the plane is not computed yet.');
       case 'meshes': return $t('Still preparing the glide: the regions are not meshed yet.');
@@ -226,6 +226,8 @@
     }
     // (the message is gone without the wait ending, closed or replaced by another: the plane's note is drawn again)
     if (g.toast && !g.toast.isConnected) { g.toast = null; requestRender('L'); }
+    // (the message names what is missing now: when a part is done while it is up, its words give way to the next part's)
+    else if (g.toast) { const words = g.toast.querySelector('span'), s = svGateStill(svGateMissing()); if (words && words.textContent !== s) words.textContent = s; }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
   }

@@ -25,7 +25,7 @@ const PARTS = ['programs', 'warm', 'poles', 'ring', 'meshes', 'redraw'];
 const TEXT = {
   en: {
     programs: 'Still preparing the glide: the drawing programs are not ready yet.',
-    warm: 'Still preparing the glide: the colour is not drawn yet.',
+    warm: 'Still preparing the glide: its colouring is not ready yet.',
     poles: 'Still preparing the glide: the paths of the poles are not computed yet.',
     ring: 'Still preparing the glide: the outer part of the plane is not computed yet.',
     meshes: 'Still preparing the glide: the regions are not meshed yet.',
@@ -33,7 +33,7 @@ const TEXT = {
   },
   ru: {
     programs: 'Переход всё ещё готовится: программы отрисовки ещё не готовы.',
-    warm: 'Переход всё ещё готовится: цвет ещё не нарисован.',
+    warm: 'Переход всё ещё готовится: его окраска ещё не готова.',
     poles: 'Переход всё ещё готовится: пути полюсов ещё не вычислены.',
     ring: 'Переход всё ещё готовится: внешняя часть плоскости ещё не вычислена.',
     meshes: 'Переход всё ещё готовится: области ещё не триангулированы.',
@@ -41,7 +41,7 @@ const TEXT = {
   },
   it: {
     programs: 'Preparazione del passaggio ancora in corso: i programmi di disegno non sono ancora pronti.',
-    warm: 'Preparazione del passaggio ancora in corso: il colore non è ancora disegnato.',
+    warm: 'Preparazione del passaggio ancora in corso: la sua colorazione non è ancora pronta.',
     poles: 'Preparazione del passaggio ancora in corso: i percorsi dei poli non sono ancora calcolati.',
     ring: 'Preparazione del passaggio ancora in corso: la parte esterna del piano non è ancora calcolata.',
     meshes: 'Preparazione del passaggio ancora in corso: le regioni non sono ancora triangolate.',
@@ -100,6 +100,24 @@ for (const [held, first] of [[['meshes', 'ring'], 'ring'], [['meshes', 'ring', '
   const g = await hung(held);
   info['order_' + JSON.stringify(held)] = g;
   ok(`${JSON.stringify(held)} held: ${first} is named first`, g.missing === first && g.text === TEXT.en[first], g);
+}
+// the message follows the gate: a part done while it is up gives way to the next part's sentence (the warm draw released, the poles stay)
+{
+  await ev(`(__cmwSteps({ holdJobs: ['warm', 'poles'] }), 1)`);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: HANG_WAIT_MS, only: true, until: `!!document.querySelector("${MSG}")` });
+  const WORDS = `document.querySelector('${MSG} span').textContent`;
+  const before = await ev(WORDS);
+  await ev(`(__cmwSteps({ holdJobs: ['poles'] }), 1)`);
+  await settled({ max: 3000, only: true, until: `${WORDS} !== ${JSON.stringify(TEXT.en.warm)}` });
+  const after = await ev(WORDS);
+  info.follows = { before, after };
+  ok('the message names the warm draw while it is missing (control)', before === TEXT.en.warm, before);
+  ok('the warm draw done while the message is up: the message names the poles', after === TEXT.en.poles, after);
+  await ev('(__cmwSteps({ play: false }), 1)');
+  await esc();
+  await settled({ max: 5000, only: true, until: `!document.querySelector("${MSG}")` });
+  await ev('(__cmwSteps({ holdJobs: null }), 1)');
 }
 // the links held: the programs, before every job
 await open(1440, 900, 'en', true);
