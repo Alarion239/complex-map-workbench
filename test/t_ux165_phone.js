@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 let COARSE = false;
 global.matchMedia = (q) => ({ matches: /pointer:\s*coarse/.test(q) ? COARSE : false, addEventListener() {}, removeEventListener() {} });
-globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
 const { Tour } = require('../src/tour.js');
 const T = Tour._t;
 let fails = 0, n = 0;
@@ -45,12 +44,14 @@ ok('Natural domain: the scene copy on touch', /^Tap the F tile/.test(T.copyFor(d
 
 // no step a touch screen offers names a desktop place or gesture (body, task, line, scene copy, title)
 const DESK = /\b(click|clicks|right-click|double-click|shift-click|hover|Inspector|lens|left pane|right pane|on the (left|right))\b|Drag a card|\{(Shift|Alt|Ctrl|Cmd|Mod)\}/i;
+// (the sheet a chip opens on a phone is headed Inspector, so Planes' Edit a step may name it)
+const PHONE_INSPECTOR = /\bInspector\b/;
 const bad = [];
 for (const c of C) {
   if (!T.chapterShown(c)) continue;
   for (const s of c.steps) {
     const texts = [T.copyFor(s, null, { coarse: true, narrow: true }), s.try ? T.tryFor(s.try, { coarse: true, phone: true }) : '', T.leadFor(s, { coarse: true, phone: true }) || '', ...Object.keys(s.byScene || {}).map((k) => T.copyFor(s, k, { coarse: true, phone: true }))];
-    for (const t of texts) if (t && DESK.test(T.plainCopy(t, 'Ctrl'))) bad.push(`${c.id}/${s.id}: ${t.slice(0, 90)}`);
+    for (const t of texts) if (t && DESK.test(T.plainCopy(t, 'Ctrl').replace(c.id === 'planes' && s.id === 'step' ? PHONE_INSPECTOR : /$^/, ''))) bad.push(`${c.id}/${s.id}: ${t.slice(0, 90)}`);
     const title = s.titleTouch || s.title;
     if (DESK.test(title)) bad.push(`${c.id}/${s.id} title: ${title}`);
   }
