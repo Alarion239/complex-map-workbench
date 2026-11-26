@@ -163,10 +163,10 @@ for (const prev of ['phase', 'classic', 'grid', 'enhanced']) {
   await open(Object.assign({}, stateId, { dc: prev }));
   await ev('(__cmwSteps({ T: 0 }), 1)');
   await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
-  const before = await pixels(SWITCH_PTS);
+  const before = await pixels(SWITCH_PTS), capBefore = await ev('__cmwLegend().caption');
   await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
   const still = [];
-  for (let i = 0; i < SWITCH_FRAMES; i++) still.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), linking: await ev('GLR.pendingLinks'), px: await pixels(SWITCH_PTS) });
+  for (let i = 0; i < SWITCH_FRAMES; i++) still.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), linking: await ev('GLR.pendingLinks'), px: await pixels(SWITCH_PTS), cap: await ev('__cmwLegend().caption'), tip: await ev("document.getElementById('leftLed').getAttribute('data-tip')") });
   await settled({ until: '!GLR.pendingLinks', max: SWITCH_MS });
   const after = await pixels(SWITCH_PTS);
   const stillOnZ = still.filter((f) => f.x === 0);
@@ -181,6 +181,13 @@ for (const prev of ['phase', 'classic', 'grid', 'enhanced']) {
   info['hold ' + prev] = { before, after, frames: still.length, landed, held: held.length, heldLinking: held.filter((f) => f.linking > 0).length, changes };
   ok(`no-press switch from ${prev}: the plane had a coloured picture before the switch, and the Cauchy plot differs from it (the controls)`, before.some(coloured) && !is(after, before), info['hold ' + prev]);
   ok(`no-press switch from ${prev}: until the Cauchy plot lands, plane z holds the picture it had before the switch: one change, from it to the Cauchy plot`, landed > 0 && held.every((f) => is(f.px, before)) && still.slice(landed).every((f) => is(f.px, after)) && held.some((f) => f.linking > 0), info['hold ' + prev]);
+  // (and what the pane says goes with what it shows: the key keeps the held style's caption until the Cauchy plot lands, then reads
+  // "Cauchy integral" (the frame in which it lands is read a moment apart from its pixels: one frame of either is let go); the LED's
+  // tip says the previous picture is shown, never "a quick preview")
+  const QUICK = 'Drawing a quick preview; the exact plot is still being built', PREV = 'Showing the previous picture; the Cauchy plot is still being built';
+  info['hold ' + prev].keys = { before: capBefore, held: [...new Set(held.map((f) => f.cap))], after: [...new Set(still.slice(landed).map((f) => f.cap))], tips: [...new Set(held.map((f) => f.tip))] };
+  ok(`no-press switch from ${prev}: the key keeps the held style's caption until the Cauchy plot lands, and then reads "Cauchy integral"`, held.length > 1 && held.slice(0, -1).every((f) => f.cap === capBefore) && still.slice(landed + 1).every((f) => f.cap === 'Cauchy integral'), info['hold ' + prev]);
+  ok(`no-press switch from ${prev}: while the picture is held the LED's tip says the previous picture is shown, never a quick preview`, held.every((f) => f.tip !== QUICK) && held.some((f) => f.tip === PREV), info['hold ' + prev]);
 }
 // A Cauchy compile that fails does not leave the held picture on the plane for good: the programs linked after the switch fail (a shim
 // over LINK_STATUS, for programs whose link began after window.__failLinks), the frame says why (GLR.frameStatus().error), and plane z
@@ -197,8 +204,10 @@ for (const prev of ['phase', 'classic', 'grid', 'enhanced']) {
     await settled({ until: '!GLR.pendingLinks', max: SWITCH_MS });
     const w = await settled({ until: '!!GLR.frameStatus().error', max: SWITCH_MS });
     const gone = await pixels(SWITCH_PTS), err = await ev('String(GLR.frameStatus().error || "")');
-    info.failed = { before, gone, err: err.slice(0, 200), wait: w };
+    const tip = await ev("document.getElementById('leftLed').getAttribute('data-tip')"), ledErr = await ev("/\\berr\\b/.test(document.getElementById('leftLed').className)"), noteBox = await ev("__cmwNoteBox('L')");
+    info.failed = { before, gone, err: err.slice(0, 200), wait: w, tip, ledErr, noteBox: !!noteBox };
     ok('failed Cauchy compile: the frame says it failed (the control: the link did fail)', w.ok && err.length > 0, info.failed);
+    ok('failed Cauchy compile: the note, the red LED and its tip say why and what to do: choose another colour style', !!noteBox && ledErr && tip === `${err} Choose another colour style.`, info.failed);
     ok('failed Cauchy compile: plane z does not show the picture it held while the link was pending', !gone.every((p, i) => far(p, before[i]) <= HOLD_TOL), info.failed);
   } finally {
     await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: fail.identifier });

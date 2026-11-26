@@ -69,7 +69,7 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; }
+      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; plotHeld = null; }
       invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
@@ -1002,8 +1002,12 @@
   // before the Cauchy one, {map, style, sectors, grid}: while the Cauchy program links it is drawn again (the color program of its
   // map, where that is linked), so that the pane changes once, from what it showed to the Cauchy plot, and F's values in the
   // Cauchy style's look are drawn only where there is none to hold. -> true when the plot or its stand-in was drawn
+  // whether the last colour plot of the frame since begin was drawn from a hold (st.hold): true, or false when it was not; null
+  // when no colour plot was drawn in the frame (colourHeld)
+  let plotHeld = null;
   function drawColorPlot(st) {
     if (!ok) return false;
+    plotHeld = false;
     let { cp, cz, pname } = colorPlotOf(st);
     const dpr = st.dpr || 1;
     // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
@@ -1011,7 +1015,7 @@
     // (the Cauchy plot's program is still linking: F's values drawn by the color program in the stand-in's style (enhanced), with no compile of
     // its own started, until the plot's lands; a failed compile is not this: frameErr says so)
     if (!P && pname !== 'color' && programPending(pname, st.map)) {
-      if (st.hold && (P = programLinked('color', st.hold.map, st.exact))) { st = Object.assign({}, st, st.hold); cp = cz = null; pname = 'color'; }
+      if (st.hold && (P = programLinked('color', st.hold.map, st.exact))) { st = Object.assign({}, st, st.hold); cp = cz = null; pname = 'color'; plotHeld = true; }
       else if ((P = programLinked('color', st.map, st.exact))) { cp = cz = null; pname = 'color'; }
     }
     if (!P) {

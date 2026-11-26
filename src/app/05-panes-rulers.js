@@ -487,7 +487,7 @@
     const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
     if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
+    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'));
     setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
@@ -548,6 +548,10 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (S.dc !== 'cauchy' && !cauchyWhy) pane.dcLast = { map: cst.map, style: cst.style, sectors: cst.sectors, grid: cst.grid };
+    // (the frame's plot is the held one: the key and the LED's tip say what is shown, not the style asked for)
+    // (a frame that draws no plot, one that keeps the pane's picture, leaves it as it was)
+    const held = GLR.colourHeld();
+    pane.dcHeld = S.dc === 'cauchy' && !!cst.hold && (held === null ? !!pane.dcHeld : held);
     if (cauchyWhy) sumDrop(pane); else sumWatch(pane, cst.map);
     // (the grid under the pane's notes, which glStatusNote draws)
     if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)
