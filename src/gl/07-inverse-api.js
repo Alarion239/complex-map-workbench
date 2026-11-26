@@ -548,6 +548,30 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the frame drawn so far (its fw x fh pixels at the viewport) into slot's texture -> true; false when it cannot be kept
   function layerKeep(slot) {
     if (!ok || lost || preActive) return false;
+    const L = layerOf(slot);
+    // (a multisampled drawing buffer is resolved by the blit; the scissor would clip it)
+    const sc = gl.isEnabled(gl.SCISSOR_TEST);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
+    gl.blitFramebuffer(vpX, vpY, vpX + fw, vpY + fh, 0, 0, fw, fh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (sc) gl.enable(gl.SCISSOR_TEST);
+    return true;
+  }
+  // the draws that follow go into slot's layer, cleared to transparent, not into the frame, until layerInto(null): a
+  // layer kept without a frame to copy it from (the steps view's front-to-back glide, whose frame starts empty) ->
+  // true; false when it cannot be kept (a frame of a stage's viewport included)
+  function layerInto(slot) {
+    if (slot === null) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return true; }
+    if (!ok || lost || preActive || vpX || vpY) return false;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, layerOf(slot).fbo);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    return true;
+  }
+  // (slot's layer of the frame's size, made anew when there is none of that size)
+  function layerOf(slot) {
     let L = layers.get(slot);
     if (!L || L.w !== fw || L.h !== fh) {
       if (L) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
@@ -560,20 +584,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.tex, 0);
       layers.set(slot, L);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
-    // (a multisampled drawing buffer is resolved by the blit; the scissor would clip it)
-    const sc = gl.isEnabled(gl.SCISSOR_TEST);
-    gl.disable(gl.SCISSOR_TEST);
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
-    gl.blitFramebuffer(vpX, vpY, vpX + fw, vpY + fh, 0, 0, fw, fh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    if (sc) gl.enable(gl.SCISSOR_TEST);
-    return true;
+    return L;
   }
-  // slot's picture drawn into the frame in place of what is there (invUp at the frame's own size: each pixel its texel)
-  // -> true; false when there is none of the frame's size or the program cannot draw
-  function layerDraw(slot) {
+  // slot's picture drawn into the frame in place of what is there (invUp at the frame's own size: each pixel its texel),
+  // or with under, under what the frame holds (premultiplied destination-over, drawColorPlot's under) -> true; false
+  // when there is none of the frame's size or the program cannot draw
+  function layerDraw(slot, under) {
     const L = layers.get(slot);
     if (!ok || lost || preActive || !L || L.w !== fw || L.h !== fh) return false;
     const Q = program('invUp');
@@ -584,11 +602,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(Q, 'uHalf', 5);
     u4f(Q, 'uVp', vpX, vpY, fw, fh);
     u2f(Q, 'uHalfSz', 1, 1);
-    gl.disable(gl.BLEND);
+    if (under) gl.blendFunc(gl.ONE_MINUS_DST_ALPHA, gl.ONE);
+    else gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
-    gl.enable(gl.BLEND);
+    if (under) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    else gl.enable(gl.BLEND);
     return true;
   }
   function layerDrop(slot) {
@@ -1524,7 +1544,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, layerKeep, layerDraw, layerDrop, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
+    init, begin, viewport, blit, layerKeep, layerInto, layerDraw, layerDrop, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     // whether a REPT draw answered 'pending' since the last call, reset by it (the pane's status, glStatusNote)
     reptPendingTake: () => { const r = reptPendFlag; reptPendFlag = false; return r; },

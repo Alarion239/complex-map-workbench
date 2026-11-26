@@ -20,6 +20,10 @@
 // - R5: the frames that do not draw copies by the inverse pass are painter's, byte for byte: z⁵ − 5z then √ (the carried
 //   mesh) and the log with its copies left out (glideSheets 1). (No glide frame has a REPT plan to check: a repeated step
 //   inverts exactly only as its plane's one step, and its glide is drawn by the carried mesh);
+// - R6: front to back, the plots under the copies drawn back from the layer they are kept in (drawn into it by
+//   GLR.layerInto, under the copies by GLR.layerDraw's under) make the frame drawn with them fresh (plotsKeep 0) byte
+//   for byte, at u = .7 and .9, with no fresh draw of the plots. (R2 sees a layer kept empty: the frame at .9 the same
+//   with plane b's picture and without it);
 // - R7 (info, not gated): the frame's time at u = .9, front to back against painter's, __cmwTime(8), medians of
 //   alternated rounds.
 // The record names the order: __cmwSteps().glide.sat is true front to back and false in painter's order.
@@ -123,6 +127,26 @@ for (const u of [0.3, 0.5, 0.7, 0.9, 0.97]) {
   const e = info[`u ${u}`].changed = await dots(`f${u}`, `f${u}`, `p${u}`, true);
   info[`u ${u}`].changedPainter = await dots(`p${u}`, `f${u}`, `p${u}`, true);
   ok(`R4: at u = ${u} the pixels that differ from painter's order leave no line: at most ${SEAM_MAX} more than ${DIFF} levels off their neighbours' median`, e.off <= SEAM_MAX, e);
+}
+// ---- R6: the plots drawn back from the kept layer under the copies ----
+{
+  const plots = () => ev('__cmwSteps().plots');
+  await ev(`__cmwSteps({ glideOrder: 'front', restPaint: 1, plotsKeep: 1, x: 0.8 }); 1`);
+  await settled({ max: 60000, until: '__cmwSteps().plots.held' });
+  for (const u of [0.7, 0.9]) {
+    const before = await plots();
+    await ev(`__cmwSteps({ x: ${u} }); 1`);
+    await settled({ max: 60000 });
+    const after = await plots();
+    ok(`R6 at u = ${u}: the frame is still`, await grab(`k${u}`), null);
+    await ev(`__cmwSteps({ plotsKeep: 0 }); 1`);
+    await settled({ max: 60000 });
+    ok(`R6 at u = ${u}: the fresh frame is still`, await grab(`k${u}f`), null);
+    await ev(`__cmwSteps({ plotsKeep: 1 }); 1`);
+    const n = await ev(`(() => { const A = window.__heldPx['k${u}'], B = window.__heldPx['k${u}f']; let n = 0; for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) n++; return n; })()`);
+    const r = info[`R6 u ${u}`] = { before, after, bytes: n };
+    ok(`R6: at u = ${u} the plots are drawn back from the kept layer under the copies, and the frame is the one with the plots fresh, byte for byte`, after.kept > before.kept && after.drawn === before.drawn && n === 0, r);
+  }
 }
 // (R7, info: the frame's time at u = .9, front to back against painter's, alternated)
 {

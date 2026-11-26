@@ -2447,10 +2447,16 @@
   const SV_PLOTS = 'svPlots';
   let svPlotsKey = null;
   const svPlotsUse = { drawn: 0, kept: 0 };
-  function svPlotsUnder(pane, frame, a, b, draw) {
-    if (frame.open || SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) { draw(); return; }
-    const key = [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
+  // (the key of what the plots read, or null when this frame draws them itself: a frame of another size than the left
+  // pane's, or SV.plotsKeep 0)
+  function svPlotsKeyOf(pane, a, b) {
+    if (SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) return null;
+    return [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
       GLR.palette(), TH.planeRGB, TH.inkRGB, TH.dark, SV.restPaint, svColoured(a), svColoured(b)].join('|');
+  }
+  function svPlotsUnder(pane, frame, a, b, draw) {
+    const key = frame.open ? null : svPlotsKeyOf(pane, a, b);
+    if (key === null) { draw(); return; }
     GLR.begin(pane.pw, pane.ph);
     frame.open = true;
     if (key === svPlotsKey && GLR.layerDraw(SV_PLOTS)) { svPlotsUse.kept++; return; }
@@ -2536,13 +2542,28 @@
       // drawn wins, as the last drawn does in painter's order, so each pixel's winner is painter's. A pass that cannot
       // draw sends the frame back to painter's order below, from a fresh frame. SV.glideSat 0 (a test hook's) keeps
       // painter's order; not with a repeat's plan (REPT), whose pass writes marks, not colours)
+      // (the plots under them as svPlotsUnder keeps them: drawn back from the kept layer under the copies (layerDraw's
+      // under); with no layer of their key, drawn into the layer first (GLR.layerInto), not into the frame)
       if (sheets.length && !frame.open && SV.glideSat !== 0 && svExactGlide(b, u, null) && !svHomPaths(b, u, null).h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'REPT'))) {
-        GLR.begin(pane.pw, pane.ph); frame.open = true; frame.sat = true;
+        const key = svPlotsKeyOf(pane, a, b);
+        GLR.begin(pane.pw, pane.ph); frame.open = true;
+        let kept = key !== null && key === svPlotsKey, fresh = false;
+        if (key !== null && !kept && GLR.layerInto(SV_PLOTS)) {
+          try { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); } finally { GLR.layerInto(null); }
+          svPlotsUse.drawn++;
+          // (a plot whose program still links drew a stand-in or nothing: not a picture to keep)
+          svPlotsKey = !GLR.frameStatus().pending ? key : null;
+          fresh = kept = svPlotsKey !== null;
+        }
         let drew = false;
+        frame.sat = true;
         try { drew = svCarryExactHom(pane, b, u, T, frame, { r: null }, null) && sheets.every((v) => svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }))); } finally { frame.sat = false; }
         if (drew) {
-          plot(a, 1, true, true);
-          if (SV.restPaint !== 0) plot(b, 1, false, true);
+          if (kept && GLR.layerDraw(SV_PLOTS, true)) { if (!fresh) svPlotsUse.kept++; }
+          else {
+            plot(a, 1, true, true);
+            if (SV.restPaint !== 0) plot(b, 1, false, true);
+          }
           record(true, { r: null }, null, sheets, true);
           return;
         }
