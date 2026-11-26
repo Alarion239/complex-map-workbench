@@ -117,6 +117,7 @@ const foldedHides = (legendId, readoutSel) => ev(`(() => {
 })()`);
 // [width, height, language, surface]: the plane's own picture and the globe, in the languages with the longest words, down to
 // the smallest landscape phones
+const LONG_READOUT = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';   // (the longest text the readout holds)
 let gaveBack = 0;   // (the cases where the unfolded key took the readout's place: the give-back row's subjects)
 const CASES = [[740, 360, 'en', 'plane'], [667, 375, 'en', 'plane'], [844, 390, 'en', 'plane'], [568, 320, 'ru', 'plane'], [568, 320, 'it', 'plane'], [600, 320, 'ru', 'plane'],
   [740, 360, 'en', 'sphere'], [667, 375, 'en', 'sphere'], [667, 375, 'ru', 'sphere'], [740, 360, 'it', 'sphere'], [568, 320, 'ru', 'sphere'], [600, 320, 'ru', 'sphere'], [640, 360, 'ru', 'sphere'], [640, 360, 'ru', 'plane']];
@@ -235,6 +236,20 @@ for (const [w, h, lang, surf] of CASES) {
       // globe, stays hidden)
       ok(`${name}: a colour key that hides the readout gives it back as soon as it is folded`, !sync.had || !sync.hides, sync);
       if (sync.had) gaveBack++;
+      // (the readout is held clear of the key by its max-width, so the card does not meet it at any size here: a readout that the width cap does not hold,
+      // given its longest text and no cap, set before the key is unfolded again so that the page places the card with it, is met by the card at the
+      // 320 px tall sizes, where the card runs up under the bar; it takes the readout's place, and gives it back the same way)
+      if (surf === 'plane') {
+        await ev(`(() => { const e = document.getElementById('leftReadout'), c = document.getElementById('leftLegend'); window.__roHtml = e.innerHTML;
+          e.textContent = ${JSON.stringify(LONG_READOUT)}; e.style.maxWidth = 'none'; if (!c.classList.contains('collapsed')) c.click(); c.click(); return 1; })()`);
+        await settled({ max: 10000, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
+        await placed('leftLegend');
+        const long = await foldedHides('leftLegend', '#leftReadout');
+        await ev(`(() => { const e = document.getElementById('leftReadout'); if (window.__roHtml != null) e.innerHTML = window.__roHtml; e.style.maxWidth = ''; return 1; })()`);
+        info[`${name} uncapped readout, folded hides`] = long;
+        ok(`${name}: a colour key that takes the place of a readout the width cap does not hold gives it back as soon as it is folded`, !long.had || !long.hides, long);
+        if (long.had) gaveBack++;
+      }
     }
     // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
     // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one
@@ -242,7 +257,7 @@ for (const [w, h, lang, surf] of CASES) {
     if (!open && surf === 'plane') {
       const ro = await ev(`(() => {
         const e = document.getElementById('leftReadout'); if (!e) return null;
-        const html = e.innerHTML; e.textContent = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';
+        const html = e.innerHTML; e.textContent = ${JSON.stringify(LONG_READOUT)};
         const r = e.getBoundingClientRect(), shown = e.getClientRects().length > 0; e.innerHTML = html;
         return shown ? [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10) : null;
       })()`);

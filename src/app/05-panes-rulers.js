@@ -172,11 +172,16 @@
     // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane')
     const sc = $('sphereChipL');
     if (sc) {
-      const drawing = tool !== 'select';
+      // (the Pick tool picks on the Landscape's sheets, 19-land-pick.js: it draws nothing there)
+      const drawing = tool !== 'select' && !(tool === 'pick' && landPickOn());
       const where = lLand() ? $t('the landscape') : $t('the Riemann sphere');
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
+      const pickHint = tool === 'pick' && landPickOn() && !document.documentElement.classList.contains('ph');
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
+      // (the Pick tool on the Landscape's sheets: its gestures, 19-land-pick.js, beside the readout's orbit hint; on a
+      // phone the readout's hint says them, idleLeft, and no chip covers the plane's keys)
+      else if (pickHint) msg = landPickPhrases(fingerNow() ? $t('Tap to pick · hold and slide to read') : $t('Click to pick · hold and slide to read'));
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
       // listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
@@ -237,12 +242,14 @@
       drawCutHandles(paneL, cutHandlesL);
       drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
-      if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      // (no crosshair while the pointer lights Look down's square: the square under it is what a press takes)
+      if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
-      else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
-      // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
-      if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
+      // (not over a zero or pole under the pointer, or one being dragged, nor while the pointer lights Look down's square:
+      // the handle is what the pointer holds)
+      if (probe && !zpHover && !lookSquareCursor() && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
       if (SV.on) drawFloorPick(paneL);
     } else if (!stackDrawOverlay(paneL)) syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
@@ -768,13 +775,16 @@
     // leaves it as the screen's last frame set it)
     const standing = !!(info && info.standIn);
     if (!offRender && standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets) { updateFocusUI(); svSync(); } }
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, step: info.step ?? null, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
-    // (a carried frame of a plane at rest picks on the carried heights, svLandPickF; one between two planes has no probe)
-    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svLandPickF(carry, src) : focusF() } : render3D.pick;
+    // (a carried frame of a plane at rest picks on the carried heights, svLandPickF; one between two planes has no probe.
+    // fibre: on a plane past its source plane, its sheets over a point, which the Pick tool picks on: pickLandSheet)
+    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svLandPickF(carry, src) : focusF(), fibre: carry && carry.s < carry.rest ? svLandFibreF(carry, src, carry.rest) : null } : render3D.pick;
+    // (the Pick tool's lit twins on the sheets, 19-land-pick.js)
+    if (info && !artMode && !figMode && pane === paneL) drawLandPicks(pane);
     glStatusNote(pane);
   }
   render3D.linear = undefined; render3D.ticks = undefined; render3D.names = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.sheetsInfo = undefined; render3D.standIn = undefined; render3D.pick = undefined;
@@ -800,7 +810,7 @@
   // the relief of a Landscape as a function of the world point p = [x, y, z] over its block (info: the frame's, box: the window
   // of its plane, mask: the Inside-regions mask or null, F: the height map, null where no surface is over the point): toZ(p)
   // the point of the plane under p, and hAt(p) the relief's height there: below the floor off the region a cut surface
-  // shows or where F is null, top where the value is not finite
+  // shows or where F is null, top where the value is not finite; off(p): whether p is off that region
   function landHeightField(info, box, mask, F) {
     const [ax, ay] = info.aspect || [1, 1];
     const toZ = (p) => C(box.x0 + (p[0] / ax / 2 + 0.5) * (box.x1 - box.x0), box.y0 + (p[1] / ay / 2 + 0.5) * (box.y1 - box.y0));
@@ -815,15 +825,12 @@
       const hh = info.heightOf(landValue(w));
       return Number.isFinite(hh) ? hh : top;
     };
-    return { toZ, hAt, top, z0 };
+    return { toZ, hAt, top, z0, off: (p) => landOffRegion(mask, toZ(p), mpx) };
   }
-  // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
-  // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
-  // else the floor of the block; null off the block
-  function pickLand(x, y) {
-    const pk = render3D.pick;
-    if (!pk || !(pk.w > 0 && pk.h > 0) || !pk.info || !pk.info.heightOf) return null;
-    const c = pk.cam, info = pk.info, box = pk.box, [ax, ay] = info.aspect || [1, 1];
+  // the pointer's ray through pane pixel (x, y) of the landscape whose pick record is pk (render3D.pick): its point at(t),
+  // and the segment [t0, t1] of it inside the block |x| <= ax, |y| <= ay, z0 <= z <= top; null where it misses the block
+  function landRay(pk, x, y, z0, top) {
+    const c = pk.cam, [ax, ay] = pk.info.aspect || [1, 1];
     const e = [c.tx + c.dist * Math.cos(c.pitch) * Math.cos(c.yaw), c.ty + c.dist * Math.cos(c.pitch) * Math.sin(c.yaw), c.tz + c.dist * Math.sin(c.pitch)];
     const nrm = (v) => { const l = Math.hypot(...v) || 1; return v.map((t) => t / l); };
     const f = nrm([c.tx - e[0], c.ty - e[1], c.tz - e[2]]);
@@ -832,8 +839,6 @@
     const th = Math.tan((c.fov || 28 * DEG) / 2), nx = (2 * x / pk.w - 1) * th * pk.w / pk.h, ny = (1 - 2 * y / pk.h) * th;
     const d = nrm([0, 1, 2].map((k) => f[k] + nx * r[k] + ny * u[k]));
     const at = (t) => [e[0] + t * d[0], e[1] + t * d[1], e[2] + t * d[2]];
-    const { toZ, hAt, top, z0 } = landHeightField(info, box, pk.mask, pk.F);
-    // the ray's segment inside the block |x| <= ax, |y| <= ay, floor <= z <= top
     let t0 = 0, t1 = Infinity;
     for (const [k, lo, hi] of [[0, -ax, ax], [1, -ay, ay], [2, z0, top]]) {
       if (Math.abs(d[k]) < 1e-12) { if (e[k] < lo || e[k] > hi) return null; continue; }
@@ -841,19 +846,73 @@
       if (a > b) [a, b] = [b, a];
       t0 = Math.max(t0, a); t1 = Math.min(t1, b);
     }
-    if (!(t1 > t0)) return null;
-    const N = 160;
+    return t1 > t0 ? { at, t0, t1 } : null;
+  }
+  // the samples of a ray's march over the block, and the bisection's steps at a crossing
+  const LAND_RAY_N = 160, LAND_RAY_BISECT = 14;
+  // pickLandSheet's march: the sheets' points are found afresh from the fibre's grid every LAND_RAY_SEED samples, and are
+  // followed from the last sample's in between (where the steps have no exact inverse)
+  const LAND_RAY_SEED = 8;
+  // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
+  // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
+  // else the floor of the block; null off the block
+  function pickLand(x, y) {
+    const pk = render3D.pick;
+    if (!pk || !(pk.w > 0 && pk.h > 0) || !pk.info || !pk.info.heightOf) return null;
+    const { toZ, hAt, top, z0 } = landHeightField(pk.info, pk.box, pk.mask, pk.F);
+    const ray = landRay(pk, x, y, z0, top);
+    if (!ray) return null;
+    const { at, t0, t1 } = ray, N = LAND_RAY_N;
     let tp = t0;
     for (let i = 0; i <= N; i++) {
       const t = t0 + (t1 - t0) * i / N, p = at(t);
       if (p[2] - hAt(p) > 0) { tp = t; continue; }
       if (i === 0) return toZ(p);
       let a = tp, b = t;
-      for (let j = 0; j < 14; j++) { const m = (a + b) / 2, q = at(m); if (q[2] - hAt(q) > 0) a = m; else b = m; }
+      for (let j = 0; j < LAND_RAY_BISECT; j++) { const m = (a + b) / 2, q = at(m); if (q[2] - hAt(q) > 0) a = m; else b = m; }
       return toZ(at(b));
     }
     const p = at(t1);
     return Math.abs(p[2] - z0) < 1e-6 * Math.max(1, Math.abs(z0)) + 1e-9 ? toZ(p) : null;
+  }
+  // The point under pane pixel (x, y) of a carried Landscape at rest on a plane k past its source plane s
+  // (render3D.pick with fibre: a sheet over w for each point of s carried to w), on whichever sheet the pointer's ray
+  // meets first: {z, w, h}, z the point of plane s, w its image, the point of plane k under it, and h its height; null
+  // where the ray meets no sheet. The ray is marched as pickLand's. Each sample's sheets are followed from the last
+  // sample's (the nearest point of s; the fibre's grid looked at every LAND_RAY_SEED samples), a sheet is met where the
+  // ray passes from above it to below it, and that crossing is bisected on that sheet. A sheet that first shows below
+  // the ray (the ray passes under its edge) is not met there
+  function pickLandSheet(x, y) {
+    const pk = render3D.pick;
+    if (!pk || !pk.fibre || !(pk.w > 0 && pk.h > 0) || !pk.info || !pk.info.heightOf) return null;
+    const info = pk.info, { toZ, top, z0, off } = landHeightField(info, pk.box, pk.mask, pk.F);
+    const ray = landRay(pk, x, y, z0, top);
+    if (!ray) return null;
+    const { at, t0, t1 } = ray, N = LAND_RAY_N;
+    const hOf = (v) => { if (!CX.isFin(v)) return top; const h = info.heightOf(landValue(v)); return Number.isFinite(h) ? h : top; };
+    // (the sheets at the ray's point at t: {z, h, d}, d the ray's height above the sheet)
+    const sheets = (t, seeds, fromGrid) => { const p = at(t); return off(p) ? [] : pk.fibre(toZ(p), seeds, fromGrid).map((s) => { const h = hOf(s.v); return { z: s.z, h, d: p[2] - h }; }); };
+    const nearest = (list, z) => { let best = null, bd = Infinity; for (const s of list) { const dd = CX.abs(CX.sub(s.z, z)); if (dd < bd) { bd = dd; best = s; } } return best; };
+    let prev = sheets(t0, null, true), tp = t0;
+    for (let i = 1; i <= N; i++) {
+      const t = t0 + (t1 - t0) * i / N, cur = sheets(t, prev.map((s) => s.z), i % LAND_RAY_SEED === 0);
+      let hit = null;
+      for (const s of cur) {
+        const q = s.d <= 0 ? nearest(prev, s.z) : null;
+        if (!q || q.d <= 0) continue;
+        // (bisected on this sheet, followed from q)
+        let a = tp, b = t, za = q.z, zb = s.z, hb = s.h;
+        for (let j = 0; j < LAND_RAY_BISECT; j++) {
+          const m = (a + b) / 2, sh = nearest(sheets(m, [za], false), za);
+          if (!sh) break;
+          if (sh.d > 0) { a = m; za = sh.z; } else { b = m; zb = sh.z; hb = sh.h; }
+        }
+        if (!hit || b < hit.t) hit = { t: b, z: zb, h: hb };
+      }
+      if (hit) return { z: hit.z, w: toZ(at(hit.t)), h: hit.h };
+      prev = cur; tp = t;
+    }
+    return null;
   }
   function project(pane, MVP, p) {
     const c = GLR.M4.apply(MVP, p);
@@ -1046,7 +1105,8 @@
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map and the shapes are outlined. o.hom: the steps view's glide, its map and F (below). o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried), o.carriedCopies the other sheets' under it (its st.carriedCopies); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried), o.carriedCopies the other sheets' under it (its st.carriedCopies; o.sheetCut: drawn
+  // only where the principal sheet is not opaque, drawSphere's st.sheetCut, for the inverse pass's copies too); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry), or with o.carryBase the colour globe of
   // o.colorMap under it (the arrival plane's rest colour under a glide). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
@@ -1150,7 +1210,7 @@
           // a bounded shape's image box (in w; the shape's own box at stage 0) scissors its pass (gl.js globeScissorOf)
           const gbox = globeImageBox(p, s, live);
           regions.push({
-            inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
+            inv: { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch } },
             fwd, onResult: (res) => globeResult(role, s, res, live, fwd),
           });
@@ -1186,7 +1246,7 @@
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
-      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null, carriedCopies: o.carried && o.carriedCopies ? o.carriedCopies : null,
+      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null, carriedCopies: o.carried && o.carriedCopies ? o.carriedCopies : null, sheetCut: !!o.sheetCut,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
     // inverse on the next frame
