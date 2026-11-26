@@ -907,9 +907,13 @@
   const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8,
     Wk: 144 };   // Wk: the width of the carried-colour key, whose lines hold the widest word of any language (≤ 58 px) right of the wheel
   // the compact key's ring in a card h px tall (h < LEG.H: under the tall bar on a 320 px tall phone, clearContextBar): the ring
-  // centred in the height, 40 px across at most and KEY_MIN_R × 2 at least, its hole and left edge kept in LEG's proportions
+  // centred in the height, maxR × 2 across at most (40 px; 38 beside the modulus strip's column) and KEY_MIN_R × 2 at least, its
+  // hole and left edge kept in LEG's proportions
   const KEY_MIN_R = 17, KEY_MIN_H = 2 * KEY_MIN_R + 4;   // (KEY_MIN_H: the least card the compact key is drawn in, px)
-  const keyCompact = (h) => { const R = Math.max(KEY_MIN_R, Math.min(20, Math.floor((h - 4) / 2))); return { cx: LEG.cx - (LEG.R - R), cy: h / 2, R, r0: Math.round(R * LEG.r0 / LEG.R) }; };
+  // (the least card the compact key with the strip's column is drawn in, px: the factor above the strip and "per band" under
+  // it, 28 px apart, with their ink)
+  const KEY_MIN_H_STRIP = 44;
+  const keyCompact = (h, maxR = 20) => { const R = Math.max(KEY_MIN_R, Math.min(maxR, Math.floor((h - 4) / 2))); return { cx: LEG.cx - (LEG.R - R), cy: h / 2, R, r0: Math.round(R * LEG.r0 / LEG.R) }; };
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
@@ -997,8 +1001,8 @@
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
   // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
-  // column. What still runs under the bar then is cut off the chip's height: the carried key is drawn compact to the room
-  // left (keyCompact: rvE's call on #2433), the others scroll, so all of the key stays in reach; placeKeyPopReadout gives
+  // column. What still runs under the bar then is cut off the chip's height: the colour key with its ring is drawn compact to
+  // the room left (keyCompact: rvE's calls on #2433), the others scroll, so all of the key stays in reach; placeKeyPopReadout gives
   // the chip its whole height back, and the key its full drawing)
   function clearContextBar(box) {
     const side = box.id === 'leftLegend' ? 'L' : box.id === 'rightLegend' ? 'R' : null, st = side && legendState[side];
@@ -1024,7 +1028,7 @@
     if (over > up) {
       const cs = getComputedStyle(box), edges = ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((s, k) => s + (parseFloat(cs[k]) || 0), 0);
       const room = Math.max(0, Math.floor(c.height - (over - up) - edges));
-      if (st && st.compactable && room >= KEY_MIN_H) { st.fitH = room; drawLegendSide(side); box.style.overflowY = 'hidden'; return; }
+      if (st && st.compactable && room >= st.compactMin) { st.fitH = room; drawLegendSide(side); box.style.overflowY = 'hidden'; return; }
       box.style.maxHeight = `${room}px`;
       box.style.overflowY = 'auto';
     }
@@ -1219,12 +1223,24 @@
     // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
     const noRing = cauchyOff || plasterKey(kind);
     st.ring = !noRing;
-    // (the carried key can be drawn compact, in a card shorter than the key, st.fitH: clearContextBar; see keyCompact)
-    st.compactable = !noRing && kind === 'color' && svCarriedKey();
+    // (the colour key with its ring can be drawn compact, in a card shorter than the key, st.fitH: clearContextBar; see
+    // keyCompact. The carried key's lines become one, "from w₂"; the plane's own key keeps its strip's column whole beside a
+    // 38 px ring and leaves its caption out, which the card's description still says: rvE's call on #2433)
+    const carried = kind === 'color' && svCarriedKey();
+    st.compactable = !noRing && kind === 'color';
+    st.compactMin = carried ? KEY_MIN_H : KEY_MIN_H_STRIP;
     const fit = st.compactable && st.fitH ? st.fitH : 0;
+    st.capDrawn = false; st.stripInk = null; st.wordK = 1;
     // hue ring: arg increases counterclockwise from red at 1 (compact: a smaller ring, centred in the card's height)
-    const { sx, sy, sw, sh } = LEG, { cx, cy, R, r0 } = fit ? keyCompact(fit) : LEG;
+    const { sw, sh } = LEG, { cx, cy, R, r0 } = fit ? keyCompact(fit, carried ? 20 : 19) : LEG;
     st.geo = { cx, cy, R };
+    // (the strip's column: at LEG's place, or, compact, KEY_GAP right of the ring's "1" and centred in the card's height, the
+    // factor 9 px above the strip and "per band" 19 px below it as in the full key)
+    const KEY_GAP = 8;     // the compact key's room between the ring's "1" and what stands right of it
+    ctx.font = `italic 500 11px ${TH.math}`;
+    const oneEnd = cx + R + 3 + ctx.measureText('1').width;
+    const sx = fit ? Math.round(oneEnd + KEY_GAP) : LEG.sx, sy = fit ? Math.round(fit / 2) - 5 : LEG.sy;
+    st.oneEnd = oneEnd;
     if (!noRing) for (let i = 0; i < 360; i++) {
       const a0 = i * DEG, a1 = (i + 1.5) * DEG;
       ctx.fillStyle = `rgb(${keyRGB(i * DEG).map((v) => Math.round(255 * v)).join(',')})`;
@@ -1247,6 +1263,9 @@
     // (the caption drawn is kept in st.caption: tests)
     const caption = (t) => {
       st.caption = t; say.unshift(t);
+      // (compact: the caption is left out, not cut; the card's description says it)
+      if (fit) return;
+      st.capDrawn = true;
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
       // (right-aligned under the wheel; the one-line key, with no wheel, is centred)
       let x = cauchyOff ? LEG.W / 2 : LEG.W - 8;
@@ -1255,13 +1274,12 @@
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
     // (the steps view on every plane but the colour plane's own: the wheel is the colour plane's, carried by the points)
-    if (kind === 'color' && svCarriedKey()) {
+    if (carried) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
       const KEY_TOP = 22;    // baseline of the first line
       const KEY_STEP = 13;   // line step (10.5 px text)
-      const KEY_GAP = 8;     // the compact key's room between the ring's "1" and its lines
       const maxW = W - KEY_PAD - KEY_X,
         words = (svT() === 0 && S.dc === 'cauchy' && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
@@ -1275,8 +1293,7 @@
       // (compact: the plane it is carried from, "from w₂", in lines beside the ring's "1", centred in the card's height; the
       // card's description keeps the whole sentence)
       if (fit) {
-        ctx.font = `italic 500 11px ${TH.math}`;
-        const x0 = cx + R + 3 + ctx.measureText('1').width + KEY_GAP, room = W - KEY_PAD - x0;
+        const x0 = oneEnd + KEY_GAP, room = W - KEY_PAD - x0;
         const cw = (S.dc === 'cauchy' && svT() === 0 && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'from {p}', { p: svCarriedFrom() })).split(' '), cl = [];
         let cc = '';
         for (const w of cw) { const nx = cc ? `${cc} ${w}` : w; ctx.font = ui; if (cc && ctx.measureText(nx).width > room) { cl.push(cc); cc = w; } else cc = nx; }
@@ -1296,14 +1313,16 @@
     if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
     // (the steps view's Cauchy style with no picture on this plane: the reason, no bands that are not drawn)
     if (SV.on && kind === 'color' && S.dc === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(cauchyOff ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
-    // modulus strip
+    // modulus strip (st.stripInk: the ink boxes of the strip and its words, in the key's px: tests)
     st.strip = !(kind === 'color' && S.dc === 'classic');
+    st.stripInk = [{ x0: sx, x1: sx + sw, y0: sy, y1: sy + sh }];
+    const inkOf = (t, x, y, k) => { const m = ctx.measureText(t); st.stripInk.push({ t, x0: x - m.actualBoundingBoxLeft * k, x1: x + m.actualBoundingBoxRight * k, y0: y - m.actualBoundingBoxAscent, y1: y + m.actualBoundingBoxDescent }); };
     if (kind === 'color' && S.dc === 'classic') {
       const g = ctx.createLinearGradient(sx, 0, sx + sw, 0);
       g.addColorStop(0, '#000000'); g.addColorStop(0.5, '#8a8f93'); g.addColorStop(1, '#ffffff');
       ctx.fillStyle = g; ctx.fillRect(sx, sy, sw, sh);
       ctx.fillStyle = TH.muted; ctx.font = `10px ${TH.mono}`; ctx.textAlign = 'left';
-      ctx.fillText('0', sx, sy + 18); ctx.textAlign = 'right'; ctx.fillText('∞', sx + sw, sy + 18);
+      inkOf('0', sx, sy + 18, 1); ctx.fillText('0', sx, sy + 18); ctx.textAlign = 'right'; inkOf('∞', sx + sw, sy + 18, 1); ctx.fillText('∞', sx + sw, sy + 18);
       say.push($t('brightness: black at 0, white at ∞'));
       ctx.strokeStyle = TH.ink; ctx.beginPath(); ctx.moveTo(sx + sw / 2, sy - 2); ctx.lineTo(sx + sw / 2, sy + sh + 2); ctx.stroke();
     } else {
@@ -1315,9 +1334,14 @@
       ctx.strokeStyle = TH.lineStrong; ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
       // words in the UI face, the factor in the mono face (spec 3)
       ctx.fillStyle = TH.muted; ctx.textAlign = 'left';
-      // a Russian word («линии уровня», «на полосу») is narrowed to the chip's edge; English draws unchanged
-      const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
-      const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
+      // a Russian word («линии уровня», «на полосу яркости») is narrowed to the chip's edge; English draws unchanged
+      const word = (t, y) => {
+        ctx.font = `11px ${TH.ui}`;
+        if (I18N.lang === 'en') { inkOf(t, sx, y, 1); ctx.fillText(t, sx, y); return; }
+        const room = LEG.W - sx - 4, k = Math.min(1, room / ctx.measureText(t).width);
+        st.wordK = k; inkOf(t, sx, y, k); ctx.fillText(t, sx, y, room);
+      };
+      const num = (t, y) => { ctx.font = `10px ${TH.mono}`; inkOf(t, sx, y, 1); ctx.fillText(t, sx, y); };
       if (kind === '3d') { const f = I18N.num('×1.69'); word($t('contours'), sy - 9); num(f, sy + 19); say.push($t('contours') + ' ' + f); }
       else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); say.push(keyFactor(n) + ' ' + $t('per band')); }
     }
