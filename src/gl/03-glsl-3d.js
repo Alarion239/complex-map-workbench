@@ -555,6 +555,7 @@ void main() {
   const SEAM_RINGS = 9;    // (the rings a patch's seam is measured on, svPatchSeam, and given to CARRY_ZIN as uSeam)
   const CARRY_ZIN = `
 uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[${SEAM_RINGS}]; uniform float uSeamEnd;
+uniform int uWallN; uniform vec4 uWallS; uniform vec4 uWallD; uniform vec4 uWallL; uniform vec4 uWallK; uniform float uWallB; uniform float uWallE;
 vec2 carryZIn(vec4 src, vec2 ij) {
   float f = 1.0 / float(uN - 1);
   if (uPolar.w <= 0.0) return src.xy + ij * f * src.zw;
@@ -564,6 +565,15 @@ vec2 carryZIn(vec4 src, vec2 ij) {
     int k = min(int(t), ${SEAM_RINGS - 2});
     float e = ij.y * f <= uSeamEnd ? ${SEAM_EPS} : 0.0;
     th = mix(uSeam[k], uSeam[k + 1], t - float(k)) - e - (6.283185307179586 - 2.0 * e) * ij.x * f;
+  } else if (uWallN > 0) {
+    int k = 0;
+    for (int q = 1; q < 4; q++) if (q < uWallN && ij.x >= uWallS[q]) k = q;
+    float s = uWallS[k], d = uWallD[k];
+    if (ij.x < s + 1.0) th = d + uWallE - 2.0 * uWallE * (ij.x - s);
+    else {
+      float t = (ij.x - s - 1.0) / uWallK[k];
+      th = d - uWallE - uWallL[k] * ((1.0 - uWallB) * t + uWallB * 0.5 * (1.0 - cos(3.141592653589793 * t)));
+    }
   }
   return uPolar.xy + r * vec2(cos(th), sin(th));
 }
@@ -667,8 +677,9 @@ void main() {
   // its draw: two triangles a cell (gl_VertexID), each corner at its moved place in the block over uBox; a triangle
   // with a corner not finite, an edge over uLim on the plane (torn across a cut or a pole of the glide's map) or a
   // height step over uStep (a cut of G, which the edge passes split at rest) is left out. uStep is 0.3 H for the
-  // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
-  // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
+  // heights Re F and Im F when the height's stages can cut (carryStep), where they step; ln |F| and |F| do not (a branch
+  // changes F's phase, not its size), nor does a height without a cut, and there a steep wall is drawn as at rest (uStep
+  // infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
   // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
   // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge. A patch with uDup

@@ -21,7 +21,10 @@
 //     bridged the slit along the cut;
 // (iv') with the rule off (GLR._lw.noJump), A's box at those u keeps triangles off by more than 3 px: (iv) reads the rule;
 // (v) B at u = .5 and C keep the same triangles, grid by grid, with and without the rule: it leaves out nothing where the
-//     carry's map has no jump.
+//     carry's map has no jump;
+// (vi) A parked on w₁: at most PX_FINE_MAX of its surface's pixels apart from the fine-ring frame. Its height, z's own Im
+//     z = e^Re w sin(Im w), has no cut, so its walls at Im w = 0 and ±π are drawn (carryStep), not left out in fins, and
+//     the outer ring's columns crowd toward them (svLandFarWalls), so the frame is the fine-ring frame's.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
 // a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
@@ -39,6 +42,7 @@ const TOL = 3;                         // css px: a triangle off by more is coun
 const SMOOTH_TOL = 0.5;                // css px: (i)'s bound
 const FINE = [512, 384], COARSE = [32, 32];   // the far rings' points a side for the reference frame and for (iii)
 const PX_TOL = 30, SAT = 24;           // (the pixel rows: a channel more than PX_TOL apart; a surface pixel's channels span more than SAT)
+const PX_FINE_MAX = 0.02;              // (vi)'s bound on the share of pixels apart from the fine-ring frame
 const LIM = 300000;
 
 const chord = (o = '') => evJson(`JSON.stringify(__cmwLandChordPx(${o}))`, LIM);
@@ -103,6 +107,7 @@ await settled({ max: 90000, until: '__cmwSteps().ready.ready && __cmwSteps().i =
 const cA = await carried();
 ok('A, parked on w₁ coloured from z: a carried frame from plane z', cA.s === 0 && cA.u === 1, cA);
 info.A.parked = { rows: await chord(), px: await pixelRow('A-parked') };
+ok(`A, parked on w₁ (vi): at most ${PX_FINE_MAX} of the surface's pixels apart from the fine-ring frame`, !!info.A.parked.px && info.A.parked.px.n > 1000 && info.A.parked.px.share <= PX_FINE_MAX, info.A.parked.px);
 
 // ---- B: the default page, Everywhere, T = w₂
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=chordB${Date.now()}`);

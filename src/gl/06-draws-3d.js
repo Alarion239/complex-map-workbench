@@ -332,8 +332,10 @@
   // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
   // frame's, when the glide arrives
   let landC = null;
-  // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
-  const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
+  // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7) when
+  // the carry c's height can cut (cutModeOf over its stages (s, hT] in the chain info of the program drawing it), where Re F
+  // and Im F step; none otherwise, as at rest: a height without a cut is continuous, and its steep walls are drawn
+  const carryStep = (mode, H, info, c) => (mode >= 2 && cutModeOf(info, { mode: 0, a: c.s, b: c.hT == null ? c.T : c.hT }) !== 0 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into o when
   // given (another sheet's copy, landCopies), else into landC); jump: the jump rule its normals' pass flags edges by
@@ -350,7 +352,7 @@
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-    polarUniforms(P1, polar, true);
+    polarUniforms(P1, polar, true); wallUniforms(P1, polar, N);
     heightUniforms(P1, mode, mu, H);
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1);
@@ -359,7 +361,7 @@
     u1i(P2, 'uN', N);
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
-    u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
+    u1f(P2, 'uStep', carryStep(mode, H, P1.ch.info, c)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
     u1f(P2, 'uJump', jump.J); u1f(P2, 'uJumpW', jump.w);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
     gl.activeTexture(gl.TEXTURE15);
@@ -390,6 +392,44 @@
     const s = seam && polar && polar.seam;
     u1i(P, 'uSeamOn', s ? 1 : 0);
     if (s) { u1fv(P, 'uSeam', s); u1f(P, 'uSeamEnd', s.end); }
+  }
+  // The columns of an outer far ring with walls (polar.walls, svLandFarWalls: {d: the walls' angles in the order the ring's
+  // decreasing angle meets them, d[0] in [0, 2 pi), e: the half-width of a wall's cell, b: the grading}) on an n x n grid
+  // (CARRY_ZIN): each wall k from column s[k] has one cell on it, from d[k] + e to d[k] - e (the wall's face, or across a
+  // cut of the map, torn and left out), then K[k] cells over the arc to the next wall less e, L[k] long, at the angles
+  // d[k] - e - L[k] g(t), g(t) = (1 - b) t + b (1 - cos(pi t)) / 2, t from 0 to 1: b times finer next to the walls than
+  // uniform. Each arc has columns in proportion to its length, at least WALL_MIN_K; the last column is column 0's angle
+  // less 2 pi, so the ring is closed. -> {s, d, L, K} of up to 4 walls, or null where the grid has too few columns
+  const WALL_MIN_K = 4;
+  function wallLayout(w, n) {
+    const m = n - 1, N = w.d.length, d = [...w.d, w.d[0] - 2 * Math.PI], L = w.d.map((x, k) => d[k] - d[k + 1] - 2 * w.e);
+    const room = m - N, tot = L.reduce((a, x) => a + x, 0);
+    if (N > 4 || room < WALL_MIN_K * N || L.some((x) => !(x > 0))) return null;
+    const K = L.map((x) => Math.max(WALL_MIN_K, Math.round((room * x) / tot)));
+    K[N - 1] = room - K.slice(0, N - 1).reduce((a, x) => a + x, 0);
+    if (K[N - 1] < WALL_MIN_K) return null;
+    const S = K.map((x, k) => k + K.slice(0, k).reduce((a, y) => a + y, 0));
+    return { s: S, d: w.d, L, K };
+  }
+  // the column angle of an n x n ring with walls w at grid column i (as CARRY_ZIN places it), or null without a layout
+  function wallTheta(w, i, n) {
+    const o = wallLayout(w, n);
+    if (!o) return null;
+    let k = 0;
+    for (let q = 1; q < o.s.length; q++) if (i >= o.s[q]) k = q;
+    if (i < o.s[k] + 1) return o.d[k] + w.e - 2 * w.e * (i - o.s[k]);
+    const t = (i - o.s[k] - 1) / o.K[k];
+    return o.d[k] - w.e - o.L[k] * ((1 - w.b) * t + w.b * 0.5 * (1 - Math.cos(Math.PI * t)));
+  }
+  // the wall layout's uniforms (CARRY_ZIN) for polar's grid of n x n: none (uWallN 0) for a grid without walls, a seamed
+  // patch's or the box's. Only the single surface's carry places by them (carryHeights, its draw); All sheets' grids do not
+  function wallUniforms(P, polar, n) {
+    const w = polar && !polar.seam && polar.walls ? polar.walls : null, o = w ? wallLayout(w, n) : null;
+    u1i(P, 'uWallN', o ? o.s.length : 0);
+    if (!o) return;
+    const v4 = (a) => [0, 1, 2, 3].map((k) => (k < a.length ? a[k] : 0));
+    u4f(P, 'uWallS', ...v4(o.s)); u4f(P, 'uWallD', ...v4(o.d)); u4f(P, 'uWallL', ...v4(o.L)); u4f(P, 'uWallK', ...v4(o.K));
+    u1f(P, 'uWallB', w.b); u1f(P, 'uWallE', w.e);
   }
   // the box's draw (LAND_CARRY_VS): the discs of the seamed patches of polar (at most CARRY_DISCS), each CARRY_DISC_IN of its
   // radius, inside which the box's triangles are left to the patch; the patch reaches past them, so no crack opens
@@ -1471,7 +1511,7 @@
         common(Pc);
         landLight(Pc);
         u3(Pc, 'uCut', C.cut);
-        u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+        u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, Pc.ch.info, st.carry)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
         // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
         keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
         u2f(Pc, 'uClipA', aspect[0], aspect[1]);
@@ -1538,7 +1578,7 @@
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N); u4f(Pc, 'uDup', ...(p.polar.dup || [0, 0, 0, 0]));
+        polarUniforms(Pc, p.polar, true); wallUniforms(Pc, p.polar, p.N); u1i(Pc, 'uN', p.N); u4f(Pc, 'uDup', ...(p.polar.dup || [0, 0, 0, 0]));
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
@@ -1563,7 +1603,7 @@
       }
       info.copyAlpha = copies.length ? Math.min(...copies.map(alphaOf)) : null;
       info.refine = null;
-      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null })); info.step = carryStep(mode, H); info.jump = Object.assign({}, carryJump);
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null, walls: p.polar.walls || null })); info.step = carryStep(mode, H, Pc.ch.info, st.carry); info.jump = Object.assign({}, carryJump);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
