@@ -21,8 +21,7 @@
    "renderer": "ANGLE (Mesa, Vulkan 1.4.335 (llvmpipe (LLVM 21.1.8 256 bits) (0x00000000)), llvmpipe)",
    "skipped": [],
    "rows": {
-    "clipped #popHost span.ex-blurb": 4,
-    "scroll-cut #plotL div.ld-key": 2
+    "clipped #popHost span.ex-blurb": 4
    }
   }
  }
