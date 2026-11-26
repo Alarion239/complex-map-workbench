@@ -36,7 +36,7 @@ const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.j
 // measures 0 against painter's 1,605; SEAM_LESS, R2 measures about 4,400 and 5,600 fewer; CLUMP, a pixel of a seam
 // line one or two pixels wide has at most 6 differing neighbours, one inside a changed area 8; EDGE, the log's smooth
 // colour changes less across 4 pixels at s = 30, and its bands' anti-aliased edges, 17 to 19 off at u = .97, more;
-// EDGE_SHARE, the edges measure at most a quarter of the differing pixels, 373 of 1,470 at u = .3, and with uCutIn
+// EDGE_SHARE, the edges measure about a quarter of the differing pixels at most, 373 of 1,470 at u = .3, and with uCutIn
 // off 688 of 749)
 const DIFF = 8, SEAM_MAX = 20, SEAM_LESS = 2000, CLUMP = 7, EDGE = 32, EDGE_SHARE = 1 / 3, ROUNDS = 3;
 await view(1440, 900, false, false);
