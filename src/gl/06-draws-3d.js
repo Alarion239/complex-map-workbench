@@ -1659,14 +1659,15 @@
         u1i(Pc, 'uN', hd.N);
         // (the stencil marks the pixels the box's cells and the pole patches drew (bit 0), so a branch point's patch
         // (polar.hole, svLandPatches) draws only where they left a hole, marking its own (bit 1), and the far patch only
-        // where none of them drew: its coarse cells carry copies of what they cover too, for a periodic map)
+        // where none of them drew: its coarse cells carry copies of what they cover too, for a periodic map; the outer ring
+        // leaves out those in the strip of its copies, uDup, where they would stand out past the surface they copy)
         gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
         gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
         marked(Pc, () => gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1)));
         // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
         // the box's cells, so a patch shows only where they leave a hole)
         const drawPatch = (p) => {
-          polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N);
+          polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N); u4f(Pc, 'uDup', ...(p.polar.dup || [0, 0, 0, 0]));
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
           gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
           gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
@@ -1691,7 +1692,7 @@
         }
         info.copyAlpha = copies.length ? Math.min(...copies.map((cp) => (cp.alpha == null ? 1 : cp.alpha))) : null;
         info.refine = null;
-        info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
+        info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null }));
       }
       if (Lp) {
         use(Lp, st.map);
@@ -2024,9 +2025,18 @@
       gl.enable(gl.BLEND);
     }
     // st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
-    // the globe's depth again, which the passes below are tested against
+    // the globe's depth again, which the passes below are tested against. st.carriedCopies, before it: [{carried,
+    // around(draw)}], the other sheets' carried colour, each drawn inside its around (the chain on that copy's sheets,
+    // svOnSheets), a later one over an earlier one and st.carried over them all (each draw clears the depth). With
+    // st.sheetCut, st.carried first, marking the stencil, and the copies after it where it is clear: the same picture
+    // within a few edge pixels, as the carried colour is opaque, with the copies drawn only where st.carried did not draw
     const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
+    const copies = P && st.carried ? st.carriedCopies || [] : [], meshCut = !!st.sheetCut && copies.length > 0;
+    const copy = (cp) => cp.around(() => drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, cp.carried), sph));
+    if (meshCut) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
+    else copies.forEach(copy);
     const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, st.carried), sph));
+    if (meshCut) { gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); copies.forEach(copy); gl.disable(gl.STENCIL_TEST); }
     if (carried) {
       gl.colorMask(false, false, false, false);
       use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
@@ -2041,7 +2051,7 @@
     // lifted regions and their edges: tested against the globe, never against each other (a casing written to
     // depth would otherwise hide parts of its own stroke)
     gl.depthMask(false);
-    sphereRegions(st.regions || [], sph, MVP, eye);
+    const regionsCut = sphereRegions(st.regions || [], sph, MVP, eye, !!st.sheetCut);
     for (const l of st.lines || []) drawLines(l.res, Object.assign({}, l.st, { sphere: sph }));
     // st.post: drawPreimage passes over everything drawn so far (P3b: the targets on the w-globe and a draft, each
     // exact per pixel through the identity map)
@@ -2096,12 +2106,32 @@
       if (masked) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     }
     resetState();
-    return { MVP, eye, key: sph.key, carried };
+    return { MVP, eye, key: sph.key, carried, cut: regionsCut ? 'inverse' : meshCut ? 'mesh' : null };
   }
   // lifted regions on the globe (drawSphere's st.regions, or its mask's): an exact image's inverse pass over the globe's
-  // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written
-  function sphereRegions(list, sph, MVP, eye) {
+  // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written. A
+  // region with around(draw) is drawn inside it (the steps view's sheet copies: the chain on that copy's sheets while
+  // its pass draws, svOnSheets); a later region is drawn over an earlier one
+  // (cut: the records with around, the other sheets' copies, drawn only where the one other record (the principal
+  // sheet's) leaves a pixel not opaque: that record first with opaqueOnly, marking the stencil where it hides everything
+  // behind it, then the whole list in order where the stencil is clear. The same picture as the list in order within a
+  // few anti-aliased edge pixels: a copy shows only through the principal sheet's pixels that are not opaque. One
+  // principal record only: of two that overlap, the later one's anti-aliased rim over the earlier one's opaque pixels
+  // would be left out, those being marked. The steps view hands copies with one carry's regions only, Everywhere (no
+  // copies Inside regions). Returns whether the cut was taken)
+  function sphereRegions(list, sph, MVP, eye, cut = false) {
+    const own = cut ? list.filter((r) => !r.around && r.inv) : [];
+    if (own.length === 1 && own.length < list.length && list.every((r) => r.around || r.inv)) {
+      gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
+      gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+      sphereRegions(own.map((r) => Object.assign({}, r, { inv: Object.assign({}, r.inv, { opaqueOnly: true }), fwd: [], onResult: null, onError: null })), sph, MVP, eye);
+      gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      sphereRegions(list, sph, MVP, eye);
+      gl.disable(gl.STENCIL_TEST);
+      return true;
+    }
     for (const r of list) {
+      if (r.around) { r.around(() => sphereRegions([Object.assign({}, r, { around: null })], sph, MVP, eye)); continue; }
       if (r.inv) {
         let res = 'error';
         try {

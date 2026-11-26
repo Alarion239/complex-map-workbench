@@ -784,12 +784,17 @@ float wabs(vec2 w) {
   }
   // program's stand-ins without its own compile: the program `name` for the current chain when it is linked, else the
   // newest earlier chain version's that is, as program() draws while its own compiles; null when none is (nothing is
-  // started)
-  function programLinked(name, map) {
+  // started); exact: the current chain's own program or null, as program()'s
+  function programLinked(name, map, exact) {
     const P = getProg(name, cur, false, map);
-    if (P || !DEFS[name].chain || !cur.info || sideMode) return P;
+    if (P || exact || !DEFS[name].chain || !cur.info || sideMode) return P;
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
+  }
+  // the program `name` for the current chain is compiling (not failed, not linked)
+  function programPending(name, map) {
+    const e = progs.get(progId(name, cur, map));
+    return !!e && e.state === 'pending';
   }
   // a deformation's start through the plain chain (mode 0), as mapFor shows a homotopy or morph through a changed step:
   // what draws while the program of the deformation's own mode compiles (its first frames: MAP compiles a mode only

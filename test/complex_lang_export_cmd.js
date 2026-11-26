@@ -20,7 +20,7 @@ const STATE = {
 };
 const numbersLine = () => ev(`[...document.querySelectorAll('#propsPanel .inums')].map((e) => e.textContent).filter(Boolean).join(' | ')`);
 const rowValue = () => ev(`(document.querySelector('.prm-row[data-name="a"] .prm-val') || {}).value || ''`);
-const pics = async () => [await ev(`__cmwRenderOff('L', 240, 180, 1)`), await ev(`__cmwRenderOff('R', 240, 180, 1)`)];
+const pics = async () => [await ev(`__cmwRenderOff('L', 240, 180, 1)`)];
 const lang = async (l) => { await ev(`I18N.setPref('${l}'), 1`); await settle(1500); };
 
 await view(1440, 900, false, false);
@@ -46,11 +46,11 @@ for (const l of ['ru', 'it']) {
   info[l] = { row: rv, line: await numbersLine() };
   ok(`${l}: the row's value reads back the same number`, await ev(`(() => { const v = Expr.constValue(${JSON.stringify(rv)}.replace(/(\\d),(\\d)/g, '$1.$2')); return v.re === 0.5 && v.im === 0.3; })()`), rv);
   const pl = await pics();
-  ok(`${l}: the pictures are unchanged`, pl[0] === en0[0] && pl[1] === en0[1], [pl[0].length, en0[0].length]);
+  ok(`${l}: the pictures are unchanged`, pl[0] === en0[0], [pl[0].length, en0[0].length]);
 }
 await lang('en');
 const en1 = await pics();
-ok('back in English the pictures are the same as at the start', en1[0] === en0[0] && en1[1] === en0[1], null);
+ok('back in English the pictures are the same as at the start', en1[0] === en0[0], null);
 ok('and the row is back to the English text', (await rowValue()).replace('−', '-') === '0.5+0.3i', await rowValue());
 // typing in Russian, with a decimal comma, sets the complex number (a number typed as 0,25 + 0,5i)
 await lang('ru');

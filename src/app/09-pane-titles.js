@@ -141,7 +141,7 @@
   }
   function updateFocusUI() {
     const t = paneTitles();
-    // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
+    // (the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
     const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 ${parkedAt() >= 0 ? 'w' + String(parkedAt()).split('').map((d) => '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'[+d]).join('') : 'w'}`;
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
@@ -315,7 +315,7 @@
     return probeTeachUntil > now ? `<span class="rhint rteach">${SV.on ? $t('Hold and slide to read {f}', { f: svMapCall('html') }) : $t('Hold and slide to read F(z)')}</span>` : '';
   };
   const idleLeft = () => (lGlobe() ? `<span class="rhint rglobe">${globeHint('L')}</span>`
-    : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
+    : lLand() ? `<span class="rhint">${tool === 'pick' && landPickOn() && document.documentElement.classList.contains('ph') ? landPickPhrases($t('Tap to pick · hold and slide to read · drag to orbit · pinch to zoom')) : tool !== 'select' && tool !== 'formula' && !(tool === 'pick' && landPickOn()) ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
   function idleRight() {
     // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
@@ -329,16 +329,14 @@
   // a sliders button into a popover; on a phone all of them do.
   const phoneMQ = matchMedia('(max-width: 767px)');
   // one options strip per pane (panels.md 4): foot.L in X, foot.R in Y
-  const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null });
+  const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null, pat: null });
   const foot = { L: footOf(), R: footOf() };
   phoneMQ.addEventListener('change', () => { if (S && paneR) layoutFoot(true); });
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
-  // on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
-  // X's; a phone's Display sheet lends it itself
-  // (the steps view has one head and one colour panel on every plane: only classic's X → Y view moves the unit circle
-  // and the regions' button to Y's head)
+  // on a desktop the unit circle's check (page.html's #unitBox) sits in X's pane head; a phone's Display sheet lends it
+  // itself. The classic X → Y view puts the regions' button in the head too
+  // (the steps view has one head and one colour panel on every plane: its ⋯ pop-up holds the regions' display)
   const pushHome = () => !SV.on && S.view.main === 'xy';
-  const unitSide = () => (pushHome() ? 'R' : 'L');
   // the regions' display (page.html's #regionsBox): the X → Y view's Regions pop-up, the steps view's ⋯ pop-up
   const stepsRegions = () => SV.on;
   // (a strip rebuilt or laid out again lets go of it first: replaceChildren would leave it out of the page)
@@ -348,7 +346,7 @@
   }
   function unitKid(side) {
     const u = $('unitBox');
-    if (!u || side !== unitSide()) return null;
+    if (!u || side !== 'L') return null;
     // (its icon and toggle look, once: the word stays its name and the tooltip's)
     const l = u.querySelector('label.check');
     if (l && !l.classList.contains('ic-tg')) {
@@ -387,6 +385,9 @@
   function layoutFootNow(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
     layoutFootRun(side, force);
+    // (an open Regions pop-up follows the head's button whether or not the row changed: the head's right edge moves with the window, and a layout that finds the same controls returns before it)
+    const pat = f && f.querySelector(':scope > .pat-btn'), pop = foot[side].pop;
+    if (pat && pop && pop.isConnected && pop.dataset.of === 'pattern') placeFootPop(pop, pat);
     if (f && a && a !== document.body && a.isConnected && document.activeElement !== a && f.contains(a)) /** @type {HTMLElement} */ (a).focus({ preventScroll: true });
   }
   function layoutFootRun(side, force) {
@@ -452,7 +453,11 @@
     ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
-    const pat = inHead && pushHome() ? patternBtn(side) : null;
+    // (the Regions button is the one its open pop-up hangs from, kept through this layout: a new one would read unpressed, and a
+    // press on it would not be the anchor's re-click)
+    const patHeld = !!(ft.pat && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === 'pattern' && ft.pat.getAttribute('aria-expanded') === 'true');
+    const pat = inHead && pushHome() ? (patHeld ? ft.pat : patternBtn(side)) : null;
+    if (patHeld && pat) drawPhaseSwatch(pat.firstChild);
     let n = kids.length;
     if (phone) n = 0;
     else {
@@ -540,7 +545,22 @@
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
     drawPhaseSwatch(b.firstChild);
     b.addEventListener('click', () => openFootPop(b, false, side, true));
+    foot[side].pat = b;
     return b;
+  }
+  // the pop-up's place by its button: the strip sits at the bottom of the plot, so it opens upward over the plot, below only when there
+  // is no room. From the pane head, the popover hangs under the head, its right edge on the head's: the Regions button sits left of the
+  // toggles, and a popover under it would cover the middle of the plane the tour lights. Set when it opens, and again when the head
+  // lays its row out again and the button moves
+  function placeFootPop(pop, btn) {
+    const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+    const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
+    const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
+    let y = fromHead ? -1 : r.top - ph - 6;
+    if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
+    pop.dataset.side = y < r.top ? 'top' : 'bottom';
+    pop.style.left = Math.max(12, Math.min(window.innerWidth - pw - 12, x0)) + 'px';
+    pop.style.top = y + 'px';
   }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
@@ -573,17 +593,7 @@
       edge();
       s.addEventListener('scroll', edge, { passive: true });
     }
-    // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
-    const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    // (from the pane head, the popover hangs under the head, its right edge on the head's: the Regions
-    // button sits left of the toggles, and a popover under it would cover the middle of the plane the tour lights)
-    const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
-    const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
-    let y = fromHead ? -1 : r.top - ph - 6;
-    if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
-    pop.dataset.side = y < r.top ? 'top' : 'bottom';
-    pop.style.left = Math.max(12, Math.min(window.innerWidth - pw - 12, x0)) + 'px';
-    pop.style.top = y + 'px';
+    placeFootPop(pop, btn);
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
     // (Escape, and a Tab that would leave the pop-up, close it and give the focus back to the anchor: it is a non-modal dialog, so Tab
@@ -653,7 +663,7 @@
   // (focusMap: in the steps view the shown plane's map into the colour plane). A step after the colour plane is in
   // neither, so it adds no sheets
   function landSheetsMap(s = null) { return s != null ? svColourMap(s) : focusMap(); }
-  // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
+  // what the landscape draws with All sheets, as render3D does: null for the principal branch (All
   // sheets off, or no multivalued step in the map it draws the sheets of, landSheetsMap, or the CPU stand-in's frame,
   // which draws the principal branch alone while the sheets' programs link), else {K: the surfaces drawn, total: the
   // sheet combinations of the window, W, pieces: [{n, of}]} (one per multivalued piece of that map: n sheets all drawn,
@@ -737,8 +747,8 @@
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
   function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
-  // X's paint changed (style, sectors, grid step): X redraws, and Y too while it shows the colour key
-  const paintChanged = () => requestRender('L', wKeyOn() ? 'R' : null, 'T');
+  // X's paint changed (style, sectors, grid step): X redraws
+  const paintChanged = () => requestRender('L', 'T');
   function buildFoot(side) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot');
     if (!f) return;
@@ -750,18 +760,7 @@
     // (a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
     const headed = () => !!(f.parentElement && f.parentElement.classList.contains('pane-head'));
     if (side === 'L') { buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
-    const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
-    if (rImage()) {
-      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { setOpt('fov', v); requestRender('R'); drawLegend(); save(); }, ICONS.fov));
-      // the phase colour key under the images: X's portrait colours of the identity, so a colour in Phase reads off
-      // as a value in Y (its one switch)
-      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { setOpt('wKey', v); buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }, '<span class="pcol-ic"></span>'); kl.dataset.tip = $t('Phase key') + ': ' + $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
-    } else if (rGlobe()) {
-      f.append(
-        checkEl('eqChkR', S.view.R.eq, $t('Equator'), (v) => { setViewOpt('R', 'eq', v); requestRender('R'); save(); }),
-        resetCam(camS, CAMS));
-      tipEq(f);
-    }
+    // (Y's strip: the right pane draws nothing, so its strip has no options)
     f.hidden = !f.children.length && !headed();
     ft.kids = [...f.children]; layoutFootSide('R', true);
     drawLegend();
@@ -926,7 +925,7 @@
     if (!lPhase()) return null;
     return lGlobe() ? 'sphere' : 'color';
   }
-  // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
+  // (so that nothing covers the work uninvited) On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
   // after a click, the options behind the Display options button. A phone
   // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.

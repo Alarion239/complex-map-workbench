@@ -16,7 +16,9 @@
     poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
+    glideStencil: 0, // (a test hook's) 1: the sphere draws a glide's sheet copies only where the principal sheet is not opaque (drawSphere's sheetCut)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
+    plotsKeep: 1,    // (a test hook's) 0: a glide frame draws the plots under its carried colour itself, never from the kept layer (svPlotsUnder)
     glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
     glideFade: null, // (a test hook's) the alpha of a Landscape glide's copies, fixed over the glide; null: their fade over u
     landBranches: 1, // (a test hook's) 0: the carried Landscape draws no patches about its map's branch points (svLandPatches); any other value draws them
@@ -337,7 +339,7 @@
     const per = SV_SPEEDS[SV.speed] || 900;
     // (a press while the wait runs cancels it: on the button that shows it, that is all; elsewhere the new glide waits instead)
     const btn = i > from ? SV.els.next : SV.els.prev;
-    if (SV.gate) { const same = SV.gate.btn === btn; svGateEnd(); if (same) return; }
+    if (svGateSwitch(btn)) return;
     // (from rest, the motion's frames may be drawn ahead while it waits; a press during a motion retargets it live)
     const ms = per * Math.min(2, Math.max(0.35, Math.abs(i - from))), M = moving ? null : { from, to: i, ms, eased: true, span: svSpanOf(from, i) };
     if (svAhead && (!M || svAhead.key !== svAheadKey(paneL, M))) svAheadDrop();
@@ -483,16 +485,11 @@
     if (k <= T) return svPlain(k) ? svLandCarry(to, k, null, 0, k) : undefined;
     return svLandCarry(to, T, k, 1, k);
   }
-  // The value of the height map at the point w of a carried Landscape at rest (render3D's carry with rest set, a plain
-  // plane or one past T), what the probe picks on and reads: a point p of plane s carried to w (carry.map, Newton's
-  // method from the LAND_PICK_SEEDS points of the LAND_PICK_GRID x LAND_PICK_GRID grid over plane s's box src whose images
-  // are nearest w), and p's image in the height plane (carry.hmap). Where sheets cross over w, the one whose height is
-  // highest, the one a ray from above meets first; null where no point of the box is carried to w. The grid is made on
-  // the first call
   const LAND_PICK_GRID = 64, LAND_PICK_SEEDS = 4;
-  function svLandPickF(carry, src) {
-    const F = cpuMap(carry.map), H = cpuMap(carry.hmap), N = LAND_PICK_GRID;
-    if (!F || !H) return () => null;
+  // the seeds for Newton's method toward a point w of a carried Landscape: (w, n) -> the n points p of the LAND_PICK_GRID x
+  // LAND_PICK_GRID grid over plane s's box src whose images F(p) are nearest w (the grid is made on the first call)
+  function svLandSeeds(F, src) {
+    const N = LAND_PICK_GRID;
     let pts = null;
     const grid = () => {
       const out = [];
@@ -502,16 +499,28 @@
       }
       return out;
     };
-    const size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
-    return (w) => {
+    return (w, n) => {
       if (!pts) pts = grid();
       const near = [];
       for (const g of pts) {
         const d = Math.hypot(g.q.re - w.re, g.q.im - w.im);
-        if (near.length < LAND_PICK_SEEDS || d < near[near.length - 1].d) { near.push({ d, p: g.p }); near.sort((x, y) => x.d - y.d); if (near.length > LAND_PICK_SEEDS) near.pop(); }
+        if (near.length < n || d < near[near.length - 1].d) { near.push({ d, p: g.p }); near.sort((x, y) => x.d - y.d); if (near.length > n) near.pop(); }
       }
+      return near.map((g) => g.p);
+    };
+  }
+  // The value of the height map at the point w of a carried Landscape at rest (render3D's carry with rest set, a plain
+  // plane or one past T), what the probe picks on and reads: a point p of plane s carried to w (carry.map, Newton's
+  // method from svLandSeeds' LAND_PICK_SEEDS points), and p's image in the height plane (carry.hmap). Where sheets cross
+  // over w, the one whose height is highest, the one a ray from above meets first; null where no point of the box is
+  // carried to w
+  function svLandPickF(carry, src) {
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap);
+    if (!F || !H) return () => null;
+    const seeds = svLandSeeds(F, src), size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
+    return (w) => {
       let best = null, top = -Infinity;
-      for (const { p } of near) {
+      for (const p of seeds(w, LAND_PICK_SEEDS)) {
         const z = newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size);
         if (!z || z.re < src.x0 || z.re > src.x1 || z.im < src.y0 || z.im > src.y1) continue;
         const v = H(z), h = CX.isFin(v) ? landValue(v) : Infinity;
@@ -519,6 +528,27 @@
       }
       return best;
     };
+  }
+  // The sheets of a carried Landscape at rest on plane k past its source plane s (the pick on its sheets,
+  // pickLandSheet): fibre(w, seeds, grid) -> [{z, v}], every point z of plane s's box src that the carry takes to w,
+  // with its image v in the height plane (carry.hmap). They are the exact preimages where the steps (s, k] have them
+  // (exactPre), else Newton's method from seeds (the points of a nearby w, as a ray's march passes them on) and, unless
+  // grid is false, from the LAND_PICK_FIBRE grid points whose images are nearest w, one point for points within
+  // LAND_PICK_SAME of the box's size. fibre.H is the height map, fibre.s the plane s
+  const LAND_PICK_FIBRE = 16, LAND_PICK_SAME = 1e-7;
+  function svLandFibreF(carry, src, k) {
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap);
+    if (!F || !H) return null;
+    const grid = svLandSeeds(F, src), size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
+    const inBox = (z) => z && CX.isFin(z) && z.re >= src.x0 && z.re <= src.x1 && z.im >= src.y0 && z.im <= src.y1;
+    const fibre = (w, seeds, fromGrid = true) => {
+      const ex = exactPre(carry.s, k, [w.re, w.im]), zs = [];
+      const add = (z) => { if (inBox(z) && !zs.some((q) => CX.abs(CX.sub(q, z)) <= LAND_PICK_SAME * size)) zs.push(z); };
+      if (ex) ex.zs.forEach(add);
+      else for (const p of (seeds || []).concat(fromGrid || !seeds ? grid(w, LAND_PICK_FIBRE) : [])) add(newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size));
+      return zs.map((z) => ({ z, v: H(z) }));
+    };
+    return Object.assign(fibre, { H, s: carry.s });
   }
   // a Landscape glide's copies fade in from u = 0 and are whole from u = SV_FADE_END on
   const SV_FADE_END = 0.5;
@@ -738,11 +768,41 @@
   // disc about the image of infinity), where no cell of the box's grid reaches. The inner ring is the part the glides
   // of a periodic map (exp) bring into the block, so it has the finer grid. The inner ring runs a little past the outer
   // one's start (LAND_FAR_LAP), so the chords of their polygons, of different sizes, leave no crack.
+  // With carry, the outer ring carries its copies' strip (dup, svLandFarDup).
   const LAND_FAR_NEAR = 4, LAND_FAR_REACH = 1000, LAND_FAR_LAP = 1.002;
-  const svLandFar = (src) => {
+  const svLandFar = (src, carry = null) => {
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
-    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
+    const outer = [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)];
+    const dup = carry && svLandFarDup(carry, src, outer[2]);
+    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], dup ? Object.assign(outer, { dup }) : outer];
   };
+  // The outer ring's copies of the nearer surface (LAND_CARRY_VS uDup): where the carried surface is periodic in plane s's
+  // point z, with a period P whose half is shorter than the outer ring's inner radius R (the places F(z + P) = F(z) and the
+  // heights the same: the glide map's period, invHomPer, or at rest the chain's from s, Inverse.keyPeriod, or the least
+  // multiple of it, up to LAND_DUP_M, that the height has too, checked at LAND_DUP_AT points of the box), each point of the
+  // strip within sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the
+  // inner ring draw with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span
+  // several periods there, and their facets would stand out past the surface they copy. [n.x, n.y, half-width, 1], n the
+  // unit normal to P; null where no such period is found
+  const LAND_DUP_M = 4, LAND_DUP_AT = [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7], [0.35, 0.85], [0.7, 0.15]], LAND_DUP_TOL = 1e-7;
+  function svLandFarDup(carry, src, R) {
+    if (carry.plain) return null;
+    let p0 = null;
+    try {
+      p0 = carry.b != null ? invHomPer(carry.s, carry.b, carry.u) : carry.a > carry.s ? Inverse.keyPeriod(invPlan(carry.s, carry.a)) : null;
+    } catch (e) { p0 = null; }
+    if (!p0 || !(CX.abs(p0) > 0)) return null;
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap), same = (a, b) => (CX.isFin(a) ? CX.isFin(b) && CX.abs(CX.sub(a, b)) <= LAND_DUP_TOL * (1 + CX.abs(a)) : !CX.isFin(b));
+    const ht = (z) => { const v = H(z); return CX.isFin(v) ? C(landValue(v), 0) : v; };
+    const zs = LAND_DUP_AT.map(([fx, fy]) => C(src.x0 + fx * (src.x1 - src.x0), src.y0 + fy * (src.y1 - src.y0)));
+    for (let m = 1; m <= LAND_DUP_M; m++) {
+      const P = CX.scale(p0, m), half = CX.abs(P) / 2;
+      if (half >= R) return null;
+      if (!zs.every((z) => same(F(z), F(CX.add(z, P))) && same(ht(z), ht(CX.add(z, P))))) continue;
+      return [-P.im / (2 * half), P.re / (2 * half), Math.sqrt(R * R - half * half), 1];
+    }
+    return null;
+  }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and near, the nearer
   // plane, whose title and key the pane shows). The regions' fill and stroke do not switch at near: each blends its own
   // look in by its share own(x) (svStagedOf), outlined over colour and filled past the colour plane as each plane at rest
@@ -1450,9 +1510,11 @@
   // the glide frame between planes a and b at u (a = b - 1 unless given), as the carried colour draws it there
   // (svCarryExactHom): with that frame's look, whose opacity picks the program's B class (svCarryAlpha: sheets off before
   // the colour plane, opacity 1)
-  const svInvState = (h, i, b, u, a = b - 1) => {
+  const svInvState = (h, i, b, u, a = b - 1) => GLR.inverseState(svInvStateArg(h, i, b, u, a));
+  // (the state GLR.inverseState and GLR.inverseWarmup take for it)
+  const svInvStateArg = (h, i, b, u, a = b - 1) => {
     const p = h.paths[i];
-    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { a, b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { a, b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 };
   };
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
   // and the staged one of the later planes' shapes, svStagedOf and svStagedCurves, which draws their mask and strokes),
@@ -2159,7 +2221,7 @@
           SV.restHeld = at;
           const key = ['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
           if (svRestFell !== key || !GLR.pendingLinks) {
-            SV.core = 'still';
+            SV.core = 'still'; svPlotsDrop();
             if (svHeldKept(key, asks)) return;
             const n0 = colourAsks;
             svRestAt(at, pane, still);
@@ -2178,7 +2240,7 @@
     svCheck(); svPolesWatch();
     // (a press waits behind the gate on plane z, the colour plane: the plane is drawn as the first frame of the glide it waits to start)
     if (svGateDraws() || (svPaint() === 'push' && svFlatSurf() && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
-    svHeldOn = null;
+    svHeldOn = null; svPlotsDrop();
     SV.core = 'still'; still(pane);
   }
   // Sheets over a glide: a glide frame onto a plane b coloured by its own variable (at or before the colour plane) is
@@ -2375,6 +2437,33 @@
     svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [], pre: 0 };
     return false;
   }
+  // The plots under a glide's carried colour (plane b's picture at rest, plane a's no-value colour over it) read nothing
+  // of u: every frame of a glide draws the same picture there. Drawn into a fresh frame once, it is kept (GLR.layerKeep)
+  // under the key of what the plots read, and drawn back from there while the key holds; at rest it is dropped. A frame
+  // already open (the regions' mask under the colour) draws the plots itself, and so does a frame of another device
+  // size than the left pane's (an export's: the layer serves the screen and the frames drawn ahead for it, through a
+  // proxy of the pane). svPlotsUse: the frames that drew them and
+  // that drew them back (the tests read it); SV.plotsKeep 0 (a test hook's) draws them every frame
+  const SV_PLOTS = 'svPlots';
+  let svPlotsKey = null;
+  const svPlotsUse = { drawn: 0, kept: 0 };
+  function svPlotsUnder(pane, frame, a, b, draw) {
+    if (frame.open || SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) { draw(); return; }
+    const key = [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
+      GLR.palette(), TH.planeRGB, TH.inkRGB, TH.dark, SV.restPaint, svColoured(a), svColoured(b)].join('|');
+    GLR.begin(pane.pw, pane.ph);
+    frame.open = true;
+    if (key === svPlotsKey && GLR.layerDraw(SV_PLOTS)) { svPlotsUse.kept++; return; }
+    draw();
+    svPlotsUse.drawn++;
+    // (a plot whose program still links drew a stand-in or nothing: not a picture to keep)
+    svPlotsKey = !GLR.frameStatus().pending && GLR.layerKeep(SV_PLOTS) ? key : null;
+  }
+  function svPlotsDrop() {
+    if (svPlotsKey === null) return;
+    svPlotsKey = null;
+    GLR.layerDrop(SV_PLOTS);
+  }
   // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's svLinkHold), or null; asks: the
   // frames asked for (renderAsks) before that hold asked for its own
   function svRenderMoving(pane, hold = null, asks = renderAsks) {
@@ -2383,9 +2472,10 @@
     // (a motion whose frames were drawn ahead shows them)
     if (svAheadShow(pane)) return;
     if (svHeldKept(hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
-    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !SV.play && !(SV.drag && SV.drag.moved);
     // (parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
-    // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
+    // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own. Not
+    // while a Play runs: V.left has not taken the camera yet, and would hand the camera back the view of plane z)
     if (rest) svKeepView();
     pane.setView(S.srcView);
     svPolesWatch();
@@ -2402,6 +2492,7 @@
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), still = u <= SV_REST_U || b === a;
+    if (still) svPlotsDrop();
     // (in both scopes: the regions of later planes pulled back, a layer of their own over the colour, under the outlines,
     // as a coloured plane draws them (renderColor): at rest on plane a by drawPreimage, between two planes by the inverse
     // pass (svStagedLayer); into the open frame, else a frame of its own; left out with the strokes, hideStrokes)
@@ -2428,7 +2519,7 @@
       // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
       // arrive. Inside regions only under the regions' mask, which keeps them inside the regions. SV.restPaint
       // 0 (a test hook's) leaves plane b's picture out, so that a pixel no point reaches shows the paper)
-      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); }
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) svPlotsUnder(pane, frame, a, b, () => { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); });
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan, or, all at
       // once, each step of the span at its own time (svSpanPaths): the exact picture of the map at u, with nothing
       // blended in; else the carried meshes below, with the planes' plots)
@@ -2657,7 +2748,7 @@
           o.paint();
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
-          reptHatch(mp, map);
+          reptHatch(pane, map);
           refusedHatch(pane, map);
           if (o.after) o.after();
           onPage = true;
@@ -2679,17 +2770,19 @@
       const p = reached && reached.get(s);
       // (an open region's outline dashed as at rest, OPEN_DASH along its arc at rest: GLR.drawInverse's st.edge.dash)
       if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => Object.assign(svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k), kindType(x) === 'area' && Region.isOpen(x) ? { dash: OPEN_DASH } : {})); continue; }
-      const map = svShapeMap(s, map0), r = map && !reptExact(map) && shapeGPU(s);
-      if (!r || !r.lineRes) continue;
-      const dash = openDash(r, map);
-      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
+      const map = svShapeMap(s, map0), r = map && shapeGPU(s), o = r && outlineRes(map, r, pane);
+      if (!o) continue;
+      const dash = openDash(o.rec, map);
+      GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: OUTLINE_M, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions: which points of plane k's box are in the carried region set, the set the
-  // plane's 2D picture colours (svMask): {cv, key, box}, a canvas over box (512 pixels on its longer side, row 0 at its
-  // top), opaque inside the set and clear outside; the surface is plain (the Plain material's colour) there. One per
-  // chain, plane, box and shapes; null with the colour everywhere (Everywhere)
+  // plane's 2D picture colours (svMask): {cv, key, box, unres}, a canvas over box (512 pixels on its longer side, row 0
+  // at its top), opaque white inside the set, clear outside, where the surface is plain (the Plain material's colour),
+  // and opaque black at the pixels a REPT plan left unresolved (unres of them; all of them when the plane's repeat is
+  // refused, repeatRefused), where it draws the no-value hatch. One
+  // per chain, plane, box and shapes; null with the colour everywhere (Everywhere)
   let svLandMaskC = null;
   // (the number of masks drawn while a program of the pass still linked: each one's key is its own, so the surface's
   // texture is uploaded again for it and the next frame draws the mask afresh)
@@ -2717,12 +2810,17 @@
     const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
     const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
     svMask(over, stageMap(k), k, { cc });
-    // (the pixels a REPT plan left unresolved, which the mask cannot show: counted, never read as uncovered unseen)
-    const unres = reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount() : 0;
+    // (the pixels a REPT plan left unresolved: counted, and marked opaque black in the mask, where the surface draws
+    // the no-value hatch (LAND_FS); never read as uncovered)
+    // (a refused repeat's plan has none to draw it: its mask is the no-value mark everywhere, the surface hatched all over,
+    // as the flat plane is)
+    const refused = repeatRefused(stageMap(k));
+    if (refused) { cc.fillStyle = '#000'; cc.fillRect(0, 0, pw, ph); }
+    const unres = refused ? pw * ph : reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount(cc) : 0;
     // (a pass that left a program linking drew its regions short: the mask is not kept under this key, so the frame
     // that follows the link draws it afresh)
     const linking = !!GLR.frameStatus().pending;
-    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres };
+    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres, refused };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
@@ -2817,6 +2915,9 @@
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
+  // the sheet combos the last globe glide frame drew, the principal one counted (svSphereMoving's; null when it carried no
+  // colour), read by the test hooks
+  let svGlobeSheetsRec = null;
   function svSphereMoving(pane, hold = null) {
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
@@ -2836,18 +2937,29 @@
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
     if (rest) { leftSphereInfo = rest; return; }
     // (all at once, the span's steps each at its own time: svSpanPaths)
-    const inv = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
+    const own = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
+    // (the other sheets' copies under it, svGlideSheets, as the plane draws them: each copy's regions made and drawn with
+    // the chain on that copy's sheets (svOnSheets), the farthest from the principal sheet first, so that a nearer sheet is
+    // drawn over a farther one and the principal one over them all)
+    const sheets = own && map.mode === 1 && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+    const copies = sheets.slice().reverse().flatMap((v) => (svOnSheets(v, () => svGlobeCarryInv(pane, b, u, T)) || []).map((r) => Object.assign(r, { around: (draw) => svOnSheets(v, draw) })));
+    const inv = own && copies.length ? copies.concat(own) : own;
     // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
+    // (and its other sheets' copies under it, as the inverse pass's: each copy's mesh made and drawn on its sheets)
+    const meshSheets = carried && !all && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+    const carriedCopies = meshSheets.slice().reverse().map((v) => ({ carried: svOnSheets(v, () => svGlobeMesh(a, T, svGlideMap(bt, src), a + u)), around: (draw) => svOnSheets(v, draw) })).filter((c) => !!c.carried);
+    svGlobeSheetsRec = inv ? sheets.length + 1 : carried ? meshSheets.length + 1 : null;
     // (under the carried colour, as the plane's frame paints it (svRenderMoving's colour): the arrival plane's own colour
     // when it is a coloured plane, so that a place no point of the glide reaches shows what plane b draws there at rest,
     // not the bare globe. SV.restPaint 0 leaves it out, as on the plane. The plane's second layer, plane a's no-value
     // hatch over it, has no pass on the globe)
     const under = inv && map.mode === 1 && SV.restPaint !== 0 && svColoured(b) && !svMaskOn() ? { colorMap: svColourMap(b), carryBase: true } : null;
-    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }, under))
-      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
+    const sheetCut = SV.glideStencil === 1;
+    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv, sheetCut }, under))
+      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried, carriedCopies, sheetCut } : { carried }));
     if (!inv && !(info && info.carried) && near === b && b !== a) info = sphereView(pane, camL, CAML, look(b));
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
@@ -3674,19 +3786,26 @@
   // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
   // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
   let svInvJobs = [], svInvWarmKey = null, svInvFlushing = false, svInvQueuedAt = 0, svInvReadyAt = 0;
-  // (test hook: no jobs queued while set, and those left dropped)
+  // (test hook: no jobs queued while set, and those left dropped; svReady's inverse part, which counts the jobs' glides,
+  // built again)
   let svInvWarmOff = false;
-  const svInvWarmOffSet = (on) => { svInvWarmOff = !!on; if (on) svInvJobs = []; };
+  const svInvWarmOffSet = (on) => { svInvWarmOff = !!on; svInvStates = null; if (on) svInvJobs = []; };
   const svInvKey = () => `${chainSig[nSteps()]}|${SV.surf}|${SV.scope}|${svT()}|${S.dc}|${Math.round(SV.g.x)}`;
-  function svPrestartInv() {
-    const globe = SV.surf === 'sphere', key = svInvKey();
-    if (svInvWarmOff || (!globe && !svFlatSurf(true)) || !paneL || !GLR.inverseState || nSteps() < 1) return;
-    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), jobs = [];
+  // the glides the jobs make ready, [{b, u}]: each part of the glide on and of the glide back, at most SV_INV_WARM_MAX;
+  // [] where there are no jobs (the Landscape, which draws no frames between planes: a program linking there would
+  // redraw its pane after the pane settled; no inverse programs; the test hook's warmInv: false)
+  function svInvGlides() {
+    const globe = SV.surf === 'sphere', out = [];
+    if (svInvWarmOff || (!globe && !svFlatSurf(true)) || !paneL || !GLR.inverseState || nSteps() < 1) return out;
+    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x)));
     for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
-      if (b && !isDeriv(b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });
+      if (b && !isDeriv(b)) for (const u of svGlideParts(b)) out.push({ b, u });
     }
-    svInvWarmKey = key;
-    svInvJobs = jobs.slice(0, SV_INV_WARM_MAX);
+    return out.slice(0, SV_INV_WARM_MAX);
+  }
+  function svPrestartInv() {
+    svInvWarmKey = svInvKey();
+    svInvJobs = svInvGlides().map((g) => ({ b: g.b, u: g.u, asked: false }));
     svInvQueuedAt = performance.now();
     svInvReadyAt = 0;
     svInvWarmNext();
@@ -3697,7 +3816,33 @@
     const n = built[b - 1] && built[b - 1].rec ? built[b - 1].rec.built.length : 0;
     return n > 1 ? [...Array(n).keys()].map((i) => (i + 0.5) / n) : [0.25, 0.75];
   }
-  // the next job of svPrestartInv's in an idle moment: its programs asked for, or, once they are ready, its frame drawn
+  // the inverse programs the frame of step b's glide at u draws its carried colour with, on the globe or the plane: {h (its
+  // paths, svInvPaths), sts (GLR.inverseState's arguments, one a path)}, or null when the frame has no inverse pass
+  function svInvFrame(b, u, globe) {
+    const h = svInvPaths(b, u, globe ? 'globe' : 'flat', { r: null });
+    if (!h) return null;
+    const carry = svCarryStyle(svT());
+    return { h, sts: h.paths.map((p, i) => (globe ? Object.assign({ viewKind: 'globe' }, svInvArg(paneL, p, h.list[i], carry)) : svInvStateArg(h, i, b, u))) };
+  }
+  // Those of the jobs' glides (svInvGlides), the states svReady's inverse part counts: built once for what svInvListKey
+  // names (svPrestartSoon drops them after an edit). Besides what svInvKey names, a state's program depends on the
+  // opacity and the sheets (its B class, svCarryAlpha) and on the shapes (which, their kinds, formulas and stages, and
+  // whether they show): a list kept past a change of those would count programs no job asks for, and ready would never
+  // read true
+  let svInvStates = null, svInvStatesKey = null;
+  const svInvListKey = () => `${svInvKey()}|${svOpacity()}|${S.sheets ? 1 : 0}|${S.shapes.map((x) => `${x.id}:${x.kind}:${x.expr || ''}:${x.visible === false ? 0 : 1}:${shapeStage(x)}`).join(',')}`;
+  function svInvList() {
+    const key = svInvListKey();
+    if (svInvStates && svInvStatesKey === key) return svInvStates;
+    const globe = SV.surf === 'sphere', sts = [];
+    for (const g of svInvGlides()) { const f = svInvFrame(g.b, g.u, globe); if (f) sts.push(...f.sts); }
+    svInvStatesKey = key;
+    return (svInvStates = sts);
+  }
+  // the next job of svPrestartInv's in an idle moment: its programs asked for, or, once they are ready, its frame drawn.
+  // The jobs wait for the rest of svReady (svReady's rest: all but their own part, which waits for them), and while a
+  // glide waits for svReady (SV.gate) they take no idle wait: that press asked for the glide they prepare. A job whose
+  // programs still link is looked at again every SV_INV_WARM_AGAIN_MS for as long as they take
   const SV_INV_WARM_AGAIN_MS = 250;
   function svInvWarmNext() {
     if (!svInvJobs.length) return;
@@ -3707,18 +3852,17 @@
       if (key !== svInvKey()) { svInvJobs = []; return; }
       if (interacting() || svGliding()) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
       const now = performance.now();
-      if (!svReady().ready) { svInvReadyAt = 0; setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+      if (!svReady().rest) { svInvReadyAt = 0; setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
       if (!svInvReadyAt) svInvReadyAt = now;
-      const wait = Math.max(svInvQueuedAt, svInvReadyAt, lastInputT) + SV_WARM_IDLE_MS - now;
+      const wait = SV.gate ? 0 : Math.max(svInvQueuedAt, svInvReadyAt, lastInputT) + SV_WARM_IDLE_MS - now;
       if (wait > 0) { setTimeout(svInvWarmNext, Math.max(wait, SV_INV_WARM_AGAIN_MS)); return; }
-      const job = svInvJobs[0], globe = SV.surf === 'sphere', T = svT(), carry = svCarryStyle(T);
-      const h = svInvPaths(job.b, job.u, globe ? 'globe' : 'flat', { r: null });
-      const state = (i) => (globe ? GLR.inverseState(Object.assign({ viewKind: 'globe' }, svInvArg(paneL, h.paths[i], h.list[i], carry))) : svInvState(h, i, job.b, job.u));
+      const job = svInvJobs[0], globe = SV.surf === 'sphere', T = svT();
+      const f = svInvFrame(job.b, job.u, globe), h = f && f.h;
       let next = 0;
-      if (!h) svInvJobs.shift();
-      else if (!job.asked) { h.paths.forEach((q, i) => state(i)); job.asked = true; }
+      if (!f) svInvJobs.shift();
+      else if (!job.asked) { GLR.inverseWarmup(f.sts, { start: true }); job.asked = true; }
       else {
-        const st = h.paths.map((q, i) => state(i));
+        const st = f.sts.map((x) => GLR.inverseState(x));
         if (st.includes('pending')) next = SV_INV_WARM_AGAIN_MS;
         else {
           svInvJobs.shift();
@@ -3786,6 +3930,7 @@
   // idle moment: a drag or typing is never held back by it, and a run of edits starts it once
   let svPrestartTimer = 0;
   function svPrestartSoon(ms) {
+    svInvStates = null;
     clearTimeout(svPrestartTimer);
     svPrestartTimer = setTimeout(() => {
       svPrestartTimer = 0;
@@ -3799,30 +3944,49 @@
   // programs linked (both map modes, the carried colour and its cut fills, the glide's map mode of the programs the
   // panes draw, which the warm-up starts in the init part (WARM's first group, in the same modes), any inverse one
   // still compiling), the carried colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the
-  // meshes); while a pane's last frame had a REPT draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a
-  // part not done; while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
-  // programs of a view no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain
-  // is not up; ready is true only when done = total > 0
-  // (test hook: the idle jobs count as unfinished while set)
-  let svJobsHold = false;
+  // meshes), with M (the motion the gate is about to start) the frames it may draw ahead (svAheadPart), and the inverse
+  // programs of the glides a press starts linked while the thread rests on a plane (inverse: svInvList, which
+  // svInvWarmNext's jobs ask for; their first draw is the jobs' own, and a cold program is drawn by the glide's frame,
+  // svLinkHold; no part while a frame is held between planes or a glide runs); while a pane's last frame had a REPT
+  // draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a part not done; while svRedrawDue, the left
+  // pane's frame that draws with the program that landed, a part not done. The programs of a view no pane shows are no
+  // part of it (GLR's offView). The warm draw, the REPT draw and the redraw are parts with nothing counted inside them,
+  // one unit done or not, marked whole (the Play gate's ring shows them as unknown, svGateFill). total is 0 only while
+  // the GPU layer or the chain is not up; ready is true only when done = total > 0; rest: the same without the inverse
+  // part. Programs counted that no job asks for any more (the jobs were dropped when what svInvKey names changed, or a
+  // program was evicted after its job) are queued again, unless peek (a read that starts no work: the test hook's)
+  // (test hooks: the idle jobs count as unfinished while svJobsHold is set, the warm draw while svWarmHold is)
+  let svJobsHold = false, svWarmHold = false;
   const svJobsHoldSet = (on) => { svJobsHold = !!on; };
-  function svReady(M) {
+  const svWarmHoldSet = (on) => { svWarmHold = !!on; };
+  function svReady(M, peek = false) {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
     parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
-    parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
+    parts.warm = { done: !svWarmHold && svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1, whole: true };
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
     if (svJobsHold) jobs = 3;
     parts.jobs = { done: 3 - jobs, total: 3 };
-    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1 };
-    if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
+    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1, whole: true };
+    if (svRedrawDue) parts.redraw = { done: 0, total: 1, whole: true };
     // (M: the motion the gate is about to start, whose frames may be drawn ahead once all else is ready, svAheadPart)
     const ahead = M ? svAheadPart(M) : null;
     if (ahead) parts.ahead = ahead;
     let done = 0, total = 0;
     for (const k in parts) { done += parts[k].done; total += parts[k].total; }
-    return { done, total, parts, ready: total > 0 && done === total };
+    const rest = total > 0 && done === total;
+    // (the inverse part only while the thread rests on a plane: its glides are the ones a press starts from there. A frame
+    // held between planes, or a glide under way, is ready when its own programs are, which its frame asks for itself)
+    if (!svMoving()) {
+      let inv = { done: 0, total: 0 };
+      try { inv = GLR.inverseWarmup ? GLR.inverseWarmup(svInvList()) : inv; } catch (e) { svInvStates = []; }
+      parts.inverse = inv;
+      if (!peek && inv.done < inv.total && !svInvFlushing && (!svInvJobs.length || svInvWarmKey !== svInvKey())) svPrestartInv();
+      done += inv.done;
+      total += inv.total;
+    }
+    return { done, total, parts, ready: total > 0 && done === total, rest };
   }
   // The glide's carried colour drawn once on a speck (SV_WARM's mesh, at x = 1/2 of the first step) into the GL canvas,
   // which no pane shows until a frame copies it: a renderer that makes a program's machine code at its first draw
@@ -3830,23 +3994,40 @@
   // would run on past that stall and end it. The idle moment is SV_WARM_IDLE_MS after the chain changed and after the
   // last input (lastInputT): that machine code takes the main thread for a second or more on such a renderer, which
   // just after an edit holds back what the edit shows (the "Added" message). Tried again while the programs link
-  // (prestartCarry), at most 40 times; the programs themselves link without waiting (prestartCarry, the parallel compile)
+  // (prestartCarry), for as long as they take (svWarmWhenIdle); the programs themselves link without waiting
+  // (prestartCarry, the parallel compile)
   const SV_WARM = { id: '__svWarm', kind: 'disc', c: [0, 0], r: 0.01, visible: true }, SV_WARM_IDLE_MS = 2000;
   // f in an idle moment of the idle warm-ups (svWarmCarry, svInvWarmNext): run after SV_IDLE_CB_MS at the latest, or, with
   // no requestIdleCallback, SV_IDLE_FALLBACK_MS from now
   const SV_IDLE_CB_MS = 1000, SV_IDLE_FALLBACK_MS = 250;
   const svIdle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: SV_IDLE_CB_MS }) : setTimeout(f, SV_IDLE_FALLBACK_MS));
+  // svWarmWhenIdle's attempts: at most SV_WARM_TRIES unfinished ones made with no program linking, the next one
+  // SV_WARM_RETRY_MS after an unfinished one, and a wait for input to stop looked at again after at least SV_WARM_POLL_MS
+  const SV_WARM_TRIES = 40, SV_WARM_RETRY_MS = 500, SV_WARM_POLL_MS = 250;
+  // Runs step() in an idle moment (svIdle), SV_WARM_IDLE_MS after t0 and after the last input, if the chain is still the
+  // one it was asked for and nothing is being dragged or typed (looked at again when the idle callback runs); step() is
+  // true when its work is done. Else again runs SV_WARM_RETRY_MS later: again(n, t0) while a program links (GLR.pendingLinks:
+  // the work waits for it, however long the link takes, and a part of svReady that waits for the work cannot stay short
+  // after it lands), else again(n + 1, t0). A wait for input to stop calls again(n, t0) after at least SV_WARM_POLL_MS
+  function svWarmWhenIdle(again, n, t0, step) {
+    const sig = chainSig[nSteps()];
+    const wait = () => Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
+    const waitMore = () => { setTimeout(() => { if (chainSig[nSteps()] === sig) again(n, t0); }, Math.max(wait(), SV_WARM_POLL_MS)); };
+    if (wait() > 0 || interacting()) { waitMore(); return; }
+    svIdle(() => {
+      if (chainSig[nSteps()] !== sig) return;
+      if (wait() > 0 || interacting()) { waitMore(); return; }
+      if (step() !== true) { const linking = GLR.pendingLinks > 0; setTimeout(() => again(linking ? n : n + 1, t0), SV_WARM_RETRY_MS); }
+    });
+  }
   let svWarmSig = null, svWarmAt = 0;
   // (the chain whose warm draw waits for its fence: a second call meanwhile draws it no second time)
   let svWarmFlushing = null;
   // (t0: when the chain changed, as svPrestart saw it)
   function svWarmCarry(n, t0 = performance.now()) {
     const sig = chainSig[nSteps()];
-    if (svWarmSig === sig || svWarmFlushing === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
-    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
-    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, 250)); return; }
-    svIdle(() => {
-      if (chainSig[nSteps()] !== sig) return;
+    if (svWarmSig === sig || svWarmFlushing === sig || n > SV_WARM_TRIES || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
+    svWarmWhenIdle(svWarmCarry, n, t0, () => {
       const r = shapeGPU(SV_WARM, { base: 2 }), pane = paneL;
       let done = false;
       try {
@@ -3858,13 +4039,14 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (!done) { setTimeout(() => svWarmCarry(n + 1, t0), 500); return; }
+      if (!done) return false;
       // (made once the GPU has run the draw's commands (GLR.gpuDone's fence, polled, never waited on): left in the
       // queue of the GL canvas, which no pane shows, they would run in the next copy of that canvas to a pane, the
       // first glide frame's, and that frame would wait for the carried colour's machine code after all)
       const made = () => { svWarmFlushing = null; if (chainSig[nSteps()] === sig) { svWarmSig = sig; svWarmAt = performance.now(); } };
       svWarmFlushing = sig;
       if (GLR.gpuDone) GLR.gpuDone().then(made); else made();
+      return true;
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
@@ -4003,7 +4185,7 @@
   // instead, as svGo does for an arrow pressed while ▶ waits
   function svTogglePlay() {
     if (SV.play) { svPause(true); return; }
-    if (SV.gate) { const same = SV.gate.btn === SV.els.play; svGateEnd(); if (same) return; }
+    if (svGateSwitch(SV.els.play)) return;
     svPlay();
   }
   // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped

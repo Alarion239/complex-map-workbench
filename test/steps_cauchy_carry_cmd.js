@@ -154,6 +154,21 @@ info.gated = { frames: gated.map((f) => [f.x, f.px.every((p) => !coloured(p)) ? 
 ok('gated switch: the press waits on plane z for the links (the control: the thread is on z for some of the frames sampled)', gatedOnZ.length > 0, info.gated);
 ok('gated switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', info.gated.blank === 0, info.gated);
 ok('gated switch: the glide reaches plane 1 once the programs have linked', (await ev('__cmwSteps().i')) === 1, info.gated);
+// The same switch with no press at all: the thread stays at rest on plane z while the programs of the carried colour link late, and
+// plane z, drawn by the still core, is the late-link stand-in and then the final picture, never a blank plane. (A press has the glide's
+// hold to draw plane z; with none, the rest draw has to.)
+await open(Object.assign({}, stateId, { dc: 'phase' }));
+await ev('(__cmwSteps({ T: 0 }), 1)');
+await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
+const still = [];
+for (let i = 0; i < SWITCH_FRAMES; i++) still.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), linking: await ev('GLR.pendingLinks'), px: await pixels(SWITCH_PTS) });
+await settled({ until: '!GLR.pendingLinks', max: SWITCH_MS });
+const stillOnZ = still.filter((f) => f.x === 0);
+info.still = { frames: still.map((f) => [f.x, f.linking, f.px.every((p) => !coloured(p)) ? 'blank' : 'drawn']), onZ: stillOnZ.length, blank: stillOnZ.filter((f) => f.px.every((p) => !coloured(p))).length };
+ok('no-press switch: the links were late (the control: some of the frames sampled were taken with links pending)', still.some((f) => f.linking > 0), info.still);
+ok('no-press switch: the thread stays on plane z (the control: every frame sampled is on z)', stillOnZ.length === SWITCH_FRAMES, info.still);
+ok('no-press switch: every frame on plane z at rest is drawn: the late-link stand-in or the final picture, not a blank plane', info.still.blank === 0, info.still);
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warn') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors or warnings', !errs.length, errs.slice(0, 4).map((x) => String(x.m).slice(0, 300)));
 return { pass: fails.length === 0, fails, info };

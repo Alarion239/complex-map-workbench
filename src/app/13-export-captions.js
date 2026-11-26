@@ -55,46 +55,28 @@
     if (pv) pv.disabled = !(k > 1);
     if (nx) nx.disabled = !(k > 0 && k < S.steps.length);
   }
-  // The modes Esc steps out of, innermost first: a step shown alone, an expanded plane, the deformation. Each one is a
-  // chip at the right end of the head of the plane that stays in view, with the key that leaves it and a ×; the
-  // chip of the mode Esc closes next also shows Esc.
-  const modeNext = () => {
-    if (S.focus > 0) return 'alone';
-    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view)) return 'solo';
-    return null;
-  };
+  // The modes shown as chips at the right end of X's pane head (a Construct tool in use, Listening along, a step shown
+  // alone), each with the key that leaves it and a ×; the chip of the mode Esc closes next also shows Esc.
+  const modeNext = () => (S.focus > 0 ? 'alone' : null);
   function modeClose(m) {
     if (m === 'tool') { Construct.cancel(); setTool('select'); return; }
     if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
     if (m === 'alone') setFocus(0);
-    else if (m === 'solo') setSolo(S.solo);
   }
   function syncModeChips() {
-    const mg = Views.merged(S.view), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
-    const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
+    const head = document.querySelector('#paneL .pane-head');
     if (!head) return;
     let box = $('modeChips');
     if (!box) box = h('span', { class: 'mode-chips', id: 'modeChips' });
     const next = modeNext();
     const want = [];
-    if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
     // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
     const tc = Construct.toolChip && Construct.toolChip();
     if (tc) want.push(['tool', tc.name, $t('Leave the tool'), '', tc.count || '']);
     // Listening along: the plane's own chip says it and has the Stop
     const lp = snd.play;
     if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
-    // an expanded plane leaves the other one as a labelled strip at the edge, a way back
-    const strip = $('hiddenStrip') || h('button', { type: 'button', class: 'hidden-strip', id: 'hiddenStrip', hidden: true, onclick: () => setSolo(S.solo) });
-    const hid = S.view.main === 'xy' && S.solo && !mg ? (S.solo === 'L' ? 'R' : 'L') : null;
-    if (strip.parentNode !== $('panes')) $('panes').append(strip);
-    strip.hidden = !hid;
-    if (hid) {
-      const t = hid === 'R' ? $t('Y hidden') : $t('X hidden');
-      strip.dataset.side = hid;
-      if (strip.textContent !== t) { strip.textContent = t; strip.setAttribute('aria-label', $t('Show both planes')); strip.setAttribute('data-tip', $t('Show both planes')); }
-    }
-    const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
+    const sig = want.map((w) => w.join('|')).join('/') + '|' + next;
     if (box.dataset.sig !== sig) {
       box.dataset.sig = sig;
       box.replaceChildren(...want.map(([m, label, tip, key, count]) => h('span', { class: 'mode-chip', 'data-mode': m },
@@ -104,7 +86,7 @@
         m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
           : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
     }
-    if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
+    if (box.parentNode !== head) head.insertBefore(box, $('leftLed'));
     box.hidden = !want.length;
     if (SV.on) svFitHead();   // (the chips take room in the plane's head: its bar is fitted to what is left)
     const ac = $('aloneChip');
@@ -248,8 +230,9 @@
   // a video frame's relief window rounding (a function of the screen's window) and the aspect (width / height) the 3D camera is
   // fitted at: the still's, so a frame is the still's camera widened (null: the screen's window, the frame's own aspect)
   let artLandRound = null, artCamAsp = null;
-  // the steps view: the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
-  const svFigView = () => (SV.on && S.view.main === 'xy' ? 'xyL' : figViewKind());
+  // X → Y's figure is X's plane alone, the left panel (Y is not drawn); in the steps view, the shown plane, past the colour
+  // plane too
+  const svFigView = () => (S.view.main === 'xy' ? 'xyL' : figViewKind());
   // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
   // the shapes to it from z (carried: the caption says "the images of ... under it")
   function svCapParts(o) {
@@ -320,6 +303,13 @@
   function figNumberParse(text) {
     try { const v = Params.evalVal(String(text)); return v && Number.isFinite(v.re) && Number.isFinite(v.im) ? { re: v.re, im: v.im } : null; } catch (e) { return null; }
   }
+  // the thread's range a glide video records, the Play range else all of it: its first and last planes, and the span it
+  // glides across as one homotopy when the order is All at once (the screen's own span when it is that one, which keeps its
+  // steps' times), else null, whatever span the screen still holds
+  function svVideoRange() {
+    const R = svRange(), first = R ? R.lo : 0, last = R ? R.hi : svPlanes().length - 1, sp = SV.span, own = svSpanOf(first, last);
+    return { lo: first, hi: last, span: own && sp && sp.x0 === first && sp.x1 === last ? sp : own };
+  }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
     numbers: figNumbers, numberHold: figNumberHold, numberAt: figNumberAt, numberParse: figNumberParse,
@@ -347,21 +337,26 @@
     svGlide: () => {
       const P = svPlanes();
       if (!SV.on || P.length < 2 || (SV.surf === 'sphere' ? !lGlobe() : SV.surf === 'land' ? !lLand() : SV.surf !== 'plane')) return null;
-      const R = svRange();
-      return { surf: SV.surf, at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
+      // (stops: the planes inside the range a video holds at, counted from lo: each one a step at a time; under All at
+      // once those the span does not cross, as the screen's Play runs the span straight through)
+      const vr = svVideoRange(), sp = vr.span, stops = [];
+      for (let k = vr.lo + 1; k < vr.hi; k++) if (!sp || k <= sp.x0 || k >= sp.x1) stops.push(k - vr.lo);
+      return { surf: SV.surf, at: SV.g.x, lo: vr.lo, hi: vr.hi, stops, from: svName(P[vr.lo]), to: svName(P[vr.hi]) };
     },
     svGlideArt: async (x, o) => {
       // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
       const real = paneL.h > 20 ? paneL : paneR;
       const draw = () => artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW('L') / Math.max(1, real.h) }, o));
-      // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's)
-      const k = Math.round(x);
-      if (Math.abs(x - k) <= SV_REST_U) return svAtPlane(k, draw);
+      // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's.
+      // A plane an All-at-once glide leaves out has no picture at rest in it: its frame is the glide's, drawn a hair off the
+      // plane, where the pane draws a glide)
+      const k = Math.round(x), { span } = svVideoRange(), out = !!span && k > span.x0 && k < span.x1;
+      if (Math.abs(x - k) <= SV_REST_U && !out) return svAtPlane(k, draw);
       const keep = { x: SV.g.x, span: SV.span };
-      SV.span = null; SV.g.set(x); SV.offscreen++;
+      SV.span = span; SV.g.set(out && Math.abs(x - k) <= SV_REST_U ? k + 2 * SV_REST_U : x); SV.offscreen++;
       try { return await draw(); } finally { SV.g.set(keep.x); SV.span = keep.span; SV.offscreen--; requestRender('L'); }
     },
-    svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
+    svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = svVideoRange().span; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
@@ -448,7 +443,7 @@
       focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
       lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
       morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
-      pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, shapeF, shapeStage, stageF,
+      pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, requestRender, rightStage, shapeF, shapeStage, stageF,
       fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
       smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt,
       get S() { return S; },
@@ -475,7 +470,6 @@
       get paneR() { return paneR; }, set paneR(v) { paneR = v; },
       get printInk() { return printInk; }, set printInk(v) { printInk = v; },
       get probe() { return probe; }, set probe(v) { probe = v; },
-      get rHover() { return rHover; }, set rHover(v) { rHover = v; },
       get selected() { return selected; }, set selected(v) { selected = v; },
     };
   }

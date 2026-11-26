@@ -8,11 +8,8 @@
 // what is left beside them, stands over the keys it meets: no point of it lies under a key or a chip, and the keys it does not meet
 // take their presses; the card is opaque, and a plane key that real Tab presses reach stands over it (its focus is never hidden). The construction chip
 // stays above the bar with the key folded and unfolded (#2103): no point of its ? and × lies under the bar, and each, focused, is the topmost element
-// at its centre; where the unfolded card meets the ×, it covers the whole glyph or none of it. The classic
-// view's Y has the same: its unfolded Regions key stands over Y's keys at 568 x 320, 600 x 320 and 640 x 320, and as far up as it meets them
-// (740 x 360, 667 x 375 and 740 x 400), in en, ru and it.
-// The unfolded colour key shows all its lines, in the steps view and in the classic view's Regions key: it is not cut to a scrolling box,
-// and the last line is not cut off.
+// at its centre; where the unfolded card meets the ×, it covers the whole glyph or none of it.
+// The unfolded colour key shows all its lines: it is not cut to a scrolling box, and the last line is not cut off.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -120,6 +117,8 @@ const foldedHides = (legendId, readoutSel) => ev(`(() => {
 })()`);
 // [width, height, language, surface]: the plane's own picture and the globe, in the languages with the longest words, down to
 // the smallest landscape phones
+const LONG_READOUT = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';   // (the longest text the readout holds)
+let gaveBack = 0;   // (the cases where the unfolded key took the readout's place: the give-back row's subjects)
 const CASES = [[740, 360, 'en', 'plane'], [667, 375, 'en', 'plane'], [844, 390, 'en', 'plane'], [568, 320, 'ru', 'plane'], [568, 320, 'it', 'plane'], [600, 320, 'ru', 'plane'],
   [740, 360, 'en', 'sphere'], [667, 375, 'en', 'sphere'], [667, 375, 'ru', 'sphere'], [740, 360, 'it', 'sphere'], [568, 320, 'ru', 'sphere'], [600, 320, 'ru', 'sphere'], [640, 360, 'ru', 'sphere'], [640, 360, 'ru', 'plane']];
 // (focus events, and so :focus-visible, reach a page only while it has focus: a headless page is made to, until the rows end)
@@ -231,6 +230,26 @@ for (const [w, h, lang, surf] of CASES) {
       const fold = await foldedBy('leftLegend', '#leftReadout');
       info[`${name} fold`] = fold;
       ok(`${name}: Escape folds the unfolded colour key and the readout is as it is after a tap`, fold.folded && fold.escHidden === fold.tapHidden, fold);
+      const sync = await foldedHides('leftLegend', '#leftReadout');
+      info[`${name} folded hides`] = sync;
+      // (only a key that took the readout's place, .over-readout, hides it: a readout hidden for another reason, as on the
+      // globe, stays hidden)
+      ok(`${name}: a colour key that hides the readout gives it back as soon as it is folded`, !sync.had || !sync.hides, sync);
+      if (sync.had) gaveBack++;
+      // (the readout is held clear of the key by its max-width, so the card does not meet it at any size here: a readout that the width cap does not hold,
+      // given its longest text and no cap, set before the key is unfolded again so that the page places the card with it, is met by the card at the
+      // 320 px tall sizes, where the card runs up under the bar; it takes the readout's place, and gives it back the same way)
+      if (surf === 'plane') {
+        await ev(`(() => { const e = document.getElementById('leftReadout'), c = document.getElementById('leftLegend'); window.__roHtml = e.innerHTML;
+          e.textContent = ${JSON.stringify(LONG_READOUT)}; e.style.maxWidth = 'none'; if (!c.classList.contains('collapsed')) c.click(); c.click(); return 1; })()`);
+        await settled({ max: 10000, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
+        await placed('leftLegend');
+        const long = await foldedHides('leftLegend', '#leftReadout');
+        await ev(`(() => { const e = document.getElementById('leftReadout'); if (window.__roHtml != null) e.innerHTML = window.__roHtml; e.style.maxWidth = ''; return 1; })()`);
+        info[`${name} uncapped readout, folded hides`] = long;
+        ok(`${name}: a colour key that takes the place of a readout the width cap does not hold gives it back as soon as it is folded`, !long.had || !long.hides, long);
+        if (long.had) gaveBack++;
+      }
     }
     // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
     // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one
@@ -238,7 +257,7 @@ for (const [w, h, lang, surf] of CASES) {
     if (!open && surf === 'plane') {
       const ro = await ev(`(() => {
         const e = document.getElementById('leftReadout'); if (!e) return null;
-        const html = e.innerHTML; e.textContent = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';
+        const html = e.innerHTML; e.textContent = ${JSON.stringify(LONG_READOUT)};
         const r = e.getBoundingClientRect(), shown = e.getClientRects().length > 0; e.innerHTML = html;
         return shown ? [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10) : null;
       })()`);
@@ -257,43 +276,10 @@ for (const [w, h, lang, surf] of CASES) {
     ok(`${name}: the hint card is clear of the globe's disk (gap >= 0 px)`, m.shown && m.gap >= 0, m);
   }
 }
-// the classic view's Y has the same state at 320 px tall and above: its Regions key, unfolded under the tall bar, stands over Y's keys, and no
-// point of it lies under a key or a chip
-// (and as tall as the keys and the card meet: 740 x 360, 667 x 375 and 740 x 400 reach the zoom group and Fit view, as 568 x 320 reaches Fit view and Sphere)
-const CLASSIC_SIZES = [[568, 320], [600, 320], [640, 320], [740, 360], [667, 375], [740, 400]];
-for (const [w, h, lang] of CLASSIC_SIZES.flatMap(([a, b]) => ['en', 'ru', 'it'].map((l) => [a, b, l]))) {
-  const name = `${w}x${h} ${lang} classic`;
-  await view(w, h, false, true);
-  await go(`http://localhost:${PORT}/test.html?view=classic&lang=${lang}&ns=ctxcl${w}${h}${Date.now() % 100000}`);
-  await settled({ max: 30000, until: '!!document.documentElement.classList.contains("ph") && !!document.querySelector("#constructTools .tool[data-tool=perp]") && !!document.getElementById("rightLegend")' });
-  await ev(`document.querySelector('#constructTools .tool[data-tool="perp"]').click(); 1`);
-  await settled({ max: 20000, until: 'document.documentElement.classList.contains("ph-ctx-tall") && !!document.querySelector(".ph-ctx.in")' });
-  await ev(`(() => { const c = document.getElementById('rightLegend'); if (c.classList.contains('collapsed')) c.click(); return 1; })()`);
-  await settled({ max: 10000, until: `!document.getElementById('rightLegend').classList.contains('collapsed')` });
-  await placed('rightLegend');
-  const whole = await ev(`(() => { const c = document.getElementById('rightLegend'); return { ch: c.clientHeight, sh: c.scrollHeight }; })()`);
-  info[`${name} key whole`] = whole;
-  ok(`${name}: the unfolded Regions key shows all its lines (clientHeight = scrollHeight)`, whole.ch >= whole.sh - SLACK, whole);
-  // (the key takes the plane's top over the readout when that shows it whole; the readout it covers gives way, hidden, so no readout that shows is under it)
-  const ro = await ev(`(() => { const k = document.getElementById('rightLegend').getBoundingClientRect(), e = document.querySelector('#plotR > .chip.readout'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { meets: r.left < k.right && k.left < r.right && r.top < k.bottom && k.top < r.bottom, hidden: getComputedStyle(e).visibility === 'hidden' }; })()`);
-  info[`${name} readout`] = ro;
-  ok(`${name}: no readout that shows lies under the unfolded Regions key`, !ro || !ro.meets || ro.hidden, ro);
-  // (Escape folds the unfolded key: the readout it hid shows again, as it does after a tap)
-  const foldY = await foldedBy('rightLegend', '#plotR > .chip.readout');
-  info[`${name} fold`] = foldY;
-  ok(`${name}: Escape folds the unfolded Regions key and the readout is shown after it, as after a tap`, foldY.folded && !foldY.escHidden && !foldY.tapHidden, foldY);
-  const syncY = await foldedHides('rightLegend', '#plotR > .chip.readout');
-  info[`${name} folded hides`] = syncY;
-  ok(`${name}: a Regions key that hides the readout gives it back as soon as it is folded`, (h !== 320 || (syncY.had && syncY.was)) && !syncY.hides, syncY);   // (at 320 px tall the open key does hide it: the row is not vacuous there)
-  const under = await underPoints('rightLegend');
-  info[`${name} key unfolded`] = under;
-  ok(`${name}: the unfolded Regions key is read whole: no point of it lies under a key or a chip`, under.length === 0, under.slice(0, 6));
-  const tabbedY = await tabbedKeys('rightLegend');
-  info[`${name} tabbed`] = tabbedY;
-  ok(`${name}: Tab from the unfolded Regions key reaches a plane key (control)`, tabbedY.length > 0, tabbedY);
-  ok(`${name}: every plane key Tab reaches stands over the unfolded Regions key: it is the topmost element at its centre`, tabbedY.every((k) => k.top), tabbedY);
-}
+// (standards-ok: the classic view's Y's Regions key under the tall bar, over Y's keys, goes with Y's pane, which the classic
+// view does not draw, #994; the steps view's rows above read the one plane's colour key over its keys the same way)
 await send('Emulation.setFocusEmulationEnabled', { enabled: false });
+ok('the give-back row reads a key that took the readout\'s place in at least one case (control: the 320 px tall phones)', gaveBack > 0, gaveBack);
 info.chipMet = chipMet;
 ok('the unfolded colour key meets a control of the construction chip in at least one case (the focus rows test a covered control)', chipMet.length > 0, chipMet);
 return { pass: fails.length === 0, fails, info };

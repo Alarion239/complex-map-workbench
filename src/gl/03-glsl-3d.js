@@ -652,11 +652,13 @@ void main() {
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
   // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
-  // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge
+  // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge. A patch with uDup
+  // (n.x, n.y, half-width, 1: the outer far ring of a periodic carry, svLandFarDup) leaves out a triangle whose corners all
+  // lie within the half-width of its centre across the period: copies of points the box and the inner ring draw finer
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}];
+uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup;
 bool inDisc(vec2 a, vec2 b, vec2 c) {
   for (int k = 0; k < ${CARRY_DISCS}; k++) {
     if (k >= uDiscN) break;
@@ -668,6 +670,7 @@ bool inDisc(vec2 a, vec2 b, vec2 c) {
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
+bool inDup(vec2 z) { return abs(dot(z - uPolar.xy, uDup.xy)) < uDup.z; }
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
@@ -680,6 +683,7 @@ void main() {
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
+  if (uPolar.w > 0.0 && uDup.w > 0.0 && inDup(carryZ(vec2(V0))) && inDup(carryZ(vec2(V1))) && inDup(carryZ(vec2(V2)))) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
   vZ = carryZ(vec2(V));
@@ -1187,13 +1191,20 @@ uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
 // mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster; with uMaskCut 1,
-// the Landscape's Inside regions, the surface is not drawn there at all)
+// the Landscape's Inside regions, the surface is not drawn there at all. A pixel opaque and black in the mask is one a
+// REPT plan left unresolved (svLandMask): noValueAt is 1 there, and the surface draws the no-value hatch)
 uniform sampler2D uMask; uniform float uMaskOn; uniform float uMaskCut; uniform vec4 uMaskBox;
 const float CUT_EDGE_INK = 0.85;     // the outline along the edge of a cut surface: its share of the colour
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
   return texture(uMask, vec2(uv.x, 1.0 - uv.y)).a;
+}
+float noValueAt(vec2 z) {
+  if (uMaskOn < 0.5) return 0.0;
+  vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
+  vec4 m = texture(uMask, vec2(uv.x, 1.0 - uv.y));
+  return clamp(m.a - m.r, 0.0, 1.0);
 }
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
@@ -1275,7 +1286,7 @@ vec2 facetW(vec2 w) {
   if (!(wt > 0.0) || ht.y < 0.5) return w;
   float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
   if (uHMode >= 2) {
-    // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
+    // (the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
     float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * linInv(h) : mu * tan(0.5 * PI * hc);
     if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
@@ -1363,6 +1374,9 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
   // alpha over the relief's layers, 1 at opacity 1. A copy fades only at opacity 1, so at most one of the two is
   // other than its plain value)
   o = ${carry ? 'vec4(toSrgb(fogged(c, vPos)) * (1.0 - uFade), (1.0 - uFade) * frontA())' : 'vec4(toSrgb(fogged(c, vPos)), frontA())'};
+  // (a point the region mask marks unresolved: the flat planes' no-value hatch, opaque and unlit, in o's colour as it is
+  // premultiplied: by a copy's fade, not by the front surface's alpha)
+  o.rgb = mix(o.rgb, nanHatch(gl_FragCoord.xy, uDpr)${carry ? ' * (1.0 - uFade)' : ''}, noValueAt(vZ));
 ${carry ? '  gl_FragDepth = fdep;\n' : ''}}
 `;
   const FLOOR_VS = `
