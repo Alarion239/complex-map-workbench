@@ -66,6 +66,14 @@
     if (g.shown && SV.els && SV.els.live && SV.els.live.textContent === $t('Preparing the glide…')) SV.els.live.textContent = '';
     svWaitRestore(g);
   }
+  // a press on a control while the wait runs: the wait ends, and the result is whether it was on btn, where the press only
+  // cancels it; on another control the press goes on and waits instead
+  function svGateSwitch(btn) {
+    if (!SV.gate) return false;
+    const same = SV.gate.btn === btn;
+    svGateEnd();
+    return same;
+  }
   // The Play gate's gauge for its wait g: the share of what svReady(g.M) counts that is done, or null while it is not
   // measured: while svReady has no total, and while the counted parts (the programs, the jobs) are done and only parts
   // with nothing counted inside them are left (svReady's whole parts: the warm draw, a REPT draw's tiles, a pane's
