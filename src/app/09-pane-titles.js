@@ -108,9 +108,9 @@
     return { left, right };
   }
   // where a bracket's deformation starts, H_0 = Q applied to w_{a-1} (w_0 = z): 'html', 'text' (Unicode subscripts,
-  // the phone's title chip and the menu's key slot) or 'tex'. One post step f3(w1), two (f4 o f3)(w1), three or more
+  // the menu's key slot) or 'tex'. One post step f3(w1), two (f4 o f3)(w1), three or more
   // (f6 o ... o f4)(w1); the bypassed steps are left out. No words: the same in English and Russian
-  // Unicode subscript digits as <sub> digits: the menu's key slot and the phone row in the label's face
+  // Unicode subscript digits as <sub> digits: the menu's key slot in the label's face
   const subTags = (html) => html.replace(/[\u2080-\u2089]+/g, (m) => `<sub>${[...m].map((c) => c.charCodeAt(0) - 0x2080).join('')}</sub>`);
   function rangeStart(fmt, p = rangeParts()) {
     if (!p) return fmt === 'tex' ? 'z' : fmt === 'html' ? '<i>z</i>' : 'z';
@@ -141,9 +141,6 @@
   }
   function updateFocusUI() {
     const t = paneTitles();
-    // (the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
-    const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 ${parkedAt() >= 0 ? 'w' + String(parkedAt()).split('').map((d) => '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'[+d]).join('') : 'w'}`;
-    if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     nameCanvases(t);
@@ -925,10 +922,11 @@
     if (!lPhase()) return null;
     return lGlobe() ? 'sphere' : 'color';
   }
-  // (so that nothing covers the work uninvited) On a desktop each plane's key and its display options
-  // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
-  // after a click, the options behind the Display options button. A phone
-  // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
+  // On a desktop each plane's display options sit in its pane head, behind the Display options button (in the X → Y
+  // view, the Regions button: patternBtn), and so does its key, as a short chip that unfolds under the head while
+  // hovered or after a click, so that nothing covers the work uninvited. The left plane's colour key while it shows
+  // Phase or the Sphere (keyOnPlot) is the exception: it stays on the plot, top right. A phone keeps both on the plane,
+  // where the key is a folded glyph and the options are in the Display sheet.
   const keyOnPlot = () => { const k = legendKind('L'); return k === 'color' || k === 'sphere'; };
   function placeKeys() {
     const ph = document.documentElement.classList.contains('ph');
