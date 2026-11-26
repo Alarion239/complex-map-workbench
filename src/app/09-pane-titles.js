@@ -1235,7 +1235,10 @@
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
     // (the caption drawn, its ink box and how much it was narrowed are kept in st.caption, st.capBox and st.capK: tests)
-    const CAP_GAP = 4;   // room kept between the caption and the ring's −i label, px
+    // (CAP_GAP: room kept between the caption and the ring's −i label, px. A caption is narrowed to no less than 0.75 of its
+    // width, the most it reads at (the Italian Cauchy caption takes 0.79); one that would need more is wrapped, in a taller
+    // key, not narrowed further. steps_key_caption checks it)
+    const CAP_GAP = 4;
     const caption = (t) => {
       st.caption = t; say.unshift(t);
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
