@@ -76,9 +76,11 @@ const leftOk = (d) => !!d && d.left != null && d.left <= CDMS + 20;
 // The advance is read from the heartbeat's log of the step changes: the beat that first sees the step leave id after the poll that
 // showed done. `stalls`: the page's long tasks and its beat gaps, merged, as the time it ran nothing; the timer is due at the poll's
 // time + left, fires at the end of any stall that covers that moment, and the step's own change is a stall that starts there (within
-// 30 ms of the end of the one before): exp is that moment, after the chain of them. judge(left) is the check against a due moment
+// STALL_JOIN_MS of the end of the one before): exp is that moment, after the chain of them. judge(left) is the check against a due moment
 // `left` ms after the poll: the advance at least left - tol after it, and at most exp + tol
-const stallEnd = (stalls, p, left) => { let f = p + left; for (const [a, b] of stalls) if (a <= f + 30 && f < b) f = b; return f - p; };
+// (a stall that starts up to STALL_JOIN_MS after the due moment is the step's own change, which a slowed CPU starts some tens of ms after the timer fires)
+const STALL_JOIN_MS = 120;
+const stallEnd = (stalls, p, left) => { let f = p + left; for (const [a, b] of stalls) if (a <= f + STALL_JOIN_MS && f < b) f = b; return f - p; };
 const advanceFrom = async (id, d, tol) => {
   let ch = null;
   for (const t1 = Date.now() + 9000; Date.now() < t1;) {
@@ -179,7 +181,7 @@ check('draw: an input at +1 s changes nothing: CD_MS after the event', !rw.late 
 await goStep('basics/draw');
 await click(disc[0], disc[1]); await settle(200);
 await mdrag(a.l + 220, a.b - 140, a.l + 260, a.b - 110);
-await sleep(150);
+await until(`/^Done\\./.test(document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent)`, 5000, 25);
 let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('live region: "Done.", the result line and "Next step in 1.5 s."', (SV ? /^Done\. The next plane shows its image under F\. Next step in 1\.5 s\.$/ : /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/).test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
@@ -339,14 +341,15 @@ const st = await rectOf(keySel);
 if (SV) await click(st[0], st[1]); else await mdrag(st[0] - 20, st[1], st[0] + 20, st[1]);
 t0 = Date.now();
 const dP = await doneAt(t0);
-await sleep(200);
+await until(`(() => { const l = Tour.lit(); return !!l && !!l.countdown && l.countdown.state === 'running' && /${SV ? 'Planes done ✓' : 'moved together'}/.test(document.querySelector('#tourLead').textContent); })()`, 5000, 25);
 // (the result line: the step's then, and the chapter done: "Editing the chain done ✓" after the slider's, "Planes done ✓" alone after Edit a step)
 check('the chapter\'s last task: tick and result', (SV ? /Planes done ✓/ : /moved together/).test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', [await ev(`document.querySelector('#tourLead').textContent`), await lit()]);
 const aP = await advanceFrom(KEYSTEP, dP, 250);
 check(`the chapter's last task: moves on CD_MS after, into ${AFTERKEY} (late only as far as the page was blocked)`, aP.ok && (await cur()) === AFTERKEY, [aP, dP, await cur()]);
 // once a task is done the spotlight steps aside: the shade fades and lets presses through
 await goStep(PAN);
-a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(400);
+a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
+await until(`(() => { const s = document.querySelector('.tour-root .tour-dim'); return !!s && +getComputedStyle(s).opacity < 0.05; })()`, 5000, 25);   // (the shade's fade, not a fixed time for it)
 const qq = await ev(`(() => { const L = Tour.lit(), s = document.querySelector('.tour-root .tour-dim'); const e = document.elementFromPoint(innerWidth - 40, innerHeight - 40); return { quiet: L.quiet, op: getComputedStyle(s).opacity, hit: e && !e.closest('[data-tour]') }; })()`);
 check('done: the spotlight steps aside (quiet, faded, presses reach the app)', qq.quiet && +qq.op < 0.05 && qq.hit, qq);
 } catch (e) { check("a chapter's end with a task" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
@@ -448,7 +451,7 @@ const aS = await advanceAfter('sound/strings', t0, 400);
 check('Strings: moves on about CD_MS after the last lap', aS.ok, aS);
 check('A loop: Hear the function back to the user\'s (off)', await ev(`Sound.prefs().sonify === false`));
 if ((await cur()) === 'sound/strings') await ev('Tour.next()');
-await settle(1500);
+await until(`(() => { const c = Tour.current(), l = Tour.lit(), e = document.querySelector('.ts-act'); return !!c && c.chapter + '/' + c.id === 'sound/loop' && !!l && !l.moving && !!e && e.getClientRects().length > 0; })()`, 8000, 40);
 const lb = await center('.ts-act');
 await click(lb[0], lb[1]); t0 = Date.now();
 const lp = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 12000, 50);
@@ -559,7 +562,7 @@ await tap(sa[0], sa[1]); t0 = Date.now();
 const dG = await doneAt(t0);
 const aG = await advanceFrom('sound/song', dG, 600);
 check(`RU Grieg: stopped at ${(stopAt / 1000).toFixed(1)} s counts: +CD_MS (late only as far as the page was blocked)`, aG.ok, [aG, dG, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
-await settle(1500);
+await until(`(() => { const c = Tour.current(), l = Tour.lit(), e = document.querySelector('.ts-act'); return !!c && c.chapter + '/' + c.id === 'sound/strings' && !!l && !l.moving && !!e && e.getClientRects().length > 0 && /Удерживайте палец/.test(document.querySelector('#tourLead').textContent); })()`, 8000, 40);
 check('RU strings: on the strings step, with its Russian task', (await cur()) === 'sound/strings' && /Удерживайте палец/.test(await ev(`document.querySelector('#tourLead').textContent`)), await ev(`document.querySelector('#tourLead').textContent`));
 const rs = await center('.ts-act');
 if (rs) { await tap(rs[0], rs[1]); await settle(400); }
@@ -615,14 +618,18 @@ await goStep('sound/song');
 const need = await ev('Tour._t.needLines()');
 check('RU 360: the Sound chapter needs at most 3 lines, and the strip has them', need <= 3 && (await lit()).lines === Math.max(2, need), [need, (await lit()).lines]);
 const pa = await center('.ts-act');
+// (the strip's captions are recorded in the page as they change, each with whether it is cut and whether the title sits above it: a poll from here would miss one that a loaded runner stretches the round trip over)
+await ev(`(() => {
+  const s = document.querySelector('.tour-strip'), rec = window.__capRec = { seen: [], cut: [] };
+  let last = '';
+  const look = () => { const l2 = s.querySelector('.ts-l2'), t = s.querySelector('.ts-text'), lead = document.querySelector('#tourLead').textContent; if (lead === last) return; last = lead; const g = { lead, cut: l2.getBoundingClientRect().bottom > s.getBoundingClientRect().bottom + 0.5 || t.scrollHeight > t.clientHeight + 1, title: s.querySelector('.ts-title').getBoundingClientRect().top >= s.getBoundingClientRect().top - 0.5 }; rec.seen.push(lead.slice(0, 20)); if (g.cut || !g.title) rec.cut.push(g); };
+  new MutationObserver(look).observe(s, { subtree: true, childList: true, characterData: true });
+  look(); return 1;
+})()`);
 await tap(pa[0], pa[1]); t0 = Date.now();
-const seenC = []; let lastC = '', cutC = [];
-// (the song's captions come at the page's pace, and a loaded runner stretches it: the loop ends when the step moves on, 60 s at the latest)
-while (Date.now() - t0 < 60000 && (await cur()) === 'sound/song') {
-  const g = await ev(`(() => { const s = document.querySelector('.tour-strip'), l2 = s.querySelector('.ts-l2'), t = s.querySelector('.ts-text'); return { lead: document.querySelector('#tourLead').textContent, cut: l2.getBoundingClientRect().bottom > s.getBoundingClientRect().bottom + 0.5 || t.scrollHeight > t.clientHeight + 1, title: s.querySelector('.ts-title').getBoundingClientRect().top >= s.getBoundingClientRect().top - 0.5 }; })()`);
-  if (g.lead !== lastC) { lastC = g.lead; seenC.push(g.lead.slice(0, 20)); if (g.cut || !g.title) cutC.push(g); }
-  await sleep(120);
-}
+// (the song's captions come at the page's pace, and a loaded runner stretches it: the wait ends when the step moves on, 60 s at the latest)
+await until(`(() => { const c = Tour.current(); return !c || c.chapter + '/' + c.id !== 'sound/song'; })()`, 60000, 120);
+const { seen: seenC, cut: cutC } = await ev('window.__capRec');
 check('RU 360: four captions and the result, none cut, the title in place', seenC.length >= 5 && !cutC.length, { seenC, cutC });
 await ev('Tour.isActive() && Tour.stop()'); await settle(300);
 // user-10: landscape Russian, Part of the chain (Playing the chain's, the steps view's only): the strip takes the row under
