@@ -515,6 +515,9 @@
     // the Cauchy style (st.cauchy: the nodes of the selected closed curve, F inside, 0 outside)
     const cz = S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
     const cst = { map: S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    // (the Cauchy style, its program still linking: the plot the pane drew in the style before it, held on the pane until the Cauchy plot
+    // lands, GLR.drawColorPlot's st.hold; any other style is the pane's last, which a frame of it sets after its draw)
+    if (S.dc === 'cauchy') cst.hold = pane.dcLast || null;
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
@@ -544,6 +547,7 @@
     }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (S.dc !== 'cauchy' && !cauchyWhy) pane.dcLast = { map: cst.map, style: cst.style, sectors: cst.sectors, grid: cst.grid };
     if (cauchyWhy) sumDrop(pane); else sumWatch(pane, cst.map);
     // (the grid under the pane's notes, which glStatusNote draws)
     if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)

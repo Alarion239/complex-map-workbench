@@ -998,8 +998,10 @@
   // plot's style (the Cauchy style colours F's values as 'enhanced' does), only when the plot's program gives nothing to
   // draw: first the color program, where it is linked (the Cauchy plot's program compiling: F's values in the same style, no
   // compile started for it), else the stand-in, else nothing; the frame in which the plot's link completes draws the plot. st.noValue: only where F has no finite value, its
-  // no-value colour (the NaN hatch, infinity's white), nothing elsewhere, and no stand-in. -> true when the plot or its
-  // stand-in was drawn
+  // no-value colour (the NaN hatch, infinity's white), nothing elsewhere, and no stand-in. st.hold: the plot the pane drew in the style
+  // before the Cauchy one, {map, style, sectors, grid}: while the Cauchy program links it is drawn again (the color program of its
+  // map, where that is linked), so that the pane changes once, from what it showed to the Cauchy plot, and F's values in the
+  // Cauchy style's look are drawn only where there is none to hold. -> true when the plot or its stand-in was drawn
   function drawColorPlot(st) {
     if (!ok) return false;
     let { cp, cz, pname } = colorPlotOf(st);
@@ -1008,7 +1010,10 @@
     let P = program(pname, st.map, st.exact);
     // (the Cauchy plot's program is still linking: F's values drawn by the color program in the stand-in's style (enhanced), with no compile of
     // its own started, until the plot's lands; a failed compile is not this: frameErr says so)
-    if (!P && pname !== 'color' && programPending(pname, st.map) && (P = programLinked('color', st.map, st.exact))) { cp = cz = null; pname = 'color'; }
+    if (!P && pname !== 'color' && programPending(pname, st.map)) {
+      if (st.hold && (P = programLinked('color', st.hold.map, st.exact))) { st = Object.assign({}, st, st.hold); cp = cz = null; pname = 'color'; }
+      else if ((P = programLinked('color', st.map, st.exact))) { cp = cz = null; pname = 'color'; }
+    }
     if (!P) {
       if (!st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
       use(P);
