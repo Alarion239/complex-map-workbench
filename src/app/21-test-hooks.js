@@ -197,9 +197,9 @@
   // (the Cauchy style's draw time: n frames of the left pane, each read back so the GPU has finished; ms per frame)
   /** @type {any} */ (window).__cmwCauchyBench = (n) => { const g = GLR.gl, px = new Uint8Array(4), t0 = performance.now(); for (let i = 0; i < n; i++) { renderColor(paneL); g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px); } return (performance.now() - t0) / n; };
   /** @type {any} */ (window).__cmwCauchyOpt = (show, plus) => { setOpt('cauchyShow', show); setOpt('cauchyPlus', !!plus); requestRender('L'); save(); };
-  // (SPEC 10.6, 12.4 (h)) the figure export as the dialog runs it (opt: {panels, widthIn, caption, alive}), and one
-  // panel drawn off-screen at print size (a PNG data URL)
-  window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ panels: ['L'], widthIn: 7, caption: false }, opt || {}));
+  // (SPEC 10.6, 12.4 (h)) the figure export of X's panel (opt: {widthIn, caption, alive}), and X drawn off-screen at
+  // print size (a PNG data URL)
+  window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ widthIn: 7, caption: false }, opt || {}));
   // the deformation's range (__cmwMorph) and the screen's path selection
   // kind 'H' (the image side at T), 'H0', 'F' (the chain), 'cpuMap' (a map spec's
   // CPU twin): pts [[x, y]] -> [[re, im]] (null for a non-finite value)
@@ -304,8 +304,8 @@
   window.__cmwFig = Figure;
   window.__cmwTeX = TeX;
   /** @type {any} */ (window).__cmwCapParts = () => { const c = figCapParts(); return { Fname: c.Fname, raw: c.raw, formula: c.formula, mapTex: c.mapTex }; };
-  window.__cmwPrepareExport = (panels, alive) => prepareExport(panels || ['L', 'R'], alive);
-  window.__cmwRenderOff = (side, w, h, dpr) => renderOff(side, w, h, dpr).toDataURL('image/png');
+  // (side 'L': X's pane, the only one drawn)
+  window.__cmwRenderOff = (side, w, h, dpr) => { if (side !== 'L') throw new Error('only X (side L) is drawn'); return renderOff(w, h, dpr).toDataURL('image/png'); };
   // client coordinates of plane point (re, im) in the left ('L') or right ('R') plane, as last drawn
   // (test/ux165_plane_cmd.js) the open draft, the handle size in use
   window.__cmwDraft = () => (draft ? { kind: draft.kind, pts: (draft.pts || []).map((p) => p.slice()) } : null);
@@ -380,7 +380,9 @@
   };
   // constructions (INTERFACE): the ring, the draft, the session's Curve | Region; o.fill sets it
   window.__cmwCI = (o) => { if (o && o.gs) { const [side, P] = o.gs, gc = globeCam(side), q = gc && gScreen(gc, P), r = (side === 'R' ? paneR : paneL).ocanvas.getBoundingClientRect(); return q ? [r.left + q[0], r.top + q[1]] : null; } if (o && o.fill) Construct.fill = o.fill; if (o && o.snap) { const [side, x, y, opt] = o.snap; const t = Construct.snapAt(side, x, y, opt || {}); return t ? { cls: t.cls, z: t.z, ref: t.ref } : null; } if (o && o.names) return S.shapes.concat(S.targets).map((s) => ({ id: s.id, kind: s.kind, name: Construct.shapeLabel(s), def: Construct.defText(s), why: s.cundef ? Construct.reasonText(s.cundef) : null })); if (o && o.shapes) return { hi, n: hist.length, tool, selected, zeros: S.steps[0] ? S.steps[0].params.zeros : null, list: S.shapes.concat(S.targets).map((s) => Object.assign(JSON.parse(JSON.stringify(s, noRuntime)), { inf: !!s._atInf, A: s._g ? s._g.A : null })) }; return Construct.debug(); };
-  window.__cmwCapText = (panels) => pcTidy(figureCaption(panels || ['L'])).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
+  // X's figure caption as text, or with 'listGen' its shapes' list in the genitive, the one a plane past the colour plane's
+  // caption names ("the images of …")
+  window.__cmwCapText = (part) => pcTidy(part === 'listGen' ? figCapParts().shapeListGen : figureCaption()).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
   // (#846) the steps view's carried landscape in the last frame: {u, s (plane a), mu, box}, or null for a surface at
   // rest; box: the last frame's block, carried or not
   // the last Landscape frame's height-axis labels, as their screen y (CSS px)

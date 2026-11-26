@@ -1,8 +1,6 @@
   // ---------------- the deformation as one picture (notes/ui-design/morph-figure.md 3-6) ----------------
   // One plane holds X (neutral grey), its image (the carried pattern) and the paths t -> H_t(z) of sample points: evenly
   // spaced, from X's boundary first, with equal-time marks (PATHS, pathsGen; notes/paths-aesthetics/AS-BUILT.md).
-  // The figure is printed in the light theme whatever the screen's theme: fixed inks (the light theme's ink-2 and ink).
-  const MF = { srcFillA: 0.07, srcEdgeW: 0.6, dash: '3.2 2.2', outlineInk: '#3E4C56' };
   const morphHasDeriv = () => morphRange().steps.some((k) => isDeriv(k));
   const mDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const segD = (p, a, b) => {
@@ -348,9 +346,8 @@
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
     return {
-      C, MF, PATHS, SegGrid, activeSteps, allAtOnce, cap1, capT, captionLatex, classicSource, compositeTexShort,
-      isDeriv, joinList, kindType, lenPx, mDist, mfCache, morph, morphLen, morphOutline, morphRange, morphState,
-      morphX, patternSegs, rangeParts, requestRender, resamplePx, segD, shapePhrase, sheetsShown,
+      C, PATHS, SegGrid, activeSteps, allAtOnce, capT, classicSource, isDeriv, kindType, lenPx, mDist, mfCache, morph,
+      morphOutline, morphRange, morphState, morphX, rangeParts, requestRender, resamplePx, segD, sheetsShown,
       get S() { return S; },
       get TH() { return TH; },
       get artMode() { return artMode; },
@@ -359,7 +356,6 @@
       get clipWin() { return clipWin; },
       get drag() { return drag; },
       get figMode() { return figMode; },
-      get figVec() { return figVec; },
       get mfDrawn() { return mfDrawn; }, set mfDrawn(v) { mfDrawn = v; },
       get mfGlobeDrawn() { return mfGlobeDrawn; }, set mfGlobeDrawn(v) { mfGlobeDrawn = v; },
       get motionInT() { return motionInT; },
@@ -374,7 +370,6 @@
   function pathRetrace(...args) { return MP.pathRetrace(...args); }
   function drawMorphPathsX(...args) { return MP.drawMorphPathsX(...args); }
   function pathsSvg(...args) { return MP.pathsSvg(...args); }
-  function morphFigureLayers(...args) { return MP.morphFigureLayers(...args); }
   function texSegs(...args) { return MP.texSegs(...args); }
   function inlineFrac(...args) { return MP.inlineFrac(...args); }
   function rangeTex(...args) { return MP.rangeTex(...args); }
@@ -382,7 +377,6 @@
   function morphHomSegs(...args) { return MP.morphHomSegs(...args); }
   function pathTimesTex(...args) { return MP.pathTimesTex(...args); }
   function pathMarksTex(...args) { return MP.pathMarksTex(...args); }
-  function morphCaption(...args) { return MP.morphCaption(...args); }
   function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
 
