@@ -31,9 +31,9 @@ await ev(`__cmwSet('morphPaths', false); __cmwSteps({ go: 1, now: true, surf: 's
 await settled({ max: 90000 });
 await ev(`GLR._depthAgain = { P: false, skip: false, depth: 0, colour: 0, skipped: 0 }; __cmwSteps({ x: ${X} }); 1`);
 await settled({ max: 90000 });
-// the frame at X with the depth again drawn as asked (P, skip), drawn as the view draws a frame (__cmwSteps({ x })
-// asks for one), read once the view is quiet: { tag, counts: the passes each
-// program drew }, after FRAMES frames drawn with those settings
+// the frame at X with the depth again drawn as asked (P, skip), FRAMES frames drawn as the view draws a frame
+// (__cmwSteps({ x }) asks for one), the last read once the view is quiet: { tag, counts: the passes each program drew,
+// left out, in those frames }; the rows ask for exactly FRAMES, so a frame not drawn in the wait is a red row
 const FRAMES = 2;
 const QUIET = '__cmwSteps().ready.ready && GLR.pendingLinks === 0';
 const frame = async (tag, o) => {
@@ -50,12 +50,13 @@ await settled({ max: 30000, until: `(__cmwTime(1), GLR._depthAgain.depth > 0)` }
 const g = info.globe = await ev('(({ carried, path, a, b, u }) => ({ carried, path, a, b, u }))(__cmwSvGlobe())');
 ok(`x = ${X}: the globe's frame draws the carried colour by the carried meshes`, g.carried && g.path === 'mesh', g);
 const dep = info.depth = await frame('dep', {});
-ok('the depth again is drawn by the depth-only program sphereDepth', dep.counts.depth > 0 && dep.counts.colour === 0, dep);
+ok(`the depth again is drawn by the depth-only program sphereDepth, in each of ${FRAMES} frames`, dep.counts.depth === FRAMES && dep.counts.colour === 0, dep);
 const col = info.colourP = await frame('col', { P: true });
-ok('(with P asked) the depth again is drawn by the colour program', col.counts.colour > 0 && col.counts.depth === 0, col);
+ok(`(with P asked) the depth again is drawn by the colour program, in each of ${FRAMES} frames`, col.counts.colour === FRAMES && col.counts.depth === 0, col);
 const same = info.same = await compare(dep.tag, col.tag);
 ok(`the frame with sphereDepth is the frame with P (at most ${SAME_TOL} apart in a channel)`, !!same && same.max <= SAME_TOL, same);
 const skip = info.skip = await frame('skip', { skip: true });
+ok(`(the control) the depth again is left out, in each of ${FRAMES} frames`, skip.counts.skipped === FRAMES && skip.counts.depth + skip.counts.colour === 0, skip);
 const shown = info.shown = await compare(skip.tag, col.tag);
 ok(`control: without the depth again the frame differs at at least ${SHOWN_MIN} pixels`, !!shown && shown.frac * shown.px >= SHOWN_MIN, shown);
 const cost = async (P) => {
