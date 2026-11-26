@@ -492,31 +492,61 @@ void main() {
   tfOut = edgeJump(p, q);
 }
 `;
-  // ambient occlusion at grid vertex p of height h: how far the 9x9 box of finite heights around it (the heights in
-  // uT1's z, finite where w > 0.5) rises above it, darkening by up to 0.4 (LAND_NRM_VS, LAND_CARRY_NRM_VS)
+  // ambient occlusion at grid vertex p (tp its texel of uT1, the height in z): how far the heights of the 9x9 box around
+  // it rise above it, darkening by up to 0.4 (LAND_NRM_VS, LAND_CARRY_NRM_VS). A point of the box counts when it is
+  // reached from p along its row, then its column, by grid edges the program's aoLink(a, ta, b, tb) passes (b one step
+  // from a, ta and tb their texels: b finite and the edge not torn, the same test as its normals'). Across a cut the
+  // box's points are another piece's, the other side of a branch's jump, whose heights would shade the vertex as if
+  // they rose beside it. Each ray walks its four steps without a break, a point counting while every link to it has
+  // passed (a software renderer runs the vertex stage on SIMD lanes, where a break per lane costs), and each point is
+  // fetched once, the path carrying the texel it stands on (a point past the grid's edge never counts)
   const LAND_AO = `
-float landAO(ivec2 p, float h) {
-  float sum = 0.0, cnt = 0.0;
-  for (int dy = -4; dy <= 4; dy++) for (int dx = -4; dx <= 4; dx++) {
-    ivec2 q = p + ivec2(dx, dy);
-    if (q.x < 0 || q.y < 0 || q.x >= uN || q.y >= uN) continue;
-    vec4 t = texelFetch(uT1, q, 0);
-    if (t.w > 0.5) { sum += t.z; cnt += 1.0; }
+void aoCol(ivec2 c, vec4 tc, bool on, inout float sum, inout float cnt) {
+  float w = on ? 1.0 : 0.0;
+  sum += w * tc.z; cnt += w;
+  for (int s = -1; s <= 1; s += 2) {
+    ivec2 q = c;
+    vec4 tq = tc;
+    bool go = on;
+    for (int i = 0; i < 4; i++) {
+      ivec2 n = q + ivec2(0, s), m = clamp(n, ivec2(0), ivec2(uN - 1));
+      vec4 tn = texelFetch(uT1, m, 0);
+      go = go && n == m && aoLink(q, tq, n, tn);
+      w = go ? 1.0 : 0.0;
+      sum += w * tn.z; cnt += w; q = n; tq = tn;
+    }
   }
-  return cnt > 0.0 ? 1.0 - clamp(6.0 * (sum / cnt - h), 0.0, 0.4) : 1.0;
+}
+float landAO(ivec2 p, vec4 tp) {
+  float sum = 0.0, cnt = 0.0;
+  aoCol(p, tp, true, sum, cnt);
+  for (int s = -1; s <= 1; s += 2) {
+    ivec2 q = p;
+    vec4 tq = tp;
+    bool go = true;
+    for (int i = 0; i < 4; i++) {
+      ivec2 n = q + ivec2(s, 0), m = clamp(n, ivec2(0), ivec2(uN - 1));
+      vec4 tn = texelFetch(uT1, m, 0);
+      go = go && n == m && aoLink(q, tq, n, tn);
+      aoCol(n, tn, go, sum, cnt); q = n; tq = tn;
+    }
+  }
+  return 1.0 - clamp(6.0 * (sum / cnt - tp.z), 0.0, 0.4);
 }
 `;
   // normals by central differences (one-sided across a real jump, LAND_EDGE_VS) and ambient occlusion from a 9x9 box
-  // filter (LAND_AO)
+  // filter (LAND_AO, its points reached by edges with no jump)
   const LAND_NRM_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uN; uniform vec2 uAspect; uniform float uH;
 uniform int uCuts;
 out vec4 tfOut;
-` + LAND_AO + glsl`
+` + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, p, 0); }
 // (uCuts -1: the edge pass still compiles, the former rule stands in: a height step over 0.3 H)
 bool jx(ivec2 p) { return uCuts > 0 ? texelFetch(uE0, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(1, 0)).z - T(p).z) > 0.3 * uH; }
 bool jy(ivec2 p) { return uCuts > 0 ? texelFetch(uE1, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(0, 1)).z - T(p).z) > 0.3 * uH; }
+bool aoLink(ivec2 a, vec4 ta, ivec2 b, vec4 tb) { return tb.w > 0.5 && (b.x != a.x ? !jx(min(a, b)) : !jy(min(a, b))); }
+` + LAND_AO + glsl`
 void main() {
   ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
   vec4 c = T(p);
@@ -529,7 +559,7 @@ void main() {
   float sx = oL && oR ? (R.z - L.z) / (2.0 * dw.x) : (oR ? (R.z - h) / dw.x : (oL ? (h - L.z) / dw.x : 0.0));
   float sy = oD && oU ? (U.z - D.z) / (2.0 * dw.y) : (oU ? (U.z - h) / dw.y : (oD ? (h - D.z) / dw.y : 0.0));
   vec3 n = normalize(vec3(-sx, -sy, 1.0));
-  float ao = landAO(p, h);
+  float ao = landAO(p, c);
   tfOut = vec4(n, c.w > 0.5 ? ao : 1.0);
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -623,16 +653,17 @@ void main() {
 `;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
   // across a tear (a step over uLim on the plane), a height step over uStep or a jump), and the occlusion of the heights
-  // over the grid (LAND_AO, as at rest). Its jumps: the grid edge a -> b, between the edges p -> a and b -> q along the
-  // same line, crosses a jump of the carry's map when its place step on the plane (stepOf: -1 where a point is not
-  // finite or off the grid, Tin) is over uJumpW and over uJump times the larger of theirs (of those that are finite; none:
-  // no jump), uJump 0: none. tfOut: (the normal, the occlusion (0 to 1) + 2 x the jump bits of the edges out of the point:
-  // 1 along +x, 2 along +y, 4 along the diagonal +(1, 1)), which LAND_CARRY_VS reads both of
+  // over the grid (LAND_AO, as at rest, its points reached by edges the normals keep: near, and not across a jump,
+  // aoLink). Its jumps: the grid edge a -> b, between the edges p -> a and b -> q along the same line, crosses a jump of
+  // the carry's map when its place step on the plane (stepOf: -1 where a point is not finite or off the grid, Tin) is
+  // over uJumpW and over uJump times the larger of theirs (of those that are finite; none: no jump), uJump 0: none.
+  // tfOut: (the normal, the occlusion (0 to 1) + 2 x the jump bits of the edges out of the point: 1 along +x, 2 along +y,
+  // 4 along the diagonal +(1, 1)), which LAND_CARRY_VS reads both of
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
 uniform float uPatch; uniform float uJump; uniform float uJumpW;
 out vec4 tfOut;
-` + LAND_AO + glsl`
+` + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
 vec4 Tin(ivec2 p) { return all(greaterThanEqual(p, ivec2(0))) && all(lessThan(p, ivec2(uN))) ? texelFetch(uT1, p, 0) : vec4(0.0); }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
@@ -643,6 +674,8 @@ bool jumpOf(vec4 p, vec4 a, vec4 b, vec4 q) {
   return m >= 0.0 && s > uJumpW && s > uJump * m;
 }
 bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
+bool aoLink(ivec2 a, vec4 ta, ivec2 b, vec4 tb) { ivec2 d = b - a; return near(ta, tb) && !jumpOf(Tin(a - d), ta, tb, Tin(b + d)); }
+` + LAND_AO + glsl`
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -660,7 +693,7 @@ void main() {
   vec3 n = cross(dx, dy);
   n = length(n) > 1e-20 ? normalize(n) : vec3(0.0, 0.0, 1.0);
   // (no occlusion on a patch (CARRY_Z): its 9 x 9 neighbours span radii many times apart, not a neighbourhood)
-  float ao = uPatch > 0.5 ? 1.0 : landAO(p, c.z);
+  float ao = uPatch > 0.5 ? 1.0 : landAO(p, c);
   tfOut = vec4(n, ao + 2.0 * float((jX ? 1 : 0) + (jY ? 2 : 0) + (jD ? 4 : 0)));
 }
 `;
