@@ -88,6 +88,7 @@ const VIEWS = {
   'steps_land_sheets_prestart_cmd.js': steps(),
   'steps_land_cracks_cmd.js': steps(),
   'steps_glide_tile_cmd.js': steps(),
+  'steps_tile_press_cmd.js': steps(),
   'steps_glide_morph_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_plots_keep_cmd.js': steps({ pin: true }),

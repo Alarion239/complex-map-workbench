@@ -70,12 +70,15 @@
   window.__cmwSumRun = (role = 'L', work) => { if (work) { sumWork = work; sumRuns.clear(); requestRender('L', 'R'); } const r = sumRuns.get(role === 'R' ? paneR : paneL); return r ? { taken: r.view !== null, hit: r.hit, spent: r.spent, tried: r.tried } : null; };   // (the pane's last sample of infinite sums that do not converge, sumWatch; work: the terms a sample may evaluate from now on, and a new sample)
   // the glide tile (#1533): shown, its box and the plane's (page px), what it keeps clear of, the spot it takes for
   // its size now (svTileSpot), or null, and the morph it shows (#2409), or null
-  window.__cmwTile = (sync) => {
-    if (sync) svTileSync(true);
+  // (sync: laid out at once, as svTileLater's job does; trace: true starts a record of each layout and typesetting, with
+  // whether it was made where a layout may be (now), false ends it; the record so far is the result's trace)
+  window.__cmwTile = (sync, trace) => {
+    if (trace != null) svTile.trace = trace ? [] : null;
+    if (sync) svTileSync(true, true);
     const el = svTile.el, P = $('plotL').getBoundingClientRect(), r = el && !el.hidden ? el.getBoundingClientRect() : null;
     const box = (o) => [Math.round(o.left), Math.round(o.top), Math.round(o.right), Math.round(o.bottom)];
     const obs = svTileObstacles($('plotL'));
-    return { shown: !!r && el.style.visibility !== 'hidden', box: r && box(r), plot: box(P), obstacles: obs.map(box), spot: el ? svTileSpot(P, el.offsetWidth, el.offsetHeight, obs) : null, key: svTile.key, fit: [svTile.a && !svTile.a.hidden, svTile.b && !svTile.b.hidden], offscreen: !!SV.offscreen, q: svTile.q, fits: [svTile.fitA, svTile.fitB],
+    return { shown: !!r && el.style.visibility !== 'hidden', box: r && box(r), plot: box(P), obstacles: obs.map(box), spot: el ? svTileSpot(P, el.offsetWidth, el.offsetHeight, obs) : null, key: svTile.key, fit: [svTile.a && !svTile.a.hidden, svTile.b && !svTile.b.hidden], offscreen: !!SV.offscreen, q: svTile.q, idle: svTile.idle, trace: svTile.trace ? svTile.trace.slice() : null, fits: [svTile.fitA, svTile.fitB],
       // (the morph shown: its glyph pairs and, for each part, its role (a pair, 'out' the first's alone, 'in' the second's,
       // 'nameOut' and 'nameIn' the name's index), its class, its affines at the two ends and now, its opacity now and its
       // box in the page's px)
