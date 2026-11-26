@@ -9,9 +9,9 @@ const Export = (() => {
   let A = null;
   let BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
     focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
-    lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
-    morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
-    pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, requestRender, rightStage, shapeF, shapeStage, stageF, fNameTex, parkedAt,
+    lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence,
+    morphHomSegs, morphLen, morphOn, morphRange, openMenu, pathOf, pathsGen,
+    pickScene, pointLabel, readTheme, refineAllNow, renderLeft, requestRender, shapeF, shapeStage, stageF, fNameTex, parkedAt,
     runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
     smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt;
   // ---- export: plane images (PNG) and the map with its guarantees (LaTeX) ----
@@ -106,54 +106,46 @@ const Export = (() => {
     const top = y - it.h - it.va;
     return it.markup.replace('<svg', `<svg x="${left.toFixed(2)}" y="${top.toFixed(2)}"`);
   }
-  // SPEC 10.6: prepareExport(panels, alive) -> true when the export may draw, false when it is cancelled (alive()
-  // turned false: an option changed or the dialog closed). Asynchronous and time-sliced: it refines the lines and
-  // waits (bounded, polling every 25 ms, never blocking) for the inverse programs that each panel's current view draws
-  // with: the right plane or the w-globe (role R), the left plane at a focused stage or the z-globe (role L, also at
-  // stage 0), so renderOff then draws exact images synchronously. P5: dims {pw (figure px per panel), dpr}: the
-  // SphereMesh jobs of the flat panels' forward shapes at the export's resolution (smPrepareExport).
-  async function prepareExport(panels, alive = () => true, morphFig = false, dims = null) {
+  // SPEC 10.6: prepareExport(alive) -> true when the export may draw, false when it is cancelled (alive() turned
+  // false: an option changed or the dialog closed). Asynchronous and time-sliced: it refines the lines and waits
+  // (bounded, polling every 25 ms, never blocking) for the inverse programs that X's current view draws with: the
+  // plane at a focused stage or the z-globe (also at stage 0), so renderOff then draws exact images synchronously.
+  // P5: dims {pw (figure px), dpr, view (the window drawn, {cx, cy, s, ph}, else X's own)}: the SphereMesh jobs of the
+  // plane's forward shapes at the export's resolution (smPrepareExport).
+  async function prepareExport(alive = () => true, dims = null) {
     // the lines' settle-time refinement, if it has not landed yet (a figure never carries today's samples)
     try { if (!(await refineAllNow(alive))) return false; } catch (e) { console.error('line refinement', e); }
     if (!alive()) return false;
     if (dims && smOn()) {
       const panes = [];
-      for (const side of panels) {
-        const real = side === 'L' ? A.paneL : A.paneR, v = side === 'L' ? leftView() : V.right;
-        if (side === 'R' ? !rImage() || (morphOn() && !morphFig) : !(lPlain() && leftStage() > 0)) continue;
-        const k = dims.pw / effW(side), ov = dims.views && dims.views[side], ph = ov ? ov.ph : dims.pw * real.h / effW(side);
-        panes.push({ role: side, map: stageMap(side === 'R' ? rightStage() : leftStage()), pane: { view: ov ? { cx: ov.cx, cy: ov.cy, s: ov.s } : { cx: v.cx, cy: v.cy, s: v.s * k }, dpr: dims.dpr, pw: Math.max(1, Math.round(dims.pw * dims.dpr)), ph: Math.max(1, Math.round(ph * dims.dpr)) } });
+      if (lPlain() && leftStage() > 0) {
+        const v = leftView(), k = dims.pw / effW(), ov = dims.view, ph = ov ? ov.ph : dims.pw * A.paneL.h / effW();
+        panes.push({ role: 'L', map: stageMap(leftStage()), pane: { view: ov ? { cx: ov.cx, cy: ov.cy, s: ov.s } : { cx: v.cx, cy: v.cy, s: v.s * k }, dpr: dims.dpr, pw: Math.max(1, Math.round(dims.pw * dims.dpr)), ph: Math.max(1, Math.round(ph * dims.dpr)) } });
       }
       try { if (!(await smPrepareExport(panes, alive, dims.gen || 0))) return false; } catch (e) { console.error('SphereMesh export', e); }
     }
-    if (!GLR.ok || !GLR.inverseRequest) return warmExport(panels, alive, morphFig);
-    const kinds = new Set();
-    const need = (role, kind, map) => {
-      if (!PHASE[role][kind]) return;
-      if (A.S.shapes.some((s) => s.visible !== false && kindType(s) === 'area' && pathOf(s, map, role, kind, { status: true }).path === 'pending')) kinds.add(kind);
-    };
-    // (the deformation figure draws the region at t = end: the stage map, exact; morph-figure.md 6.4)
-    if (panels.includes('R') && (!morphOn() || morphFig)) need('R', rGlobe() ? 'globe' : 'flat', stageMap(rightStage()));
-    if (panels.includes('L') && (lPlain() || (lGlobe() && !lPhase()))) need('L', lGlobe() ? 'globe' : 'flat', stageMap(leftStage()));
+    if (!GLR.ok || !GLR.inverseRequest) return warmExport(alive);
+    const kind = lGlobe() ? 'globe' : 'flat', map = stageMap(leftStage());
+    const pending = (lPlain() || (lGlobe() && !lPhase())) && PHASE.L[kind] && A.S.shapes.some((s) => s.visible !== false && kindType(s) === 'area' && pathOf(s, map, 'L', kind, { status: true }).path === 'pending');
     const t0 = performance.now();
-    while (kinds.size && performance.now() - t0 < 4000) {
+    while (pending && performance.now() - t0 < 4000) {
       if (!alive()) return false;
-      if (![...kinds].map((k) => GLR.inverseRequest(A.S.alpha, k)).includes('pending')) break;
+      if (GLR.inverseRequest(A.S.alpha, kind) !== 'pending') break;
       await new Promise((r) => setTimeout(r, 25));
     }
-    return alive() && warmExport(panels, alive, morphFig);
+    return alive() && warmExport(alive);
   }
   // renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
   // Direct3D 11 takes seconds, which would freeze the tab. So the panels are first drawn small with nothing waiting (renderOff's
   // warm), the deformation's map modes started too, and the programs are awaited here, polled, while the export's
   // progress shows; renderOff then finds them linked (or links the odd one still missing). Awaited: the ones this
   // warm-up started and the current chain's; not the others compiling meanwhile (the idle warm-up's, the gallery's).
-  async function warmExport(panels, alive, morphFig) {
+  async function warmExport(alive) {
     if (!GLR.ok || !GLR.pending) return true;
     const before = new Set(GLR.pending().map((p) => p.id));
     try {
-      for (const side of panels) renderOff(side, 48, 32, 1, true);
-      if (morphOn() || morphFig) GLR.prestartModes(A.S.homAll ? [3] : [1]);
+      renderOff(48, 32, 1, true);
+      if (morphOn()) GLR.prestartModes(A.S.homAll ? [3] : [1]);
     } catch (e) { console.error('export warm-up', e); return alive(); }
     const key = GLR.chainKey;
     const need = new Set(GLR.pending().filter((p) => !before.has(p.id) || p.key === key).map((p) => p.id));
@@ -176,26 +168,20 @@ const Export = (() => {
       } catch (e) { rej(e); }
     });
   }
-  // a pane's CSS width for the export: a pane hidden by a merged view (merged-views.md) takes the width it has in the
-  // split view, half of the wide panel beside the gutter
-  function effW(side) {
-    const real = side === 'L' ? A.paneL : A.paneR, other = side === 'L' ? A.paneR : A.paneL;
-    return real.w > 20 || !(other.w > 20) ? real.w : Math.max(1, (other.w - 8) / 2);
-  }
-  // a plane drawn off-screen at print size: views scaled so the same window shows; selection, hover and probe off
+  // X's pane's CSS width, which the export's windows are scaled from
+  const effW = () => A.paneL.w;
+  // X drawn off-screen at print size: views scaled so the same window shows; selection, hover and probe off
   // warm: a draw only to start the programs it needs, in the background (prepareExport); nothing waits for them
-  function renderOff(side, w, h, dpr, warm = false) {
-    if (side !== 'L') throw new Error('renderOff: only X (side L) is drawn');
+  function renderOff(w, h, dpr, warm = false) {
     const cv = document.createElement('canvas'), ov = document.createElement('canvas');
     const off = new Pane(cv, ov);
     off.w = w; off.h = h; off.dpr = dpr;
     cv.width = ov.width = Math.max(1, Math.round(w * dpr)); cv.height = ov.height = Math.max(1, Math.round(h * dpr));
-    const k = w / effW(side);
+    const k = w / effW();
     const scaled = new Map();
-    for (const v of [A.S.srcView, V.left, V.right]) if (v && !scaled.has(v)) { scaled.set(v, v.s); v.s *= k; }
-    // (the outline of the left view in the image is a screen aid, not part of a figure; so is the colour key under the
-    // Y plane (the Key switch): a figure's Y panel would carry colours its caption and key do not explain)
-    const keep = { L: A.paneL, R: A.paneR, probe: A.probe, selected: A.selected, hoverShape: A.hoverShape, draft: A.draft, hw: hov.w, hl: hov.list, fov: A.S.fov, wKey: A.S.wKey };
+    for (const v of [A.S.srcView, V.left]) if (v && !scaled.has(v)) { scaled.set(v, v.s); v.s *= k; }
+    // (the outline of the left view in the image is a screen aid, not part of a figure; so is the Key switch's colour key)
+    const keep = { L: A.paneL, probe: A.probe, selected: A.selected, hoverShape: A.hoverShape, draft: A.draft, hw: hov.w, hl: hov.list, fov: A.S.fov, wKey: A.S.wKey };
     A.probe = null; A.selected = null; A.hoverShape = null; A.draft = null; hov.w = null; hov.list = null; setOpt('fov', false); setOpt('wKey', false); A.figMode = true;
     // numbers drawn inside the plot (landscape axes, labels) in the serif of the figure, not the app's monospace
     const mono = A.TH.mono; A.TH.mono = A.TH.math;
@@ -216,26 +202,20 @@ const Export = (() => {
       if (wait) GLR.syncCompile = false;
       if (waitFwd) GLR.syncPrograms = false;
       A.offRender = false;
-      A.paneL = keep.L; A.paneR = keep.R;
+      A.paneL = keep.L;
       for (const [v, s] of scaled) v.s = s;
       A.probe = keep.probe; A.selected = keep.selected; A.hoverShape = keep.hoverShape; A.draft = keep.draft; hov.w = keep.hw; hov.list = keep.hl; setOpt('fov', keep.fov); setOpt('wKey', keep.wKey); A.figMode = false; A.TH.mono = mono;
     }
     return cv;
   }
-  // the world window a plane panel shows at width w (figure px)
-  function panelBox(side, w, h) {
-    const v = side === 'L' ? leftView() : V.right;
-    const s = v.s * w / effW(side);
+  // the world window X's panel shows at width w (figure px)
+  function panelBox(w, h) {
+    const v = leftView();
+    const s = v.s * w / effW();
     return { x0: v.cx - w / 2 / s, x1: v.cx + w / 2 / s, y0: v.cy - h / 2 / s, y1: v.cy + h / 2 / s };
   }
-  // export takes each pane's view (U-b): a plane panel is X Plane (with or without Phase) or Y Plane
-  const isPlanePanel = (side) => (side === 'L' ? lFlat() : rImage());
-  // the variable of a panel's coordinates, in TeX
-  function panelVar(side) {
-    if (side === 'L') return leftStage() === 0 ? 'z' : `w_{${leftStage()}}`;
-    // (the plane Y rests on while ‹ › have it on a step's, is that step's: w_j)
-    return A.S.focus === 0 && rightStage() === nSteps() ? 'w' : `w_{${rightStage()}}`;
-  }
+  // the variable of X's coordinates, in TeX
+  const panelVar = () => (leftStage() === 0 ? 'z' : `w_{${leftStage()}}`);
   // a tick number in TeX: as few decimals as the step needs; powers of ten far from 1
   function tickTex(v, step) {
     if (Math.abs(v) < step * 1e-9) return '0';
@@ -250,15 +230,15 @@ const Export = (() => {
     if (t.includes('.')) t = t.replace(/\.?0+$/, '');
     return t;
   }
-  // the colour key of a panel, when colour carries a value: arg F (phase), the stretch factor (Image, Stretch)
-  function panelKey(side) {
+  // the colour key of X's panel, when colour carries a value: arg F (phase), |F| (the classic style)
+  function panelKey() {
     const stopsFrom = (f) => Array.from({ length: 25 }, (_, i) => [i / 24, f(i / 24)]);
     const hueAt = (t) => keyHex((2 * t - 1) * Math.PI); // t in [0, 1] -> arg from -pi to pi, colours of the legend wheel
-    const Fn = side === 'L' && morphOn() && lPaintsF() ? 'H_t' : A.S.focus === 0 ? 'F' : focusDeriv() ? `w_{${A.S.focus}}` : `f_{${A.S.focus}}`;
-    if (side === 'L' && lColor() && A.S.dc !== 'classic') return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.25, '-\\frac{\\pi}{2}'], [0.5, '0'], [0.75, '\\frac{\\pi}{2}'], [1, '\\pi']] };
-    if (side === 'L' && lColor()) return { title: `|${Fn}|`, stops: [[0, '#000000'], [0.5, '#8a8f93'], [1, '#ffffff']], ticks: [[0, '0'], [0.5, '1'], [1, '\\infty']] };
-    if (side === 'L' && lGlobe() && lPhase()) return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.5, '0'], [1, '\\pi']] };
-    if (side === 'L' && lLand() && lPhase()) return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.5, '0'], [1, '\\pi']] };
+    const Fn = morphOn() && lPaintsF() ? 'H_t' : A.S.focus === 0 ? 'F' : focusDeriv() ? `w_{${A.S.focus}}` : `f_{${A.S.focus}}`;
+    if (lColor() && A.S.dc !== 'classic') return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.25, '-\\frac{\\pi}{2}'], [0.5, '0'], [0.75, '\\frac{\\pi}{2}'], [1, '\\pi']] };
+    if (lColor()) return { title: `|${Fn}|`, stops: [[0, '#000000'], [0.5, '#8a8f93'], [1, '#ffffff']], ticks: [[0, '0'], [0.5, '1'], [1, '\\infty']] };
+    if (lGlobe() && lPhase()) return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.5, '0'], [1, '\\pi']] };
+    if (lLand() && lPhase()) return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.5, '0'], [1, '\\pi']] };
     return null;
   }
   // ---- the caption, as segments: {t: text} and {m: TeX}; also as LaTeX source ----
@@ -381,27 +361,18 @@ const Export = (() => {
     for (const j of act) arg = A.built[j - 1].tex(arg);
     return act.length ? (arg.s.length <= 320 ? arg.s : null) : 'z';
   }
-  // the sentence on the image's shading: the phase of z carried by the map (the one region fill), and its grid
-  // lines when they are drawn (the pattern 'solid' of the steps view's masks draws no image a caption describes)
-  function patternSegs() {
-    if (A.S.pattern !== 'phase') return [];
-    const out = capT(' Regions are coloured by the argument of the source point.', {});
-    if (A.S.lines) out.push(...capT(' Lines are the coordinate lines of the %{z}-plane, spaced %{cell}.', { z: { m: 'z' }, cell: { m: I18N.texNum(CX.fmtNum(patternCell(), 3)) } }));
-    return out;
-  }
-  function figureCaption(panels) {
+  function figureCaption() {
     const out = [];
     const push = (...xs) => out.push(...xs);
-    const both = panels.length === 2;
     const vis = A.S.shapes.filter((s) => s.visible !== false);
     let pi = 0;
     const shapeList = joinList(vis.map((s) => { const r = shapePhrase(s, s.kind === 'point' ? pi : 0); if (s.kind === 'point') pi++; return r; }));
-    const lv = panelVar('L'), Fname0 = fNameTex();
+    const lv = panelVar(), Fname0 = fNameTex();
     const Ftex = A.S.focus === 0 ? compositeTexShort(parkedAt()) : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const mapF = Ftex ? `${Fname0}(${lv})=${Ftex}` : `${Fname0}`;
-    // the deformation drawn in one panel (Phase or Landscape of H_t, or X → Y's merged globe): the picture is H_t at
-    // the current t, so the caption names H_t and says which t and which homotopy
-    const hm = morphOn() && (panels.includes('L') ? lPaintsF() : true);
+    // the deformation drawn in the panel (Phase or Landscape of H_t): the picture is H_t at the current t, so the caption
+    // names H_t and says which t and which homotopy
+    const hm = morphOn() && lPaintsF();
     const Fname = hm ? 'H_t' : Fname0, mapM = hm ? 'H_t' : mapF;
     const homDef = () => {
       const m = morphLen(), hom = morphHomSegs(m);
@@ -410,8 +381,7 @@ const Export = (() => {
     };
     // the plane of X in three cases (Russian: nominative, after «в»/«на», after «над»)
     const planeName = (cs) => (leftStage() === 0 ? capT('the %{z}-plane', { z: { m: 'z' } }, cs) : capT('the %{w}-plane, the input of %{F}', { w: { m: lv }, F: { m: Fname } }, cs));
-    const lab = (c) => (both ? [{ b: `(${c})` }, { t: ' ' }] : []);
-    // (a): X, with its view (U-b): the shapes, or what X's paint shows of the map
+    // X, with its view (U-b): the shapes, or what X's paint shows of the map
     const phaseText = (onWhat) => {
       const st = A.S.dc, r = [], F = { m: `|${Fname}|` }, arg = { m: `\\arg ${Fname}` };
       r.push(...capT('The phase portrait of %{map}', { map: { m: mapM } }), ...onWhat);
@@ -431,39 +401,16 @@ const Export = (() => {
       return r;
     };
     const inf = { m: '\\infty' };
-    if (panels.includes('L')) {
-      if (lColor()) push(...lab('a'), ...phaseText([{ t: $tx('cap', ' on ') }, ...planeName('prep'), { t: ': ' }]));
-      else if (lGlobe() && lPhase()) push(...lab('a'), ...capT('The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.', { map: { m: mapM }, inf }));
-      else if (lLand()) {
-        const ht = { log: `\\log|${Fname}|`, abs: `|${Fname}|`, re: `\\operatorname{Re} ${Fname}`, im: `\\operatorname{Im} ${Fname}` }[A.S.height || 'log'];
-        // (what All sheets draws, exactly; while deforming, the sheets of H_t that become those of F,
-        // notes/v16-user5/SHEETS-DESIGN.md; the multivalued notation only when it draws F's own sheets; standards-ok: a spec path in notes/)
-        const shw = sheetsShown(), shc = shw ? sheetsClause(shw, 'tex', Fname0) : null;
-        push(...lab('a'), ...capT('The landscape of %{map}', { map: { m: shw && !shw.hom ? I18N.notation(mapM, undefined, { multi: true }) : mapM } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), ...(shc ? (shc.src ? capT(shc.src, sheetsTexP(shc.p, (m) => ({ m }))) : [{ t: shc.p.text }]) : [{ t: $t('; zeros are pits and poles are peaks.') }]), ...(shc && shc.then ? texSegs($t(shc.then.src, shc.then.p)) : []));
-      } else if (vis.length) push(...lab('a'), ...cap1(shapeList), { t: $tx('cap', ' in ') }, ...planeName('prep'), { t: lGlobe() ? $t(', on the Riemann sphere.') : '.' });
-      else push(...lab('a'), ...cap1(planeName()), { t: '.' });
-      if (both) push({ t: ' ' });
-    }
-    // (b): Y, the images (the shape list in the genitive: "the images of ...")
-    let pg = 0;
-    const listGen = () => joinList(vis.map((s) => { const r = shapePhrase(s, s.kind === 'point' ? pg : 0, 'gen'); if (s.kind === 'point') pg++; return r; }));
-    if (panels.includes('R') && hm) {
-      const r = [...capT('The deformation %{H}', { H: { m: 'H_t' } }), ...(rGlobe() ? capT(' on the Riemann sphere, with %{inf} at the north pole', { inf }) : [])];
-      if (vis.length) r.push(...capT(': the image of %{list} under %{H}, over the set itself in grey.', { list: listGen(), H: { m: 'H_t' } }));
-      else r.push({ t: '.' });
-      push(...r);
-    } else if (panels.includes('R')) {
-      const r = [];
-      const named = vis.length && (!panels.includes('L') || !lPlain() && !(lGlobe() && !lPhase()));
-      const map = { m: mapM };
-      if (rGlobe()) r.push(...(vis.length ? (named ? capT('The images of %{list} under %{map} on the Riemann sphere, with %{inf} at the north pole.', { list: listGen(), map, inf }) : capT('Their images under %{map} on the Riemann sphere, with %{inf} at the north pole.', { map, inf })) : capT('The image under %{map} on the Riemann sphere, with %{inf} at the north pole.', { map, inf })));
-      else if (named) r.push(...capT('The images of %{list} under %{map}.', { list: listGen(), map }));
-      else r.push(...(vis.length ? capT('Their images under %{map}.', { map }) : capT('The map %{map}.', { map })));
-      push(...lab('b'), ...r);
-    }
-    // the shading (Image)
-    if (panels.includes('R') && rImage() && vis.some((s) => kindType(s) === 'area')) push(...patternSegs());
-
+    if (lColor()) push(...phaseText([{ t: $tx('cap', ' on ') }, ...planeName('prep'), { t: ': ' }]));
+    else if (lGlobe() && lPhase()) push(...capT('The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.', { map: { m: mapM }, inf }));
+    else if (lLand()) {
+      const ht = { log: `\\log|${Fname}|`, abs: `|${Fname}|`, re: `\\operatorname{Re} ${Fname}`, im: `\\operatorname{Im} ${Fname}` }[A.S.height || 'log'];
+      // (what All sheets draws, exactly; while deforming, the sheets of H_t that become those of F,
+      // notes/v16-user5/SHEETS-DESIGN.md; the multivalued notation only when it draws F's own sheets; standards-ok: a spec path in notes/)
+      const shw = sheetsShown(), shc = shw ? sheetsClause(shw, 'tex', Fname0) : null;
+      push(...capT('The landscape of %{map}', { map: { m: shw && !shw.hom ? I18N.notation(mapM, undefined, { multi: true }) : mapM } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), ...(shc ? (shc.src ? capT(shc.src, sheetsTexP(shc.p, (m) => ({ m }))) : [{ t: shc.p.text }]) : [{ t: $t('; zeros are pits and poles are peaks.') }]), ...(shc && shc.then ? texSegs($t(shc.then.src, shc.then.p)) : []));
+    } else if (vis.length) push(...cap1(shapeList), { t: $tx('cap', ' in ') }, ...planeName('prep'), { t: lGlobe() ? $t(', on the Riemann sphere.') : '.' });
+    else push(...cap1(planeName()), { t: '.' });
     if (vis.some((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s))) push({ t: $t(' Dashed boundaries do not belong to the sets.') });
     if (hm) push(...homDef());
     // the chain, when F has several steps
@@ -506,9 +453,8 @@ const Export = (() => {
   function captionLatex(segs, keepEnd) {
     return pcTidy(segs, keepEnd).map((s) => (s.m != null ? `$${s.m}$` : s.b != null ? `\\textbf{${texEsc(s.b)}}` : texEsc(s.t).replace(/Möbius/g, 'M\\"obius'))).join('').replace(/\s+/g, ' ').trim();
   }
-  // lay the caption out in lines of width W (justified, the last line ragged); returns {markup, h}
-  // ragged: ragged-right lines (the deformation's captions, morph-figure.md 5), else justified with capped gaps
-  function layoutCaption(segs, x0, y0, W, px, ragged = false) {
+  // lay the caption out in lines of width W (justified with capped gaps, the last line ragged); returns {markup, h}
+  function layoutCaption(segs, x0, y0, W, px) {
     const items = [];
     segs = pcTidy(segs);
     const sp = mj('\\text{a b}', px).w - mj('\\text{ab}', px).w || px * 0.33;
@@ -544,7 +490,7 @@ const Export = (() => {
     let markup = '', y = y0 + px;
     for (const ln of lines) {
       const gaps = ln.words.length - 1;
-      const extra = !ragged && !ln.last && gaps > 0 ? (W - ln.w) / gaps : 0;
+      const extra = !ln.last && gaps > 0 ? (W - ln.w) / gaps : 0;
       let x = x0;
       ln.words.forEach((wd, i) => {
         for (const it of wd.parts) { markup += mjAt(it, x, y); x += it.w; }
@@ -554,15 +500,15 @@ const Export = (() => {
     }
     return { markup, h: lines.length ? (lines.length - 1) * lineH + px * 1.35 : 0 };
   }
-  // the paths figure's own choice (figure.js figPaths): the points kept in the world window o.box drawn o.w x o.h pt
-  // (pathsGen at the figure's spacing), and the caption that names them, in o.lang; o.paths false: none (the caption
-  // without its paths sentence). -> {kept: [{z, kind}], captionTex} or null (cancelled, or no deformation picture)
+  // the paths figure's own choice (figure.js figPaths) for the steps view's source o.src (svPathsFig's): the points kept
+  // in the world window o.box drawn o.w x o.h pt (pathsGen at the figure's spacing), and the sentence that names them,
+  // in o.lang; o.paths false: none. -> {kept: [{z, kind}], captionTex, sentenceTex} or null (cancelled, or no source)
   async function figMorphPaths(o) {
     const alive = o.alive || (() => true);
-    if (!o.src && !(morphOn() && rImage() && !morphHasDeriv())) return null;
-    const Tend = o.src ? o.src.Tend : morphLen(), b = o.box, w = o.w * 96 / 72, h = o.h * 96 / 72;
+    if (!o.src) return null;
+    const Tend = o.src.Tend, b = o.box, w = o.w * 96 / 72, h = o.h * 96 / 72;
     const P = (z) => [(z.re - b.x0) / (b.x1 - b.x0) * w, (b.y1 - z.im) / (b.y1 - b.y0) * h];
-    const key = JSON.stringify([o.src ? o.src.key : [A.chainSig[nSteps()], A.S.focus, !!A.S.homAll], A.S.shapes.filter((s) => s.visible !== false), Tend, b.x0, b.x1, b.y0, b.y1, w, h]);
+    const key = JSON.stringify([o.src.key, A.S.shapes.filter((s) => s.visible !== false), Tend, b.x0, b.x1, b.y0, b.y1, w, h]);
     let sel = mfFigCache.key === key ? mfFigCache.sel : null;
     if (!sel) {
       sel = await runGenSliced(pathsGen(P, { x: 0, y: 0, w, h }, b, Tend, { scale: PATHS.figK, maxN: PATHS.figMax, fig: true, src: o.src }), alive);
@@ -572,19 +518,10 @@ const Export = (() => {
     // o.keep(z): only the points it accepts are named and returned (the sphere's figure draws those seen from the camera's side)
     if (o.paths === false) sel = Object.assign({}, sel, { kept: [] });
     else if (o.keep) sel = Object.assign({}, sel, { kept: sel.kept.filter((k) => o.keep(k.sp.z)) });
-    // (a steps-view source: the sentence naming the paths, for the figure's own caption to carry)
-    if (o.src) {
-      let sent;
-      I18N.using(o.lang || I18N.lang, () => { sent = captionLatex(pathsSentence(sel, Tend, { z: o.z, end: o.end }).map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g))); });
-      return { kept: sel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind })), captionTex: '', sentenceTex: sent };
-    }
-    let capSegs;
-    I18N.using(o.lang || I18N.lang, () => {
-      const keepT = morph.T;
-      morph.T = Tend;
-      try { capSegs = morphCaption(sel, Tend); } finally { morph.T = keepT; }
-    });
-    return { kept: sel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind })), captionTex: captionLatex(capSegs) };
+    // (the sentence naming the paths, for the figure's own caption to carry)
+    let sent;
+    I18N.using(o.lang || I18N.lang, () => { sent = captionLatex(pathsSentence(sel, Tend, { z: o.z, end: o.end }).map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g))); });
+    return { kept: sel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind })), captionTex: '', sentenceTex: sent };
   }
   // (the export meshes of smPrepareExport live only while the figure draws; f.partial counts the forward images whose
   // mesh ended on a budget, which the dialog's note reports)
@@ -611,149 +548,78 @@ const Export = (() => {
   }
   async function buildFigureNow(opt) {
     const alive = opt.alive || (() => true);
-    const panels = opt.panels, W = Math.round(opt.widthIn * 96), dpr = FIG_DPI / 96;
-    const isMorph = !!opt.morph && morphOn() && rImage() && !morphHasDeriv();
-    const mEnd = morphLen(), Tend = isMorph ? (opt.upTo ? Math.max(1e-3, morph.T) : mEnd) : 0;
+    const W = Math.round(opt.widthIn * 96), dpr = FIG_DPI / 96;
     const TICK = 8 * PT, LAB = 9 * PT, CAP = 9 * PT;
     const black = '#000', frameW = 0.75, tickW = 0.6;
     // margins (px): left room for tick numbers and the rotated axis title; bottom for numbers and the title
-    const mL = (side) => (isPlanePanel(side) ? 40 : 0), mB = (side) => (isPlanePanel(side) ? 30 : 0);
-    const both = panels.length === 2, arrowGap = both && rImage() && isPlanePanel('L') && !isMorph ? 40 : both ? 18 : 0;
-    const topLetter = both ? 16 : 4, right = 6;
-    const sumMargins = panels.reduce((a, s) => a + mL(s), 0) + arrowGap + right;
-    const pw = (W - sumMargins) / panels.length;
-    // the inverse programs the panels draw with, before the theme switch (no frame runs while it is in effect)
-    if (!(await prepareExport(panels, alive, isMorph && !opt.upTo, { pw, dpr, gen: opt.expGen || 0 }))) return null;
-    // One panel per task, in the light theme for print (switched for that panel only, so no frame on screen runs in
-    // it), and every raster's encoding in a task of its own: toBlob reads the pixels back synchronously and waits
-    // for the GPU to finish what is drawn before. Two 300 dpi globe panels and the first readback in one task
-    // would block the main thread for 51-60 ms; a task here is one panel's draw, or one readback.
-    const nextTask = () => new Promise((r) => setTimeout(r, 0));
-    const drawn = [];
-    for (const side of panels) {
-      if (drawn.length) { await nextTask(); if (!alive()) return null; }
-      const real = side === 'L' ? A.paneL : A.paneR;
-      const ph = pw * real.h / effW(side);
-      const wasDark = A.TH.dark, attr = document.documentElement.getAttribute('data-theme');
-      if (wasDark) { document.documentElement.setAttribute('data-theme', 'light'); readTheme(); }
-      // the deformation panel is drawn at t = Tend, paused (the region exact at the end, normalizeMap)
-      const mKeep = { T: morph.T, playing: morph.playing };
-      if (isMorph && side === 'R') { morph.T = Tend; morph.playing = false; }
-      A.figVec = isMorph && side === 'R';
-      try {
-        drawn.push({ side, ph, cv: renderOff(side, pw, ph, dpr) });
-      } finally {
-        A.figVec = false;
-        morph.T = mKeep.T; morph.playing = mKeep.playing;
-        if (wasDark) { if (attr == null) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', attr); readTheme(); }
-        requestRender('L', 'R');
-      }
+    const plane = lFlat(), mL = plane ? 40 : 0, mB = plane ? 30 : 0;
+    const panelTop = 4, right = 6;
+    const pw = W - mL - right;
+    // the inverse programs the panel draws with, before the theme switch (no frame runs while it is in effect)
+    if (!(await prepareExport(alive, { pw, dpr, gen: opt.expGen || 0 }))) return null;
+    // the panel in the light theme for print (switched for the draw only, so no frame on screen runs in it), and the
+    // raster's encoding in a task of its own: toBlob reads the pixels back synchronously and waits for the GPU
+    const ph = pw * A.paneL.h / effW();
+    const wasDark = A.TH.dark, attr = document.documentElement.getAttribute('data-theme');
+    if (wasDark) { document.documentElement.setAttribute('data-theme', 'light'); readTheme(); }
+    let cv;
+    try {
+      cv = renderOff(pw, ph, dpr);
+    } finally {
+      if (wasDark) { if (attr == null) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', attr); readTheme(); }
+      requestRender('L');
     }
-    // the rasters are encoded after the theme is restored, off the main thread, once the GPU has finished the panels
-    // (the first readback waited for every panel's passes: 51-58 ms of main thread for two 300 dpi globes)
+    // the raster is encoded after the theme is restored, off the main thread, once the GPU has finished the panel
     if (GLR.gpuDone) await GLR.gpuDone();
     if (!alive()) return null;
-    const rasters = [];
-    for (const d of drawn) {
-      await nextTask();
-      if (!alive()) return null;
-      rasters.push({ side: d.side, ph: d.ph, url: await canvasURL(d.cv), w: d.cv.width, h: d.cv.height });
-    }
+    await new Promise((r) => setTimeout(r, 0));
     if (!alive()) return null;
-    const keyH = panels.some((s) => panelKey(s)) ? 34 : 0;
-    const PH = Math.max(...rasters.map((r) => r.ph));
-    let body = '';
-    let x = 0;
-    const panelTop = topLetter;
-    let mSel = null;
-    for (const [i, r] of rasters.entries()) {
-      const side = r.side, plane = isPlanePanel(side);
-      x += mL(side);
-      const y = panelTop + (PH - r.ph) / 2;
-      body += `<image x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${pw.toFixed(2)}" height="${r.ph.toFixed(2)}" preserveAspectRatio="none" href="${r.url}" xlink:href="${r.url}"/>`;
-      if (isMorph && side === 'R') {
-        // the vector layers of the deformation: X's outline, the paths, arrowheads, dots, the labels
-        const b = panelBox('R', pw, r.ph);
-        const P = (w) => [x + (w.re - b.x0) / (b.x1 - b.x0) * pw, y + (b.y1 - w.im) / (b.y1 - b.y0) * r.ph];
-        // chosen in slices (the dialog stays live; a newer option cancels it), and kept for the same chain, shapes,
-        // panel and time, so the Caption switch or a repeated build reuses it
-        const fkey = JSON.stringify([A.chainSig[nSteps()], A.S.focus, !!A.S.homAll, A.S.shapes.filter((s) => s.visible !== false), opt.widthIn, Tend, b, pw, r.ph, x, y]);
-        if (mfFigCache.key === fkey) mSel = mfFigCache.sel;
-        else {
-          mSel = await runGenSliced(pathsGen(P, { x, y, w: pw, h: r.ph }, b, Tend, { scale: PATHS.figK, maxN: PATHS.figMax, fig: true }), alive);
-          if (!mSel || !alive()) return null;
-          mfFigCache.key = fkey; mfFigCache.sel = mSel;
-        }
-        // Paths off (the figure's Paths row): X's outline and the image only, no arrows (and no arrow sentence)
-        if (opt.paths === false) mSel = Object.assign({}, mSel, { kept: [], labelled: null });
-        const lay = morphFigureLayers(mSel, P, { x, y, w: pw, h: r.ph, wx0: b.x0, wx1: b.x1, wy0: b.y0, wy1: b.y1 }, `mfclip${i}`);
-        mSel.labelled = lay.labelled;
-        body += lay.svg;
-      }
-      if (plane) {
-        const b = panelBox(side, pw, r.ph), v = isMorph && side === 'R' ? '' : panelVar(side);
-        const step = Axes.niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0) / 5), minor = step / (String(step / 10 ** Math.floor(Math.log10(step)))[0] === '2' ? 4 : 5);
-        const X = (t) => x + (t - b.x0) / (b.x1 - b.x0) * pw, Y = (t) => y + (b.y1 - t) / (b.y1 - b.y0) * r.ph;
-        let d = '';
-        const tick = (len, step2) => {
-          for (let i2 = Math.ceil(b.x0 / step2); i2 <= Math.floor(b.x1 / step2); i2++) { const px = X(i2 * step2); d += `M${px.toFixed(2)} ${(y + r.ph).toFixed(2)}v${-len}M${px.toFixed(2)} ${y.toFixed(2)}v${len}`; }
-          for (let j = Math.ceil(b.y0 / step2); j <= Math.floor(b.y1 / step2); j++) { const py = Y(j * step2); d += `M${x.toFixed(2)} ${py.toFixed(2)}h${len}M${(x + pw).toFixed(2)} ${py.toFixed(2)}h${-len}`; }
-        };
-        tick(4, step); tick(2.2, minor);
-        body += `<path d="${d}" stroke="${black}" stroke-width="${tickW}" fill="none"/>`;
-        body += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${pw.toFixed(2)}" height="${r.ph.toFixed(2)}" fill="none" stroke="${black}" stroke-width="${frameW}"/>`;
-        // tick numbers below and left
-        for (let i2 = Math.ceil(b.x0 / step); i2 <= Math.floor(b.x1 / step); i2++) body += mjAt(mj(tickTex(i2 * step, step), TICK), X(i2 * step), y + r.ph + 4 + TICK * 0.95, 'middle');
-        for (let j = Math.ceil(b.y0 / step); j <= Math.floor(b.y1 / step); j++) { const it = mj(tickTex(j * step, step), TICK); body += mjAt(it, x - 4, Y(j * step) + TICK * 0.33, 'end'); }
-        // axis titles
-        body += mjAt(mj(`\\operatorname{Re} ${v}`, LAB), x + pw / 2, y + r.ph + 4 + TICK + 4 + LAB * 0.9, 'middle');
-        const it = mj(`\\operatorname{Im} ${v}`, LAB), cx = x - 30, cy = y + r.ph / 2;
-        body += `<g transform="rotate(-90 ${cx.toFixed(2)} ${cy.toFixed(2)})">${mjAt(it, cx, cy + LAB * 0.32, 'middle')}</g>`;
-      }
-      if (both) body += mjAt(mj(`\\text{(${String.fromCharCode(97 + i)})}`, LAB), x - (plane ? mL(side) - 2 : 0), panelTop - 5);
-      // colour key, under the panel
-      const key = panelKey(side);
-      if (key) {
-        const kw = Math.min(pw * 0.62, 190), kx = x + (pw - kw) / 2, ky = panelTop + PH + mB(side) + 8, gid = `kg${i}`;
-        body += `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">${key.stops.map(([o, c]) => `<stop offset="${o.toFixed(4)}" stop-color="${c}"/>`).join('')}</linearGradient></defs>`;
-        body += `<rect x="${kx.toFixed(2)}" y="${ky.toFixed(2)}" width="${kw.toFixed(2)}" height="6" fill="url(#${gid})" stroke="${black}" stroke-width="0.5"/>`;
-        let kd = '';
-        for (const [o, t] of /** @type {[number, string][]} */ (key.ticks)) { const tx = kx + o * kw; kd += `M${tx.toFixed(2)} ${(ky + 6).toFixed(2)}v2.5`; body += mjAt(mj(t, TICK), tx, ky + 8.5 + TICK * 0.95, 'middle'); }
-        body += `<path d="${kd}" stroke="${black}" stroke-width="0.5"/>`;
-        body += mjAt(mj(key.title, LAB), kx - 6, ky + 6, 'end');
-      }
-      // the map arrow between domain and image
-      if (both && i === 0 && arrowGap >= 24 && !isMorph) {
-        const ax0 = x + pw + 5, ax1 = x + pw + arrowGap - 3, ay = panelTop + PH / 2;
-        body += `<path d="M${ax0.toFixed(2)} ${ay.toFixed(2)}H${ax1.toFixed(2)}M${(ax1 - 4).toFixed(2)} ${(ay - 2.6).toFixed(2)}L${ax1.toFixed(2)} ${ay.toFixed(2)}L${(ax1 - 4).toFixed(2)} ${(ay + 2.6).toFixed(2)}" stroke="${black}" stroke-width="0.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
-        body += mjAt(mj(fNameTex(), LAB), (ax0 + ax1) / 2, ay - 5, 'middle');
-      }
-      x += pw + (i === 0 ? arrowGap : 0);
+    const url = await canvasURL(cv);
+    if (!alive()) return null;
+    const key = panelKey(), keyH = key ? 34 : 0;
+    const x = mL, y = panelTop;
+    let body = `<image x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${pw.toFixed(2)}" height="${ph.toFixed(2)}" preserveAspectRatio="none" href="${url}" xlink:href="${url}"/>`;
+    if (plane) {
+      const b = panelBox(pw, ph), v = panelVar();
+      const step = Axes.niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0) / 5), minor = step / (String(step / 10 ** Math.floor(Math.log10(step)))[0] === '2' ? 4 : 5);
+      const X = (t) => x + (t - b.x0) / (b.x1 - b.x0) * pw, Y = (t) => y + (b.y1 - t) / (b.y1 - b.y0) * ph;
+      let d = '';
+      const tick = (len, step2) => {
+        for (let i2 = Math.ceil(b.x0 / step2); i2 <= Math.floor(b.x1 / step2); i2++) { const px = X(i2 * step2); d += `M${px.toFixed(2)} ${(y + ph).toFixed(2)}v${-len}M${px.toFixed(2)} ${y.toFixed(2)}v${len}`; }
+        for (let j = Math.ceil(b.y0 / step2); j <= Math.floor(b.y1 / step2); j++) { const py = Y(j * step2); d += `M${x.toFixed(2)} ${py.toFixed(2)}h${len}M${(x + pw).toFixed(2)} ${py.toFixed(2)}h${-len}`; }
+      };
+      tick(4, step); tick(2.2, minor);
+      body += `<path d="${d}" stroke="${black}" stroke-width="${tickW}" fill="none"/>`;
+      body += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${pw.toFixed(2)}" height="${ph.toFixed(2)}" fill="none" stroke="${black}" stroke-width="${frameW}"/>`;
+      // tick numbers below and left
+      for (let i2 = Math.ceil(b.x0 / step); i2 <= Math.floor(b.x1 / step); i2++) body += mjAt(mj(tickTex(i2 * step, step), TICK), X(i2 * step), y + ph + 4 + TICK * 0.95, 'middle');
+      for (let j = Math.ceil(b.y0 / step); j <= Math.floor(b.y1 / step); j++) { const it = mj(tickTex(j * step, step), TICK); body += mjAt(it, x - 4, Y(j * step) + TICK * 0.33, 'end'); }
+      // axis titles
+      body += mjAt(mj(`\\operatorname{Re} ${v}`, LAB), x + pw / 2, y + ph + 4 + TICK + 4 + LAB * 0.9, 'middle');
+      const it = mj(`\\operatorname{Im} ${v}`, LAB), cx = x - 30, cy = y + ph / 2;
+      body += `<g transform="rotate(-90 ${cx.toFixed(2)} ${cy.toFixed(2)})">${mjAt(it, cx, cy + LAB * 0.32, 'middle')}</g>`;
     }
-    let H = panelTop + PH + Math.max(...panels.map(mB)) + keyH + 6;
+    // colour key, under the panel
+    if (key) {
+      const kw = Math.min(pw * 0.62, 190), kx = x + (pw - kw) / 2, ky = panelTop + ph + mB + 8, gid = 'kg0';
+      body += `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">${key.stops.map(([o, c]) => `<stop offset="${o.toFixed(4)}" stop-color="${c}"/>`).join('')}</linearGradient></defs>`;
+      body += `<rect x="${kx.toFixed(2)}" y="${ky.toFixed(2)}" width="${kw.toFixed(2)}" height="6" fill="url(#${gid})" stroke="${black}" stroke-width="0.5"/>`;
+      let kd = '';
+      for (const [o, t] of /** @type {[number, string][]} */ (key.ticks)) { const tx = kx + o * kw; kd += `M${tx.toFixed(2)} ${(ky + 6).toFixed(2)}v2.5`; body += mjAt(mj(t, TICK), tx, ky + 8.5 + TICK * 0.95, 'middle'); }
+      body += `<path d="${kd}" stroke="${black}" stroke-width="0.5"/>`;
+      body += mjAt(mj(key.title, LAB), kx - 6, ky + 6, 'end');
+    }
+    let H = panelTop + ph + mB + keyH + 6;
     let capSegs;
-    I18N.using(opt.lang || I18N.lang, () => { // (the caption in the figure's language)
-    if (isMorph && panels.includes('R')) {
-      const keepT = morph.T;
-      morph.T = Tend;
-      try {
-        if (both) {
-          const vis = A.S.shapes.filter((s) => s.visible !== false);
-          let pi = 0;
-          const list = joinList(vis.map((s) => { const r = shapePhrase(s, s.kind === 'point' ? pi : 0); if (s.kind === 'point') pi++; return r; }));
-          capSegs = [{ b: '(a)' }, { t: ' ' }, ...capT('%{set} in the %{z}-plane. ', { set: list.length ? cap1(list) : capT('The plane', {}), z: { m: 'z' } }), { b: '(b)' }, ...capT(' The deformation %{H}: ', { H: { m: String.raw`H_t,\ 0\le t\le ` + I18N.texNum(CX.fmtNum(Tend, 2)) } }), ...morphCaption(mSel || { kept: [] }, Tend, { both: true })].map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g));
-        } else capSegs = morphCaption(mSel || { kept: [] }, Tend);
-      } finally { morph.T = keepT; }
-    } else capSegs = figureCaption(panels);
-    });
+    I18N.using(opt.lang || I18N.lang, () => { capSegs = figureCaption(); }); // (the caption in the figure's language)
     let capMarkup = '';
     if (opt.caption) {
-      const c = layoutCaption(capSegs, 0, H + 4, W, CAP, isMorph && panels.includes('R'));
+      const c = layoutCaption(capSegs, 0, H + 4, W, CAP);
       capMarkup = c.markup; H += 4 + c.h + 4;
     }
     H = Math.ceil(H);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${(W / 96).toFixed(3)}in" height="${(H / 96).toFixed(3)}in" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${body}${capMarkup}</svg>`;
-    return { svg, W, H, captionTex: captionLatex(capSegs), morph: mSel ? { kept: mSel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], meet: !!k.meet })), budget: mSel.budget, nCands: mSel.nCands, labelled: mSel.labelled ? [mSel.labelled.sp.z.re, mSel.labelled.sp.z.im] : null, log: mSel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) } : null };
+    return { svg, W, H, captionTex: captionLatex(capSegs) };
   }
   // the light theme's tokens, read once per class list: an export render in the dark theme
   // swaps TH in memory instead of flipping data-theme (a flip recalculates every style and, through the theme
@@ -769,33 +635,32 @@ const Export = (() => {
     A.TH = keep; inkCache.clear();
     return lightTH;
   }
-  async function artRender(side, o) {
+  async function artRender(o) {
     const alive = o.alive || (() => true);
-    const real = side === 'L' ? A.paneL : A.paneR, v = side === 'L' ? leftView() : V.right;
+    const v = leftView();
     const wpx = o.wpt * 96 / 72, dpr = o.dpi / 96;
-    const hpx = o.box ? wpx * (o.box.y1 - o.box.y0) / (o.box.x1 - o.box.x0) : o.hpt ? o.hpt * 96 / 72 : wpx * real.h / effW(side);
+    const hpx = o.box ? wpx * (o.box.y1 - o.box.y0) / (o.box.x1 - o.box.x0) : o.hpt ? o.hpt * 96 / 72 : wpx * A.paneL.h / effW();
     const fv = o.box ? { cx: (o.box.x0 + o.box.x1) / 2, cy: (o.box.y0 + o.box.y1) / 2, s: wpx / (o.box.x1 - o.box.x0), ph: hpx } : null;
-    const atEnd = o.T == null || o.T >= morphLen() - 1e-9;
     const gen = ++sm.exportGen;
     try {
-      if (!(await prepareExport([side], alive, atEnd, { pw: wpx, dpr, gen, views: fv ? { [side]: fv } : null }))) return null;
+      if (!(await prepareExport(alive, { pw: wpx, dpr, gen, view: fv }))) return null;
       const keep = { cx: v.cx, cy: v.cy, s: v.s, T: morph.T, playing: morph.playing };
       const thKeep = A.TH, light = A.TH.dark ? lightTheme() : A.TH;
       let cv;
       try {
-        if (fv) { const k = wpx / effW(side); v.cx = fv.cx; v.cy = fv.cy; v.s = fv.s / k; }
+        if (fv) { const k = wpx / effW(); v.cx = fv.cx; v.cy = fv.cy; v.s = fv.s / k; }
         if (o.T != null) { morph.T = o.T; morph.playing = false; }
         // (o.look 'light': the screen's look in the light theme, for a video; else the art layer on white paper)
         A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artLandRound = o.landRound || null; A.artCamAsp = o.camAsp || null; A.artCam = true; A.artRelief = !!o.reliefOnly; A.artSkip = o.skipLines ? new Set(o.skipLines) : null; A.artNoLab = !!o.noGlobeLabels;
         A.TH = Object.assign({}, light); inkCache.clear();
         if (A.artMode) { A.TH.plane = '#ffffff'; A.TH.planeRGB = GLR.hexRGB('#ffffff'); }
-        cv = renderOff(side, wpx, hpx, dpr);
+        cv = renderOff(wpx, hpx, dpr);
       } finally {
         A.artMode = false; A.printInk = null; A.artLandBox = null; A.artLandRound = null; A.artCamAsp = null; A.artCam = false; A.artRelief = false; A.artSkip = null; A.artNoLab = false;
         Object.assign(v, { cx: keep.cx, cy: keep.cy, s: keep.s });
         morph.T = keep.T; morph.playing = keep.playing;
         A.TH = thKeep; inkCache.clear();
-        requestRender('L', 'R');
+        requestRender('L');
       }
       const land = A.artLand, globe = A.artGlobe;
       if (GLR.gpuDone) await GLR.gpuDone();
@@ -820,7 +685,6 @@ const Export = (() => {
     const main = A.S.view.main;
     if (main === 'land' && lLand()) return 'land';
     if (main === 'phase') return lColor() ? 'phase' : 'xyL';
-    if (morphOn()) return rImage() && !morphHasDeriv() ? 'morph' : 'xyR';
     return 'xy';
   }
   const slugOf = (t) => String(t || '').normalize('NFKD').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
@@ -829,17 +693,13 @@ const Export = (() => {
     const ex = typeof A.currentExample === 'number' && EX[A.currentExample] ? enOf(EX[A.currentExample].name) : null;
     const base = slugOf(ex) || slugOf(activeSteps().map((k) => A.S.steps[k - 1].type).slice(0, 2).join('-')) || 'plane';
     const v = figViewKind();
-    return base + (v === 'phase' ? '-phase' : v === 'land' ? '-landscape' : v === 'morph' ? '-deformation' : '');
+    return base + (v === 'phase' ? '-phase' : v === 'land' ? '-landscape' : '');
   }
   // the pieces of a caption, from the scene (figure.js writes the sentences)
   // (o.letters: points named A, B, C... as the Homework figure names them)
   function figCapParts(o = {}) {
     const vis = A.S.shapes.filter((s) => s.visible !== false);
-    // o.skip: the points a globe figure cannot show (on the far side of the sphere)
-    // are left out of the list of what it shows; the caption says they are hidden. The other points keep their names.
-    const skipped = (s) => !!(o.skip && s.kind === 'point' && s.p && o.skip.some((z) => z.re === s.p[0] && z.im === s.p[1]));
-    const skipAll = vis.every(skipped);
-    // a point of a plane before the left panel's, which the panel draws as its image there: that image, named as the figure's label
+    // a point of a plane before X's, which the panel draws as its image there: that image, named as the figure's label
     // names it (w₁(z₀)); the point as it is where it has no image there or no name in symbols
     const lk0 = leftStage();
     const asShown = (s, k) => {
@@ -857,20 +717,14 @@ const Export = (() => {
     // (on: the shapes the list keeps, all without it; a point keeps its place among all the points, which names it)
     const listOf = (gen, on = null) => {
       let pk = 0;
-      return joinList(vis.map((s) => { const k = s.kind === 'point' ? pk : 0; if (s.kind === 'point') pk++; return (on && !on(s)) || (!skipAll && skipped(s)) ? null : shapePhrase(o.letters && s.kind === 'point' ? Object.assign({}, s, { label: String.fromCharCode(65 + (k % 26)) }) : asShown(s, k), k, gen); }).filter((r) => r != null));
+      return joinList(vis.map((s) => { const k = s.kind === 'point' ? pk : 0; if (s.kind === 'point') pk++; return on && !on(s) ? null : shapePhrase(o.letters && s.kind === 'point' ? Object.assign({}, s, { label: String.fromCharCode(65 + (k % 26)) }) : asShown(s, k), k, gen); }).filter((r) => r != null));
     };
-    // a shape drawn on a plane after the left panel's is not in that panel: the list leaves it out, and later lists the
-    // shapes of each such plane up to the right panel's (whose images the right panel shows), in the genitive too
-    const lk = lk0, rk = rightStage(), own = (s) => shapeStage(s) <= lk;
+    // a shape drawn on a plane after X's is not in its panel: the list leaves it out
+    const own = (s) => shapeStage(s) <= lk0;
     const shapeList = listOf(undefined, own);
     // the same list in the genitive ("the images of ..."): Russian needs the case, English is the same
     const shapeListGen = listOf('gen', own);
-    const later = [];
-    for (let k = lk + 1; k <= rk; k++) {
-      const on = (s) => shapeStage(s) === k, n = vis.filter(on).length;
-      if (n) later.push({ p: wvar(k), n, list: listOf(undefined, on), gen: listOf('gen', on) });
-    }
-    const lv = panelVar('L'), Fname = fNameTex();
+    const lv = panelVar(), Fname = fNameTex();
     const Ftex = A.S.focus === 0 ? compositeTexShort(parkedAt()) : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const formula = Ftex && Ftex.length < 240 ? inlineFrac(Ftex) : null;
     // the deformation shown in one panel (Phase or Landscape of H_t): the picture is H_t at the current t
@@ -884,16 +738,13 @@ const Export = (() => {
       if (ks.length > 1 && !ks.some((k) => isDeriv(k))) chain = ks.map((k) => { const b = A.built[k - 1], v = k === 1 ? 'z' : `w_{${k - 1}}`; return { f: `f_{${k}}`, v, tex: b && !b.error ? b.tex({ s: v, p: 4 }).s : null }; });
       if (chain && chain.some((q) => !q.tex)) chain = null;
     }
-    // (a focused step's figure: the right panel names the image of a point of z on the last plane F(z₀), or F(A) for a labelled one, so the caption defines F, the
-    // whole map, by its formula in z, or as the chain of the steps where that formula is too long)
-    const n = nSteps(), defF = A.S.focus > 0 && rk === n && n > 1 && vis.some((s) => s.kind === 'point' && s.p && !shapeStage(s))
-      ? (compositeTexShort(-1) ? `F(z)=${compositeTexShort(-1)}` : `F=${Array.from({ length: n }, (_, i) => `f_{${n - i}}`).join('\\circ ')}`) : null;
-    return { shapeList, shapeListGen, later, defF, nShapes: vis.filter(own).length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
-      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs() : [], height: A.S.height, phase: lPhase(), dc: A.S.dc, cauchy: A.S.dc === 'cauchy' ? cauchyKind() : null, sectors: A.S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
+    return { shapeList, shapeListGen, nShapes: vis.filter(own).length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
+      height: A.S.height, phase: lPhase(), dc: A.S.dc, cauchy: A.S.dc === 'cauchy' ? cauchyKind() : null, sectors: A.S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
   }
   // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
   const hueBytes = (t) => keyRGB((2 * t - 1) * Math.PI).map((x) => Math.round(255 * x));
-  const viewBoxOf = (side) => { const real = side === 'L' ? A.paneL : A.paneR, other = side === 'L' ? A.paneR : A.paneL; return panelBox(side, effW(side), real.h > 20 ? real.h : other.h); };
+  // X's window at its pane's size
+  const viewBoxOf = () => panelBox(effW(), A.paneL.h);
   // what each lit lamp means, in LaTeX
   const BADGE_TEX = {
     analytic: $t('holomorphic at every point of its natural domain $D$'),
@@ -999,9 +850,9 @@ const Export = (() => {
 
   function init(api) {
     A = api;
-    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, requestRender, rightStage, shapeF, shapeStage, stageF, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
+    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence, morphHomSegs, morphLen, morphOn, morphRange, openMenu, pathOf, pathsGen, pickScene, pointLabel, readTheme, refineAllNow, renderLeft, requestRender, shapeF, shapeStage, stageF, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
   }
-  return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
+  return { init, getDownloads, saveFile, effW, renderOff, panelVar, capT, shapePhrase, pcTidy, compositeTexShort, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();
 import { TAU, h } from './util.js';
 import { CX } from './cx.js';

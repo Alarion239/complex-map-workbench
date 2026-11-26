@@ -24,22 +24,20 @@
   const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
   // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
   const GLOBE_MARK_PX = 13;
-  function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
-  // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
-  function* stageSampler(F0, xs, ys, k) {
+  // the images of the visible shapes under a stage's map, as points (xs, ys): what a fit of the plane frames
+  function stageSamples(F0, xs, ys, k) {
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
-    let got = 0;
-    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } return ++got % 16 === 0; };
+    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } };
     for (const s of S.shapes) {
       if (s.visible === false) continue;
       const t = kindType(s);
       // (the curves and points of a construction, and the unit circle or an axis made a shape, are
-      // lines to build with: Y's fit follows the user's own shapes and regions, never a large orthogonal circle's image)
+      // lines to build with: the fit follows the user's own shapes and regions, never a large orthogonal circle's image)
       if ((s.def || s.fixed) && t !== 'area') continue;
       const F = shapeF(s, F0, k);
       if (!F) continue;
-      if (t === 'point') { if (push(F(C(s.p[0], s.p[1])))) yield; continue; }
+      if (t === 'point') { push(F(C(s.p[0], s.p[1]))); continue; }
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
         const src = r.mesh.src, nv = src.length / 2;
@@ -47,7 +45,7 @@
         for (let i = 0; i < nv; i += stride) {
           const x = src[2 * i], y = src[2 * i + 1];
           if (r.mesh.stretched && !inCore(x, y)) continue;
-          if (push(F(C(x, y)))) yield;
+          push(F(C(x, y)));
         }
       }
       // (a traced curve formula, like a formula area, counts by its part in the meshing window: its tails run out to
@@ -56,7 +54,7 @@
       if (t === 'area') { try { unbounded = !Region.bboxOf(s); } catch (e) { unbounded = true; } }
       for (const p of r.polys || []) {
         const n = p.length / 2, stride = Math.max(1, Math.floor(n / POLY_SAMPLE_CAP));
-        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if ((!unbounded || inCore(x, y)) && push(F(C(x, y)))) yield; }
+        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if (!unbounded || inCore(x, y)) push(F(C(x, y))); }
       }
     }
   }
@@ -791,7 +789,7 @@
     // leaves it as the screen's last frame set it)
     const standing = !!(info && info.standIn);
     if (!offRender && standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets) { updateFocusUI(); svSync(); } }
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, step: info.step ?? null, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
@@ -1525,7 +1523,6 @@
       if (leftStage() > 0) leftAuto = true;
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
-    $('rightFit').addEventListener('click', () => { if ($('rightFit').getAttribute('aria-disabled') === 'true') return; rightAuto = true; fitRight(true); requestRender('R'); });
     // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (on a 356 px plot the key covers a third of the landscape);
     // a tap on a folded or unfolded chip toggles
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -1581,21 +1578,19 @@
       });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
-    for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
-      $(side + 'ZoomIn').innerHTML = ICONS.plus;
-      $(side + 'ZoomOut').innerHTML = ICONS.minus;
-      $(side + 'Fit').innerHTML = ICONS.fit;
-      $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
-      const zb = (f) => () => {
-        const sd = side === 'left' ? 'L' : 'R';
-        if (is3DSide(sd)) { zoomPane(pane, sd, pane.w / 2, pane.h / 2, f); return; }
-        const v = sd === 'L' ? leftView() : V.right;
-        pane.setView({ cx: v.cx, cy: v.cy, s: v.s });
-        const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
-        if (sd === 'R') rightAuto = false; else if (leftStage() > 0) leftAuto = false;
-        tweenView(v, target, 180, () => sourceViewChanged());
-      };
-      $(side + 'ZoomIn').addEventListener('click', zb(1.6));
-      $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
-    }
+    // (X's buttons: Y's pane is not drawn)
+    $('leftZoomIn').innerHTML = ICONS.plus;
+    $('leftZoomOut').innerHTML = ICONS.minus;
+    $('leftFit').innerHTML = ICONS.fit;
+    $('leftSph').addEventListener('click', () => stackSphere('L'));
+    const zb = (f) => () => {
+      if (is3DSide('L')) { zoomPane(paneL, 'L', paneL.w / 2, paneL.h / 2, f); return; }
+      const v = leftView();
+      paneL.setView({ cx: v.cx, cy: v.cy, s: v.s });
+      const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
+      if (leftStage() > 0) leftAuto = false;
+      tweenView(v, target, 180, () => sourceViewChanged());
+    };
+    $('leftZoomIn').addEventListener('click', zb(1.6));
+    $('leftZoomOut').addEventListener('click', zb(1 / 1.6));
   }
