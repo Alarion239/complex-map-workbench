@@ -30,6 +30,7 @@ import './commands.js';
 import './soundhooks.js';
 import './export.js';
 import './morphpaths.js';
+import './glyphmatch.js';
 import './integrals.js';
 import './examples.js';
 import './expose.js';
