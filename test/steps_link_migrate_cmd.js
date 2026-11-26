@@ -295,7 +295,7 @@ n++;
   const ns = 'lmig' + n + Date.now();
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
   await ev('__cmwSet("hideLeft", true); __cmwSet("hideRight", true); 1');
-  const fs = await ev('(() => { const o = __cmwFigureState(); return { keys: Object.keys(o).filter((k) => /^hide/.test(k)), rightView: 'rightView' in o, steps: o.steps.length }; })()');
+  const fs = await ev('(() => { const o = __cmwFigureState(); return { keys: Object.keys(o).filter((k) => /^hide/.test(k)), rightView: "rightView" in o, steps: o.steps.length }; })()');
   info['figureState'] = fs;
   ok('figureState: no hideLeft or hideRight', !!fs && eq(fs.keys, []), fs);
   ok('figureState: no rightView', !!fs && fs.rightView === false, fs);
