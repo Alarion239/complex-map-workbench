@@ -1030,7 +1030,8 @@
     const t = document.querySelector('#toastHost .toast:not(.toast-out)');
     if (t) closeToast(/** @type {HTMLElement} */ (t));
   });
-  // (o.sticky: it stays until its action or its close button is used, or another toast takes its place;
+  // (o.fit: off the phone, the message keeps its buttons together, beside the words or on a row under them (fitToastButtons);
+  // o.sticky: it stays until its action or its close button is used, or another toast takes its place;
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
@@ -1048,6 +1049,17 @@
     sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
     toastFitW.set(t, t.clientWidth);
     placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
+  }
+  // off the phone, a message with several buttons keeps them on one row: when they are not (the first beside the words, the others
+  // wrapped under), the words take a row of their own and the buttons stand together under them
+  const TOAST_ROW_SPREAD_PX = 4;   // (the close button is smaller than the others and centred on the row: its top is a pixel or two lower)
+  function fitToastButtons(t) {
+    if (!t.isConnected) return;
+    delete t.dataset.rows;
+    const tops = [...t.querySelectorAll('button')].map((b) => b.getBoundingClientRect().top);
+    if (tops.length > 1 && Math.max(...tops) - Math.min(...tops) > TOAST_ROW_SPREAD_PX) t.dataset.rows = 'two';
+    toastFitW.set(t, t.clientWidth);
+    placeToasts();
   }
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
@@ -1068,6 +1080,10 @@
       try {
         new ResizeObserver(() => { if (t.clientWidth && t.clientWidth !== toastFitW.get(t)) requestAnimationFrame(() => fitToastRows(t)); }).observe(t);
       } catch (e) { /* no ResizeObserver */ }
+    }
+    if (o && o.fit && !rt.contains('ph')) {
+      requestAnimationFrame(() => fitToastButtons(t));
+      try { new ResizeObserver(() => { if (t.clientWidth && t.clientWidth !== toastFitW.get(t)) requestAnimationFrame(() => fitToastButtons(t)); }).observe(t); } catch (e) { /* no ResizeObserver */ }
     }
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;

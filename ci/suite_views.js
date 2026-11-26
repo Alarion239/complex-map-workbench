@@ -436,6 +436,7 @@ const VIEWS = {
   'svready_cmd.js': steps({ pin: true }),
   'svready_inverse_cmd.js': steps({ pin: true }),
   'svplay_gate_cmd.js': steps({ pin: true }),
+  'svplay_gate_parts_cmd.js': steps({ pin: true }),
   'chain_discard_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_steps_cmd.js': steps({ pin: true }),

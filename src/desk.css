@@ -250,6 +250,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 #toastHost[data-placed] .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
 #toastHost[data-placed] .toast > span { flex: 1 1 auto; }
 #toastHost[data-placed] .toast .toast-act { flex: 0 0 auto; white-space: nowrap; }
+/* a message that measured its rows (toast's o.fit) and does not fit one has the words on a row of their own and its buttons together under them */
+#toastHost[data-placed] .toast[data-rows="two"] > span { flex: 1 1 100%; }
 /* (on the thread's rail the buttons wrap under a long message, one row of the toast each: at 24 px the two rows and the padding stay inside the strip's 64 px; the phone keeps its 44 px targets) */
 :root:not(.ph) #toastHost[data-placed="rail"] .toast .toast-act { height: 24px; min-height: 24px; }
 /* the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */

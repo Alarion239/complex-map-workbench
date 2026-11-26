@@ -924,7 +924,11 @@
     if (t0 === undefined) {
       compileT.set(pane, now);
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
-    } else if (now - t0 >= 300) { compileNote(pane); setCompileShown(role, true); }
+    } else if (now - t0 >= 300) {
+      // (not while the Play gate's message is up: it says the programs are not ready, and the note would lie under it)
+      if (svGateMessageUp()) compileBox = null; else compileNote(pane);
+      setCompileShown(role, true);
+    }
   }
   // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
   let compileBox = null;
