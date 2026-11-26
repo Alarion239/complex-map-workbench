@@ -363,8 +363,8 @@ const brute2 = (o, L, w) => {
   const NEAR = 0.02;                                                         // |w| within this of 1 is left out (the pixel's own reach)
   const ACROSS_SOLVES = 20;                                                  // the most root solves an across pixel needs (measured)
   const pts = gridOf(RW, RG);
-  const run = (shape, n) => {
-    const p = planOf(repOf('z^3', n)), pr = Inverse.prepare(p, { win: RW, shape }), t = { out: 0, outEmpty0: 0, inn: 0, innEmpty: 0, inside: { 1: 0, 0: 0, '-1': 0 }, solves: 0, max: 0 };
+  const run = (shape, copies) => {
+    const p = planOf(repOf('z^3', copies)), pr = Inverse.prepare(p, { win: RW, shape }), t = { out: 0, outEmpty0: 0, inn: 0, innEmpty: 0, inside: { 1: 0, 0: 0, '-1': 0 }, solves: 0, max: 0 };
     for (const w of pts) {
       const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, a = CX.abs(w);
       t.solves += e.nodes; t.max = Math.max(t.max, e.nodes); t.inside[e.verdict]++;
@@ -395,12 +395,12 @@ const brute2 = (o, L, w) => {
 }
 
 // ---- 4d. the closed form (a monomial step on a disc region, #2375)
-// a pixel's verdict from every chain of n backward roots (3^n), no prune, each leaf scored at its own point; null when a
-// leaf lies within a pixel's ramp of the edge
-const bruteN = (o, L, w, n) => {
+// a pixel's verdict from every chain of copies backward roots (3^copies), no prune, each leaf scored at its own point;
+// null when a leaf lies within a pixel's ramp of the edge
+const bruteN = (o, L, w, copies) => {
   let brute = 0;
   const rec = (z, rho, d, r) => {
-    if (r === n) { const lv = L(z) / (d * PIX); if (Math.abs(lv) <= 1) return false; if (lv > 0) brute = 1; return true; }
+    if (r === copies) { const lv = L(z) / (d * PIX); if (Math.abs(lv) <= 1) return false; if (lv > 0) brute = 1; return true; }
     const nd = InvOps.reptNode(o.p.P, o.p.Q, z, rho);
     if (!nd) return false;
     for (let i = 0; i < 3; i++) if (!rec(nd.z[i], nd.rho[i], d * CX.abs(nd.d[i]), r + 1)) return false;
