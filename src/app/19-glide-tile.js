@@ -157,8 +157,8 @@
     return svTile.el;
   }
   // The tile's layout (its formulas typeset, svTileLay's measures, the morph built) is never made in a frame of the steps
-  // view's sync (svSync), which may be a glide's first and draws its picture too: on a slow machine the two together were
-  // one long task (#2458). It is queued for an idle moment, at most SV_TILE_IDLE_MS on (svTileLater, one at a time), and
+  // view's sync (svSync), which may be a glide's first and draws its picture too: the two together are one long task on a
+  // slow machine. It is queued for an idle moment, at most SV_TILE_IDLE_MS on (svTileLater, one at a time), and
   // the tile is hidden until then where what it would show is not laid out yet. An observer's refresh (svTileRefresh:
   // what it keeps clear of moved) lays it out at once while the thread is still, so it is never seen over what came, and
   // is queued the same way while a glide moves

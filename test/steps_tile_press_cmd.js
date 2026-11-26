@@ -1,14 +1,14 @@
 // The glide tile is laid out off the glide's frames (#2458): the tile's layout (its formulas typeset, svTileLay's measures
 // and obstacle search, the morph built) is made in an idle moment (svTileLater), not in the frame that asks for it, the
 // steps view's sync, which on a press is the glide's first frame and draws its picture too (the two together are one
-// long task on a slow machine). A chain of two steps whose composite is long (steps_glide_tile's TILE_CHAIN), the page at 1200 x
-// 800, the thread at rest on w₁, with __cmwTile's trace of each layout and typesetting (now: made where a layout may be,
-// svTileLater's job or the hook; else in a frame):
+// long task on a slow machine). A chain of two steps whose composite is long (steps_glide_tile's TILE_CHAIN), the page
+// at 1200 x 800, the thread at rest on w₁, with __cmwTile's trace of each layout and typesetting (now: made where a
+// layout may be, svTileLater's job or the hook; else in a frame):
 // - press: a glide from w₁ to w₂ (__cmwSteps go, played live, its frames the steps view's own, each advancing it 1/60 s
 //   however long it takes to draw: clock): none of the tile's layouts and none of its typesetting runs in a frame
 //   (control: the glide made at least one of each);
 // - held: the thread held between z and w₁ (x 0.5, a frame asks for a new pair of planes): the tile shows within SHOW_MS,
-//   and at the spot a layout made at once gives (__cmwTile(true): the same box), as the frame path laid it before.
+//   and at the spot a layout made at once gives (__cmwTile(true): the same box).
 // The page opens with ?view=steps (loadView('steps', …)).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
