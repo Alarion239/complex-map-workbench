@@ -73,7 +73,7 @@ const SUITES = {
   'steps_glide_look_cmd.js': { runs: [
     { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Joukowski airfoil, Everywhere', 'Mountain King, Everywhere', 'Roots as preimages, Everywhere', 'Partial sum of the exponential', 'Logarithm, Everywhere', 'Sheets of the logarithm, Everywhere', 'Zeros of the zeta function'];" },
     { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Strip to disk, Everywhere'];" },
-    { label: 'exact', preamble: "globalThis.LOOK_CASES = ['n-th root, Everywhere', 'complex power, Everywhere', 'cos, Everywhere', 'cosh, Everywhere', 'arccos, Everywhere', 'arcosh, Everywhere', 'polynomial of degree 5, Everywhere'];" },
+    { label: 'exact', preamble: "globalThis.LOOK_CASES = ['n-th root, Everywhere', 'complex power, Everywhere', 'cos, Everywhere', 'cosh, Everywhere', 'arccos, Everywhere', 'arcosh, Everywhere', 'polynomial of degree 5, Everywhere', 'rational of degree 5, Everywhere'];" },
   ] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
