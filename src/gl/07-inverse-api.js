@@ -325,8 +325,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
   const INV_NOT_STARTED = 'not started';
   function invProgram(B, globe, start, extra, invOv) {
-    // (invOv: an inverse op list other than the chain's, GLChain.buildInverse of the chain with a step's homotopy at t
-    // standing for the step: its own program, the chain's forward data beside it)
+    // (invOv: an inverse op list other than the chain's: GLChain.buildInverse of the chain with a step's homotopy at t
+    // standing for the step, or with a plan's own options (marked rest: a parked plane's, warmed as the chain's own):
+    // its own program, the chain's forward data beside it)
     const info = invOv && cur.info ? Object.assign({}, cur.info, { inverse: invOv }) : cur.info, inv = info && info.inverse;
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
@@ -339,7 +340,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!e) {
       if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : INV_NOT_STARTED };
       for (const q of progs.values()) if (q.key === cur.key && q.state === 'pending' && !q.inv && !q.offView) return { state: 'pending', reason: 'forward programs first' };
-      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now() };
+      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now(),
+        rest: !!(invOv && invOv.rest), chainKey: cur.key };
       progs.set(id, e);
       try {
         const [vs, fs] = invSources(info, B, globe, pack ? pack.forms : [], extra);
@@ -1320,8 +1322,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return true;
   }
   // a ready inverse program waits for warmInverse (a variant drawn in its place, or half resolution refused)
-  // (only the current chain's programs: an older structure's program that was never drawn is not worth a stall)
-  const invWarmable = (e) => e.inv && (e.name === 'inv' || e.name === 'invS') && e.state === 'ready' && !sideMode && !!cur.info && !!cur.info.inverse && e.ikey === cur.info.inverse.key;
+  // (only the current chain's programs: its own, and a parked plane's own (a plan's inv marked rest, the app's invPlan);
+  // an older structure's program that was never drawn is not worth a stall)
+  const invWarmable = (e) => e.inv && (e.name === 'inv' || e.name === 'invS') && e.state === 'ready' && !sideMode && !!cur.info && !!cur.info.inverse
+    && (e.ikey === cur.info.inverse.key || (e.rest && e.chainKey === cur.key));
   // 2: a program waits for its first (full-resolution) draw; 1: only half-resolution pipelines are wanted; 0: none
   const inverseColdState = () => {
     let s = 0;
@@ -1486,7 +1490,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // the current chain's inverse program for shapes of own (undimmed) alpha alphaOwn and a view kind, with the
     // frame's formula bundle (packShapes), without starting a compile: 'ready' | 'pending' | 'error' | 'none' (no
     // program for this chain, or its compile not started). pathOf's GLR.inverseReady(...) is status === 'ready'.
-    inverseStatus(alphaOwn = 1, viewKind = 'flat') { return ok ? invProgram(invB(alphaOwn), viewKind === 'globe', false).state : 'none'; },
+    // (inv: a plan's own inverse op list, path.inv, in place of the chain's)
+    inverseStatus(alphaOwn = 1, viewKind = 'flat', inv = null) { return ok ? invProgram(invB(alphaOwn), viewKind === 'globe', false, undefined, inv).state : 'none'; },
     // the same, starting the compile when allowed (not in side mode, after the chain's forward programs landed)
     inverseRequest(alphaOwn = 1, viewKind = 'flat') { if (!ok) return 'none'; const r = invProgram(invB(alphaOwn), viewKind === 'globe', true); if (r.state === 'pending') schedulePoll(); return r.state; },
     // the compile-time buffer size and the front count K of SPEC 4.2 for an alpha
