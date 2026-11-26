@@ -165,6 +165,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ld-key.folded > .ld-list, :root.ph .ld-key.folded > .ld-links-row { display: none; }
 :root.ph .ld-links { height: auto; min-height: 44px; }
 :root.ph .ld-links > button { min-height: 44px; }
+/* (on a portrait phone the Stack key's connector switch row, its label and the two kinds, is as wide as its words in the key's own width at most: a longer
+   language's (Italian: «Collegamenti», «Traiettorie della transizione», «Dritti», 300 px against a 252 px box at 360 px) takes its label a line and the switch
+   the next, the label close over the switch it names and set off from the marks above, where it would run past the key's edge and scroll it sideways) */
+:root.ph:not(.ph-land) .ld-key > .ld-links-row { max-width: 100%; flex-wrap: wrap; margin-top: 6px; row-gap: 2px; }
 /* (a mark's words wrap under its swatch's line where the plane is narrow: a landscape phone's plane beside a sheet is about 200 px) */
 :root.ph .ld-it { white-space: normal; min-width: 0; }
 :root.ph .ld-key > .ld-ttl { flex: 1 0 100%; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; font: var(--t-label); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
