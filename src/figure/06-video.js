@@ -9,17 +9,23 @@
   const VSECS = [2, 3, 4, 6];
   const vdefaults = () => ({ size: '1920x1080', fps: 30, secs: 3, ends: 'once', tlabel: true, look: 'light' });
   // the frames' times (export review r3, editor-7, a lecture's pace): each step eased on its own (t = k + ease(u)) over
-  // secs seconds, a hold of 0.6 s at every whole t inside, holds of 1.2 s at both ends. Bounce: there and back.
+  // secs seconds, a hold of 0.6 s at every whole t inside, holds of 1.2 s at both ends. stops (a glide's plan,
+  // A.svGlide): the whole t inside where it holds, the others crossed in one ease with the steps either side (an
+  // All-at-once span, which passes the planes inside it), each part taking secs seconds a step; none: every whole t
+  // inside. Bounce: there and back.
   // Loop: three runs, each followed by a 0.5 s cross-fade from t = m back to t = 0 (the last one too, so a player's loop
   // does not jump). An entry is a time, or {a, b, k}: the frame at a faded into the frame at b by k
-  function videoTimes(v, m) {
+  function videoTimes(v, m, stops = null) {
     const fps = v.fps === 60 ? 60 : 30, nSteps = m >= 1 && Math.abs(m - Math.round(m)) < 1e-9 ? Math.round(m) : 1;
     const per = Math.max(2, Math.round((v.secs || 3) * fps)), mid = Math.round(0.6 * fps), end = Math.round(1.2 * fps);
     const ease = (u) => u * u * (3 - 2 * u), hold = (t, n) => Array(n).fill(t);
+    // (the parts' ends, in steps: 0, the stops inside, nSteps)
+    const inner = [...Array(Math.max(0, nSteps - 1)).keys()].map((k) => k + 1), ends = [0, ...(stops ? inner.filter((k) => stops.includes(k)) : inner), nSteps];
     const run = [0];
-    for (let k = 0; k < nSteps; k++) {
-      for (let i = 1; i <= per; i++) run.push((k + ease(i / per)) * m / nSteps);
-      if (k < nSteps - 1) run.push(...hold((k + 1) * m / nSteps, mid));
+    for (let p = 0; p + 1 < ends.length; p++) {
+      const a = ends[p], b = ends[p + 1], n = per * (b - a);
+      for (let i = 1; i <= n; i++) run.push((a + (b - a) * ease(i / n)) * m / nSteps);
+      if (p + 2 < ends.length) run.push(...hold(b * m / nSteps, mid));
     }
     if (v.ends === 'bounce') return [...hold(0, end), ...run, ...hold(m, end), ...run.slice().reverse().slice(1), ...hold(0, end)];
     const one = [...hold(0, end), ...run, ...hold(m, end)];
@@ -44,7 +50,7 @@
     // (the key stands in a column at the right, beside the picture as in the still, so it never covers it)
     const picW = key ? W - keyColumn(H) : W;
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light' }), kind: 'glide', gl, W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m), name, key };
+    return { o, v: Object.assign({}, v, { look: 'light' }), kind: 'glide', gl, W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m, gl.stops), name, key };
   }
   // the app's hue ring as a canvas of the frame's own scale (0.14 H across), drawn once and kept for every frame
   function ringCanvas(Hpx) {

@@ -298,6 +298,13 @@
   function figNumberParse(text) {
     try { const v = Params.evalVal(String(text)); return v && Number.isFinite(v.re) && Number.isFinite(v.im) ? { re: v.re, im: v.im } : null; } catch (e) { return null; }
   }
+  // the thread's range a glide video records, the Play range else all of it: its first and last planes, and the span it
+  // glides across as one homotopy when the order is All at once (the screen's own span when it is that one, which keeps its
+  // steps' times), else null, whatever span the screen still holds
+  function svVideoRange() {
+    const R = svRange(), first = R ? R.lo : 0, last = R ? R.hi : svPlanes().length - 1, sp = SV.span, own = svSpanOf(first, last);
+    return { lo: first, hi: last, span: own && sp && sp.x0 === first && sp.x1 === last ? sp : own };
+  }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
     numbers: figNumbers, numberHold: figNumberHold, numberAt: figNumberAt, numberParse: figNumberParse,
@@ -325,20 +332,25 @@
     svGlide: () => {
       const P = svPlanes();
       if (!SV.on || P.length < 2 || (SV.surf === 'sphere' ? !lGlobe() : SV.surf === 'land' ? !lLand() : SV.surf !== 'plane')) return null;
-      const R = svRange();
-      return { surf: SV.surf, at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
+      // (stops: the planes inside the range a video holds at, counted from lo: each one a step at a time; under All at
+      // once those the span does not cross, as the screen's Play runs the span straight through)
+      const vr = svVideoRange(), sp = vr.span, stops = [];
+      for (let k = vr.lo + 1; k < vr.hi; k++) if (!sp || k <= sp.x0 || k >= sp.x1) stops.push(k - vr.lo);
+      return { surf: SV.surf, at: SV.g.x, lo: vr.lo, hi: vr.hi, stops, from: svName(P[vr.lo]), to: svName(P[vr.hi]) };
     },
     svGlideArt: async (x, o) => {
       // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
       const draw = () => artRender(SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW() / Math.max(1, paneL.h) }, o));
-      // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's)
-      const k = Math.round(x);
-      if (Math.abs(x - k) <= SV_REST_U) return svAtPlane(k, draw);
+      // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's.
+      // A plane an All-at-once glide leaves out has no picture at rest in it: its frame is the glide's, drawn a hair off the
+      // plane, where the pane draws a glide)
+      const k = Math.round(x), { span } = svVideoRange(), out = !!span && k > span.x0 && k < span.x1;
+      if (Math.abs(x - k) <= SV_REST_U && !out) return svAtPlane(k, draw);
       const keep = { x: SV.g.x, span: SV.span };
-      SV.span = null; SV.g.set(x); SV.offscreen++;
+      SV.span = span; SV.g.set(out && Math.abs(x - k) <= SV_REST_U ? k + 2 * SV_REST_U : x); SV.offscreen++;
       try { return await draw(); } finally { SV.g.set(keep.x); SV.span = keep.span; SV.offscreen--; requestRender('L'); }
     },
-    svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
+    svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = svVideoRange().span; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),

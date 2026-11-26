@@ -1,6 +1,7 @@
 // The Homework orientation chevrons (figure.js senseAt, chevronAt): every boundary piece is marked so that its set
 // stays on the left (notes/export-design/DESIGN.md), and, as F is conformal, in its image too; the mark keeps clear of the
 // panel's axes, their crossing and their tick labels. Run: node test/t_figure_chevron.js
+// (standards-ok: the chevron placed in both panels of the two-panel figure goes with that figure, which drew Y, #994)
 // (The export window of unbounded sets, the same at every pane size, is checked in the browser: xrfix2_cdp/win.js.)
 const vm = require('vm'), path = require('path');
 const R = path.join(__dirname, '..');
