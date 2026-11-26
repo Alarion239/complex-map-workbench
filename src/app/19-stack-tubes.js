@@ -78,6 +78,13 @@
   // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
   // one number) and a true minus sign
   const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
+  // why disc s has no tubes tilted, in the card's words ("The pieces of its preimage are not counted: step 1 (exp) has infinitely
+  // many preimages"), or '' where they are drawn or straight down, where no tubes are drawn
+  function tubesWhy(s, camera) {
+    if (!s || stackTilt(camera) <= 0) return '';
+    const r = readoutData(s);
+    return r.pc.counted ? '' : readoutCounts(r.pc, r.stuck);
+  }
   // whether the point z lies inside the closed polygon of points path (C[]): the ray to the right crosses it an odd number of times
   function tubeInside(path, z) {
     let c = false;

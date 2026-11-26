@@ -327,7 +327,7 @@
     if (!stackOn()) return false;
     stackDrawn = stackMarks(pane, pane.octx, stackCam);
     stackSyncControls();
-    syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes);
+    syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes, stackDrawn.marks && !stackDrawn.tubes ? tubesWhy(findShape(selected), stackCam) : '');
     return true;
   }
   // TEST-HOOK (dropped from the published page by build.py): the Stack's state, its last frame and the glass's hovered or
