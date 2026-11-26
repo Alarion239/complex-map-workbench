@@ -300,9 +300,9 @@ const Commands = (() => {
     cgrid: $t('grid, grid lines'), pgrid: $t('polar grid, rays and circles'),
   });
   const GUIDE_SECS = () => [
-    [$t('Shapes'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
+    [$t('Shapes'), $t('region, regions, shape, shapes, draw, set')], [$t('Planes and surfaces'), $t('view, views, phase, landscape, sphere, plane')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
     [$t('Numbers'), $t('number, numbers, parameter, parameters, slider, letter')], [$t('Branch cuts'), $t('cut, cuts, branch, sheet, sheets, seam')],
-    [$t('The planes\' menu'), $t('right-click, menu, long-press, zero, zeros, pole, poles, add zero')], [$t('Views'), $t('view, views, phase, landscape, sphere, plane')],
+    [$t('The planes\' menu'), $t('right-click, menu, long-press, zero, zeros, pole, poles, add zero')],
     // (the Deformation section is the steps view's only: the classic view's guide has none)
     ...(svSurface() ? [[$t('Deformation'), $t('deformation, homotopy, morph, animate, play')]] : []), [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
     [$t('Inverses and derivatives'), $t('inverse, derivative, replace')], [$t('Integrals'), $t('integral, integrate, residue, contour, winding')],
