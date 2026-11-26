@@ -248,14 +248,16 @@
     sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + SPHERE_FS(true) },
     // (its stand-in while it links: F's values on the app's longitude-latitude grid, coloured and lined the same way, SPHERE_STANDIN_FS)
     sphereStandIn: { chain: false, vs: () => SPHERE_VS, fs: () => FIN + UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + STANDIN_W + SPHERE_STANDIN_FS },
+    // (the globe's depth alone, drawSphere's depth again after the carried colour: SPHERE_VS's geometry, no colour)
+    sphereDepth: { chain: false, vs: () => SPHERE_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
     disc: { chain: false, vs: () => DISC_VS, fs: () => UTIL + 'uniform float uDpr;\n' + TIERS + DISC_FS },
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
     carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
     keepA: { chain: false, vs: () => QUAD_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
     // a REPT draw's accumulation target (drawInverse's reptDraw) into the pane: its pixels (uAccMode 0); the same less
-    // the unresolved marks (1, 0, 0, 0) of a region mask's pass (1); the marks alone, for the stencil (2); the continue
-    // marks (0, 1, 0, 0) alone, for the occlusion query of the second pass's tiles (3). uAccOff: the target's origin in
-    // the framebuffer, device px
+    // the unresolved marks (1, 0, 0, 0) and (1, 0, 1, 0) (on the image's rim) of a region mask's pass (1); the marks alone,
+    // for the stencil (2); the continue marks (0, 1, 0, 0) alone, for the occlusion query of the second pass's tiles (3);
+    // the rim's marks alone, for the stencil (4). uAccOff: the target's origin in the framebuffer, device px
     reptAcc: { chain: false, vs: () => QUAD_VS, fs: () => `uniform highp sampler2D uAcc;
 uniform vec2 uAccOff;
 uniform int uAccMode;
@@ -264,7 +266,7 @@ void main() {
   vec4 c = texelFetch(uAcc, ivec2(gl_FragCoord.xy - uAccOff), 0);
   bool m = c.a == 0.0 && c.r > 0.5;
   if (uAccMode == 3) { if (!(c.r == 0.0 && c.g > 0.5 && c.b == 0.0 && c.a == 0.0)) discard; o = vec4(0.0); return; }
-  if (uAccMode == 2) { if (!m) discard; o = vec4(0.0); return; }
+  if (uAccMode == 2 || uAccMode == 4) { if (!m || (uAccMode == 4 && !(c.b > 0.5))) discard; o = vec4(0.0); return; }
   if (uAccMode == 1 && m) discard;
   o = c;
 }

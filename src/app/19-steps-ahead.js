@@ -2,12 +2,13 @@
   // the render-ahead frames' key (#1339): every input a glide frame's pixels depend on but its place, and the motion M whose
   // places the frames are drawn at (HomRange.aheadPlaces' from, to, ms and ease, and the span it glides): the chain and its
   // order, the camera and the pane, the theme, the colour and display options, the view's scope, surface, colour plane and
-  // look, the shapes, the targets, the selection and the language (the frames hold the labels). Frames drawn ahead under
-  // another key are dropped. With M null, the chain's frames whatever the motion (svAheadCost's)
+  // look, the shapes, the targets, the selection and the language (the frames hold the labels), and, in the frames' key only, the
+  // phase palette (a frame's cost does not depend on it). Frames drawn ahead under another key are dropped. With M null, the chain's
+  // frames whatever the motion (svAheadCost's)
   function svAheadKey(pane, M) {
     return JSON.stringify([chainSig[nSteps()], svStepsSig(), !!S.homAll, S.srcView, pane.w, pane.h, pane.dpr, TH,
       S.dc, S.sectors, S.dcGrid, S.pattern, S.unit, S.sheets, S.outline, svOpacity(), SV.scope, SV.surf, svT(), SV.bare,
-      hideStrokes, selected, S.shapes, S.targets, I18N.lang].concat(M ? [M.from, M.to, M.ms, M.eased, M.span] : []));
+      hideStrokes, selected, S.shapes, S.targets, I18N.lang].concat(M ? [GLR.palette(), M.from, M.to, M.ms, M.eased, M.span] : []));
   }
   // A glide or a play whose frames cost more than AHEAD_MS to draw is drawn ahead, while the gate waits (svGated): frame k
   // of its schedule (HomRange.aheadPlaces: the place k·AHEAD_DT ms in, eased as svFrame eases a glide, linear as
