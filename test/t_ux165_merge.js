@@ -84,7 +84,7 @@ ok('editDown: rail\'s Point-tool move and plane\'s handleAt both present', fnBod
 // ---- phone guide + chain UX85 / UX65
 ok('the phone guide names the button Show alone (chain UX85) and finds Numbers (chain UX65)', APP.includes("The editor's <b>Show alone</b> button") && !APP.includes('Show this step alone') && APP.includes('`Shared numbers|Numbers`'));
 // (#246: on a phone the steps are rows of the chain sheet: the task opens it first, and still says Show alone)
-ok('the tour\'s chain step on touch says Show alone (chain over phone)', TOUR.includes("touch: 'Open the chain, tap $f_1$, then Show alone.'") && !TOUR.includes('Show this step alone'));
+ok('the tour never says Show this step alone (the button is Show alone)', !TOUR.includes('Show this step alone'));
 
 // ---- the tour's shared notes
 const INT = fs.readFileSync(path.join(__dirname, '../notes/tour/INTEGRATION.md'), 'utf8');

@@ -32,7 +32,7 @@
   // homotopy has H_0 = id and H_1 = f exactly (Inverse.homExact); the linear homotopy is exact at its ends.
   function normalizeMap(map) {
     const mode = map.mode || 0;
-    if (!mode || morph.playing || trans.k) return map;
+    if (!mode || morph.playing) return map;
     const t = map.t, base = map.base || 0;
     // (with a bracket's post, H_t = Q o G_t o P is a still map only at its end, and only once the bracketed steps
     // after the running one are inactive: the stages base..post; its start skips the running step but not the post)
@@ -92,10 +92,16 @@
   // whether map's chain holds a Repeat block that no exact plan takes: its copies are more ops than a plan holds (planChain's
   // tooLong), and drawn forward through every copy they leave no image to read, so the plane says so (refusedHatch, its note)
   function repeatRefused(map) {
+    if (!repeatIn(map)) return false;
+    const m = normalizeMap(map), plan = invPlan(m.a || 0, m.b || 0);
+    return !plan.ok && !!plan.tooLong;
+  }
+  // whether map (the plain map, mode 0) carries through a live Repeat block of more than one copy in its range,
+  // whatever op its plan draws it with: a REPT op when the repeat is the chain's one live step, the copies' own ops
+  // beside another step (Inverse.chainOpts)
+  function repeatIn(map) {
     const m = normalizeMap(map);
-    if ((m.mode || 0) !== 0) return false;
-    const plan = invPlan(m.a || 0, m.b || 0);
-    return !plan.ok && !!plan.tooLong && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
+    return (m.mode || 0) === 0 && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
   }
   // what a pane's open frame says of the no-value hatch it drew (reptHatch, refusedHatch), by pane: glStatusNote says it at the
   // frame's end
@@ -116,31 +122,32 @@
     return plan.ok && plan.ops.some((o) => o.kind === 'REPT');
   }
   // The pieces GLR.drawLines draws each segment of an outline in (its st.M); the most CSS px a piece may span on a
-  // pane under a REPT plan; the halvings a segment may take to get there; the vertices a refined outline may have
+  // pane under a Repeat; the halvings a segment may take to get there; the vertices a refined outline may have
   const OUTLINE_M = 8, REPT_PIECE_PX = 4, REPT_DEPTH = 10, REPT_VERTS = 65536;
   // (for the test hook: the refinements outlineRes has run, a pan within a cell runs none, and the last one's
   // vertices)
   let reptOutlineRuns = 0, reptOutlineVerts = 0;
   // The lines a shape's outline is drawn by on pane under map (r: its shapeGPU record; pane: {view, w, h}, a screen
-  // pane or the Landscape floor's stand-in, kept in its own slot of r.rept), with the record openDash reads
-  // for them: {res, rec}, or null for none. r's own lines, but under a REPT plan, whose copies' expansion can
-  // scatter the boundary carried forward: there the drawn polylines (r.lpolys) are refined for the view, each segment
-  // halved (at most REPT_DEPTH times) until every one of its pieces maps, on the CPU twin, to finite ends at most
-  // REPT_PIECE_PX px apart, or lies with both ends past the same side of a box around the pane, where it draws nothing
-  // on it. A segment that does not get there (the gallery's Repeat ×20), or more than REPT_VERTS vertices, and the
-  // shape has no outline: the exact fill's own edge is its only one. The rule is the resolution at the view, not the
-  // number of copies: the bite at ×2 keeps its outline, zoomed in as at rest. A Repeat no exact plan takes
-  // (repeatRefused) has no outline either: its boundary carried through every copy is as scattered, over the hatch.
-  // Cached on r per pane by its lines and map, the scale's half octave (refined for its largest scale, so the pieces
-  // stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a pane: the box is the view at the
-  // half octave's smallest scale about that place, widened by a pane on each side, so a pan refines again only once it
-  // crosses a pane
+  // pane or the Landscape floor's stand-in, kept in its own slot of r.rept), with the record openDash reads for them:
+  // {res, rec}, or null for none. r's own lines, but under a Repeat (repeatIn: a REPT op or its copies' ops, beside
+  // another step), whose copies' expansion can scatter the boundary carried forward: there the drawn polylines
+  // (r.lpolys) are refined for the view, each segment halved (at most REPT_DEPTH times) until every one of its pieces
+  // maps, on the CPU twin, to finite ends at most REPT_PIECE_PX px apart, or lies with both ends past the same side of
+  // a box around the pane, where it draws nothing on it. A segment that does not get there (the gallery's Repeat ×20),
+  // or more than REPT_VERTS vertices, and the shape has no outline: the exact fill's own edge is its only one. The rule
+  // is the resolution at the view, not the number of copies: the bite at ×2 keeps its outline, zoomed in as at rest. A
+  // Repeat no exact plan takes (repeatRefused) has no outline either: its boundary carried through every copy is as
+  // scattered, over the hatch. Cached on r per pane by its lines and map, the scale's half octave (refined for its
+  // largest scale, so the pieces stay within REPT_PIECE_PX at every scale of it) and the pane's size and place to a
+  // pane: the box is the view at the half octave's smallest scale about that place, widened by a pane on each side, so
+  // a pan refines again only once it crosses a pane
   function outlineRes(map, r, pane, slot = pane === paneR ? 'R' : 'L') {
-    // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves REPT)
-    const had = r.rept && r.rept[slot];
-    if (!reptExact(map)) {
+    // (one refined outline per pane, so the two panes do not take each other's; given back when the map leaves the
+    // Repeat, or the Repeat is refused)
+    const had = r.rept && r.rept[slot], inRep = repeatIn(map), refused = inRep && repeatRefused(map);
+    if (!inRep || refused) {
       if (had) { GLR.destroy(had.res); r.rept[slot] = null; }
-      return r.lineRes && !repeatRefused(map) ? { res: r.lineRes, rec: r } : null;
+      return r.lineRes && !refused ? { res: r.lineRes, rec: r } : null;
     }
     const ps = r.lpolys, v = pane.view;
     if (!ps || !ps.length) return null;
@@ -363,7 +370,7 @@
     if (!st.demote && g.demoted) { g.demoted = false; requestRender(side); }   // recovered: the shapes return to inverse
     return { motion: counts, half: st.half && motion && contiguous, demoted: st.demote, timed };
   }
-  // the view is in continuous motion (a drag, a tween, a transition, a playing morph, a wheel, a slider or a scrub of
+  // the view is in continuous motion (a drag, a tween, a playing morph, a wheel, a slider or a scrub of
   // changes): an inverse program never drawn yet is not drawn now (its first draw stalls the GPU process), another
   // ready B class or the forward stand-in takes its place (gl.js drawInverse) and it is warmed at the next quiet
   // moment. A single discrete change (an example, a toggle) or a hover is not motion: its program draws as soon as it
@@ -371,7 +378,7 @@
   function interacting() {
     const now = performance.now();
     // (a number's slider held: its frames come further apart than 150 ms when the chain is costly)
-    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
+    return !!(drag || tweens.length || camTweens.length || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
   }
   // a camera still turning after its drag is let go (its momentum) moves too: its frames would otherwise be drawn as rest frames,
   // each at a new distance, and All sheets at the Max mesh would rebuild their refinement in every one
@@ -461,7 +468,7 @@
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
     const m = normalizeMap(map);
-    if ((m.mode || 0) !== 0) return F(morph.playing || trans.k ? 'homotopy playing' : 'paused inside a step (homotopy)');
+    if ((m.mode || 0) !== 0) return F(morph.playing ? 'homotopy playing' : 'paused inside a step (homotopy)');
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
     // covers the north pole exactly, where the lifted mesh left a hole; panels.md 11, the stage-0 globe inverse)
     if (isIdentMap(m) && viewKind !== 'globe') return F('identity map');
@@ -915,7 +922,11 @@
     if (t0 === undefined) {
       compileT.set(pane, now);
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
-    } else if (now - t0 >= 300) { compileNote(pane); setCompileShown(role, true); }
+    } else if (now - t0 >= 300) {
+      // (not while the Play gate's message is up: it says the programs are not ready, and the note would lie under it)
+      if (svGateMessageUp()) compileBox = null; else compileNote(pane);
+      setCompileShown(role, true);
+    }
   }
   // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
   let compileBox = null;

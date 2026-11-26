@@ -4,8 +4,8 @@
 /* ---------- the chain's row: 188 px ---------- */
 .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 188px); }
 /* (the classic view's chain box: its cards are drawn by the Inspector, so while #pipeline holds none the box and its gutter
-   take no room, as in the steps view, except while a tour's strip is on the stage: the classic tour's steps anchor on the box;
-   the phone parks #pipeline in its sheet and keeps its box) */
+   take no room, as in the steps view, except while a tour's strip is on the stage: the Inspector step lights the box as
+   its extra area (also: chain); the phone parks #pipeline in its sheet and keeps its box) */
 :root.classic:not(.ph) .stage:not(:has(.tour-strip)):has(> .pipe-wrap > #pipeline:empty) { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
 :root.classic:not(.ph) .stage:not(:has(.tour-strip)):has(> .pipe-wrap > #pipeline:empty) > :is(.pipe-wrap, #gutterRow) { display: none; }
 
@@ -250,6 +250,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 #toastHost[data-placed] .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
 #toastHost[data-placed] .toast > span { flex: 1 1 auto; }
 #toastHost[data-placed] .toast .toast-act { flex: 0 0 auto; white-space: nowrap; }
+/* a message that measured its rows (toast's o.fit) and does not fit one has the words on a row of their own and its buttons together under them */
+#toastHost[data-placed] .toast[data-rows="two"] > span { flex: 1 1 100%; }
 /* (on the thread's rail the buttons wrap under a long message, one row of the toast each: at 24 px the two rows and the padding stay inside the strip's 64 px; the phone keeps its 44 px targets) */
 :root:not(.ph) #toastHost[data-placed="rail"] .toast .toast-act { height: 24px; min-height: 24px; }
 /* the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */

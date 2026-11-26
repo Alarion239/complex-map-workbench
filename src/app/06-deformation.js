@@ -123,7 +123,7 @@
   // for a new one, which runs in slices off the frame once the chain, the shapes and the view have been still for
   // 150 ms (a scrub, a shape drag, a pan or a zoom never re-choose per frame) and requests a render when it is done.
   // The first selection after opening starts at once.
-  const mfCache = { key: '', vkey: '', v0: null, sel: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null };
+  const mfCache = { key: '', vkey: '', v0: null, sel: null, src: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null };
   // The kept start points are points of the plane, not of the screen (a 60 px pan would swap the
   // whole set once the job runs, and during play the paths would pop between sets): a selection stays while the view is
   // within a pan of 30 % of the panel and a zoom of 1.5x of the view it was chosen in, at the same panel size; the
@@ -199,7 +199,7 @@
       // (a new set for a moved view, the same chain and shapes (the globe's orbit epoch aside): cross-faded in)
       const base = (q) => q.replace(/"globe\d+"\]$/, '"globe"]');
       mfCache.prev = mfCache.sel && mfCache.key && base(mfCache.key) === base(key) && !!mfCache.sel.globe === globe ? { sel: mfCache.sel, next: sel, t0: performance.now() } : null;
-      mfCache.key = key; mfCache.vkey = vkey; mfCache.v0 = { cx: v.cx, cy: v.cy, s: v.s, w: W, h: Hh }; mfCache.sel = sel; mfCache.rkey = ''; mfCache.rsel = null;
+      mfCache.key = key; mfCache.vkey = vkey; mfCache.v0 = { cx: v.cx, cy: v.cy, s: v.s, w: W, h: Hh }; mfCache.sel = sel; mfCache.src = src; mfCache.rkey = ''; mfCache.rsel = null;
       requestRender(src.side);
     }).catch((e) => { if (mfCache.job === job) mfCache.job = null; console.error('deformation paths', e); });
   }
@@ -232,7 +232,7 @@
     // re-traces made ahead when this is a neighbouring segment's
     if (mfCache.rkey !== key) {
       const a = mfAhead.sel === mfCache.sel && mfAhead.vkey === vkey && mfAhead.akey === src.aheadKey ? mfAhead.done.get(key) : null;
-      mfCache.rkey = key; mfCache.rsel = a || genDrain(mfRetraceGen(pane, mfCache.sel, src, m));
+      mfCache.rkey = key; mfCache.src = src; mfCache.rsel = a || genDrain(mfRetraceGen(pane, mfCache.sel, src, m));
     }
     mfAheadStart(pane, src, vkey);
     return mfCache.rsel;

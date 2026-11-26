@@ -7,7 +7,7 @@
 // ::before, the angle its glint starts at, and svReady's parts then. In three passes, each on a fresh page: with motion,
 // with prefers-reduced-motion: reduce, and with motion where the warm draw is held past the message the wait shows after
 // SV_GATE_HANG_MS (10 s), whose Retry is pressed (the warm draw held UNKNOWN_SETS sets more). In each:
-// - seen: the ring is set while every counted part (the programs, the jobs) is done and the warm draw is not (the
+// - seen: the ring is set while every counted part (the programs, the pole tracks, the ring, the meshes) is done and the warm draw is not (the
 //   scene reaches the state; a control);
 // - says: then ▶ is described "Preparing the glide…" alone: no share (17/18 said as a share would be "90 %");
 // - unknown: then the ring's state is unknown (data-wait "unknown"), not busy with a share it does not measure;
