@@ -322,7 +322,7 @@
   // target colors skip c4 (magenta), the palette ink nearest the pole color: roots must not read as poles
   const TARGET_CI = [5, 2, 6, 0, 4, 7, 1];
   const V = { left: { cx: 0, cy: 0, s: 60 }, right: { cx: 0, cy: 0, s: 60 } };
-  let rightAuto = true, leftAuto = true;
+  let leftAuto = true;
   let selected = null;
   let tool = 'select';
   let draft = null;
@@ -569,13 +569,12 @@
     // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
     // numbers, so the saved work comes back as it was written)
     numberPoints();
-    const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
+    const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: S.rightView || null });
     // (the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
     // build/phone-swap.md)
     if (Phone.largeView) {
-      const lv = Phone.largeView('L'), rv = Phone.largeView('R');
+      const lv = Phone.largeView('L');
       if (lv && leftStage() === 0) out.srcView = Object.assign({}, S.srcView, lv);
-      if (rv && out.rightView) out.rightView = rv;
     }
     // run-time fields of shapes (s._err: a shape's current error) are not state
     // (returns what it wrote, false when storage refused it: the language switch reloads only on a written save)
