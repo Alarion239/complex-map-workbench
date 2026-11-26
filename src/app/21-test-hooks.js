@@ -387,8 +387,10 @@
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the last Landscape frame's axis names (the plane's Re and Im, the height's), as boxes [x, y, w, h] in CSS px of the pane's canvas
   window.__cmwLandNames = () => (render3D.names || []).map((r) => r.slice());
-  // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
-  window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
+  // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame): the
+  // caption's ink box in the key's px (capBox) and how much it is narrowed (capK, 1 for not at all), and the ring's −i
+  // label's box (labelBox, null with no ring)
+  window.__cmwLegend = () => { drawLegend(); const st = legendState.L; return { kind: legendKind('L'), caption: st.caption || null, ring: st.ring, capBox: st.capBox || null, capK: st.capK ?? null, labelBox: st.labelBox || null }; };
   // The camera of the steps view's Landscape (the source plane's view) and its mirror V.left: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy).
   // { zoom: f } runs the app's own zoom of the left plane (zoomPane, the wheel's), about its centre, so the steps view must be showing the plane (not the
   // Landscape); { leftScale } multiplies the mirror's s first (the control: the glide's box does not follow the mirror's history)
