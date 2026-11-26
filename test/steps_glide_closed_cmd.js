@@ -32,16 +32,12 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { hold, grab, compare, sameAway, wordsOff, judge, UNHELD, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
-const goOk = async (url) => { if (!(await go(url))) throw new Error('no load event for ' + url); };
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
+const D1 = { id: 'd1', kind: 'disc', c: [0.4, 0.2], r: 0.8, ci: 0, visible: true };
 // a page opened in the steps view on the one-step chain step, Everywhere, the colour plane the last plane, its labels off
 const open = async (step, tag) => {
-  const ns = `${tag}${Date.now()}`;
-  const state = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 },
-    shapes: [{ id: 'd1', kind: 'disc', c: [0.4, 0.2], r: 0.8, ci: 0, visible: true }], steps: [Object.assign({ on: true }, step)] };
-  await goOk(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(state))}); 1`);
-  await goOk(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
-  const r = await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwSvX === "function" && typeof __cmwTime === "function" && !!window.GLR' });
+  const r = await K.openChain({ ns: `${tag}${Date.now()}`, steps: [Object.assign({ on: true }, step)], w: 1200, h: 800, shapes: [D1], max: 60000,
+    until: 'typeof __cmwSteps === "function" && typeof __cmwSvX === "function" && typeof __cmwTime === "function" && !!window.GLR' });
   if (!r.ok) throw new Error('the page hooks are not up after the navigation: ' + JSON.stringify(r));
   await wordsOff();
   await ev(`__cmwSet('morphPaths', false), __cmwSet('alpha', 1), __cmwSteps({ scope: 'all', surf: 'plane', bare: false }), 1`);
@@ -55,7 +51,6 @@ const place = async (x) => {
 };
 const record = () => ev('(() => { const g = __cmwSteps().glide; return g && { b: g.b, u: g.u, path: g.path, reason: g.reason, ops: g.ops }; })()');
 const noNewton = (g) => !!g && Array.isArray(g.ops) && g.ops.length > 0 && !g.ops.includes('NEWT');
-await view(1200, 800, false, false);
 
 // the steps: us, where the frame's path and ops are read; judge, the u (one of us) where its colour is judged; same, the frame at 0.5
 // from either end; cost and timing: the bounds of its held frame against z^2's, gated and reported (none: not timed)

@@ -151,6 +151,14 @@ const Phone = (() => {
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
     for (const id of ['leftTabs', 'rightTabs']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    // (the room a landscape plane leaves its keys: as the plane changes size, and as the bar and a message come and go, which lift them)
+    try {
+      const ro = new ResizeObserver(keysRoom);
+      for (const id of ['plotL', 'plotR']) { const p = $(id); if (p) ro.observe(p); }
+      const mo = new MutationObserver(keysRoom);
+      mo.observe(rootEl, { attributes: true, attributeFilter: ['class'] });
+      mo.observe(els.ctx, { attributes: true, attributeFilter: ['class', 'hidden'] });
+    } catch (e) { /* no ResizeObserver: the keys keep the column */ }
     if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
@@ -369,6 +377,26 @@ const Phone = (() => {
     if (!on || (side !== 'L' && side !== 'R') || side === big) return;
     if (merged() || held) { big = side; syncPanes(); A.resize(); return; }
     swap(true);
+  }
+
+  // ---------------- the plane's keys ----------------
+  // A landscape plane's keys (Sphere and Display in the right column, Fit view at the foot) stand in the room the plane leaves them
+  // above the context bar: its height less the keys' lift (--ph-lift). The column stands 60 px above that foot, over Fit view, and is
+  // 96 px tall (two 44 px keys and the 8 px between): under KEYS_COL px it would run up past the plane's top, and Sphere stands left of
+  // Display instead, one key high (data-keys="side"). Under KEYS_LOW px, 60 px and one key, the three stand in one row ("row"). Under the
+  // tall construction bar, Fit view stands left of Display and the column comes down beside it ("low"), or they stand in the row.
+  // phone.css places them
+  const KEYS_COL = 156, KEYS_LOW = 104;
+  function keysRoom() {
+    const bar = els.ctx, tall = !!bar && bar.classList.contains('in') && bar.classList.contains('tall') && !bar.classList.contains('under');
+    const lift = on ? parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-lift')) || 0 : 0;
+    for (const id of ['plotL', 'plotR']) {
+      const p = $(id);
+      if (!p) continue;
+      const room = p.clientHeight - lift, k = !on || !land ? '' : room < KEYS_LOW ? 'row' : tall ? 'low' : room < KEYS_COL ? 'side' : '';
+      if ((p.dataset.keys || '') === k) continue;
+      if (k) p.dataset.keys = k; else delete p.dataset.keys;
+    }
   }
 
   // ---------------- the context bar (D3) ----------------
