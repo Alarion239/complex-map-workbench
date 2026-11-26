@@ -377,7 +377,7 @@
     const shift = Math.hypot(b.cx - a.cx, b.cy - a.cy) * a.s;
     return shift + Math.abs(b.s / a.s - 1) * half <= px;
   }
-  function setFocus(k, quiet) {
+  function setFocus(k) {
     phHold();
     endPeek();
     setFocusStep(k);
@@ -394,6 +394,5 @@
     refreshIntPop();
     requestRender('L', 'R', 'P');
     save();
-    if (!quiet) tourEmit('step-focused', { k });
   }
 

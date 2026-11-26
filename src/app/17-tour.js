@@ -5,7 +5,6 @@
   let tourSplit = false;   // the tour's stop shows the Inspector's split offer (its scene sets split: true)
   let tourHold = false;   // the autosave is paused while a tour borrows the canvas: writeState writes nothing
   let tourDrawer = false; // the tour opened the left drawer for a step (a narrow desktop): the next step closes it
-  let tourPics = null;    // the chain's Pictures | Names and height before a tour step turned its pictures on
   let tourPhGeo = null;   // (r3) the phone sheet geometry on the root before the tour: [--ph-hp, --ph-ride]
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
   const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
@@ -209,32 +208,6 @@
     sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; tourSplit = false; save(); } return true; },
     // the current stop shows the Inspector's split offer (its split: true); every other stop hides it
     splitOffer: (on) => { if (tourSplit !== !!on) { tourSplit = !!on; requestRender('P'); } return true; },
-    // a step about the cards' pictures shows them: Pictures rather than Names, and a chain shorter than
-    // Pictures needs (140 px, the gutter's own rule) at Pictures' 188 px; off, the user's setting comes back (unless they
-    // changed it meanwhile). True while the tour holds the pictures on. A phone's chain bar always shows its pictures
-    chainPictures: (on) => {
-      const root = document.documentElement;
-      if (on) {
-        if (tourPics) return true;
-        if (tourPhone()) return false;
-        const hNow = root.style.getPropertyValue('--chain-h'), short = (parseFloat(getComputedStyle($('stage')).getPropertyValue('--chain-h')) || 188) < 140;
-        if (!S.compact && !short) return false;
-        tourPics = { compact: !!S.compact, h: hNow };
-        setOpt('compact', false);
-        if (short) root.style.setProperty('--chain-h', '188px');
-        applyLayout();
-        return true;
-      }
-      if (!tourPics) return false;
-      const p = tourPics;
-      tourPics = null;
-      if (!S.compact) {
-        setOpt('compact', p.compact);
-        if (p.h) root.style.setProperty('--chain-h', p.h); else root.style.removeProperty('--chain-h');
-        applyLayout();
-      }
-      return false;
-    },
     loadScene: tourLoadScene,
     setLook: tourSetLook,
     // (notes/tour/INTEGRATION.md 9) where the tour's strip goes ('stage': the first row of the stage, or on a
