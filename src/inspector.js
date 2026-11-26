@@ -316,7 +316,7 @@ const Inspector = (() => {
         E.splitBtn = btn;
         syncFoldLabel(box);
       }
-      const tip = sp.blocked ? A.Funcs.splitReason(sp) : A.stepsView && A.stepsView() ? $t('Each step gets its own chip and plane; the glide plays them one by one.') : $t('Each step gets its own card and picture; the deformation plays them one by one.');
+      const tip = sp.blocked ? A.Funcs.splitReason(sp) : A.stepsView && A.stepsView() ? $t('Each step gets its own chip and plane; the glide plays through them.') : $t('Each step gets its own card and picture.');
       const btn = E.splitBtn;
       if (btn && btn.dataset.tip !== tip) { btn.dataset.tip = tip; btn.setAttribute('aria-description', tip); }
       if (btn && btn.disabled !== !!sp.blocked) btn.disabled = !!sp.blocked;
