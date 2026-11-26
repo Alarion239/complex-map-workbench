@@ -560,6 +560,19 @@ html:not(.ph) .ph-only { display: none !important; }
    plane's right edge, and on the Stack, where the colour key is a lane further in for the Tilt key, 164 + 30 + 8) */
 :root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] .ld-key { max-width: min(calc(100% - var(--ruler) - 6px - 150px), 320px); }
 :root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key { max-width: min(calc(100% - var(--ruler) - 6px - 202px), 320px); }
+/* (but the Stack's open key, with its connector switch, needs the width of the plane up to the keys' row to show all it holds (#2418): it
+   stops 6 px short of the row, 148 + 8 + 6 px from the plane's right edge, and the folded colour key in its way is hidden while it is open,
+   out of sight and out of the tab order, and back when it folds: one key open at a time (19-lookdown.js folds an open colour key as
+   this one opens). Where it still does not show all it holds at that width (fitLookKey): narrow, its title squeezed by the switch, the
+   switch's visible name gives way (the switch keeps its name for assistive technology); tight, its marks past its foot, the gaps above
+   and below the marks close 2 px each, to 2 and 4 px) */
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key:not(.folded):has(> .ld-links-row) { max-width: min(calc(100% - var(--ruler) - 6px - 162px), 460px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])):has(> .ld-key:not(.folded) > .ld-links-row) > .legend-chip.collapsed { visibility: hidden; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key.narrow:not(.folded) > .ld-links-row > .ld-links-l { display: none; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key.tight:not(.folded) { row-gap: 2px; padding-bottom: 4px; }
+/* (under the tall bar and in the one row of keys the Stack's open key reaches past the folded colour key, which stands at the keys' level
+   left of them: there too the colour key is hidden while the Stack's key is open, and back when it folds (#2481)) */
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]):has(> .ld-key:not(.folded) > .ld-links-row) > .legend-chip.collapsed { visibility: hidden; }
 /* (every landscape plane under the tall context bar ("low"): Fit view stands left of Display, in the 60 px lane
    right of the 44 px key (8 + 44 + 8), and Sphere and Display stand on its level, so the column is two keys high; the colour key
    moves up to the top row, clear of the construction chip below it and of Fit view, and the readout stops short of it, except the

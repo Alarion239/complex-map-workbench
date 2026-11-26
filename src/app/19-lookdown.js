@@ -141,7 +141,13 @@
     lookKey.dataset.sig = sig;
     lookKey.hidden = !on;
     if (!on) { fitLookKey(); return; }
-    const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
+    // (on a phone one key of the plane is open at a time: the colour key's card, open, folds as this one opens; the focus
+    // stays on this key's title)
+    const fold = (open) => {
+      lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open));
+      if (ph && open) for (const lg of host.querySelectorAll(':scope > .legend-chip:not(.collapsed)')) lg.classList.add('collapsed');
+      fitLookKey();
+    };
     const title = stack ? $t('Stack') : $t('Look down');
     const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': stack && tubes ? 'ldList ldLinks' : 'ldList', onclick: () => fold(!lookKeyOpen) }, title) : h('span', { class: 'ld-ttl' }, title);
     // (the marks are a list, so a screen reader says them one by one)
@@ -153,13 +159,20 @@
     fitLookKey();
   }
   // an open key on a landscape phone that the room under the plane's readout would cut: it takes the plane's top, over the
-  // readout, which gives way (phone.css)
+  // readout, which gives way (over-readout). Where it would still not show all it holds, it is marked: narrow where its
+  // title and the connectors' switch do not fit side by side, tight where its marks run past its foot; phone.css draws the
+  // key closer there, in the one-key-high row of the Stack's keys, whose row sets how wide the key may be (#2449)
   function fitLookKey() {
     if (!lookKey) return;
     lookFits++;
-    lookKey.classList.remove('over-readout');
+    lookKey.classList.remove('over-readout', 'narrow', 'tight');
     const rc = document.documentElement.classList;
-    if (!lookKey.hidden && lookKeyOpen && rc.contains('ph') && rc.contains('ph-land') && lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('over-readout');
+    if (!lookKey.hidden && lookKeyOpen && rc.contains('ph') && rc.contains('ph-land')) {
+      const ttl = lookKey.querySelector('.ld-ttl');
+      if (lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('over-readout');
+      if (lookKey.scrollWidth > lookKey.clientWidth + 1 || (!!ttl && ttl.scrollWidth > ttl.clientWidth + 1)) lookKey.classList.add('narrow');
+      if (lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('tight');
+    }
     stackMeasureRooms();
     svTileRefresh();   // (the glide's formula tile keeps clear of the key: the plane's contain: strict keeps its size from telling it)
   }

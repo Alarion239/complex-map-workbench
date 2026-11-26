@@ -2,12 +2,17 @@
 // context bar, however short the plane is (#2398): in the steps view on the flat plane at 568 x 320, 600 x 320, 640 x 360 and 740 x 360,
 // with the plane as the page starts (no bar: a control), with example 1 (its row under the head leaves a plane 148 px tall at 320 px),
 // with a selected shape's bar (56 px), with both, and with the tall construction bar on example 1. Each key's box lies inside the plane
-// and above the bar's top, no two keys overlap, and each key is the topmost element at its centre. The folded colour key meets none of
-// them, but under the tall bar on example 1, where the plane above the bar (58 px at 320 px, 84 px at 360 px) holds the row of keys
-// and not the colour key above it: where that key stands then is #2407. On the Stack (#2415's Tilt key in the column), with a
+// and above the bar's top, no two keys overlap, each key is the topmost element at its centre, and the folded colour key meets none of
+// them (under the tall bar it stands left of the row, #2407). On the Stack (#2415's Tilt key in the column), with a
 // selected disc's bar, in Tilt, at 568 x 320, 600 x 320, 640 x 360 and 740 x 360: the same rows, the Tilt key among the keys,
 // the folded colour key the topmost element at its centre (beside the column's grid, whose empty cell takes no tap), and the
-// Look down key, unfolded, lies inside the plane above the bar and meets no key, nor the folded colour key.
+// Look down key, unfolded, lies inside the plane above the bar, shows all it holds with no scroll (#2418), and meets no key, nor
+// the folded colour key where that shows. Also in ru and it at 568 x 320 and 600 x 320. The focus stays on the key's title as it
+// unfolds; in the one-key-high row ("side") the folded colour key is hidden while the key is open (not seen, not focusable), and
+// back, the topmost at its centre, once it folds; and the colour key's card, open, folds as the Look down key opens (one key
+// open at a time). And on the Stack under the tall construction bar (#2481), a disc selected, at 568 x 320, 600 x 320, 640 x 360
+// and 667 x 375: the Stack's key unfolded meets no folded colour key that shows; one it would cover is hidden, takes no focus, and is
+// back, the topmost at its centre, once the key folds.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -60,7 +65,7 @@ for (const [w, h] of SIZES) for (const [state, ex, bar] of STATES) {
     ok(`${tag}: ${k.id} stands inside the plane, under its top`, k.t >= g.plot.t - SLACK && k.l >= g.plot.l - SLACK && k.r <= g.plot.r + SLACK, { key: k, plotTop: g.plot.t });
     ok(`${tag}: ${k.id} stands above the ${g.bar ? "bar's top" : "plane's foot"}`, k.b <= foot + SLACK, { key: k, foot });
     ok(`${tag}: ${k.id} is the topmost element at its centre`, k.onTop, k.over);
-    if (g.legend && bar !== 'tall') ok(`${tag}: the folded colour key meets no plane key (${k.id})`, !meets(k, g.legend), { key: k, legend: g.legend });
+    if (g.legend) ok(`${tag}: the folded colour key meets no plane key (${k.id})`, !meets(k, g.legend), { key: k, legend: g.legend });
   }
   for (let i = 0; i < g.keys.length; i++) for (let j = i + 1; j < g.keys.length; j++) ok(`${tag}: ${g.keys[i].id} and ${g.keys[j].id} do not overlap`, !meets(g.keys[i], g.keys[j]), [g.keys[i], g.keys[j]]);
 }
@@ -69,12 +74,12 @@ for (const [w, h] of SIZES) for (const [state, ex, bar] of STATES) {
 // Look down key unfolded (a tap on its title) lies inside the plane, above the bar, and meets no key
 const M3 = [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }];
 const tapAt = async (x, y) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-for (const [w, h] of [[568, 320], [600, 320], [640, 360], [740, 360]]) {
-  const tag = `${w}x${h} the Stack, Tilt`;
+for (const [w, h, lang] of [[568, 320, 'en'], [600, 320, 'en'], [640, 360, 'en'], [740, 360, 'en'], [568, 320, 'ru'], [600, 320, 'ru'], [568, 320, 'it'], [600, 320, 'it']]) {
+  const tag = `${w}x${h} ${lang} the Stack, Tilt`;
   await view(w, h, false, true);
   const ns = 'pkrs' + w + (Date.now() % 1000000);
   await load(ns, { shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: M3, srcView: { cx: 1.1, cy: 0, s: 70 } });
-  await go(`${U}?ns=${ns}&view=steps`);
+  await go(`${U}?ns=${ns}&view=steps&lang=${lang}`);
   await settled({ max: SETTLE_MAX, until: `typeof __cmwSteps === 'function' && !!window.Phone && Phone.isOn() && __cmwSteps().ready.ready` });
   await ev(`(__cmwSelect('d'), 1)`);
   await settled({ max: SETTLE_MAX, until: `typeof __cmwLookDown === 'function' && !!__cmwLookDown() && !!document.querySelector('.ph-ctx.in')` });
@@ -100,13 +105,81 @@ for (const [w, h] of [[568, 320], [600, 320], [640, 360], [740, 360]]) {
   if (!btn) continue;
   await tapAt(btn[0], btn[1]);
   await settled({ max: 5000, floor: 400, until: `document.querySelector('#plotL .ld-key > button.ld-ttl').getAttribute('aria-expanded') === 'true'` });
-  const ld = await ev(`(() => { const r = document.querySelector('#plotL .ld-key').getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; })()`);
+  const ld = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), r = k.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, hidden: Math.max(k.scrollHeight - k.clientHeight, k.scrollWidth - k.clientWidth), narrow: k.classList.contains('narrow'), tight: k.classList.contains('tight') }; })()`);
   const g2 = await geometry();
-  info[tag].ldOpen = [ld.l, ld.t, ld.r, ld.b].map(Math.round);
+  info[tag].ldOpen = [ld.l, ld.t, ld.r, ld.b].map(Math.round).concat([ld.hidden, ld.narrow ? 'narrow' : '', ld.tight ? 'tight' : '']);
+  // (in the one row of the Stack's keys the open key stops 6 px short of the row's first key, Tilt; it is drawn closer only where it would
+  // otherwise not show all it holds, never in en (rvE on #2449))
+  const tilt = g2.keys.find((k) => /ph-tilt/.test(k.id));
+  if (arr === 'side' && tilt) ok(`${tag}: the Look down key unfolded ends 6 px short of the Tilt key`, ld.r <= tilt.l - 6 + SLACK, { ld: ld.r, tilt: tilt.l });
+  if (lang === 'en') ok(`${tag}: the Look down key unfolded keeps its own spacing in en (neither narrow nor tight)`, !ld.narrow && !ld.tight, ld);
+  ok(`${tag}: the Look down key unfolded shows all it holds, with no scroll to reach the rest (#2418)`, ld.hidden <= 1, ld);
   ok(`${tag}: the Look down key unfolded lies inside the plane, above the ${g2.bar ? "bar's top" : "plane's foot"}`, ld.t >= g2.plot.t - SLACK && ld.l >= g2.plot.l - SLACK && ld.r <= g2.plot.r + SLACK && ld.b <= (g2.bar ? Math.min(g2.plot.b, g2.bar.t) : g2.plot.b) + SLACK, { ld, plot: g2.plot });
   const hit = g2.keys.filter((k) => meets(k, ld));
   ok(`${tag}: the Look down key unfolded meets no plane key`, hit.length === 0, hit.map((k) => k.id));
-  // (nor the folded colour key, one lane in from the keys: rvA on #2449)
-  if (g.legend) ok(`${tag}: the Look down key unfolded meets not the folded colour key`, !meets(ld, g.legend), { ld, legend: g.legend });
+  // (nor the folded colour key, one lane in from the keys, where it shows while the key is open: rvA on #2449)
+  if (g2.legend) ok(`${tag}: the Look down key unfolded meets not the folded colour key`, !meets(ld, g2.legend), { ld, legend: g2.legend });
+  // (the focus stays on the key's title as it unfolds; in the one-key-high row the folded colour key, whose lane the open key
+  // takes, is hidden while it is open: not seen and not focusable (rvE on #2449))
+  ok(`${tag}: the focus stays on the Look down key's title`, await ev(`document.activeElement === document.querySelector('#plotL .ld-key > button.ld-ttl')`), await ev(`document.activeElement && (document.activeElement.id || document.activeElement.className)`));
+  if (arr === 'side') {
+    const lgHid = await ev(`(() => { const lg = document.getElementById('leftLegend'), was = document.activeElement; lg.focus(); const f = document.activeElement === lg; if (was && was.focus) was.focus(); return { vis: getComputedStyle(lg).visibility, focusable: f }; })()`);
+    ok(`${tag}: the folded colour key is hidden while the Look down key is open (not seen, not focusable)`, lgHid.vis === 'hidden' && !lgHid.focusable, lgHid);
+  }
+  // (folded again, the colour key is back and takes its tap)
+  const btnO = await ev(`(() => { const r = document.querySelector('#plotL .ld-key > button.ld-ttl').getBoundingClientRect(); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2, r.width]; })()`);
+  ok(`${tag}: the open Look down key's title is there to tap`, btnO[2] >= 24, btnO);
+  await tapAt(btnO[0], btnO[1]);
+  await settled({ max: 5000, floor: 400, until: `document.querySelector('#plotL .ld-key > button.ld-ttl').getAttribute('aria-expanded') === 'false'` });
+  const g3 = await geometry();
+  ok(`${tag}: the Look down key folded, the folded colour key is back and the topmost element at its centre`, !!g3.legend && g3.legendTop === '', { legend: g3.legend, top: g3.legendTop });
+  // (one key open at a time: the colour key's card, open, folds as the Look down key opens)
+  if (g3.legend) {
+    await tapAt((g3.legend.l + g3.legend.r) / 2, (g3.legend.t + g3.legend.b) / 2);
+    await settled({ max: 5000, floor: 400, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
+    const lgOpen = await ev(`!document.getElementById('leftLegend').classList.contains('collapsed')`);
+    ok(`${tag}: a tap on the folded colour key opens its card`, lgOpen, lgOpen);
+    // (a click on the title: where the open card lies over the title, a tap reaches the card, and the focus that moves to the title
+    // folds it already, whichever opens the key)
+    await ev(`(document.querySelector('#plotL .ld-key > button.ld-ttl').click(), 1)`);
+    await settled({ max: 5000, floor: 400, until: `document.querySelector('#plotL .ld-key > button.ld-ttl').getAttribute('aria-expanded') === 'true'` });
+    const after = await ev(`(() => { const lg = document.getElementById('leftLegend'); return { collapsed: lg.classList.contains('collapsed'), expanded: lg.getAttribute('aria-expanded'), ld: document.querySelector('#plotL .ld-key > button.ld-ttl').getAttribute('aria-expanded') }; })()`);
+    ok(`${tag}: the colour key's open card folds as the Look down key opens (one key open at a time)`, after.collapsed && after.expanded === 'false' && after.ld === 'true', after);
+  }
+}
+// ---- the Stack under the tall construction bar (#2481): a disc of M3 selected, the Stack, Perpendicular's tool picked (the tall bar), and
+// the Stack's key unfolded (a click on its title: the bar's row may lie over where a tap would land). The open key, opaque over the plane,
+// meets no folded colour key that shows; where it would, that key is hidden while the key is open (not seen, not focusable), one key
+// open at a time, and back, the topmost at its centre, once the key folds
+for (const [w, h] of [[568, 320], [600, 320], [640, 360], [667, 375]]) {
+  const tag = `${w}x${h} the Stack, tall bar`;
+  await view(w, h, false, true);
+  const ns = 'pkrt' + w + (Date.now() % 1000000);
+  await load(ns, { shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: M3, srcView: { cx: 1.1, cy: 0, s: 70 } });
+  await go(`${U}?ns=${ns}&view=steps`);
+  await settled({ max: SETTLE_MAX, until: `typeof __cmwSteps === 'function' && !!window.Phone && Phone.isOn() && __cmwSteps().ready.ready` });
+  await ev(`(__cmwSelect('d'), 1)`);
+  await settled({ max: SETTLE_MAX, until: `typeof __cmwLookDown === 'function' && !!__cmwLookDown() && !!document.querySelector('.ph-ctx.in')` });
+  await ev(`(__cmwSteps({ surf: 'stack' }), 1)`);
+  await settled({ max: SETTLE_MAX, until: `__cmwSteps().surf === 'stack' && typeof __cmwStack === 'function' && !!__cmwStack().drawn` });
+  await ev(`(document.querySelector('#constructTools .tool[data-tool="perp"]').click(), 1)`);
+  await settled({ max: SETTLE_MAX, floor: 600, until: `document.documentElement.classList.contains('ph-ctx-tall') && !!document.querySelector('#plotL .ld-key > button.ld-ttl')` });
+  const g = await geometry();
+  ok(`${tag}: the tall bar is open, the Stack's key is there, and the folded colour key shows`, /\bph-ctx-tall\b/.test(g.cls) && !!g.legend, { cls: g.cls, legend: g.legend });
+  if (!g.legend) continue;
+  await ev(`(document.querySelector('#plotL .ld-key > button.ld-ttl').click(), 1)`);
+  await settled({ max: 5000, floor: 400, until: `document.querySelector('#plotL .ld-key > button.ld-ttl').getAttribute('aria-expanded') === 'true'` });
+  const ld = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), r = k.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, links: !!k.querySelector('.ld-links-row') }; })()`);
+  const g2 = await geometry(), arr = await ev(`document.getElementById('plotL').dataset.keys || ''`);
+  info[tag] = { keysAttr: arr, ld: [ld.l, ld.t, ld.r, ld.b].map(Math.round), legend: g.legend && [g.legend.l, g.legend.t, g.legend.r, g.legend.b].map(Math.round), legendOpen: g2.legend && [g2.legend.l, g2.legend.t, g2.legend.r, g2.legend.b].map(Math.round) };
+  ok(`${tag}: the Stack's key unfolded meets not the folded colour key where that shows`, !g2.legend || !meets(ld, g2.legend), { ld, legend: g2.legend });
+  if (!g2.legend) {
+    const f = await ev(`(() => { const lg = document.getElementById('leftLegend'), was = document.activeElement; lg.focus(); const r = document.activeElement === lg; if (was && was.focus) was.focus(); return r; })()`);
+    ok(`${tag}: the folded colour key, hidden while the Stack's key is open, takes no focus`, !f, f);
+  }
+  await ev(`(document.querySelector('#plotL .ld-key > button.ld-ttl').click(), 1)`);
+  await settled({ max: 5000, floor: 400, until: `document.querySelector('#plotL .ld-key > button.ld-ttl').getAttribute('aria-expanded') === 'false'` });
+  const g3 = await geometry();
+  ok(`${tag}: the Stack's key folded, the folded colour key is back and the topmost element at its centre`, !!g3.legend && g3.legendTop === '', { legend: g3.legend, top: g3.legendTop });
 }
 return { pass: fails.length === 0, fails: fails.slice(0, 60), info };
