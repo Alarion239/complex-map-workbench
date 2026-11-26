@@ -125,12 +125,13 @@
   // for a new one, which runs in slices off the frame once the chain, the shapes and the view have been still for
   // 150 ms (a scrub, a shape drag, a pan or a zoom never re-choose per frame) and requests a render when it is done.
   // The first selection after opening starts at once.
-  const mfCache = { key: '', vkey: '', v0: null, sel: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null };
+  const mfCache = { key: '', vkey: '', v0: null, sel: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null, chosen: 0 };
   // The kept start points are points of the plane, not of the screen (a 60 px pan would swap the
   // whole set once the job runs, and during play the paths would pop between sets): a selection stays while the view is
   // within a pan of 30 % of the panel and a zoom of 1.5x of the view it was chosen in, at the same panel size; the
   // frame re-projects its paths. A larger pan or zoom chooses again.
-  function mfViewOk(pane) {
+  // (src: the deformation source; a kept start's place is the one the choice tested, its image under H_0, pathsGen)
+  function mfViewOk(pane, src) {
     const a = mfCache.v0, v = pane.view;
     if (!a || a.w !== pane.w || a.h !== pane.h || !(v.s > 0)) return false;
     const r = v.s / a.s;
@@ -138,7 +139,13 @@
     // (a scrub's auto-fit or a pan that leaves more than one kept start out of view chooses again, cross-faded; one such
     // path is drawn clipped meanwhile, with the chevron where it comes in, drawMorphPaths)
     let off = 0;
-    if (mfCache.sel && !pane.globeSel) for (const k of mfCache.sel.kept) { const p = pane.w2s(k.sp.z); if (!(p[0] >= 0 && p[1] >= 0 && p[0] <= pane.w && p[1] <= pane.h) && ++off > 1) return false; }
+    const H0 = src && !src.startId ? src.Fat(0) : null;
+    if (mfCache.sel && !pane.globeSel) {
+      for (const k of mfCache.sel.kept) {
+        const w = H0 ? H0(k.sp.z) : k.sp.z, p = CX.isFin(w) ? pane.w2s(w) : null;
+        if (!(p && p[0] >= 0 && p[1] >= 0 && p[0] <= pane.w && p[1] <= pane.h) && ++off > 1) return false;
+      }
+    }
     return true;
   }
   // A deformation source: what the paths draw, whichever view shows the deformation. { Fat(T): H_T as a function of z;
@@ -202,13 +209,14 @@
       const base = (q) => q.replace(/"globe\d+"\]$/, '"globe"]');
       mfCache.prev = mfCache.sel && mfCache.key && base(mfCache.key) === base(key) && !!mfCache.sel.globe === globe ? { sel: mfCache.sel, next: sel, t0: performance.now() } : null;
       mfCache.key = key; mfCache.vkey = vkey; mfCache.v0 = { cx: v.cx, cy: v.cy, s: v.s, w: W, h: Hh }; mfCache.sel = sel; mfCache.rkey = ''; mfCache.rsel = null;
+      mfCache.chosen++;
       requestRender(src.side);
     }).catch((e) => { if (mfCache.job === job) mfCache.job = null; console.error('deformation paths', e); });
   }
   // src: the deformation source (default the classic transport's)
   function morphSelScreen(pane, src = classicSource()) {
     const { key, vkey, m } = mfScreenKey(pane, src);
-    if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane))) {
+    if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane, src))) {
       // (a pending re-choice for a view that has come back within reach is dropped)
       if (mfCache.timer) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
       if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; }
@@ -225,7 +233,7 @@
       else if (!(mfCache.timer && mfCache.want === want)) {
         clearTimeout(mfCache.timer);
         mfCache.want = want;
-        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane))) mfStartJob(pane, key, vkey, src); }, 150);
+        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane, src))) mfStartJob(pane, key, vkey, src); }, 150);
       }
     }
     if (!mfCache.sel) return null;
@@ -318,7 +326,7 @@
   async function morphSelScreenNow(pane, force) {
     if (force) { mfCache.sel = null; mfCache.key = ''; if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; } }
     const src = classicSource(), { key, vkey } = mfScreenKey(pane, src);
-    if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane))) return mfCache.sel;
+    if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane, src))) return mfCache.sel;
     clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = '';
     mfStartJob(pane, key, vkey, src);
     await mfCache.job.run;
