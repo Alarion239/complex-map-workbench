@@ -141,7 +141,7 @@
   }
   function updateFocusUI() {
     const t = paneTitles();
-    // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
+    // (the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
     const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 ${parkedAt() >= 0 ? 'w' + String(parkedAt()).split('').map((d) => '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'[+d]).join('') : 'w'}`;
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
@@ -385,6 +385,9 @@
   function layoutFootNow(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
     layoutFootRun(side, force);
+    // (an open Regions pop-up follows the head's button whether or not the row changed: the head's right edge moves with the window, and a layout that finds the same controls returns before it)
+    const pat = f && f.querySelector(':scope > .pat-btn'), pop = foot[side].pop;
+    if (pat && pop && pop.isConnected && pop.dataset.of === 'pattern') placeFootPop(pop, pat);
     if (f && a && a !== document.body && a.isConnected && document.activeElement !== a && f.contains(a)) /** @type {HTMLElement} */ (a).focus({ preventScroll: true });
   }
   function layoutFootRun(side, force) {
@@ -545,6 +548,20 @@
     foot[side].pat = b;
     return b;
   }
+  // the pop-up's place by its button: the strip sits at the bottom of the plot, so it opens upward over the plot, below only when there
+  // is no room. From the pane head, the popover hangs under the head, its right edge on the head's: the Regions button sits left of the
+  // toggles, and a popover under it would cover the middle of the plane the tour lights. Set when it opens, and again when the head
+  // lays its row out again and the button moves
+  function placeFootPop(pop, btn) {
+    const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+    const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
+    const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
+    let y = fromHead ? -1 : r.top - ph - 6;
+    if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
+    pop.dataset.side = y < r.top ? 'top' : 'bottom';
+    pop.style.left = Math.max(12, Math.min(window.innerWidth - pw - 12, x0)) + 'px';
+    pop.style.top = y + 'px';
+  }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
     if (!refresh && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === of) { closePalette(); btn.focus(); return; } // anchor re-click closes
@@ -576,17 +593,7 @@
       edge();
       s.addEventListener('scroll', edge, { passive: true });
     }
-    // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
-    const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    // (from the pane head, the popover hangs under the head, its right edge on the head's: the Regions
-    // button sits left of the toggles, and a popover under it would cover the middle of the plane the tour lights)
-    const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
-    const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
-    let y = fromHead ? -1 : r.top - ph - 6;
-    if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
-    pop.dataset.side = y < r.top ? 'top' : 'bottom';
-    pop.style.left = Math.max(12, Math.min(window.innerWidth - pw - 12, x0)) + 'px';
-    pop.style.top = y + 'px';
+    placeFootPop(pop, btn);
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
     // (Escape, and a Tab that would leave the pop-up, close it and give the focus back to the anchor: it is a non-modal dialog, so Tab
@@ -656,7 +663,7 @@
   // (focusMap: in the steps view the shown plane's map into the colour plane). A step after the colour plane is in
   // neither, so it adds no sheets
   function landSheetsMap(s = null) { return s != null ? svColourMap(s) : focusMap(); }
-  // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
+  // what the landscape draws with All sheets, as render3D does: null for the principal branch (All
   // sheets off, or no multivalued step in the map it draws the sheets of, landSheetsMap, or the CPU stand-in's frame,
   // which draws the principal branch alone while the sheets' programs link), else {K: the surfaces drawn, total: the
   // sheet combinations of the window, W, pieces: [{n, of}]} (one per multivalued piece of that map: n sheets all drawn,
@@ -917,7 +924,7 @@
     if (!lPhase()) return null;
     return lGlobe() ? 'sphere' : 'color';
   }
-  // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
+  // (so that nothing covers the work uninvited) On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
   // after a click, the options behind the Display options button. A phone
   // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
