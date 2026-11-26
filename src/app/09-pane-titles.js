@@ -385,6 +385,9 @@
   function layoutFootNow(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
     layoutFootRun(side, force);
+    // (an open Regions pop-up follows the head's button whether or not the row changed: the head's right edge moves with the window, and a layout that finds the same controls returns before it)
+    const pat = f && f.querySelector(':scope > .pat-btn'), pop = foot[side].pop;
+    if (pat && pop && pop.isConnected && pop.dataset.of === 'pattern') placeFootPop(pop, pat);
     if (f && a && a !== document.body && a.isConnected && document.activeElement !== a && f.contains(a)) /** @type {HTMLElement} */ (a).focus({ preventScroll: true });
   }
   function layoutFootRun(side, force) {
@@ -545,6 +548,20 @@
     foot[side].pat = b;
     return b;
   }
+  // the pop-up's place by its button: the strip sits at the bottom of the plot, so it opens upward over the plot, below only when there
+  // is no room. From the pane head, the popover hangs under the head, its right edge on the head's: the Regions button sits left of the
+  // toggles, and a popover under it would cover the middle of the plane the tour lights. Set when it opens, and again when the head
+  // lays its row out again and the button moves
+  function placeFootPop(pop, btn) {
+    const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+    const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
+    const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
+    let y = fromHead ? -1 : r.top - ph - 6;
+    if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
+    pop.dataset.side = y < r.top ? 'top' : 'bottom';
+    pop.style.left = Math.max(12, Math.min(window.innerWidth - pw - 12, x0)) + 'px';
+    pop.style.top = y + 'px';
+  }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
     if (!refresh && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === of) { closePalette(); btn.focus(); return; } // anchor re-click closes
@@ -576,17 +593,7 @@
       edge();
       s.addEventListener('scroll', edge, { passive: true });
     }
-    // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
-    const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    // (from the pane head, the popover hangs under the head, its right edge on the head's: the Regions
-    // button sits left of the toggles, and a popover under it would cover the middle of the plane the tour lights)
-    const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
-    const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
-    let y = fromHead ? -1 : r.top - ph - 6;
-    if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
-    pop.dataset.side = y < r.top ? 'top' : 'bottom';
-    pop.style.left = Math.max(12, Math.min(window.innerWidth - pw - 12, x0)) + 'px';
-    pop.style.top = y + 'px';
+    placeFootPop(pop, btn);
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
     // (Escape, and a Tab that would leave the pop-up, close it and give the focus back to the anchor: it is a non-modal dialog, so Tab
