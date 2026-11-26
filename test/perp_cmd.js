@@ -1216,11 +1216,11 @@ await section('J', async () => {
   ok('J7 phone: the Orthogonal choices (in the context bar) take taps 18 px above and below their centre, 44 px tall; the 3-point chip keeps its 40 px buttons (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 4 && info.jPhone.perp.every((b) => b.up && b.down && b.h >= 44) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
   await view(1440, 900, false, false); await settle(300);
   // J8 (review-verify verify-1) a meet of two hyperbolic lines, English drops the closing comma before "and" (it read as a
-  // list break), keeps it before "in the z-plane"; Russian keeps it before «и». The on-screen caption of the coloured
-  // steps view also says ", and the shading steps": the list's own ", and" is the one before "the intersection"
+  // list break), keeps it before "in the z-plane"; Russian keeps it before «и». The shapes' list in the genitive (the
+  // images of …, which a plane past the colour plane names) has its one list-final ", and", before "the intersection"
   const mt = { id: 'm', kind: 'point', p: [-0.5, -0.3], visible: true, def: { op: 'meet', args: [{ s: 'k1', part: 0 }, { s: 'k2', part: 0 }], index: 0 } };
   await load(NS + 'j8', scene([UC, pt('p0', [0.1, 0.6]), pt('p1', [-0.5, -0.3]), pt('p2', [0.55, -0.25]), Kd('k1', 'p0', 'p1', 1), Kd('k2', 'p1', 'p2', 1), mt])); await settle(900);
-  info.jMeet = await capF(); info.jMeetScreen = await ev(`__cmwCapText()`);
+  info.jMeet = await capF(); info.jMeetScreen = await ev(`__cmwCapText('listGen')`);
   await nav(`${U}?ns=${NS}j8&lang=ru`);
   info.jMeetRu = await capF();
   await nav(`${U}?ns=${NS}j8`);
