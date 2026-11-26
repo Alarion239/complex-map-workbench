@@ -9,7 +9,8 @@
 //   colour Everywhere (the plane's colour needs no regions: no hatch, no note).
 // The same holds for a repeated degree-3 step next to another step (#2405), parked on the plane past both: Integer power n = 3
 // and the formula z^3, each followed by ×2, and ×2 followed by Integer power n = 3. Their copies make the plan, as any other
-// repeat's next to a step (one REPT op stands for a repeat only as the plane's one step).
+// repeat's next to a step (one REPT op stands for a repeat only as the plane's one step). The repeat's own plane in such a
+// chain is drawn by its REPT plan.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -40,7 +41,8 @@ const open = async (sc, n, everywhere) => {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}&lang=en`);
   await ready();
-  if (everywhere) { await ev("__cmwSteps({ scope: 'all' }); 1"); await settled({ max: SETTLE_LONG, panes: false }); await ev(`__cmwSteps({ go: ${steps.length}, now: true }); 1`); await settled({ max: SETTLE_LONG, until: '!__cmwSteps().anim && !__cmwSteps().play' }); } else await parkInside(SETTLE_LONG, steps.length);
+  const plane = sc.plane || steps.length;
+  if (everywhere) { await ev("__cmwSteps({ scope: 'all' }); 1"); await settled({ max: SETTLE_LONG, panes: false }); await ev(`__cmwSteps({ go: ${plane}, now: true }); 1`); await settled({ max: SETTLE_LONG, until: '!__cmwSteps().anim && !__cmwSteps().play' }); } else await parkInside(SETTLE_LONG, plane);
   const r = await settled({ max: SETTLE_LONG, until: PARKED_DRAWN });
   ok(`${sc.name} ×${n}${everywhere ? ', Everywhere' : ''}: the plane is drawn within ${SETTLE_LONG} ms`, r.ok, r.busy);
 };
@@ -86,5 +88,17 @@ for (const lang of ['en', 'ru']) {
   ok(`the refused note (${lang}) wraps to more than one line (control)`, ls.length > 1, ls);
   ok(`the refused note (${lang}): its last line is not a single word`, ls.length > 1 && ls[ls.length - 1].includes(' '), ls);
   ok(`the refused note (${lang}): its last line is at least half as long as its longest`, ls.length > 1 && ls[ls.length - 1].length >= Math.max(...ls.map((t) => t.length)) / 2, ls);
+}
+// the repeat's own plane in a longer chain: Newton's step for z^3 - 1 twenty times, then ×2, parked on plane 1. The
+// range holds the repeat alone, so its REPT plan draws the plane exactly, with an inverse program of its own: the regions'
+// path is the inverse pass, a REPT draw walked a tile, and there is no hatch and no note
+{
+  const sc = { name: 'Newton’s step ×20, then ×2, on plane 1', step: { type: 'custom', params: { expr: 'z-(z^3-1)/(3*z^2)', cut: 180 } }, after: [TIMES2], plane: 1 };
+  await ev('typeof __cmwRept === "function" ? (__cmwRept({ tileStats: true }), 1) : 0');
+  await open(sc, COPIES, false);
+  const a = await look(), tiles = await ev('typeof __cmwRept === "function" ? __cmwRept({ tileStats: true }) : null');
+  info[sc.name] = Object.assign({ tiles }, a);
+  ok(`${sc.name}: drawn by its REPT plan (the regions' path is the inverse pass, a REPT draw walked a tile)`, a.paths.length === 1 && a.paths[0].path === 'inverse' && !!tiles && tiles.tilesA + tiles.tilesB > 0, { paths: a.paths, tiles });
+  ok(`${sc.name}: no hatch, no note`, a.share <= HATCH_MAX_SHARE && !a.note && a.tip !== NOTE && a.said !== NOTE, { share: a.share, note: a.note, tip: a.tip });
 }
 return { pass: fails.length === 0, fails, info };
