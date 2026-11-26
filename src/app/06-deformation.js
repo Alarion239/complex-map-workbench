@@ -294,9 +294,11 @@
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
     const sel = morphSelScreen(mfGlobe.vp, src);
+    // (a kept start's place is the one the choice tested: its image under H_0 (pathsGen), the start itself when H_0 is
+    // the identity; its place under a camera that stands still never turns away, so it never chooses again)
     if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp, src).key) {
-      const P = globeSelP(cam, pane.w, pane.h, 0.2);
-      const off = sel.kept.filter((q) => !P(q.sp.z)).length;
+      const P = globeSelP(cam, pane.w, pane.h, 0.2), H0 = src.startId ? null : src.Fat(0);
+      const off = sel.kept.filter((q) => { const w = H0 ? H0(q.sp.z) : q.sp.z; return !(CX.isFin(w) && P(w)); }).length;
       if (off > Math.max(1, 0.25 * sel.kept.length)) mfGlobe.epoch++;
     }
     return sel;

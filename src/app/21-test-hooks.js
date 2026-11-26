@@ -560,8 +560,9 @@
     return { carried: !!(si && si.carried), path: (si && si.carryPath) || null, cut: (si && si.cut) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null, H: g.H || ((q) => q), eye: si ? si.eye : null, key: si ? si.key : null, meshWin: svGlobeKeyRec ? Object.assign({}, svGlobeKeyRec.win) : null, clipWin: Object.assign({}, clipWin), sheets: svGlobeSheetsRec };
   };
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
-  // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe; globeError: what
-  // the globe's paths threw, or null), the selection's size and whether it is this source's; ahead: how many
+  // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe; globeEpoch: how many
+  // times the globe's paths were chosen again for an orbit (mfGlobe.epoch); globeError: what the globe's paths threw, or
+  // null), the selection's size and whether it is this source's; ahead: how many
   // neighbouring segments' re-traces are made ahead for the selection (none while that job runs)
   const svPathsHook = () => {
     const src = svPathsSource(), d = mfDrawn;
@@ -579,7 +580,7 @@
     const kept = mfCache.sel ? mfCache.sel.kept.length : 0;
     const heads = d ? d.heads.length : 0;
     const globeHeads = mfGlobeDrawn ? mfGlobeDrawn.heads : 0, globeError = (mfGlobeDrawn && mfGlobeDrawn.error) || null;
-    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, globeHeads, globeError, err, kept, ready, ahead: mfAhead.sel === mfCache.sel && !mfAhead.job ? mfAhead.done.size : 0 };
+    return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, globeHeads, globeEpoch: mfGlobe.epoch, globeError, err, kept, ready, ahead: mfAhead.sel === mfCache.sel && !mfAhead.job ? mfAhead.done.size : 0 };
   };
   // the steps view's paths figure without the typesetting: the paths chosen for the shown plane's step at a figure's size,
   // and how far their ends are from the planes' images of their starts (the previous plane's, and the shown one's); keepIm:
