@@ -25,7 +25,9 @@
   // what the tile keeps clear of, besides the plane's own children (the canvases and the hairline aside) and its note
   const SV_TILE_AVOID = '#svStrip, .sv-bandx, .sv-playpop, #toastHost > *, .ph-col, .ph-ctx, .ph-keys, .ph-sheet, .ph-scrim, '
     + '.sv-sheet, .sv-scrim, #paneL .pane-head, #popHost > *, .pop, dialog[open], .tour-root, .tour-top';
-  const svTile = { el: null, a: null, b: null, m: null, key: '', texA: null, texB: null, q: 0, q2: 0, fitA: false, fitB: false, spot: null, shown: -1, morph: undefined };
+  // (idle: a layout job is queued, svTileLater; now: a layout may be made, svTileSync's; trace: the test hook's record of
+  // each layout and typesetting, with now then, or null)
+  const svTile = { el: null, a: null, b: null, m: null, key: '', texA: null, texB: null, q: 0, q2: 0, fitA: false, fitB: false, spot: null, shown: -1, morph: undefined, idle: false, now: false, trace: null };
   // ---- the morph (#2409) ----
   const SV_SVG_NS = 'http://www.w3.org/2000/svg';
   // the affine m then n ([a, b, c, d, e, f]: x' = a x + c y + e, y' = b x + d y + f)
@@ -154,7 +156,20 @@
     for (const e of [plot, $('leftLegend'), $('svStrip'), th]) if (e) ro.observe(e);
     return svTile.el;
   }
-  const svTileRefresh = () => { if (SV.on && SV.els && !SV.offscreen && svTile.el) svTileSync(true); };
+  // The tile's layout (its formulas typeset, svTileLay's measures, the morph built) is never made in a frame of the steps
+  // view's sync (svSync), which may be a glide's first and draws its picture too: on a slow machine the two together were
+  // one long task (#2458). It is queued for an idle moment, at most SV_TILE_IDLE_MS on (svTileLater, one at a time), and
+  // the tile is hidden until then where what it would show is not laid out yet. An observer's refresh (svTileRefresh:
+  // what it keeps clear of moved) lays it out at once while the thread is still, so it is never seen over what came, and
+  // is queued the same way while a glide moves
+  const SV_TILE_IDLE_MS = 120;
+  function svTileLater() {
+    if (svTile.idle) return;
+    const run = () => { svTile.idle = false; if (SV.on && SV.els && !SV.offscreen && svTile.el) svTileSync(true, true); };
+    svTile.idle = true;
+    if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: SV_TILE_IDLE_MS }); else setTimeout(run, 0);
+  }
+  const svTileRefresh = () => { if (SV.on && SV.els && !SV.offscreen && svTile.el) { if (svGliding()) svTileLater(); else svTileSync(true, true); } };
   const svTileVis = (e) => {
     if (!e || !e.isConnected || e === svTile.el || e.hidden) return null;
     if (e.checkVisibility && !e.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return null;
@@ -191,6 +206,7 @@
   // fitB: one wider than the tile may be is left out), with full; and the spot for formula i (0 the first, 1 the second)
   // alone in it, or the morph (2) whose one frame holds both (svTile.spot, or null; svTile.shown = i)
   function svTileLay(plot, i, full) {
+    if (svTile.trace) svTile.trace.push({ what: 'lay', i, now: svTile.now });
     const el = svTile.el, P = plot.getBoundingClientRect(), maxW = SV_TILE_W(P.width);
     el.style.visibility = 'hidden'; el.hidden = false;
     if (full) {
@@ -207,18 +223,23 @@
   // thread's position (svTileMorphAt), or one formula at a time faded by it (svTileOps); hidden otherwise. It is laid out
   // again (svTileLay) only when the planes it is between change, what it shows changes (the morph or one formula), or full
   // (an observer's call, svTileRefresh: the plane resized among them, a formula typeset): a frame of the glide sets the
-  // morph's affines and opacities, or the formula's opacity, alone
-  function svTileSync(full = false) {
+  // morph's affines and opacities, or the formula's opacity, alone. A layout is made only with now (svTileLater's job,
+  // the test hook); a frame that needs one queues it (svTileLater) and hides the tile where what it shows changes
+  function svTileSync(full = false, now = false) {
     const el = svTile.el || svTileBuild();
     if (!el) return;
+    svTile.now = now;
     const bt = svBetween(), still = bt.b === bt.a || bt.u <= SV_REST_U || bt.u >= 1 - SV_REST_U;
     if (still) { if (!el.hidden) el.hidden = true; return; }
     // (the key holds the app's chain key too (chainSig: the steps, their parameters and repeats): an edit, a Repeat, an undo, a
     // load or the tour's end changes what a pair of planes says)
     const key = bt.a + '|' + bt.b + '|' + chainSig[nSteps()], plot = $('plotL');
+    if (key !== svTile.key && !now) { el.hidden = true; svTileLater(); return; }
+    if (full && !now) { svTileLater(); full = false; }
     if (key !== svTile.key) {
       svTile.key = key; full = true; svTile.morph = undefined;
       svTile.texA = svTileTex(bt.a); svTile.texB = svTileTex(bt.b);
+      if (svTile.trace) svTile.trace.push({ what: 'tex', now });
       for (const [n, t] of [[svTile.a, svTile.texA], [svTile.b, svTile.texB]]) { if (t) TeX.set(n, t); else { n.textContent = ''; delete n.dataset.tex; } }
     }
     // (synced again a frame on while the glide moves, so the tile is still once the thread comes to rest)
@@ -233,6 +254,8 @@
     // part of the glide: one that does not fit, or none at the half while moving, hides the tile)
     const [oa, ob] = mo ? [0, 0] : svTileOps(bt.u, svReduced() || !moving);
     const i = mo ? 2 : oa > 0 ? 0 : ob > 0 ? 1 : -1;
+    const relay = (mo && svTile.m.firstChild !== mo.box) || (i >= 0 && i !== svTile.shown);
+    if (relay && !now) { el.hidden = true; svTileLater(); return; }
     if (mo && svTile.m.firstChild !== mo.box) { svTile.m.replaceChildren(mo.box); full = true; }
     if (full || (i >= 0 && i !== svTile.shown)) svTileLay(plot, i >= 0 ? i : 0, false);
     const fits = i === 2 ? true : i === 0 ? svTile.fitA : i === 1 ? svTile.fitB : false, spot = fits ? svTile.spot : null;
