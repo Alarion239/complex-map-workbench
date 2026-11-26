@@ -97,7 +97,7 @@ for (const [lang, words] of Object.entries(LANGS)) {
   info['first frames ' + lang] = { n: log.length, early: early.length, led: early.map((x) => x.led).filter((v, i, a) => a.indexOf(v) === i), label: early.length ? early[0].label : null };
   ok(`${lang}: frames that stand in for a compiling program were sampled within ${FIRST_MS} ms of the first`, early.length >= 1, info['first frames ' + lang]);
   ok(`${lang}: the LED is busy from the first such frame, with "${words}" as its label`, early.length > 0 && early.every((x) => x.led === 'led busy' && x.label === words), early.slice(0, 3));
-  ok(`${lang}: the polite region is still silent within ${SILENT_MS} ms of the first`, early.filter((x) => x.t - first < SILENT_MS).every((x) => x.live.indexOf(words) < 0), early.filter((x) => x.live).slice(0, 2));
+  ok(`${lang}: the polite region is still silent within ${SILENT_MS} ms of the first`, log.filter((x) => x.t - first < SILENT_MS).every((x) => x.live.indexOf(words) < 0), log.filter((x) => x.t - first < SILENT_MS && x.live).slice(0, 2));
 }
 // A page whose programs link at once starts "Up to date" and says nothing: the starting state is gone with the first frame, well
 // inside the polite region's wait.
