@@ -24,8 +24,14 @@
 //     carry's map has no jump;
 // (vi) A parked on w₁: at most PX_FINE_MAX of its surface's pixels apart from the fine-ring frame. Its height, z's own Im
 //     z = e^Re w sin(Im w), has no cut, so its walls at Im w = 0 and ±π are drawn (carryStep), not left out in fins, and
-//     the outer ring's columns crowd toward them (svLandFarWalls), so the frame is the fine-ring frame's.
-// The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
+//     the outer ring's columns crowd toward them (svLandFarWalls), so the frame is the fine-ring frame's;
+// (vii) A parked on w₁: its far rings keep triangles, and no cell is off by more than 3 px from the surface (geo, in the
+//     frame's world space at depth, both ways: a kept triangle against the surface over it, and the surface over a
+//     triangle the height step left out against the kept ones). A wall narrower than its cell leaves a chord parametrically
+//     far from the points of its z (off, info), while the surface it draws is the exact one's; the fins of (vi) left the
+//     wall's surface out.
+// The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc, geo,
+// geoWorst, geoAt, stepped}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
 // a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
 // kept triangle may bridge one: a lower J would come within reach of the continuous edges' ratios), and its pixel row:
@@ -108,6 +114,8 @@ const cA = await carried();
 ok('A, parked on w₁ coloured from z: a carried frame from plane z', cA.s === 0 && cA.u === 1, cA);
 info.A.parked = { rows: await chord(), px: await pixelRow('A-parked') };
 ok(`A, parked on w₁ (vi): at most ${PX_FINE_MAX} of the surface's pixels apart from the fine-ring frame`, !!info.A.parked.px && info.A.parked.px.n > 1000 && info.A.parked.px.share <= PX_FINE_MAX, info.A.parked.px);
+const farA = Object.entries(info.A.parked.rows || {}).filter(([k]) => k.startsWith('far'));
+ok(`A, parked on w₁ (vii): its far rings keep triangles, and no cell is off by more than ${TOL} px from the surface (geo)`, farA.length > 0 && farA.every(([, r]) => r.tris > 0 && r.geo === 0), Object.fromEntries(farA));
 
 // ---- B: the default page, Everywhere, T = w₂
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=chordB${Date.now()}`);
