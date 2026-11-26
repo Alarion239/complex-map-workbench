@@ -13,8 +13,14 @@
 // - in the inner ring no cell's chord is off by more than 0.25 (0.25 is the height of a quarter of a spike's unit), outside the patches;
 // - with the pole patches' discs counted too, cells are off by more than that: the check reads something;
 // - the carried frame covers its block (no point bare, __cmwLandCover).
-// The outer ring (past four times the box's inscribed circle) is read and not checked: it reaches out to infinity, where
-// every pole is a spike the patches cannot all reach.
+// The outer ring (past four times the box's inscribed circle) is read and not checked there: it reaches out to infinity, where
+// every pole is a spike the patches cannot all reach. With T = w₁ (the height is exp's, no pole), held at u = 0.25 and 0.5,
+// the glide map (e^{uz} − 1)/u + u and the height have the period 2πi/u, and the outer ring's cells that the glide
+// brings into the block lie on its copies of the box (|Im z| up to 16,000, several periods a cell):
+// - the outer ring draws no cell whose chord is off by more than 0.1: the ones in the strip of its copies are left out to
+//   the box and the inner ring (LAND_CARRY_VS uDup);
+// - among the cells it leaves out, some are off by more than that: the check reads something;
+// - the carried frame still covers its block.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -53,6 +59,25 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
     ok(`${tag}: counting the pole patches' discs too, cells are off by more than ${TOL}`, !!c.whole && c.whole[0].bad > 0, c.whole && c.whole[0]);
     ok(`${tag}: inside each pole patch, at its own resolution, no cell off by more than ${TOL}`, !!c.poles && c.poles.length >= 6 && c.poles.every((q) => q.cells > 100 && q.bad === 0), c.poles);
   }
+  ok(`${tag}: the carried frame covers its block`, !!c.covered && c.covered.bare === 0, c.covered);
+  await ev('window.__svScrubUp(), 1');
+  await settled({ max: 60000 });
+}
+const OUTER_TOL = 0.1;
+await ev(`__cmwSteps({ T: 1, go: 0, now: true }); 1`);
+await settled({ max: 60000 });
+for (const u of [0.25, 0.5]) {
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: 60000 });
+  await hold(u);
+  const tag = `T = w₁, held at u = ${u}`;
+  const c = info[`T1 ${u}`] = {
+    err: await evJson(`JSON.stringify(__cmwLandFarErr(${OUTER_TOL}))`, 120000),
+    covered: await evJson('JSON.stringify(__cmwLandCover(480, 400, true))', 120000),
+  };
+  const o = c.err && c.err[1];
+  ok(`${tag}: the far patch's outer ring draws no cell off by more than ${OUTER_TOL}`, !!o && o.cells > 0 && o.bad === 0, o);
+  ok(`${tag}: among the outer ring's cells left to its copies, some are off by more than ${OUTER_TOL}`, !!o && o.copiesBad > 0, o);
   ok(`${tag}: the carried frame covers its block`, !!c.covered && c.covered.bare === 0, c.covered);
   await ev('window.__svScrubUp(), 1');
   await settled({ max: 60000 });

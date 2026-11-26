@@ -141,7 +141,7 @@
   }
   function updateFocusUI() {
     const t = paneTitles();
-    // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
+    // (the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
     const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 ${parkedAt() >= 0 ? 'w' + String(parkedAt()).split('').map((d) => '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'[+d]).join('') : 'w'}`;
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
@@ -663,7 +663,7 @@
   // (focusMap: in the steps view the shown plane's map into the colour plane). A step after the colour plane is in
   // neither, so it adds no sheets
   function landSheetsMap(s = null) { return s != null ? svColourMap(s) : focusMap(); }
-  // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
+  // what the landscape draws with All sheets, as render3D does: null for the principal branch (All
   // sheets off, or no multivalued step in the map it draws the sheets of, landSheetsMap, or the CPU stand-in's frame,
   // which draws the principal branch alone while the sheets' programs link), else {K: the surfaces drawn, total: the
   // sheet combinations of the window, W, pieces: [{n, of}]} (one per multivalued piece of that map: n sheets all drawn,
@@ -924,7 +924,7 @@
     if (!lPhase()) return null;
     return lGlobe() ? 'sphere' : 'color';
   }
-  // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
+  // (so that nothing covers the work uninvited) On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
   // after a click, the options behind the Display options button. A phone
   // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
