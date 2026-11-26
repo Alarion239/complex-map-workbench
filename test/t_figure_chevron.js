@@ -1,6 +1,6 @@
 // The Homework orientation chevrons (figure.js senseAt, chevronAt): every boundary piece is marked so that its set
-// stays on the left (notes/export-design/DESIGN.md), in the source panel and, as F is conformal, in the image panel;
-// the mark keeps clear of the axes, their crossing and their tick labels. Run: node test/t_figure_chevron.js
+// stays on the left (notes/export-design/DESIGN.md), and, as F is conformal, in its image too; the mark keeps clear of the
+// panel's axes, their crossing and their tick labels. Run: node test/t_figure_chevron.js
 // (The export window of unbounded sets, the same at every pane size, is checked in the browser: xrfix2_cdp/win.js.)
 const vm = require('vm'), path = require('path');
 const R = path.join(__dirname, '..');
@@ -57,8 +57,8 @@ for (const [a, b] of [[[0, 0], [1, 0]], [[1, 0], [0, 0]]]) {
 // 4. quarter plane 0 <= arg z <= 90 deg: out along the real ray, in along the imaginary ray
 {
   const sh = { kind: 'sector', c: [0, 0], r: 0, t1: 0, t2: 90 }, [r1, r2] = Region.curvesOf(sh, win), L = Region.levelOf(sh);
-  const s1 = chevronAt(r1, id, null, { box: { x0: -0.5, x1: 2.5, y0: -0.5, y1: 2.5 }, st: [0.5, 0.5] }, null, win);
-  const s2 = chevronAt(r2, id, null, { box: { x0: -0.5, x1: 2.5, y0: -0.5, y1: 2.5 }, st: [0.5, 0.5] }, null, win);
+  const s1 = chevronAt(r1, id, { box: { x0: -0.5, x1: 2.5, y0: -0.5, y1: 2.5 }, st: [0.5, 0.5] }, win);
+  const s2 = chevronAt(r2, id, { box: { x0: -0.5, x1: 2.5, y0: -0.5, y1: 2.5 }, st: [0.5, 0.5] }, win);
   ok(s1 != null && s2 != null, 'quarter plane: both rays get a chevron (long rays sampled in the window)', [s1, s2]);
   if (s1 != null && s2 != null) {
     const d1 = travel(r1, senseAt(r1, L, s1, win), s1), d2 = travel(r2, senseAt(r2, L, s2, win), s2);
@@ -72,19 +72,6 @@ for (const [a, b] of [[[0, 0], [1, 0]], [[1, 0], [0, 0]]]) {
     // under z^2 the second ray's image (the negative real axis) runs toward 0: the upper half-plane on its left
     const d3 = travel(r2, senseAt(r2, L, s2, win), s2, (z) => CX.mul(z, z));
     ok(d3[0] > 0.99, 'quarter plane under z^2: the image of the imaginary ray runs right', d3);
-  }
-}
-// 5. Cayley half-plane: the chevron is off the origin in z and off both axes in w
-{
-  const sh = { kind: 'halfplane', a: [0, 0], b: [1, 0] }, c = Region.curvesOf(sh, win)[0];
-  const cay = (z) => CX.div(CX.sub(z, C(0, 1)), CX.add(z, C(0, 1)));
-  const pL = { box: { x0: -4, x1: 4, y0: -1, y1: 5 }, st: [1, 1] }, pR = { box: { x0: -1.5, x1: 1.5, y0: -1.5, y1: 1.5 }, st: [0.5, 0.5] };
-  const s = chevronAt(c, id, cay, pL, pR, win);
-  ok(s != null, 'Cayley: a chevron is placed');
-  if (s != null) {
-    const z = c.f(s), w = cay(z);
-    ok(Math.abs(z.re) > 0.8, 'Cayley: z away from the axes crossing', z);
-    ok(Math.abs(w.re) > 0.25 && Math.abs(w.im) > 0.25, 'Cayley: w away from both axes', w);
   }
 }
 console.log(`t_figure_chevron: ${pass}/${pass + fail}`);
