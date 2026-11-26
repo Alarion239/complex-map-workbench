@@ -1605,6 +1605,8 @@
           u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
           // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
           keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
+          // (keyUniforms set the 2D carried colour's layer (off, its unit): the relief's layer is the pass's)
+          u1i(Pc, 'uPeelOn', lay.on); u1i(Pc, 'uPeelD', LAND_PEEL_UNIT);
           u2f(Pc, 'uClipA', aspect[0], aspect[1]);
           u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
           polarUniforms(Pc, null, false); discUniforms(Pc, st.carry.polar);
