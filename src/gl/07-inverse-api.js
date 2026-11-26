@@ -721,8 +721,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const map = st.map || {};
     // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
     // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
-    // (a REPT program draws in tiles through its accumulation target, reptDraw: never at half resolution)
-    const isRept = !!P.loc.uIxRepHatch;
+    // (a REPT plan draws in tiles through its accumulation target, reptDraw: never at half resolution. A plan with no REPT
+    // op draws as any other, by a program that may hold one for another range, Inverse.rangeOpts: its walker leaves
+    // that op inactive)
+    const isRept = !!P.loc.uIxRepHatch && st.plan.ops.some((o) => o.kind === 'REPT');
     let half = !!st.half && !globe && !isRept;
     if (half && (!P.warmHalf || !invUpWarm)) { half = false; P.warmHalfWanted = true; P.warmHalf = P.warmHalf && invUpWarm; }
     // a pre-pass draw (beginHalfPre) is a half-resolution draw or none
@@ -752,6 +754,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
     u1i(P, 'uIxRepHatch', st.rept || 0);
+    // (a draw outside reptDraw reads no earlier pass's target: uIxRepPass 0, whatever a REPT draw of the program last set)
+    if (!isRept) u1i(P, 'uIxRepPass', 0);
     u1i(P, 'uIxStopOp', d.stopOp);
     u4f(P, 'uIxStopMob', ...d.stopMob);
     if (P.loc.uIxStopT) gl.uniform4fv(P.loc.uIxStopT, d.stopT);

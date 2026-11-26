@@ -152,6 +152,34 @@ check('Integer power z^3 x 20 alone plans as REPT', planKinds([St('pown', { n: 3
   const [e01, e12, e23] = [[0, 1], [1, 2], [2, 3]].map(([a, b]) => Inverse.planChain(ezx.steps, ezx.built, a, b));
   check('exp, then z^3 x 3, then x 2: planes (0, 1] and (2, 3] keep the chain\'s options, (1, 2] plans REPT', e01.ok && e01.opts.rept === ch.rept && e23.ok && e23.opts.rept === ch.rept && e12.ok && e12.ops[0].kind === 'REPT' && e12.opts.rept && !ch.rept, [e01.opts, e12.ok && e12.ops.map((o) => o.kind).join('>'), e23.opts]);
 }
+// (a chain whose own program cannot be built, its repeat's copies being more ops than a program holds: every plan it has
+// draws by a program that builds and holds the plan's ops. A range that holds none of its repeats plans with the
+// options whose program holds the repeat as one REPT op; a range that holds the repeat beside another step stays too
+// long for a plan)
+{
+  const NEWT20 = St('custom', { expr: NEWTON, cut: 180 }, { n: 20, len: 1 }), PLUS1 = St('add', { c: '1' });
+  const chains = [['x 2, then Newton x 20', [TIMES2, NEWT20]], ['Newton x 20, then x 2', [NEWT20, TIMES2]], ['x 2, then Newton x 20, then + 1', [TIMES2, NEWT20, PLUS1]]];
+  let plans = 0;
+  const wrong = [], own = [];
+  for (const [name, steps] of chains) {
+    const c = chainOf(steps);
+    own.push(GLChain.buildInverse(c.steps, c.built).ok);
+    for (let a = 0; a < steps.length; a++) for (let b = a + 1; b <= steps.length; b++) {
+      const p = Inverse.planChain(c.steps, c.built, a, b);
+      if (!p.ok) continue;
+      plans++;
+      const inv = GLChain.buildInverse(c.steps, c.built, p.opts);
+      if (!inv.ok || !p.ops.every((o) => inv.ops.some((q) => q.step === o.step && q.node === o.node && q.kind === o.kind))) wrong.push(`${name} (${a}, ${b}]: ${inv.ok ? 'ops' : inv.reason}`);
+    }
+  }
+  check('control: the chains\' own programs cannot be built (chain too long)', own.every((o) => !o), own);
+  check('a chain whose own program cannot be built: each of its plans has a program that builds and holds the plan\'s ops', plans === 7 && wrong.length === 0, `${plans} plans, ${JSON.stringify(wrong)}`);
+  const p01 = Inverse.planChain(AN.steps, AN.built, 0, 1);
+  check('x 2, then Newton x 20: plane 1 (x 2 alone) plans AFF with the REPT options; plane 2 stays too long for a plan', p01.ok && p01.ops.map((o) => o.kind).join('>') === 'AFF' && p01.opts.rept === true && !planAN.ok && planAN.tooLong === true, [p01.ok ? p01.ops.map((o) => o.kind).join('>') : p01.reason, p01.opts]);
+  // (two such repeats: a program holds one REPT search, so the range between them keeps the chain's options)
+  const two = chainOf([NEWT20, TIMES2, NEWT20]), p12 = Inverse.planChain(two.steps, two.built, 1, 2);
+  check('Newton x 20, x 2, Newton x 20: plane (1, 2] keeps the chain\'s options (one REPT op to a program)', p12.ok && p12.opts.rept === Inverse.chainOpts(two.steps, two.built).rept, p12.opts);
+}
 const plan20 = Inverse.planChain(N20.steps, N20.built, 0, 1);
 check('the gallery plane has a plan', plan20.ok && plan20.ops.length === 1);
 check('a REPT plan is not injective, and a point\'s preimages are past the exact cap', !plan20.injective && !Inverse.pointPre(plan20, C(0.3, 0.1)).exact);
