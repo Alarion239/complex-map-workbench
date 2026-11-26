@@ -49,7 +49,7 @@ const click = (g, down, up = down, o = {}) => { const d = Object.assign({ mode: 
 {
   const g = app();
   check('a click on a still point of X plays it (onUp → sndQueryClick at the click)', click(g, { button: 0 }) === 1 && g.queried[0].join() === 'paneL,L,120,80', g.queried);
-  check('a click on Y plays it too', (g.upQuery(g.pane, 'R', { type: 'pointerup', pointerType: 'mouse', button: 0, x: 5, y: 6 }, { mode: 'panR', pb: false }), g.queried.length === 2 && g.queried[1][1] === 'R'));
+  // (standards-ok: the row for a click on Y goes with Y's input: Y's pane takes no pointer events since #994's P9a-1b-ii)
   const q0 = g.queried.length;
   check('a middle-button click is a pan, not a query', click(g, { button: 1 }) === q0);
   check('a right-button click is a pan, not a query', click(g, { button: 2 }) === q0);
