@@ -66,13 +66,19 @@
     }
     return map;
   }
-  // Inverse.planChain per stage range and chain signature (parameter values included: a scrub makes new plans)
+  // Inverse.planChain per stage range and chain signature (parameter values included: a scrub makes new plans). A plan
+  // whose options are not the chain's (a range that holds a repeat alone, Inverse.rangeOpts) carries its own inverse op
+  // list, p.inv (GLChain.buildInverse with the plan's options: a program beside the chain's, marked rest so that it is
+  // warmed as the chain's own, GLR.warmInverse), which its draws pass on
   const invPlans = new Map();
   function invPlan(a, b) {
     const ck = `${a}|${b}|${chainSig[nSteps()]}`;
     let p = invPlans.get(ck);
     if (!p) {
-      try { p = Inverse.planChain(S.steps, built, a, b); } catch (e) { p = { ok: false, reason: 'plan: ' + (e && e.message), ops: [] }; }
+      try {
+        p = Inverse.planChain(S.steps, built, a, b);
+        if (p.ok && p.opts.rept && !Inverse.chainOpts(S.steps, built).rept) p.inv = Object.assign(GLChain.buildInverse(S.steps, built, p.opts), { rest: true });
+      } catch (e) { p = { ok: false, reason: 'plan: ' + (e && e.message), ops: [] }; }
       p._ck = ck;
       if (invPlans.size >= 32) invPlans.clear();
       invPlans.set(ck, p);
@@ -449,9 +455,10 @@
   let invPendN = 0;   // shapes of the frame being drawn on a live pane that waited for their inverse program
   let lastRecs = null;     // the shape records of the last packShapes (GLR.packShapes: once per scene draw)
   // SPEC 2.2: the path of area shape s under map in a view (role 'R' | 'L' | null: thumbnail; viewKind 'flat' |
-  // 'globe') -> {path: 'inverse' | 'pending' | 'forward', reason, m (normalised map), plan, prep, e}. Drawing asks
-  // without o.status ('inverse' = eligible: drawInverse decides between drawn, pending and error); fix-up gating and
-  // the test hooks ask with o.status (the program's state, without starting a compile).
+  // 'globe') -> {path: 'inverse' | 'pending' | 'forward', reason, m (normalised map), plan, prep, e, inv (the plan's own
+  // inverse op list, invPlan's p.inv, or null: the chain's)}. Drawing asks without o.status ('inverse' = eligible:
+  // drawInverse decides between drawn, pending and error); fix-up gating and the test hooks ask with o.status (the
+  // program's state, without starting a compile).
   function pathOf(s, map, role, viewKind = 'flat', o = {}) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
@@ -471,9 +478,9 @@
     if (!e) return F('preparation deferred a frame');
     if (!e.prep.ok) return F(e.prep.reason || 'shape not eligible');
     if (!offRender && viewKind === 'flat' && guardDemotes(role, s, plan, e)) return F('cost guard');
-    const out = { path: 'inverse', reason: null, m, plan, prep: e.prep, e };
+    const out = { path: 'inverse', reason: null, m, plan, prep: e.prep, e, inv: plan.inv || null };
     if (o.status) {
-      const st = GLR.inverseStatus(S.alpha, viewKind), info = GLR.inverseInfo;
+      const st = GLR.inverseStatus(S.alpha, viewKind, out.inv), info = out.inv || GLR.inverseInfo;
       // the query itself can land a compile (no GLR.onReady then): redraw the panes still showing a stand-in
       if (st === 'ready' && invWaiting.size) { const w = [...invWaiting]; invWaiting.clear(); requestRender(...w); }
       if (st === 'pending' || (st === 'none' && info && info.ok)) { out.path = 'pending'; out.reason = 'compiling'; }
@@ -1031,7 +1038,7 @@
         let res = 'error';
         try {
           res = GLR.drawInverse({
-            map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+            map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
             look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch: { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) } },
             scissor: sc, half: true, halfPre: true, motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0,
           });
@@ -1098,7 +1105,7 @@
           let res = 'error';
           try {
             res = GLR.drawInverse({
-              map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+              map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch },
               scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0, whole: offRender,
             });
