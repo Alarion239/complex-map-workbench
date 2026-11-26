@@ -909,9 +909,11 @@ float invLeaf(Lf L, out bool cov) {
   // B: compile-time buffer size; globe: Sphere view geometry (P3). A globe program's uOpaqueOnly = 1 discards a pixel the
   // composite does not cover opaquely, so the pass draws (and marks the stencil) only where it hides everything behind it
   // (sphereRegions' sheet copies under the principal sheet). Opaque: an alpha that rounds to 255 in the 8-bit target
-  // (a >= 1 - 0.5/255), so what a pass under it would add, at most 1 - a of full scale, is under half a level
+  // (a >= 1 - 0.5/255), so what a pass under it would add, at most 1 - a of full scale, is under half a level. A flat
+  // program's uStraight = 1 outputs straight colour (the composite's colour over its alpha, and its alpha), for a draw
+  // blended by SRC_ALPHA_SATURATE (drawInverse's saturate); 0, premultiplied
   const INV_MAIN = (globe) => glsl`
-${globe ? 'in vec3 vP; uniform vec3 uEye; uniform int uOpaqueOnly;' : ''}
+${globe ? 'in vec3 vP; uniform vec3 uEye; uniform int uOpaqueOnly;' : 'uniform int uStraight;'}
 void main() {
 ${globe ? glsl`  vec3 P = normalize(vP);
   // S = 0, N = infinity, the conjugate lift's inverse w = (P.x - i P.y) / (1 - P.z); near the north pole w = 1 / u
@@ -973,7 +975,8 @@ ${globe ? `  float a = U * (1.0 - T);
   if (uOpaqueOnly == 1 && a < 1.0 - 0.5 / 255.0) discard;
   if (!(a > 0.0)) { o = vec4(0.0); return; }
   vec3 v = normalize(uEye - vP);
-  o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}
+  o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : `  float a = U * (1.0 - T);
+  o = uStraight == 1 ? (a > 0.0 ? vec4(C / (1.0 - T), a) : vec4(0.0)) : vec4(U * C, a);`}
 }
 `;
   // the carried colour's layers (GLR.carryLayers): uL's layers 0 .. uN-1 front to back, alpha 1 where a layer covers the pixel,

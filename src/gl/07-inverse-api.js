@@ -722,6 +722,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // (a REPT program draws in tiles through its accumulation target, reptDraw: never at half resolution)
     const isRept = !!P.loc.uIxRepHatch;
     let half = !!st.half && !globe && !isRept;
+    // (st.saturate: a flat draw at full resolution, not REPT, blended by SRC_ALPHA_SATURATE, in front of what the frame
+    // holds: it adds its straight colour times min(its alpha, 1 - the frame's alpha), so passes drawn front to back into
+    // a transparent frame sum disjoint coverage exactly (two halves of a pixel make it whole) and the first opaque one
+    // wins. The 8-bit target clamps the alpha's sum at 1. A half-resolution draw is refused: its upsample composites
+    // premultiplied)
+    if (st.saturate && st.half && !globe && !isRept) return 'nohalf';
+    const sat = !!st.saturate && !globe && !isRept && !half;
     if (half && (!P.warmHalf || !invUpWarm)) { half = false; P.warmHalfWanted = true; P.warmHalf = P.warmHalf && invUpWarm; }
     // a pre-pass draw (beginHalfPre) is a half-resolution draw or none
     const pre = !!st.halfPre && preActive;
@@ -810,6 +817,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uKsat', Math.max(1, Math.min(64, invK(aDraw))));
     u1i(P, 'uKall', Math.abs(aDraw - aOwn) < 1e-6 ? 1 : 0);
     u1i(P, 'uLastOpaque', look.lastOpaque ? 1 : 0);
+    if (!globe) u1i(P, 'uStraight', sat ? 1 : 0);
     // shape
     uploadPack();
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, invTex);
@@ -911,7 +919,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       }
     }
     gl.bindVertexArray(empty());
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (sat) gl.blendFuncSeparate(gl.SRC_ALPHA_SATURATE, gl.ONE, gl.ONE, gl.ONE);
+    try { gl.drawArrays(gl.TRIANGLES, 0, 3); } finally { if (sat) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
     invDraws++;
     if (half) invHalfDraws++;   // the batch stays open: flushHalf upsamples it
     else if (sc) {
