@@ -645,6 +645,9 @@
       const text = el.getAttribute('data-tip');
       // (never for an element that went away, or one the mouse already left)
       if (!text || !el.isConnected || (el !== lpShown && el !== kbdTip && !el.matches(':hover'))) return;
+      // (an element with no box now, one its pane head hides, has no place to put a tip beside: its rect is the origin's, and a tip
+      // there is at the page's top-left)
+      if (!el.getClientRects().length) { hide(); return; }
       const [label, key] = text.split(/\s{2,}/);
       // (a long-press tip on touch names no key and says tap, not click)
       const byTouch = el === lpShown;

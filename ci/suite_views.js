@@ -31,6 +31,7 @@ const VIEWS = {
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'canvas_plane_names_cmd.js': steps(),
   'led_a11y_cmd.js': steps({ pin: true }),
+  'tooltip_place_cmd.js': steps({ pin: true }),
   'example_try_sv_cmd.js': steps(),
   'example_try_keys_cmd.js': steps(),
   'nudge_target_cmd.js': steps({ pin: true }),
