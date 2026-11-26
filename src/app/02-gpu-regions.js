@@ -648,7 +648,7 @@
   const smPaired = (slot) => !!smPairKind(slot);
   // the slot of the other mesh of the pair that a job or a held mesh of it stands for, or undefined
   const smPartner = (slot) => [...sm.want.keys(), ...sm.held.keys()].find((x) => smPairKind(x) && smPairKind(x) !== smPairKind(slot));
-  const sm = { entries: new Map(), jobs: new Map(), want: new Map(), held: new Map(), capped: new Set(), running: false, kickT: 0, cpuBytes: 0, exportPartial: 0, exportGen: 0, stats: { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 } };
+  const sm = { entries: new Map(), jobs: new Map(), want: new Map(), held: new Map(), capped: new Set(), cappedKey: '', running: false, kickT: 0, cpuBytes: 0, exportPartial: 0, exportGen: 0, stats: { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 } };
   const smOn = () => GLR.ok && !!GLR.createPreMesh;
   function smStretched(s) {
     let bb = null;
@@ -802,7 +802,8 @@
   function smRequest(slot, ck, s, role, kind, m, v, why) {
     if (interacting() || fixBusy()) { smKick(); return; }
     const key = ck + '|' + smViewKey(v);
-    if (sm.capped.has(key)) return;
+    if (sm.capped.has(key)) { if (smPaired(slot)) sm.cappedKey = key; return; }
+    if (smPaired(slot)) sm.cappedKey = '';
     // (the ring's shape id carries its index: another plane's ring is another slot, which nothing asks for now)
     if (smPaired(slot)) for (const other of [...sm.want.keys()]) if (other !== slot && smPairKind(other) === smPairKind(slot)) smUnwant(other);
     const prev = sm.want.get(slot);
@@ -880,6 +881,7 @@
         // (it ended on the runaway cap: a partial mesh is never adopted, nor is a pair that waits for it)
         if (sm.want.get(job.slot) === job.key) sm.want.delete(job.slot);
         sm.capped.add(job.key);
+        sm.cappedKey = job.key;
         if (pslot) smUnhold(pslot);
         return;
       }
@@ -896,6 +898,8 @@
     if (j) smCancel(j); else smUnhold(slot);
     sm.want.delete(slot);
   }
+  // whether the shown plane's whole-plane meshes were stopped by the runaway limit and the stand-in stays (the LED says so)
+  const smRefinedLimit = () => !!sm.cappedKey && sm.capped.has(sm.cappedKey) && svCarryWanted();
   // a finished mesh of a pair that waits for its partner's job (key: only that one)
   function smUnhold(slot, key = null) {
     const h = sm.held.get(slot);

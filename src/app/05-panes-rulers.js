@@ -423,23 +423,24 @@
       if (py >= 0 && py <= yh) { cy.beginPath(); cy.moveTo(yw - 4, py - 2.5); cy.lineTo(yw - 4, py + 2.5); cy.lineTo(yw, py); cy.fill(); }
     }
   }
-  function setLed(side, state, tip) {
+  function setLed(side, state, tip, noted = false) {
     const el = $(side === 'L' ? 'leftLed' : 'rightLed');
     if (!el) return;
     el.className = 'led ' + state;
     el.setAttribute('data-tip', tip || { ok: $t('Up to date'), busy: $t('Refining near cuts and poles'), err: $t('Evaluation failed') }[state]);
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
-    ledSay(side, state, el.getAttribute('data-tip'));
+    ledSay(side, state, el.getAttribute('data-tip'), noted);
   }
   // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
   // with its pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
   // to date says nothing, and a state that comes and goes within the wait is not said
   const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
   let ledSayT = 0;
-  function ledSay(side, state, tip) {
-    // (what is said again is a different state, or a different error: busy is one state whatever its tip)
-    const key = state === 'err' ? 'err|' + tip : state;
+  function ledSay(side, state, tip, noted) {
+    // (what is said again is a different state, a different error, or the note up to date carries once a limit is reached: busy is
+    // one state whatever its tip)
+    const key = state === 'err' || noted ? state + '|' + tip : state;
     const same = !!ledNow[side] && ledNow[side].key === key;
     ledNow[side] = { key, tip };
     if (same) return;
@@ -487,7 +488,11 @@
     const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
     if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
+    else {
+      // (up to date, but the whole-plane meshes stopped at the runaway limit: the stand-in stays, and the tip says so; the state is ok)
+      const limit = !busy && !colourPending() && !compileShown.L && smRefinedLimit();
+      setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : limit ? $t('Refined as far as this device allows') : compTip('L'), limit);
+    }
     setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the

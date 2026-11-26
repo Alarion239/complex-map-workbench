@@ -10,6 +10,8 @@
 // - a hidden page waits: while document.hidden the jobs spend no CPU, and they go on when it shows again;
 // - a job that never ends is stopped: with the stop at RUNAWAY_MS, nothing is adopted, the key is not asked for again (the
 //   jobs are none);
+// - the LED keeps its state (ok) and says why the stand-in stays: after the stop its tip and aria-label are LED_NOTE (and its
+//   ru and it), the live region says it once; without a stop its tip is still "Up to date";
 // - the thread leaving the plane (to the colour plane, at rest) stops the jobs and nothing is adopted for it;
 // - a slice is short: the longest slice of a job is at most SLICE_MAX_FACTOR times the slice's 5 ms, per the slowing.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
@@ -22,13 +24,15 @@ const RATE = 4;
 const BUILT_MAX_MS = 400000;
 const RUNAWAY_MS = 2500;         // the stop of a job that never ends, in the runaway row (the page's is 60 s)
 const SLICE_MS = 5, SLICE_MAX_FACTOR = 12;
+const LED_NOTE = { en: 'Refined as far as this device allows', ru: 'Уточнено настолько, насколько позволяет это устройство', it: 'Rifinito per quanto consente questo dispositivo' };
+const LED = "(() => { const e = document.getElementById('leftLed'); return { cls: e.className, tip: e.getAttribute('data-tip'), label: e.getAttribute('aria-label'), live: (document.getElementById('ledLive') || {}).textContent || '' }; })()";
 const SAMPLE_MS = 700;
 const CHAIN = [K.CUBE, { type: 'cos', params: {}, on: true }];
 const BUILT = '(() => { const q = __cmwSphere(); return q.entries.length >= 2 && q.jobs.length === 0 && !q.kick; })()';
 const STATE = '(() => { const q = __cmwSphere(); return { entries: q.entries.map((e) => ({ s: e.slot.split("|")[0], end: e.end, key: e.key, work: e.work, nodes: e.nodes, n: e.n })), jobs: q.jobs.map((j) => ({ s: j.slot.split("|")[0], ms: j.ms })), held: q.held.map((h) => h.split("|")[0]), capped: q.capped.length, maxSlice: q.stats.maxSlice }; })()';
 const PAIR = ['__svAll', '__svRing'];
-const open = async () => {
-  await K.openChain({ ns: 'sma' + Date.now(), steps: CHAIN, w: 390, h: 844, mobile: true, shapes: [], max: BUILT_MAX_MS });
+const open = async (lang = 'en') => {
+  await K.openChain({ ns: 'sma' + Date.now(), steps: CHAIN, lang, w: 390, h: 844, mobile: true, shapes: [], max: BUILT_MAX_MS });
   await ev(`__cmwSet('alpha', 1); document.querySelector('.sv-cp').click(); __cmwSteps({ scope: 'all', go: 2, now: true }); 1`);
   return settled({ max: BUILT_MAX_MS, until: BUILT, only: true });
 };
@@ -88,20 +92,33 @@ await slowed(async () => {
   ok('and they go on when it shows again: both meshes are published', !!w.ok, w);
 });
 
-// a job that never ends is stopped, and nothing is adopted for it
-await open();
-await slowed(async () => {
-  await ev(`__cmwSmRunaway(${RUNAWAY_MS}); __cmwSmReset(); 1`);
-  const w = await settled({ max: 120000, until: '(() => { const q = __cmwSphere(); return q.capped.length > 0 && q.jobs.length === 0 && !q.kick; })()', only: true });
-  const st = await ev(STATE);
-  info.runaway = st;
-  ok('a job past the stop is dropped and its key is capped', !!w.ok && st.capped > 0, st);
-  ok('nothing is adopted: no mesh of the pair is published, none is held', st.entries.filter((e) => PAIR.includes(e.s)).length === 0 && st.held.length === 0, st);
-  await sleep(3000);
-  const again = await ev(STATE);
-  ok('the capped key is not asked for again: no job runs', again.jobs.length === 0, again);
-});
-await ev('__cmwSmRunaway(0); 1');
+// a job that never ends is stopped, and nothing is adopted for it: the LED says so, in each language
+for (const lang of ['en', 'ru', 'it']) {
+  await open(lang);
+  const led0 = await ev(LED);
+  if (lang === 'en') ok('without a stop the LED is ok and says "Up to date"', /\bok\b/.test(led0.cls) && led0.tip === 'Up to date' && led0.label === 'Up to date', led0);
+  await slowed(async () => {
+    await ev(`__cmwSmRunaway(${RUNAWAY_MS}); __cmwSmReset(); 1`);
+    const w = await settled({ max: 120000, until: '(() => { const q = __cmwSphere(); return q.capped.length > 0 && q.jobs.length === 0 && !q.kick; })()', only: true });
+    const st = await ev(STATE);
+    if (lang === 'en') {
+      info.runaway = st;
+      ok('a job past the stop is dropped and its key is capped', !!w.ok && st.capped > 0, st);
+      ok('nothing is adopted: no mesh of the pair is published, none is held', st.entries.filter((e) => PAIR.includes(e.s)).length === 0 && st.held.length === 0, st);
+      await sleep(3000);
+      const again = await ev(STATE);
+      ok('the capped key is not asked for again: no job runs', again.jobs.length === 0, again);
+    }
+    // (the live region's wait, LED_SAY_MS, is the page's: the note is read when the region has it)
+    const w2 = await settled({ max: 20000, until: `(document.getElementById('ledLive') || {}).textContent === ${JSON.stringify(LED_NOTE[lang])} || ((document.getElementById('ledLive') || {}).textContent || '').endsWith(${JSON.stringify(LED_NOTE[lang])})`, only: true });
+    const led = await ev(LED);
+    info['led_' + lang] = led;
+    ok(`${lang}: after the stop the LED stays ok and its tip and aria-label say why the stand-in stays`, /\bok\b/.test(led.cls) && led.tip === LED_NOTE[lang] && led.label === LED_NOTE[lang], led);
+    ok(`${lang}: the live region says it once`, !!w2.ok && led.live.split(LED_NOTE[lang]).length === 2, led);
+  });
+  await ev('__cmwSmRunaway(0); 1');
+}
+
 
 // the thread leaves the plane
 await open();
