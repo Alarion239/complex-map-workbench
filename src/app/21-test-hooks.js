@@ -415,44 +415,66 @@
 
   // TEST-HOOK (dropped from the published page by build.py)
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
-  // the last frame's carried landscape over its block, on the CPU: an nx x ny grid of points over the block, each covered
-  // when it lies in the image of a carried triangle the draw keeps (LAND_CARRY_VS: its corners' images finite, its edges at
-  // most lim long), of the box grid (cells x cells vertices over src), of a pole patch or of the far patch (patchN x patchN vertices,
-  // CARRY_Z; left out with patches false, the far patch left out with patches 'poles'), and of the patches more ([x, y, r0, r1] each, the same parametrisation, on the
-  // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
-  // default). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
-  // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
   // whether the plane point (x, y) lies in the strip of a far ring's copies (ring [x, y, ...] with dup [n.x, n.y, half-width],
   // LAND_CARRY_VS uDup); false for a ring without one
   const landInStrip = (ring, x, y) => !!ring.dup && Math.abs((x - ring[0]) * ring.dup[0] + (y - ring[1]) * ring.dup[1]) < ring.dup[2];
+  // whether the plane point (x, y) lies in the disc of one of the carry c's pole patches ([x, y, r0, r1], out to r1), which
+  // that patch covers
+  const inPoleDisc = (c, x, y) => (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(x - qx, y - qy) < q1);
+  // The triangles the last carried frame's draw keeps (LAND_CARRY_VS), on the CPU, grid by grid: the box ('box', cells x
+  // cells vertices over src, less the triangles whose corners all lie in one seamed patch's disc, which that patch draws),
+  // then as patches says (true: all; 'poles': no far ring; false: none) the pole patches ('pole' k) and the far rings
+  // ('far' k, less the triangles whose corners all lie in the strip of the ring's copies, landInStrip), each n x n vertices
+  // at svPatchZ, then the patches more ('more' k, [x, y, r0, r1], the same parametrisation, on the CPU only). A triangle is
+  // kept when its corners' images under the carry's map F are finite and its edges are at most c.lim long; with step (the
+  // heights' step limit, LAND_CARRY_VS's uStep: 0.3 H for Re F and Im F) and hgt (a plane point's drawn height), also when
+  // its corners' heights are finite and span at most step. visit(g, a, d, e) for each, with its corners' vertices a, d, e
+  // (vertex v at grid place (v % n, floor(v / n))) and g {name, n, place, Z, P, Hv}: place (i, j) -> [x, y], fractional
+  // places too; Z and P, the vertices' points and images (x at 2v, y at 2v + 1); Hv, their heights with hgt, or null
+  const landKeptTris = (c, F, visit, { patches = /** @type {boolean | string} */ (true), more = [], step = Infinity, hgt = null } = {}) => {
+    const lim2 = c.lim * c.lim;
+    const grid = (name, n, place, discs = [], ring = null) => {
+      const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n), Hv = hgt ? new Float64Array(n * n) : null;
+      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+        const z = place(i, j), zc = C(z[0], z[1]), w = F(zc), v = j * n + i;
+        Z[2 * v] = z[0]; Z[2 * v + 1] = z[1];
+        if (CX.isFin(w)) { P[2 * v] = w.re; P[2 * v + 1] = w.im; } else P[2 * v] = P[2 * v + 1] = NaN;
+        if (Hv) Hv[v] = hgt(zc);
+      }
+      const g = { name, n, place, Z, P, Hv };
+      const keep = (a, d, e) => {
+        const o = [2 * a, 2 * d, 2 * e];
+        if (discs.some(([x, y, r]) => o.every((k) => Math.hypot(Z[k] - x, Z[k + 1] - y) < r))) return;
+        if (ring && o.every((k) => landInStrip(ring, Z[k], Z[k + 1]))) return;
+        if (!o.every((k) => Number.isFinite(P[k]))) return;
+        for (let m = 0; m < 3; m++) { const k = o[m], q = o[(m + 1) % 3]; if ((P[k] - P[q]) ** 2 + (P[k + 1] - P[q + 1]) ** 2 > lim2) return; }
+        if (Hv && step < Infinity) { const hs = [Hv[a], Hv[d], Hv[e]]; if (!hs.every(Number.isFinite) || Math.max(...hs) - Math.min(...hs) > step) return; }
+        visit(g, a, d, e);
+      };
+      for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+        const v = j * n + i;
+        keep(v, v + 1, v + n + 1);
+        keep(v, v + n + 1, v + n);
+      }
+    };
+    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    grid('box', n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
+    const ring = (name) => (p, k) => { const m = p[4] || c.patchN || 96; grid(name + k, m, (i, j) => svPatchZ(p, i, j, m), [], p.dup ? p : null); };
+    if (patches) (c.polar || []).slice(0, c.patches || 0).forEach(ring('pole'));
+    if (patches && patches !== 'poles') (c.far || []).forEach(ring('far'));
+    more.forEach(ring('more'));
+  };
+  // the last frame's carried landscape over its block, on the CPU: an nx x ny grid of points over the block, each covered
+  // when it lies in the image of a triangle the draw keeps (landKeptTris, as patches and more say; the heights' step limit,
+  // LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F). where (x, y) -> boolean: the points counted
+  // (all by default). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry
   window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = [], where = null) => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets) return null;
-    const F = cpuMap(c.map), b = c.box, cov = new Uint8Array(nx * ny);
-    const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0), lim2 = c.lim * c.lim;
-    // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell; with discs, a triangle
-    // whose corners all lie in one of them is left out, as LAND_CARRY_VS leaves the box's to a seamed patch; with ring (a far
-    // ring with its copies' strip), one whose corners all lie in that strip, as it leaves the ring's to the box and the inner ring)
-    const grid = (n, place, discs = [], ring = null) => {
-      const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n);
-      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-        const z = place(i, j), w = F(C(z[0], z[1])), o = 2 * (j * n + i);
-        Z[o] = z[0]; Z[o + 1] = z[1];
-        if (CX.isFin(w)) { P[o] = w.re; P[o + 1] = w.im; } else P[o] = P[o + 1] = NaN;
-      }
-      const at = (i, j) => 2 * (j * n + i);
-      const inDisc = (...v) => discs.some(([x, y, r]) => v.every((o) => Math.hypot(Z[o] - x, Z[o + 1] - y) < r));
-      const inDup = (...v) => !!ring && v.every((o) => landInStrip(ring, Z[o], Z[o + 1]));
-      const tri2 = (a, d, e) => { if (!inDisc(a, d, e) && !inDup(a, d, e)) tri(P, a, d, e); };
-      for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
-        tri2(at(i, j), at(i + 1, j), at(i + 1, j + 1));
-        tri2(at(i, j), at(i + 1, j + 1), at(i, j + 1));
-      }
-    };
-    const tri = (P, a, d, e) => {
-      const ax = P[a], ay = P[a + 1], bx = P[d], by = P[d + 1], cx = P[e], cy = P[e + 1];
-      if (!(Number.isFinite(ax) && Number.isFinite(bx) && Number.isFinite(cx))) return;
-      if ((ax - bx) ** 2 + (ay - by) ** 2 > lim2 || (bx - cx) ** 2 + (by - cy) ** 2 > lim2 || (cx - ax) ** 2 + (cy - ay) ** 2 > lim2) return;
+    const b = c.box, cov = new Uint8Array(nx * ny);
+    const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0);
+    landKeptTris(c, cpuMap(c.map), ({ P }, a, d, e) => {
+      const ax = P[2 * a], ay = P[2 * a + 1], bx = P[2 * d], by = P[2 * d + 1], cx = P[2 * e], cy = P[2 * e + 1];
       const i0 = Math.max(0, Math.ceil((Math.min(ax, bx, cx) - b.x0) * kx)), i1 = Math.min(nx - 1, Math.floor((Math.max(ax, bx, cx) - b.x0) * kx));
       const j0 = Math.max(0, Math.ceil((Math.min(ay, by, cy) - b.y0) * ky)), j1 = Math.min(ny - 1, Math.floor((Math.max(ay, by, cy) - b.y0) * ky));
       const D = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
@@ -463,13 +485,7 @@
         const u = ((bx - x) * (cy - y) - (cx - x) * (by - y)) * Math.sign(D), v = ((cx - x) * (ay - y) - (ax - x) * (cy - y)) * Math.sign(D), w = ((ax - x) * (by - y) - (bx - x) * (ay - y)) * Math.sign(D);
         if (u >= eps && v >= eps && w >= eps) cov[j * nx + i] = 1;
       }
-    };
-    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
-    grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
-    for (const p of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
-      const n = p[4] || c.patchN || 96;
-      grid(n, (i, j) => svPatchZ(p, i, j, n), [], p.dup ? p : null);
-    }
+    }, { patches, more });
     let bare = 0, counted = 0;
     const at = [];
     for (let k = 0; k < nx * ny; k++) {
@@ -486,7 +502,8 @@
   // the worst cell's centre and corners' mean and exact L, copies and copiesBad: the cells the outer ring leaves out to the box
   // and the inner ring, all four corners in the strip of its copies (dup, LAND_CARRY_VS uDup), and those of them off by more
   // than tol, not in cells or bad}, per patch of c.far (of 'polar': per pole patch, each at its own resolution, none left
-  // out), or null with no carry
+  // out), or null with no carry. (It reads only the height, at a cell's centre: not where the cell stands in the block, nor
+  // its error on the screen, which __cmwLandChordPx reads)
   window.__cmwLandFarErr = (tol = 0.25, skipPatches = true, of = 'far') => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.far) return null;
@@ -499,7 +516,7 @@
       for (let j = 0; j <= m; j++) for (let i = 0; i <= m; i++) V[j * (m + 1) + i] = L(at(i, j));
       for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
         const zc = at(i + 0.5, j + 0.5), w = F(zc);
-        if (of === 'far' && skipPatches && (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(zc.re - qx, zc.im - qy) < q1)) continue;
+        if (of === 'far' && skipPatches && inPoleDisc(c, zc.re, zc.im)) continue;
         if (!CX.isFin(w) || w.re < b.x0 || w.re > b.x1 || w.im < b.y0 || w.im > b.y1) continue;
         const a0 = V[j * (m + 1) + i], a1 = V[j * (m + 1) + i + 1], a2 = V[(j + 1) * (m + 1) + i], a3 = V[(j + 1) * (m + 1) + i + 1], Lc = L(zc);
         if (!Number.isFinite(a0 + a1 + a2 + a3 + Lc)) continue;
@@ -528,6 +545,54 @@
     if (!pk || !pk.info) return null;
     const w = pk.F(C(x, y));
     return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
+  };
+  // The chord error of the last carried Landscape frame on the screen, on the CPU, per grid the draw keeps triangles of
+  // (landKeptTris, with the draw's height step, c.step): each kept triangle whose centroid's image lies in the block is sampled
+  // at its centroid and its three edges' midpoints, at the same fractional grid place (i, j); there the chord (its
+  // corners' images and drawn heights, interpolated) and the exact surface point (F(z) at the height of h(z), z the
+  // grid's point at that place) are each projected onto the pane (landWorldPx, the frame's floor camera). A triangle's
+  // error is the largest distance between the two, in css px; placement and height, its parts: the exact point against
+  // the chord's place at the exact height, and against the exact place at the chord's height. o {tol: px (3), where:
+  // (x, y) -> boolean on the centroid's point of plane s, the triangles counted (all by default)}. Per grid name
+  // ({box, pole k, far k}): {tris: the triangles counted, off: those over tol, worst: the largest error (px), at: its
+  // centroid's image and point [w.re, w.im, z.re, z.im], place and height: the off triangles whose placement or height
+  // part is over tol, inDisc: a far ring's kept triangles whose centroid lies in a pole patch's disc, which that patch
+  // covers (not counted)}, or null with no carried frame
+  window.__cmwLandChordPx = ({ tol = 3, where = null } = {}) => {
+    const c = render3D.carried, f = render3D.floor;
+    if (!c || !c.map || c.sheets || !f) return null;
+    const F = cpuMap(c.map), h = cpuMap(c.hmap), info = f.info, b = c.box;
+    const hgt = (z) => { const v = h(z); return CX.isFin(v) ? info.heightOf(landValue(v)) : NaN; };
+    // (the draw's own height step for the frame, carryStep: none for ln |F| and |F|)
+    const step = c.step != null && c.step < 1e30 ? c.step : Infinity;
+    const px = (x, y, ht) => landWorldPx(f, x, y, ht), d = (p, q) => (p && q ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 0);
+    const out = {};
+    const SAMPLES = [[1 / 3, 1 / 3, 1 / 3], [0.5, 0.5, 0], [0, 0.5, 0.5], [0.5, 0, 0.5]];
+    landKeptTris(c, F, ({ name, n, place, P, Hv }, ...vs) => {
+      const r = out[name] || (out[name] = { tris: 0, off: 0, worst: 0, at: null, place: 0, height: 0, inDisc: 0 });
+      const hs = vs.map((v) => Hv[v]);
+      if (!hs.every(Number.isFinite)) return;
+      const wx = (P[2 * vs[0]] + P[2 * vs[1]] + P[2 * vs[2]]) / 3, wy = (P[2 * vs[0] + 1] + P[2 * vs[1] + 1] + P[2 * vs[2] + 1]) / 3;
+      if (wx < b.x0 || wx > b.x1 || wy < b.y0 || wy > b.y1) return;
+      const ij = vs.map((v) => [v % n, Math.floor(v / n)]), zAt = (k) => place(...[0, 1].map((m) => k[0] * ij[0][m] + k[1] * ij[1][m] + k[2] * ij[2][m]));
+      const zc = zAt(SAMPLES[0]);
+      if (name.startsWith('far') && inPoleDisc(c, zc[0], zc[1])) { r.inDisc++; return; }
+      if (where && !where(zc[0], zc[1])) return;
+      let e = 0, ep = 0, eh = 0, atW = null;
+      for (const k of SAMPLES) {
+        const z = zAt(k), zz = C(z[0], z[1]), w = F(zz), hx = hgt(zz);
+        if (!CX.isFin(w) || !Number.isFinite(hx)) continue;
+        const cx = k[0] * P[2 * vs[0]] + k[1] * P[2 * vs[1]] + k[2] * P[2 * vs[2]], cy = k[0] * P[2 * vs[0] + 1] + k[1] * P[2 * vs[1] + 1] + k[2] * P[2 * vs[2] + 1];
+        const ch = k[0] * hs[0] + k[1] * hs[1] + k[2] * hs[2], q = px(w.re, w.im, hx);
+        e = Math.max(e, d(px(cx, cy, ch), q)); ep = Math.max(ep, d(px(cx, cy, hx), q)); eh = Math.max(eh, d(px(w.re, w.im, ch), q));
+        if (!atW) atW = [w.re, w.im];
+      }
+      r.tris++;
+      if (e > tol) { r.off++; if (ep > tol) r.place++; if (eh > tol) r.height++; }
+      if (e > r.worst) { r.worst = e; r.at = [...(atW || [wx, wy]), ...zc].map((v) => +v.toFixed(3)); }
+    }, { step, hgt });
+    for (const r of Object.values(out)) r.worst = +r.worst.toFixed(1);
+    return out;
   };
   // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
   // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there

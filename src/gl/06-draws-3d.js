@@ -1350,9 +1350,12 @@
     const pxW0 = fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * fitD);
     const dbg = {};
     // TEST-HOOK (dropped from the published page by build.py)
-    // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px }
+    // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px; farN: the carry's far rings
+    // at these points a side, [inner, outer], for a reference frame (test/steps_land_chord_cmd.js) }
     Object.assign(dbg, api._lw || {});
     // TEST-HOOK
+    // (the carry's far rings' points a side: CARRY_FAR_N, or a test's reference counts)
+    const farN = (k) => (dbg.farN && dbg.farN[k]) || CARRY_FAR_N[k];
     // At rest (and in figures, films and exports) the scale is the camera's at the block's nearest point, when that is
     // nearer than the fitted distance (zoomed in, or the near side of the block in perspective): a finished zoom or
     // orbit rebuilds once. While something moves the fitted scale stands, and a mesh built at rest for the same heights
@@ -1384,7 +1387,7 @@
       pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
     }
     // (the far patches, the last: their own textures)
-    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: CARRY_FAR_N[k], o: carryHeights(st, CARRY_FAR_N[k], mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {})) });
+    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: farN(k), o: carryHeights(st, farN(k), mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {})) });
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets would hold both)
     if (!st.card) {
@@ -1549,7 +1552,7 @@
       }
       info.copyAlpha = copies.length ? Math.min(...copies.map(alphaOf)) : null;
       info.refine = null;
-      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null }));
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null })); info.step = carryStep(mode, H);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
@@ -1562,7 +1565,7 @@
     const sheetPatches = [];
     if (st.carry && hs) {
       const polar = (st.carry.polar || []).slice(0, CARRY_POLES), far = (st.carry.far || []).slice(0, CARRY_FAR_N.length);
-      [...polar.map((p) => [p, CARRY_POLE_N]), ...far.map((p, k) => [p, CARRY_FAR_N[k]])].forEach(([p, n], i) => {
+      [...polar.map((p) => [p, CARRY_POLE_N]), ...far.map((p, k) => [p, farN(k)])].forEach(([p, n], i) => {
         const h = sheetPatchHeights(st, sp, p, n, i, mode, H, mu, aspect);
         const cp = h ? carryPlaces(st, h.N, p, h.slot, { sp, tileC: h.tileC }) : CP_NONE;
         if (cp !== CP_NONE) sheetPatches.push(Object.assign(h, { far: i >= polar.length, cps: cp === CP_SHEETS ? 1 : 0 }));
