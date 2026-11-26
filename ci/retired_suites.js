@@ -21,5 +21,10 @@ const RETIRED = {
   'ux165_merge_classic_cmd.js': 'Y\'s head with its "Y · " tag in the classic view: Y\'s pane is not drawn since #994, so it has no head; the rest of the merged look is ux165_merge_cmd\'s',
   'curves_target_legend_classic_cmd.js': 'the target legend in Y\'s head note (#rightNote) in the classic view: Y\'s pane is not drawn since #994, so it has no head; the steps view\'s legend is curves_target_legend_cmd\'s',
   'phone_swap_cmd.js': 'the phone\'s two planes, X and Y, keeping their views through swaps, sheets, rotations and languages: the classic view draws X alone since #994, as the steps view does; the phone\'s one plane is phone_plane_cmd\'s',
+  'tour_auto_classic_cmd.js': 'the classic views\' tour tasks with real input (the view switch\'s doors, Phase key, X\'s pan, the preimages hint, the Deformation\'s Part of the chain): the tour\'s classic chapters are deleted (#997); the steps view\'s are tour_auto_cmd',
+  'tour_cmd_classic_cmd.js': 'the classic views\' tour (X\'s pan task, the strip\'s arrow keys, the Views and Deformation chapters): the tour\'s classic chapters are deleted (#997); the steps view\'s is tour_cmd',
+  'tour_phone_classic_cmd.js': 'the classic views\' tour on a phone (X\'s 608 px under the chain bar, the Phase key sheet below the strip): the tour\'s classic chapters are deleted (#997); the steps view\'s is tour_phone_cmd',
+  'tour_tasks_classic_cmd.js': 'the classic views\' tour task lines (Y\'s drag, the classic desk cases): the tour\'s classic chapters are deleted (#997); the steps view\'s are tour_tasks_cmd',
+  'tour_words_classic_cmd.js': 'the classic views\' tour words, the Basics chapter\'s chain step included: the tour\'s classic chapters are deleted (#997); the steps view\'s is tour_words_cmd',
 };
 module.exports = { RETIRED };

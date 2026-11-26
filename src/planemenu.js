@@ -31,6 +31,15 @@ const PlaneMenu = (() => {
   // ---- numbers: as many decimals as a pixel of the plane needs (2 at 52 px per unit), upright digits, real minus
   // (at most 6 decimals: a menu head is a reading, not a computation)
   function dpFor(s) { return Number.isFinite(s) && s > 0 ? Math.max(0, Math.min(6, Math.ceil(Math.log10(s) - 0.3))) : 3; }
+  // the decimals of w = F(z) on a flat plane of s px per unit: as many as one pixel's step of z moves w (|F(z + 1/s) - w|
+  // is a pixel of w's own), the plane's own where that step cannot be taken
+  function wDpFor(F, z, w, s) {
+    if (!(s > 0)) return dpFor(s);
+    let w1 = null;
+    try { w1 = F({ re: z.re + 1 / s, im: z.im }); } catch (e) { w1 = null; }
+    const d = isFin(w1) && isFin(w) ? Math.hypot(w1.re - w.re, w1.im - w.im) : NaN;
+    return d > 0 ? dpFor(1 / d) : dpFor(s);
+  }
   function fmtR(x, dp) {
     const ax = Math.abs(x);
     let t;
@@ -88,7 +97,7 @@ const PlaneMenu = (() => {
     let head = `<span class="pm-h1">${ctx.plane === 'X' ? varHtml(ctx.stage) : api.yHtml()} = ${fmtCx(ctx.z, dp)}</span>`;
     if (ctx.plane === 'X') {
       const F = api.mapF(), w = F ? F(ctx.z) : null;
-      if (w) head += `<span class="pm-h2">${api.fnHtml()}(${varHtml(ctx.stage)}) = ${fmtCx(w, dpFor(api.scale('R')))}</span>`;
+      if (w) head += `<span class="pm-h2">${api.fnHtml()}(${varHtml(ctx.stage)}) = ${fmtCx(w, wDpFor(F, ctx.z, w, ctx.s))}</span>`;
     }
     // the groups (a provider that throws is left out: one broken item never takes the menu away)
     const items = [];

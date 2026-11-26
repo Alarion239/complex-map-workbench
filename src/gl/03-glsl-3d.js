@@ -1542,9 +1542,12 @@ void main() {
 `;
 
   // ---------- Riemann sphere (spec 6.10) ----------
+  // (its position invariant: the colour globe and its depth-only pass, sphereDepth, are separate programs that draw the
+  // same depth)
   const SPHERE_VS = `
 layout(location = 5) in vec3 aPos3;
 uniform mat4 uMVP;
+invariant gl_Position;
 out vec3 vP;
 void main() { vP = aPos3; gl_Position = uMVP * vec4(aPos3, 1.0); }
 `;
