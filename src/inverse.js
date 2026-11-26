@@ -49,20 +49,33 @@ const Inverse = (() => {
   // 3. Plans (SPEC 3.4) and the program key (4.4)
   // =====================================================================================================
   const isLive = (st, b) => !!st && st.on !== false && !!b && !b.error && !!b.def;
-  // Inverse.chainOpts(steps, built) -> the stepOps options for every step of the chain, the same for its plans, its key
-  // and its GLSL inverse program (whose ops a plan's must match): {rept}, a repeat's one REPT op only when it is the
-  // chain's one live step. The REPT search starts from the pixel's own w (chain error 0) and ends at the shape
-  // (Inverse.enumerate's, the GLSL walker's), so it stands for no repeat with another step's op before or after it; there
-  // the repeat's copies make the plan, as any other repeat's
+  // Inverse.chainOpts(steps, built) -> the stepOps options of the chain's own GLSL inverse program and its key (whose ops
+  // the plans of longer ranges match): {rept}, a repeat's one REPT op only when it is the chain's one live step. The REPT
+  // search starts from the pixel's own w (chain error 0) and ends at the shape (Inverse.enumerate's, the GLSL walker's),
+  // so it stands for no repeat with another step's op before or after it; there the repeat's copies make the plan, as any
+  // other repeat's. A range that holds the repeat alone plans its REPT op with a program of its own (Inverse.rangeOpts)
   function chainOpts(steps, built) {
     let live = 0;
     for (let k = 0; k < steps.length; k++) if (isLive(steps[k], built[k])) live++;
     return { rept: live === 1 };
   }
-  // Inverse.inverseKey(steps, built): structure of every step (op kinds, or 'X' when it has no enumerator); parameter
-  // values are uniforms, so a parameter change keeps the key unless it flips a step's decomposition or eligibility.
-  function inverseKey(steps, built) {
-    const opts = chainOpts(steps, built);
+  // REPT_RANGE: a plane range that holds a repeat alone plans it as one REPT op, with the GLSL inverse program of its
+  // own options (GLChain.buildInverse(steps, built, plan.opts), beside the chain's); false: every plan takes the chain's
+  // options (Inverse.chainOpts), so a repeat in a longer chain is planned by its copies on its own plane too
+  const REPT_RANGE = true;
+  // Inverse.rangeOpts(steps, built, a, b) -> the stepOps options of the plans for the stages (a, b]: {rept: true} when
+  // the range's one live step is a repeat whose ops are then one REPT op (REPT_RANGE), else the chain's
+  // (Inverse.chainOpts), so that every other plan matches the chain's own program
+  function rangeOpts(steps, built, a, b) {
+    let live = 0, only = 0;
+    for (let k = a + 1; k <= b; k++) if (isLive(steps[k - 1], built[k - 1])) { live++; only = k; }
+    const own = REPT_RANGE && live === 1 && built[only - 1].repeat ? stepOps(built[only - 1], { rept: true }) : null;
+    return own && own.ok && own.ops.length === 1 && own.ops[0].kind === 'REPT' ? { rept: true } : chainOpts(steps, built);
+  }
+  // Inverse.inverseKey(steps, built, opts): structure of every step (op kinds, or 'X' when it has no enumerator), each
+  // decomposed with opts (default the chain's, Inverse.chainOpts); parameter values are uniforms, so a parameter change
+  // keeps the key unless it flips a step's decomposition or eligibility.
+  function inverseKey(steps, built, opts = chainOpts(steps, built)) {
     const sigs = steps.map((st, k) => {
       const b = built[k];
       if (!st || st.on === false) return 'off';
@@ -80,28 +93,30 @@ const Inverse = (() => {
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back), at = o.kind === 'NEWT' && o.sub != null ? `@${o.sub}` : '';
     return (n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>${back.some((q) => q.dual) ? 'D' : ''}` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind) + at;
   }
-  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity. The plan's
-  // ops are its own records (a copy of each op of stepOps with its step, node and j), so plans whose steps share their op
-  // objects (a glide's skeleton shares each step's decomposition at every t, where one op can sit at another node) keep
-  // their own places
-  function planChain(steps, built, a = 0, b = steps.length) {
-    const key = inverseKey(steps, built);
-    const ops = [], opts = chainOpts(steps, built);
+  // Inverse.planChain(steps, built, a, b, opts) -> Plan for the stages (a, b]; off and failed steps are the identity; each
+  // step decomposed with opts (default Inverse.rangeOpts), which the plan keeps (plan.opts: its GLSL inverse program is
+  // GLChain.buildInverse(steps, built, plan.opts), its key inverseKey(steps, built, plan.opts)). The plan's ops are its
+  // own records (a copy of each op of stepOps with its step, node and j), so plans whose steps share their op objects (a
+  // glide's skeleton shares each step's decomposition at every t, where one op can sit at another node) keep their own
+  // places
+  function planChain(steps, built, a = 0, b = steps.length, opts = rangeOpts(steps, built, a, b)) {
+    const key = inverseKey(steps, built, opts), no = (reason, more) => Object.assign({ ok: false, reason, ops: [], key, a, b, fams: [], injective: false, opts }, more);
+    const ops = [];
     for (let k = a + 1; k <= b; k++) {
       const st = steps[k - 1], bb = built[k - 1];
       if (!isLive(st, bb)) continue;
       const r = stepOps(bb, opts);
-      if (!r.ok) return { ok: false, reason: `step ${k}: ${r.reason}`, ops: [], key, a, b, fams: [], injective: false };
+      if (!r.ok) return no(`step ${k}: ${r.reason}`);
       r.ops.forEach((o, i) => { ops.push(Object.assign(Object.create(Object.getPrototypeOf(o)), o, { step: k, node: i })); });
     }
-    if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', tooLong: true, ops: [], key, a, b, fams: [], injective: false };
+    if (ops.length > OPS_MAX) return no('chain too long', { tooLong: true });
     // (the walkers' REPT search is the plan's only op: a step that stands for its homotopy, Inverse.homBuilt, carries the ops
     // it was given, so its REPT next to another step's op is refused here)
-    if (ops.length > 1 && ops.some((o) => o.kind === 'REPT')) return { ok: false, reason: 'a repeated step inverts exactly only as the plane\'s one step', ops: [], key, a, b, fams: [], injective: false };
+    if (ops.length > 1 && ops.some((o) => o.kind === 'REPT')) return no('a repeated step inverts exactly only as the plane\'s one step');
     ops.forEach((o, j) => { o.j = j; });
     const fams = [];
     ops.forEach((o, j) => { if (o.fam) fams.push(j); });
-    return { ok: true, reason: null, ops, key, a, b, fams, injective: fams.length === 0 };
+    return { ok: true, reason: null, ops, key, a, b, fams, injective: fams.length === 0, opts };
   }
 
   // =====================================================================================================
@@ -704,8 +719,8 @@ const Inverse = (() => {
   // step of degree 3 to NEWT_POLY_MAX with no exact ops has its roots instead (homOps at t = 1: one NEWT op, every root
   // of f(u) = w by Aberth's iteration, a multiple root once with its multiplicity)
   function pointPlan(steps, built, a = 0, b = steps.length) {
-    const opts = chainOpts(steps, built);
-    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1, opts)) : bb)), a, b);
+    const opts = rangeOpts(steps, built, a, b);
+    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1, opts)) : bb)), a, b, opts);
   }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
   // ops each have one branch or finitely many: each op's own (its critical(), e.g. IPOW 0 and infinity, JOUK ±1, QUAD
@@ -2093,7 +2108,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    stepOps, chainOpts, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
+    stepOps, chainOpts, rangeOpts, REPT_RANGE, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
