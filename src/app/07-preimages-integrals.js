@@ -848,15 +848,14 @@
       removeVertex(id, i) { if (polyRemoveVertex(id, i)) undoToast($t('Vertex removed.')); },
       select(id) { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); },
       newNumber: (z) => newNumberHere(z),
-      front(id) { const t = S.targets.some((x) => x.id === id); moveShapeTo(id, (t ? S.targets : S.shapes).length - 1); },
+      front(id) { moveShapeTo(id, S.shapes.length - 1); },
       back(id) { moveShapeTo(id, 0); },
       hide(id) {
         const s = findShape(id);
         if (!s) return;
-        const target = S.targets.includes(s);
         s.visible = false;
         if (selected === id) selected = null;
-        if (target) targetsChanged(true); else shapesChanged(true);
+        shapesChanged(true);
         commit();
         undoToast($t('Shape hidden.'));
       },
@@ -882,11 +881,11 @@
   function cancelDrawing() {
     if (!drawing()) return false;
     if (drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) {
-      if (drag.mode === 'draw') Construct.drawEnd(null, !!drag.target);   // (its snapped start binds nothing)
+      if (drag.mode === 'draw') Construct.drawEnd(null);   // (its snapped start binds nothing)
       if (drag.mode === 'gdraw') gSnapMark = null;
       drag = null;
     }
-    if (draft && draft.kind === 'lasso' && !draft.target) snd.loop = null;
+    if (draft && draft.kind === 'lasso') snd.loop = null;
     if (draft && draft.pending) dropPending();   // (a two-click shape's snapped start binds nothing)
     draft = null;
     Construct.cancel();
