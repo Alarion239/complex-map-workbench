@@ -1028,7 +1028,8 @@ async function svInteractUnit(scene) {
 // no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot). o: {id: the
 // unit's id and its rows' prefix (default sv.glide.<scene>), surf: the steps view's surface ('plane' | 'sphere' | 'land'),
 // scope ('all': Everywhere | 'in': Inside regions), planes: [a, b] the glide's two planes (default [0, 1]), info: its rows
-// are info, state: the saved page to open instead of the default one}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
+// are info, state: the saved page to open instead of the default one, setup: a page expression evaluated once the view
+// is on plane a, before the glides}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
 // reference without the Landscape's glide makes it NEW (refCannot)
 // Opens the steps view on a fresh page (state: the saved page to start from, else the default one) and waits for its first frame
 // and the typesetter.
@@ -1097,6 +1098,7 @@ async function svGlideUnit(scene, o = {}) {
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
         dprOk.push(Math.abs((await B.ev('devicePixelRatio')) - dpr) < 1e-9);
         await B.ev(`__cmwSteps({ scope: '${scope}', surf: '${surf}', go: ${pa}, now: true }), 1`);
+        if (o.setup) await B.ev(o.setup);
         // (o.ready: the chain prepared first, its wait an info row: the Play gate holds a glide until the chain's jobs are
         // done, and a chain whose carried meshes are built on the CPU can take longer than a settle to prepare. A build
         // without the gate has no ready state and waits for nothing)
@@ -1957,6 +1959,12 @@ async function svCutDragUnit() {
 const SV_CUT_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }], steps: [{ type: 'root', params: { n: 2, cut: 180 }, on: true }, { type: 'add', params: { c: '2' }, on: true }] };
 unit('sv.glide.cut', 'the steps view (on a GPU), a chain with a ray cut (√z, cut 180°, then z + 2): a warm glide there and back between w₁ and w₂ on the plane, the cut\'s image curve carried by the homotopy (#912): frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('cut', { id: 'sv.glide.cut', state: SV_CUT_STATE, planes: [1, 2] }));
 unit('sv.glide.cut_globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the same chain with a ray cut: the glide between w₁ and w₂ with the cut\'s image curve lifted to the globe (#912)', () => svGlideUnit('cut', { id: 'sv.glide.cut_globe', surf: 'sphere', state: SV_CUT_STATE, planes: [1, 2] }));
+// (the logarithm alone: its glide from z to w₁ on the globe draws the other sheets' copies under the principal one, up to
+// SV_GLIDE_SHEETS_MAX combos, by the inverse pass (#2391); with __cmwSteps({ glideStencil: 1 }) the copies only where
+// the principal sheet is not opaque (#2406). A build without that hook draws the copies in painter's order in both)
+const SV_LOG_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }] };
+unit('sv.glide.globe_sheets', 'the steps view on the globe (Surface: Sphere, on a GPU), the logarithm alone: a warm glide there and back between z and w₁, Everywhere, every sheet\'s copy drawn (#2391); info rows', () => svGlideUnit('log', { id: 'sv.glide.globe_sheets', surf: 'sphere', state: SV_LOG_STATE, info: true, ready: true, setup: '__cmwSteps({ glideStencil: 0 }), 1' }));
+unit('sv.glide.globe_sheets_cut', 'the steps view on the globe (Surface: Sphere, on a GPU), the same glide with the copies drawn only where the principal sheet is not opaque (the stencil, #2406): against sv.glide.globe_sheets, the cut\'s gain; info rows', () => svGlideUnit('log', { id: 'sv.glide.globe_sheets_cut', surf: 'sphere', state: SV_LOG_STATE, info: true, ready: true, setup: '__cmwSteps({ glideStencil: 1 }), 1' }));
 unit('sv.cut_drag', 'the steps view (on a GPU), √z (cut 180°) then z + 2: the cut\'s handle dragged 40 x 30 px and back on w₁ and on w₂, where the cut is carried (#1159): frame p95, latency, fps and the settle\'s jank per plane (info)', svCutDragUnit);
 unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton seeded from the step\'s own ops (#870); info rows only (its cost is measured, the look decides)', () => svGlideUnit('jouk', { info: true }));
 // (z³ then cos about 0: z³'s three sheets tie over every w, so the carried meshes resolve the ties per pixel, two draws a

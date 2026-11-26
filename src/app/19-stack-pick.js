@@ -3,7 +3,7 @@
   // pointer is that map's inverse at the pointer: a point of the flat plane's css px, and so a point z of the floor (the
   // plane shown) or a point w of the glass (the target's plane T = svT(), in the floor's own coordinates, as Look down's
   // glass marks are). The pick follows the floor picker (19-floor-pick.js). With the Pick tool, in this order:
-  // - a press on the target's square on the glass (its radius handle at c + r, stackSquare) sets the target's radius to
+  // - a press on the target's square on the glass (its radius handle at c + r, ldSquare) sets the target's radius to
   //   the distance from c of the glass's point under the pointer;
   // - a press on a glass's mark, the target's ring, drags the target, its centre under the pointer as it moves;
   // - a press on a floor's mark (a lit patch, a lit twin's ring, a critical point's cross, seen through the glass) acts on
@@ -67,42 +67,10 @@
     // the ellipse's half minor axis to the ring's radius)
     const det = G[0] * G[3] - G[1] * G[2], X = x - G[4], Y = y - G[5];
     const inside = det !== 0 && Math.hypot((G[3] * X - G[2] * Y) / det - m.c[0], (G[0] * Y - G[1] * X) / det - m.c[1]) < m.r;
-    return ldRingNear(gap, inside, m.r * stackLeast(G), finger) ? s : null;
+    return ldRingNear(gap, inside, m.r * ldLeast(G), finger) ? s : null;
   }
-  // the least stretch of the affine map G's linear part (its least singular value): an ellipse drawn through G from a ring
-  // of radius r has its half minor axis r times it
-  function stackLeast(G) {
-    const det = G[0] * G[3] - G[1] * G[2], sq = G[0] ** 2 + G[1] ** 2 + G[2] ** 2 + G[3] ** 2;
-    return Math.sqrt(Math.max(0, (sq - Math.sqrt(Math.max(0, sq * sq - 4 * det * det))) / 2));
-  }
-  // the target's square on the glass, its radius handle (Region.handlesOf's 'r', at c + r), shown with the Pick tool while
-  // the target's marks show and its radius is free (not bound to a construction, s.at.r, as drawHandles and handleAt
-  // read it): {s, p, o, minor}, p its place and o the centre's in the canvas's css px through the glass's map G, minor the
-  // ring's drawn half minor axis; or null
-  function stackSquare(pane, G = stackLevel(pane, stackCam, 1)) {
-    const s = findShape(selected);
-    if (tool !== 'pick' || !s || s.kind !== 'disc' || s.def || s.fixed || !lookMarksOn(s)) return null;
-    const hd = Region.handlesOf(s).find(([k]) => k === 'r');
-    if (!hd || !CX.isFin(hd[1]) || (s.at && s.at[hd[0]])) return null;
-    const at = (z) => { const [u, v] = pane.w2s(z); return [G[0] * u + G[2] * v + G[4], G[1] * u + G[3] * v + G[5]]; };
-    const c = C(s.c[0], s.c[1]), r = Math.hypot(...pane.w2s(hd[1]).map((v, i) => v - pane.w2s(c)[i]));
-    return { s, p: at(hd[1]), o: at(c), minor: r * stackLeast(G) };
-  }
-  // the target when (x, y) is on its square: within LD_HIT / 2 css px of it, LD_HIT_TOUCH / 2 for a finger's or a pen's
-  // press (finger); else null. Where the ring is drawn smaller than a finger's reach (its half minor axis under
-  // LD_HIT_TOUCH / 2), a finger reaches the square only from outside, the side away from the centre, so that the ring
-  // stays a finger's to drag
-  function stackSquareAt(pane, x, y, finger = false) {
-    const q = stackSquare(pane);
-    if (!q || Math.hypot(x - q.p[0], y - q.p[1]) > (finger ? LD_HIT_TOUCH : LD_HIT) / 2) return null;
-    const out = (x - q.p[0]) * (q.p[0] - q.o[0]) + (y - q.p[1]) * (q.p[1] - q.o[1]) >= 0;
-    return finger && q.minor < LD_HIT_TOUCH / 2 && !out ? null : q.s;
-  }
-  // the resize cursor for the square of q (stackSquare's): the one along the line from the centre to it on screen
-  function stackSquareCursor(q) {
-    const a = Math.atan2(q.p[1] - q.o[1], q.p[0] - q.o[0]), k = Math.round((((a % Math.PI) + Math.PI) % Math.PI) / (Math.PI / 4)) % 4;
-    return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][k];
-  }
+  // the target when (x, y) is on its square on the glass (ldSquare's, ldSquareHit's), or null
+  const stackSquareAt = (pane, x, y, finger = false) => ldSquareHit(ldSquare(pane, stackLevel(pane, stackCam, 1)), x, y, finger);
   // the hover's lit mark put out (the pointer has left the plane, or the camera turns under it)
   function stackMarkOff() {
     if (stackMarkHov) { stackMarkHov = null; requestRender('OL'); }
@@ -183,7 +151,7 @@
     const mark = tool !== 'pick' || !lv ? null : lv === 'glass' ? (stackSquareAt(pane, x, y) ? 'square' : stackRingAt(pane, x, y) ? 'ring' : null)
       : stackFloorMark(pane, x, y, hit.floor.z) ? 'floor' : null;
     if (mark !== stackMarkHov) { stackMarkHov = mark; requestRender('OL'); }
-    if (tool === 'pick') pane.ocanvas.style.cursor = mark === 'square' ? stackSquareCursor(stackSquare(pane)) : mark ? 'move' : 'crosshair';
+    if (tool === 'pick') pane.ocanvas.style.cursor = mark === 'square' ? ldSquareCursor(ldSquare(pane, stackLevel(pane, stackCam, 1))) : mark ? 'move' : 'crosshair';
     if (lv === 'floor') {
       probe = hit.floor.z;
       setReadouts(probe);
@@ -301,18 +269,12 @@
   function drawStackPicks(pane, ctx, F, G) {
     const rec = { strands: 0, off: 0 };
     const lit = floorPickNow(), hv = stackHovNow(), s = stackMarkHov === 'ring' && tool === 'pick' ? findShape(selected) : null;
-    const lookRing = s && lookMarksOn(s) ? lookMarks(pane, s) : null, sq = stackSquare(pane, G);
+    const lookRing = s && lookMarksOn(s) ? lookMarks(pane, s) : null, sq = ldSquare(pane, G);
     if (!lit && !hv && !lookRing && !sq) return rec;
     // a point of the flat plane's css px at height t, through the levels' maps
-    const at = (p, t) => { const m = F.map((v, i) => v + t * (G[i] - v)); return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; };
+    const at = (p, t) => { const m = stackMapAt(F, G, t); return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; };
     const flat = (q) => pane.w2s(q), inside = (p) => p[0] >= 0 && p[0] <= pane.w && p[1] >= 0 && p[1] <= pane.h;
-    const ring = (p, r, colour, fill) => {
-      const x = p[0], y = p[1];
-      ctx.setLineDash([]);
-      ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
-      ctx.lineWidth = 1.75; ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
-      if (fill) ctx.fill(); else ctx.stroke();
-    };
+    const ring = (p, r, colour, fill) => pickMark(ctx, p[0], p[1], fill, { r, colour });
     // the strand from the floor's point z up to the glass's point v (plane points), along the connector shown
     // (stackLinkFlat), as far as it is inside the box
     const strand = (z, v, colour, w, dash) => {

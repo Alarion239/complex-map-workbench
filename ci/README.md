@@ -125,7 +125,11 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 Each platform's job is there for its own shader compiler:
 
 - **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
-  loops.
+  loops. One link on WARP takes from seconds to minutes, and which program runs past the inverse page's wait
+  (`WAIT_MS`, 120 s) changes from run to run: up to three such cases were not compared, and the job names them in its
+  line and summary row and leaves them out of the verdict (`settlePending` in `ci/glsl.js`). More than three, the clip
+  test or the REPT certificate (one program each for a whole check), or such a case on any other renderer, is an error
+  each.
 - **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
 - **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`; a local browser-suite run uses lavapipe instead where it is installed, below): CPU WebGL2. Headless Chrome falls back to it without a
   usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
@@ -339,6 +343,7 @@ artifact.
 - no horizontal page scroll, and nothing visible is cut by the viewport's edge;
 - targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
 - a control focused from the keyboard shows it, and its ring isn't cut;
+- the boxes declared whole (`INTENT.whole`: the open key of Look down and the Stack on a phone) show all they hold: no content past their own box, so no scroll to reach it (`scroll-cut`, #2418);
 - the rows declared even (`INTENT.rows`: the segmented controls of three members or more, the steps view's track, the phone's tool rail, in landscape a column) are evenly spaced, within 1 px; a row that wraps onto a second line is skipped; `test/layout_rows_cmd.js` moves one member of each by 3 px and expects the check to report it.
 
 It runs over the matrix of `test/lib/layout_matrix.js`:
@@ -346,7 +351,7 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 - **themes:** light and dark;
 - **views:** the classic view, and `?view=steps` where the build has it;
 - **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
-  sheets; the Line integral popover on an open and on a closed curve (phone, #2191); and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
+  sheets; the Line integral popover on an open and on a closed curve (phone, #2191); the open Look down / Stack key on its own page load, seeded with M3 and a disc on w₁, at 360, 568×320, 600×320 and 740×360 (phone, steps view, #2418); and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
   `tour longest <chapter>`, #565).
 
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
