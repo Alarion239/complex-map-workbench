@@ -134,9 +134,9 @@ const CASES = [
   // iteration (NEWT^5). noNewt: the glide's ops have no NEWT op. step: where H_u's image of the window shrinks with u
   // (the roots, the powers, arcosh, the polynomial and the rational), fewer than MIN_COMPARED pixels every 10 px lie in
   // it, so it samples every 5 px; end: cos's and cosh's zoom paths turn the plane by pi t about their point, a pixel at
-  // the window's edge at u = 0.001, and the polynomial's and the rational's paths move a point by about u |f(z) - z|, so
-  // their ends are a tenth as far from the planes. Their view is 270 px a unit: plane z colours f(z), whose bands crowd
-  // the patch the window's preimages lie in, and at 90 nearly every sample's preimage is by a colour line)
+  // the window's edge at u = 0.001, and the polynomial's and the rational's paths move a point by about u |f(z) - z|,
+  // so their ends are a tenth as far from the planes. Their view is 270 px a unit: plane z colours f(z), whose bands
+  // crowd the patch the window's preimages lie in, and at 90 nearly every sample's preimage is by a colour line)
   ...[
     ['n-th root, Everywhere', { type: 'root', params: { n: 3 } }, 90, { noNewt: true, step: 5 }],
     ['complex power, Everywhere', { type: 'powa', params: { alpha: '0.5+0.3i' } }, 90, { noNewt: true, step: 5 }],
