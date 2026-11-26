@@ -8,7 +8,7 @@
 // - rule: every row's decision is the rule applied to the row's own inputs (cost, N, frame size, the three limits);
 // - said: a glide from rest at the page's speed says why it plays live, once (the live region's words), when its plan is 'time' or
 //   'memory'; with the plan 'live' it says nothing; with 'ahead' it says the draw wait's why exactly when its fill (which times
-//   itself) ended cut for time, by the fill's own record; a second glide says the draw wait's why exactly when the first was silent and its plan is 'time' or its fill ends cut for time;
+//   itself) ended cut for time, by the fill's own record; a second glide says why exactly when the first was silent and its plan is now 'time' or 'memory' or its fill ends cut for time;
 // - cut: such a fill ends within the draw wait and a frame of its start, and its glide started within that of the press.
 // info.glide has each map's estimate (cost times frames) beside the wait it made and its fill's record (each frame's ms).
 // - the fill times itself (z^-2 at normal speed): a fill is drawn whole first, with a draw wait that holds, to see what it takes (its frames
@@ -149,8 +149,8 @@ for (const rate of RATES) for (const what of list) {
     // a reason is said once for a chain: a first glide that said it leaves the second silent. One that was silent (an 'ahead' whose fill ran whole,
     // which fed its cost) leaves a second that says the draw wait's why, once, exactly when its plan is now 'time' or its own fill ends cut for time
     const second = said2.slice(said1.length), cutB = !!B && B.state === 'live' && B.why === 'time';
-    const want = said1.length === 0 && (plan2 === 'time' || cutB) ? 1 : 0;
-    if (plan2 !== 'memory') ok(`${tag}: said: a second glide says the draw wait's why exactly when the first was silent and its plan is 'time' or its fill ends cut for time, once`, second.length === want && (want === 0 || second[0].includes(TIME)), { said1: said1.length, second, plan2, cutB, fill: B && { state: B.state, why: B.why, n: B.n } });
+    const want = said1.length === 0 && (plan2 === 'time' || plan2 === 'memory' || cutB) ? 1 : 0;
+    ok(`${tag}: said: a second glide says why exactly when the first was silent and its plan is now 'time' or 'memory' or its fill ends cut for time, once, in that reason's words`, second.length === want && (want === 0 || second[0].includes(plan2 === 'memory' ? MEMORY : TIME)), { said1: said1.length, second, plan2, cutB, fill: B && { state: B.state, why: B.why, n: B.n } });
   } catch (e) {
     ok(`${what.name}: ran`, false, String(e && e.message || e).slice(0, 400));
   }
