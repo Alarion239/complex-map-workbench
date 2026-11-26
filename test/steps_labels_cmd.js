@@ -9,7 +9,8 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 // (waits for the page to be quiet: no glide or play under way, the panes' frames drawn; `extra` is one more condition)
-const quiet = (extra) => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play${extra ? ' && (' + extra + ')' : ''}; })()` });
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const quiet = (extra) => kit.prepared(`(() => { const s = __cmwSteps(); return !s.anim && !s.play${extra ? ' && (' + extra + ')' : ''}; })()`, 20000);
 const ns = 'svl' + Date.now();
 // zeta, a circle and a point: the circle's 600 samples go through zeta's map, the point has a label
 const st = { v3: true, v4: true, v5: true, v6: true,
@@ -21,9 +22,9 @@ const st = { v3: true, v4: true, v5: true, v6: true,
   sv: { speed: 'slow' } };   // (a glide that lasts: a slow runner draws few frames of a quick one, and the check needs frames on the move)
 const open = async () => {
   await view(1280, 800, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && typeof __cmwLabelStats === 'object'` }); await quiet();
   // (a first glide links its shader program and draws no frame meanwhile: one there and back before anything is counted)
   await ctl({ go: 1 }); await quiet(); await ctl({ go: 0, now: true }); await quiet();
@@ -36,12 +37,18 @@ const placed = () => ev(`__cmwLabelsPlaced()`);
 // second render can differ in its last digit, which moves a place by a few tenths of a pixel at most
 const PLACE_TOLERANCE_PX = 0.6;
 const same = (a, b) => a.length === b.length && a.every((q, i) => q.text === b[i].text && Math.abs(q.x - b[i].x) < PLACE_TOLERANCE_PX && Math.abs(q.y - b[i].y) < PLACE_TOLERANCE_PX);
-// a glide from plane 0 to plane 1 and back, the label passes counted while it is under way
+// a glide from plane 0 to plane 1, the label passes counted while it is under way. The glide runs on the test clock (the steps view's
+// SV.clock: its time advances CLOCK_MS a frame, whatever a frame costs), so it draws the same number of frames on any machine: a loaded
+// one that draws few frames in a wall-clock glide would leave fewer moving passes than the row asks, which says nothing of the passes.
+// A glide of the normal speed is as many frames as it is long over CLOCK_MS (five on any machine), and each frame runs about two label
+// passes on the move (about ten in a run here), then the landing's pass at rest. The step is not smaller: more frames would each cost seconds on a loaded software renderer, past quiet()'s 20 s
+const CLOCK_MS = 200;
 const glideCost = async () => {
   await ctl({ go: 0, now: true }); await quiet();
   await zero();
-  await ctl({ go: 1 });
+  await ctl({ go: 1, clock: CLOCK_MS });
   await quiet();
+  await ctl({ clock: 0 });
   const s = await stats();
   return { n: s.n, per: s.n ? s.ms / s.n : 0, list: s.list };
 };

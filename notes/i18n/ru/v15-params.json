@@ -110,21 +110,6 @@
   "ru": "Шаг должен быть положительным",
   "note": "params build (v15)"
  },
- "v15p.ui.params": {
-  "en": "Parameters",
-  "ru": "Параметры",
-  "note": "params build (v15)"
- },
- "v15p.ui.add_number": {
-  "en": "Add a number",
-  "ru": "Добавить число",
-  "note": "params build (v15)"
- },
- "v15p.ui.empty": {
-  "en": "Shared numbers: type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.",
-  "ru": "Общие числа: введите новую букву в любую формулу, например <i>Re z = a</i>, или нажмите «+ Число».",
-  "note": "params build (v15)"
- },
  "v15p.ui.number": {
   "en": "Number",
   "ru": "Число",
@@ -150,11 +135,6 @@
   "ru": "Добавить",
   "note": "params build (v15)"
  },
- "v15p.ui.cancel": {
-  "en": "Cancel",
-  "ru": "Отмена",
-  "note": "params build (v15)"
- },
  "v15p.ui.rename": {
   "en": "Rename",
   "ru": "Переименовать",
@@ -168,11 +148,6 @@
  "v15p.ui.value_x": {
   "en": "Value of {x}",
   "ru": "Значение {x}",
-  "note": "params build (v15)"
- },
- "v15p.ui.pause": {
-  "en": "Pause",
-  "ru": "Пауза",
   "note": "params build (v15)"
  },
  "v15p.ui.play_tip": {
@@ -243,11 +218,6 @@
  "v15p.ui.step_l": {
   "en": "step",
   "ru": "шаг",
-  "note": "params build (v15)"
- },
- "v15p.ui.done": {
-  "en": "Done",
-  "ru": "Готово",
   "note": "params build (v15)"
  },
  "v15p.ui.delete_x": {

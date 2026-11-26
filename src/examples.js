@@ -8,8 +8,8 @@
 const Examples = (() => {
   let A = null;
   let EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit,
-    defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
-    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
+    drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph,
+    nSteps, newShape, onPaneResize, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
     setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
@@ -109,7 +109,6 @@ const Examples = (() => {
     // (a new scene: every view starts from its own fitted plane)
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     morph.open = false; morph.T = 0; morph.seg = null; morph.playing = false;
-    defMem.y = null; defMem.d = null; defMem.dkey = '';
     // an example with a melody shows its Try line before the layout, so its plane is fitted with the
     // line's room already taken (shown after the fit, the line pushed the spiral's top out of the plane)
     const laned = !spec && (ex.song || ex.shapes.some((sh) => sh.listen)) && sndPieceHint(true);
@@ -162,17 +161,14 @@ const Examples = (() => {
     commit();
     // (what opened, with Undo, when there is work to go back to; the button names it until an edit)
     if (!spec) { A.exAt = A.hi; exLabelSync(); if (A.hi > 0) undoToast($t('Opened {name}.', { name: ex.name })); }
-    if (ex.morph || ev.deform) openTransport();
     if (piece && !spec && !laned) sndPieceHint();
     // every other example says what to try, in the tour's docked line, Show me starting the chapter about
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
     if (!spec && !piece && !(opt && opt.quiet) && exTryText(ex) && Tour.lane && !laned) {
       Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: exTryText(ex), drop: 'title', onClose: exTryStop,
-        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics' }); } }] });
+        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics', opener: Tour.asker() }); } }] });
       exTryWatch(ex);
     }
-    // the line integral the example is about, once the planes have their size
-    if (ex.integrate != null) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
   }
   let exLook = '';
   function renderExampleThumb(i) {
@@ -231,6 +227,8 @@ const Examples = (() => {
     }, 30);
   }
   function openGallery(anchor) {
+    // re-pressing the button that opened the gallery closes it, as it does a menu
+    if (popOpenedFrom(anchor)) { closePalette(); return; }
     const okey = focusKey(anchor);
     const items = EX.map((ex, i) => {
       const img = h('img', { class: 'ex-thumb', alt: '', width: 48, height: 32 });
@@ -243,9 +241,7 @@ const Examples = (() => {
     const pop = h('div', { class: 'pop menu examples', role: 'menu', 'aria-label': $t('Examples') }, ...items.map((x) => x.b));
     $('popHost').append(pop);
     A.popEl = pop;
-    // (the button that opened the gallery says so while it is open; closePalette puts it back)
-    pop._opener = anchor;
-    if (anchor.hasAttribute('aria-expanded')) anchor.setAttribute('aria-expanded', 'true');
+    markOpener(pop, anchor);
     placePop(pop, anchor);
     // (ex.tip: the whole description as a tooltip, where its line is cut; the melody says how to hear it there)
     for (const { b, i } of items) { const bl = EX[i].tip && b.querySelector('.ex-blurb'); if (bl && bl.scrollWidth > bl.clientWidth + 1) b.title = EX[i].blurb; }
@@ -274,8 +270,6 @@ const Examples = (() => {
   }
 
   // ---------------- guide ----------------
-  // the guide's TeX in $…$ as typeset spans (the guide sets every [data-tex] after it is built)
-  const guideTex = (s) => s.replace(/\$([^$]+)\$/g, (_, x) => `<span class="gtex" data-tex="${x.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></span>`);
   // the guide on a touch screen (the tour's touch check: a coarse pointer). Each paragraph that names a place
   // or a gesture of the desktop (the tools on the left, the right pane, the Inspector, a double-click, a right-click,
   // Shift, a key) is given in a phone's words. A paragraph is found by its section's heading and its place in the
@@ -324,9 +318,10 @@ const Examples = (() => {
   // The guide's sections are the h3 blocks. Each is wrapped, so the contents row can jump to it and the search can fold
   // the others away; a section about something the tour teaches ends in Show me, which starts that chapter
   function guideNav(m, close) {
-    // (the steps view's tour has Planes and Playing the chain where the classic tour has Views and Deformation)
+    // (the steps view's tour has Planes and Playing the chain where the classic tour has Views; the Deformation section is
+    // the steps view's only)
     const chap = (/** @type {string} */ id, /** @type {string} */ sv) => (Tour.chapters().some((/** @type {any} */ c) => c.id === id) ? id : sv);
-    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), chap('views', 'planes')], [$t('Deformation'), chap('deform', 'playing')], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
+    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), chap('views', 'planes')], [$t('Deformation'), 'playing'], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
       [$t('Zeros and poles'), 'edit'], [$t('Export'), 'export']];
     const secs = [];
     for (const hd of [...m.querySelectorAll('h3')]) {
@@ -336,7 +331,7 @@ const Examples = (() => {
       sec.append(hd);
       for (let e = sec.nextElementSibling; e && e.tagName !== 'H3' && !e.classList.contains('modal-foot');) { const nx = e.nextElementSibling; sec.append(e); e = nx; }
       const show = SHOW.find(([t]) => t === hd.textContent.trim());
-      if (show && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1] }); } }, $t('Show me'))));
+      if (show && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1], opener: Tour.asker() }); } }, $t('Show me'))));
       secs.push(sec);
     }
     if (secs.length < 4) return;
@@ -374,17 +369,20 @@ const Examples = (() => {
     const bg = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === bg) close(); } });
     const m = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'guideTitle' });
     const k = (t) => t.split(' ').map((x) => `<span class="kbd">${x}</span>`).join(' ');
+    // (a phone: the Deformation section names what its thread has, ▶ held for Playback, and no keys)
+    const ph = document.documentElement.classList.contains('ph');
     const keys = [
       [k('V'), $t('Select and move shapes')], [`${k('P')} ${k('S')} ${k('L')} ${k('R')}`, $t('Point, segment, line, ray')],
       [`${k('C')} ${k('A')} ${k('F')}`, $t('Circle, arc, freehand')], [`${k('D')} ${k('B')} ${k('G')} ${k('O')}`, $t('Disc, rectangle, polygon, lasso')],
       [`${k('H')} ${k('N')} ${k('K')}`, $t('Half-plane, annulus, sector')], [k('T'), $t('Type a region formula')],
       [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
       [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
-      [k('M'), $t('Deformation on or off, in every view')], [k('⇧ M'), $t('Sound on or off')], [k('P'), $t('Deformation: paths on or off (in X → Y; else the Point tool)')],
+      // (the steps view: K or M plays the chain, P shows its paths; the classic view has no deformation, and P is the Point tool)
+      ...(exSv() ? [[`${k('K')} ${k('M')}`, $t('Play the chain, or pause it')], [k('P'), $t('Paths t ↦ Hₜ(z) on or off')]] : []), [k('⇧ M'), $t('Sound on or off')],
       [k('Z'), $t('Fit view')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
       [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, X, Y, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s cards')],
-      [`${k('←')} ${k('→')}`, $t('Previous or next plane; with a shape selected, nudge it')], [`${k('Alt')} ${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('On a plane with the sound probe (steps view): move the probe')], [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
+      [`${k('←')} ${k('→')}`, $t('Previous or next plane')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('With a shape selected: nudge it by one grid step, ⇧ for ten')], [`${k('Alt')} ${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('On a plane with the sound probe (steps view): move the probe')], [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
       [k('Enter'), $t('Close a polygon')], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, $t('Undo, redo')],
     ];
     m.innerHTML = `
@@ -408,8 +406,8 @@ const Examples = (() => {
       <h3>${$t(`Views`)}</h3>
       <p>${$t(`The switch in the middle of the top bar picks the view ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x4} {x5} for the left pane, {x6} {x7} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its sheets instead of the cut principal branch (all of them when there are finitely many, else a window of them; best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.`, { x: k('1'), x2: k('2'), x3: k('3'), x4: k('⇧ 1'), x5: k('⇧ 2'), x6: k('⇧ 3'), x7: k('⇧ 4') })}</p>
       <h3>${$t(`Deformation`)}</h3>
-      <p>${$t(`<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> starts at the identity, ends at the map and, when the step is analytic, is analytic for every <i>t</i>. Möbius maps move along their one-parameter groups; powers and roots <i>z</i><sup><i>a</i></sup> along <i>z</i><sup>1+(<i>a</i>−1)<i>t</i></sup> (a negative integer power reaches <i>z</i><sup>|<i>a</i>|</sup> at <i>t</i> = ½, then 1/<i>z</i><sup>|<i>a</i>|</sup> through Möbius maps); log along (<i>z</i><sup>1−<i>t</i></sup> − 1)/(1 − <i>t</i>) + 1 − <i>t</i>; exp, sin, cos, tan, the hyperbolic functions and the inverse trigonometric and hyperbolic functions are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); polynomials, rational maps and any other analytic formula are zoomed into about a point <i>p</i>, so their critical points, poles and cuts fly in from infinity along the rays from <i>p</i>; Joukowski closes the unit circle onto [−1, 1]. A formula that is not analytic, a constant, or an analytic formula with no usable point <i>p</i> to zoom about moves along the straight line, and conjugation squashes the plane onto the real axis and out again, mirrored: Re <i>z</i> + <i>i</i>(1 − 2<i>t</i>) Im <i>z</i>. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x2}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.`, { x: k('M'), x2: k('P') })} ${guideTex($t('A step shown alone deforms in its own planes; to see it deform inside $F$, bracket it (below).'))}</p>
-      <p>${guideTex($t('<b>Part of the chain.</b> While the deformation shows the whole chain, a bracket stands over the cards. Drag its ends, or choose a card\'s ⋯ → <b>Deformation</b>; on a phone, use Deformed steps in the Display sheet. Steps before the bracket act first and in full, steps after it last and in full: $H_t=f_3\\circ G_t\\circ f_1$ runs from $f_3\\circ f_1$ at $t=0$ to $F$, while $G_t$ deforms the bracketed steps. Bracket the last steps to watch them deform the image $f_1(X)$ (a push-forward); bracket the first steps to watch them deform under the last ones (a pullback: for $\\sqrt{z}$ then $f$, bracket $\\sqrt{z}$ to go from $f(z)$ to $f(\\sqrt{z})$). The start is outlined, and the plane\'s title names it.'))}</p>
+      <p>${ph ? $t('▶ glides the picture along the chain, plane after plane, and stops at the last; ‹ and › glide to the previous or next plane.') : $t('▶ ({x} or {x2}) glides the picture along the chain, plane after plane, and stops at the last; ‹ and › ({x3} {x4}) glide to the previous or next plane.', { x: k('K'), x2: k('M'), x3: k('←'), x4: k('→') })} ${$t(`A glide shows the homotopy <i>H</i><sub><i>t</i></sub> of the steps it crosses, the shapes carried along and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>). Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> starts at the identity, ends at the map and, when the step is analytic, is analytic for every <i>t</i>. Möbius maps move along their one-parameter groups; powers and roots <i>z</i><sup><i>a</i></sup> along <i>z</i><sup>1+(<i>a</i>−1)<i>t</i></sup> (a negative integer power reaches <i>z</i><sup>|<i>a</i>|</sup> at <i>t</i> = ½, then 1/<i>z</i><sup>|<i>a</i>|</sup> through Möbius maps); log along (<i>z</i><sup>1−<i>t</i></sup> − 1)/(1 − <i>t</i>) + 1 − <i>t</i>; exp, sin, cos, tan, the hyperbolic functions and the inverse trigonometric and hyperbolic functions are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); polynomials, rational maps and any other analytic formula are zoomed into about a point <i>p</i>, so their critical points, poles and cuts fly in from infinity along the rays from <i>p</i>; Joukowski closes the unit circle onto [−1, 1]. A formula that is not analytic, a constant, or an analytic formula with no usable point <i>p</i> to zoom about moves along the straight line, and conjugation squashes the plane onto the real axis and out again, mirrored: Re <i>z</i> + <i>i</i>(1 − 2<i>t</i>) Im <i>z</i>.`)} ${ph ? $t('Hold ▶ to open <b>Playback</b>: the speed, <b>Loop</b>, <b>All at once</b> (two or more steps at the same <i>t</i>) and <b>Paths</b>.') : $t(`The speed select and <b>Loop</b> are on the thread; the thread's ⋯ opens <b>Playback</b>, where <b>All at once</b> plays two or more steps at the same <i>t</i> and <b>Paths</b> ({x}) shows or hides the paths.`, { x: k('P') })}</p>
+      <p><b>${$t('Part of the chain')}.</b> ${$t('A band over the thread plays only the steps inside it. Esc clears it.')} ${touchUI() ? $t('Hold the thread, then drag across two chips.') : $t('Shift-drag across two chips.')}</p>
       <h3>${$t(`Preimages and roots`)}</h3>
       <p>${$t(`Hover a point <i>w</i> of the right pane (its plane or its sphere): the left plane marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in the right pane: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view the left plane shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes and can be edited, hidden or deleted.`)}</p>
       <h3>${$t(`Inverses and derivatives`)}</h3>
@@ -417,7 +415,7 @@ const Examples = (() => {
       <h3>${$t(`Integrals`)}</h3>
       <p>${$t(`Right-click a curve or a region's boundary (hold it on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.`)}</p>
       <h3>${$t(`Sound`)}</h3>
-      <p>${$t(`<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Click a still point, hold it on touch, or press {x8} on the keyboard probe, to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x8} plays the point, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.`, { x: k('⇧ M'), x2: k('Esc'), x3: k('Z'), x4: k('O'), x5: k('D'), x6: k('Enter'), x7: k('L'), x8: k('Q') })}</p>
+      <p>${$t(`<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Click a still point, hold it on touch, or press {x8} on the keyboard probe, to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it. {x2} stops anything playing. With the keyboard, Tab to the left plane: {x9}, {x8} plays the point, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.`, { x: k('⇧ M'), x2: k('Esc'), x3: k('Z'), x4: k('O'), x5: k('D'), x6: k('Enter'), x7: k('L'), x8: k('Q'), x9: document.documentElement.classList.contains('sv') ? $t('{x} move a probe', { x: k('Alt ← → ↑ ↓') }) : $t('the arrows move a probe') })}</p>
       <p>${$t(`<b>Reading the sound.</b> Silence means nothing is changing under the probe. More notes a second means arg <i>F</i> is turning faster; a faster run is never louder, and the note repeated while the colour holds comes at most 8 times a second. The lines heard are the Phase key's sectors, which <b>Tiles</b> and <b>Contours</b> draw. Left and right are only where the probe is on the screen: they say nothing about <i>F</i>. On <i>Y</i>, two glasses gliding into one mean that two preimages of <i>w</i> meet. In Glide the voice is louder where |<i>F</i>| is larger. <b>Listen along</b> walks a curve at 250 screen pixels a second at the current zoom. Everything you hear is caused by <i>F</i> through this fixed map; the instruments, the room and a safety limiter are the only choices added.`)} ${$t(`A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.`)}</p>
       ${EX.some((ex) => exOk(ex) && ex.song) ? `<p>${$t(`<b>A curve as a melody.</b> <b>Listen along</b>, in a curve's menu, walks the curve at an even pace and plays what the pointer would play there: a note for each colour line arg <i>F</i> crosses, louder where |<i>F</i>| is larger, and a crack at each branch cut. A closed loop's last note is its winding number. The example “In the Hall of the Mountain King” (after Edvard Grieg) is a function: along the unit circle its arg <i>F</i> rises in steps, one for each note of the theme, so the colour lines it crosses are the melody, and nothing else is added. Each step is a pair of branch points, one just inside the circle and one just outside, so |<i>F</i>| stays constant along it. Each lap of the circle plays the theme twice, the second time faster, and the branch cut just before each downbeat is the drum.`)}</p>
       <p style="display:flex;align-items:center;gap:12px"><img class="guide-piece" alt="" width="96" height="64" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--well)"><button class="btn" type="button" data-play="piece">${$t('Open and play “In the Hall of the Mountain King”')}</button></p>` : ''}
@@ -432,6 +430,8 @@ const Examples = (() => {
       <h3>${$t(`Keys`)}</h3>
       <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
     if (touchUI()) guideTouch(m);
+    // (the classic view has no deformation: its guide leaves out the Deformation section)
+    if (!exSv()) { const dh = [...m.querySelectorAll('h3')].find((x) => x.textContent.trim() === $t('Deformation')); if (dh) { for (let e = dh.nextElementSibling; e && e.tagName !== 'H3';) { const nx = e.nextElementSibling; e.remove(); e = nx; } dh.remove(); } }
     guideNav(m, close);
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
     const pb = m.querySelector('[data-play="piece"]');
@@ -449,7 +449,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();

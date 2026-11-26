@@ -58,6 +58,11 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
   add('ijouk', { branch: 'exterior' }); add('ijouk', { branch: 'interior' });
   add('poly', { co: '2, 1-i, 3' }); add('poly', { co: '1+i, 0, 0, -2' }); add('poly', { co: '0.5, -1' }); add('poly', { co: '1, 0, 4' }); add('poly', { co: '2, 0, 0, 0, 0, 1-i' });
   add('rational', { p: '1, -i', q: '1, i' }); add('rational', { p: '1, 0, 1', q: '1, 0' }); add('rational', { p: '1, 2, 0', q: '1, 0, -3' }); add('rational', { p: '2, 1', q: '3' });
+  // degree 3 and 4 in closed form (RAT3, RAT4): polynomials, rational maps, zeros and poles, formulas
+  add('poly', { co: '1, 0, -2, 1' }); add('poly', { co: '1-i, 2, 0.5i, -1' }); add('rational', { p: '1, 0, 0, 1', q: '1, 0' }); add('rational', { p: '1, 0', q: '1, 0, 0, -2' });
+  add('zp', { a: '1', zeros: '1, 2', poles: '0, 3, 4' }); add('zp', { a: '2', zeros: '1, 2i, -1', poles: '' });
+  add('poly', { co: '1, 1, 0, -2, 1' }); add('poly', { co: '2i, 0.5, -1, 0, 3' }); add('rational', { p: '1, 0, 0, 0, 1', q: '1, 0, 2' }); add('rational', { p: '1, 1', q: '1, 0, 0, 0, -2' });
+  add('zp', { a: '1', zeros: '1, 2, i', poles: '0, 3, 4, -i' }); add('zp', { a: '0.5', zeros: '1, 2i, -1, 0.5', poles: '' });
   // zeros and poles (degree <= 2 exact: MOB, AFF, QUAD, RAT2)
   add('zp', {}); add('zp', { a: '2i', zeros: '1+i', poles: '-0.5' }); add('zp', { a: '1', zeros: '', poles: '0.3-i' }); add('zp', { a: '-1', zeros: '1, i', poles: '' });
   add('zp', { a: '0.5', zeros: '1+i, -2', poles: '0.25i, 3' }); add('zp', { a: '1', zeros: '0, 0', poles: '' }); add('zp', { a: '3', zeros: '0.5', poles: '' });
@@ -68,7 +73,7 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
     ['\\exp(z)-1', 180], ['\\sinh(z)', 180], ['\\sqrt[2.5]{z}', 180], ['z', 180], ['(2-z)^{-1}', 180],
     // rational parts in which z occurs more than once (SPEC 3.3 rev 3; test/t_inverse_rational.js has the full table)
     ['\\frac{z^2-1}{z^2+1}', 180], ['(z+1/z)/2', 180], ['z^2+2z', 180], ['\\frac{(z-1)(z-2i)}{z-0.5}', 180], ['\\log\\frac{z-1}{z+1}', 90], ['\\sqrt{z^2-1}', 180],
-    ['z^3+\\frac{1}{z^3}', 180], ['\\frac{z^4-1}{z^4+1}', 180], ['\\sin(z+1/z)', 180]];
+    ['z^3+\\frac{1}{z^3}', 180], ['\\frac{z^4-1}{z^4+1}', 180], ['\\sin(z+1/z)', 180], ['z^2+\\frac{1}{z}', 180], ['\\frac{z^3-1}{z^2+1}', 180], ['z^3+\\frac{1}{z}', 180], ['z^4+z^3+1', 180]];
   for (const [e, cut] of CUSTOM) add('custom', { expr: e, cut });
   // (the page rewrites the formulas it recognises first, 2^z as e^{z log 2}: the formula's own decomposition, EXPC for
   // c^z, is the fallback when Recognize declines a formula, as here)
@@ -108,7 +113,7 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
   console.log(`${total} eligible step cases, ${fails} failing; op kinds covered: ${[...kinds].sort().join(' ')}`);
   console.log(`ineligible: ${inel.length ? inel.join('; ') : 'none'}`);
   check('round trips: no ineligible case among the eligible list', inel.length === 0, inel.join('; '));
-  const ALL_KINDS = ['AFF', 'MOB', 'IPOW', 'ROOTPOW', 'EXP', 'EXPC', 'LOG', 'SIN', 'COS', 'TAN', 'SINH', 'COSH', 'TANH', 'ASIN', 'ACOS', 'ATAN', 'ASINH', 'ACOSH', 'ATANH', 'JOUK', 'IJOUK', 'CONJ', 'QUAD', 'RAT2'];
+  const ALL_KINDS = ['AFF', 'MOB', 'IPOW', 'ROOTPOW', 'EXP', 'EXPC', 'LOG', 'SIN', 'COS', 'TAN', 'SINH', 'COSH', 'TANH', 'ASIN', 'ACOS', 'ATAN', 'ASINH', 'ACOSH', 'ATANH', 'JOUK', 'IJOUK', 'CONJ', 'QUAD', 'RAT2', 'RAT3', 'RAT4'];
   check('every op kind is exercised', ALL_KINDS.every((k) => kinds.has(k)), ALL_KINDS.filter((k) => !kinds.has(k)).join(' '));
   // every catalog type is decomposed (or ineligible by rule)
   const covered = new Set(cases.map((c) => c.type));
@@ -117,8 +122,8 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
   check('every catalog type except d/dz, Γ, ζ, a series, a recurrence, Φ_M and φ_c is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
   // ineligible exactly
   const INELIGIBLE = [
-    ['poly', { co: '1, 0, -1, 0' }, 'polynomial of degree 3'], ['rational', { p: '1, 0, 0, 1', q: '1, 0' }, 'rational map of degree 3'],
-    ['custom', { expr: 'z^2+\\frac{1}{z}' }, 'rational formula of degree 3'], ['custom', { expr: '\\Re z+1' }, 'lose'], ['custom', { expr: '\\Im(z)' }, 'lose'],
+    ['poly', { co: '1, 0, 0, 0, -1, 0' }, 'polynomial of degree 5'], ['rational', { p: '1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1', q: '1, 0' }, 'rational map of degree 13'],
+    ['custom', { expr: 'z^{12}+\\frac{1}{z}' }, 'rational formula of degree 13'], ['custom', { expr: '\\Re z+1' }, 'lose'], ['custom', { expr: '\\Im(z)' }, 'lose'],
     ['custom', { expr: '|z|^2' }, 'lose'], ['custom', { expr: '\\arg(z)' }, 'lose'], ['deriv', {}, 'd/dz'], ['pown', { n: 17 }, '|n| > 16'], ['custom', { expr: 'z^{20}' }, '|n| > 16'],
     ['poly', { co: '1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1' }, '|n| > 16'], ['custom', { expr: 'z^{z}' }, 'variable base and exponent'], ['custom', { expr: '(1+z)^{\\sin z}' }, ''], ['custom', { expr: 'z\\cdot\\overline{z}' }, 'more than once'],
     ['mul', { c: '0' }, 'constant'], ['powa', { alpha: '0' }, 'constant'], ['mobius', { a: '1', b: '2', c: '2', d: '4' }, ''],
@@ -1036,7 +1041,10 @@ section('singularAfter (ζ after an injective plan)');
 // a straight-line homotopy and a step with no ops have none
 {
   const cases = [['exp', {}], ['mobius', { a: '1', b: '-1', c: '1', d: '1' }], ['affine', { a: '2i', b: '1' }], ['pown', { n: 3 }], ['sin', {}],
-    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }], ['joukowski', {}]];
+    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }], ['joukowski', {}],
+    // (a formula recognised as a chain whose first sub-step, z^5 - 2z, has no exact ops: past it, at t >= 0.5, it stands
+    // for itself by its roots as at t = 1, then the second sub-step's homotopy)
+    ['custom', { expr: 'z^5-2z+1', cut: 180 }]];
   for (const [type, params] of cases) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
@@ -1054,8 +1062,13 @@ section('singularAfter (ζ after an injective plan)');
       check(`homOps ${type} ${params.expr || ''} at t = ${t}: its ops compose to H_t`, h.ok && e < 1e-12, h.ok ? e : h.reason);
     }
   }
-  // root, powa and log: exact ops (no Newton), and every z of a cut plane's sheet is among its w's preimages by them
-  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }]];
+  // root, powa, log, z^n for n < 0 (#1491: its power path, then the Möbius path to 1/w after z^|n|) and the zooms about
+  // a point other than 0 (cos, arccos, cosh, arcosh, and cos(z) as a formula): exact ops (no Newton), and every z of a
+  // cut plane's sheet is among its w's preimages by them
+  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }],
+    ['pown', { n: -1 }], ['pown', { n: -2 }], ['pown', { n: -3 }], ['cos', {}], ['arccos', {}], ['cosh', {}], ['arcosh', {}], ['custom', { expr: 'cos(z)', cut: 180 }]];
+  // (an additive family's members: its bases shifted by m periods, |m| <= ADD_M)
+  const ADD_M = 2;
   for (const [type, params] of exact) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
@@ -1069,16 +1082,87 @@ section('singularAfter (ζ after an injective plan)');
         e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
         let us = [v];
         // (a log family's members: m about its range, kept when the member's lambda lies in it)
-        const pre = (o, x) => (o.fam && o.fam.type === 'log' ? [...Array(2 * o.fam.count + 1).keys()].map((j) => o.fam.member(x, j - o.fam.count, o.fam.L0(x))).filter((q) => q.lam.im > o.fam.lo - 1e-12 && q.lam.im <= o.fam.hi + 1e-12) : o.pre(x));
+        const pre = (o, x) => (o.fam && o.fam.type === 'log' ? [...Array(2 * o.fam.count + 1).keys()].map((j) => o.fam.member(x, j - o.fam.count, o.fam.L0(x))).filter((q) => q.lam.im > o.fam.lo - 1e-12 && q.lam.im <= o.fam.hi + 1e-12)
+          : o.fam && o.fam.type === 'add' ? o.fam.bases(x).flatMap((base) => [...Array(2 * ADD_M + 1).keys()].map((j) => o.fam.member(x, 0, j - ADD_M, base)))
+            : o.pre(x));
         for (let i = h.ops.length - 1; i >= 0; i--) us = us.flatMap((x) => pre(h.ops[i], x).map((m) => m.u));
         if (!us.some((x) => CX.abs(CX.sub(x, z)) <= 1e-9 * (1 + CX.abs(z)))) miss++;
       }
       check(`homOps ${type} ${JSON.stringify(params)} at t = ${t}: exact ops (no NEWT) that compose to H_t and find z over H_t(z)`, h.ok && !/NEWT/.test(kinds) && e < 1e-12 && miss === 0, `${kinds}; err ${e}; missed ${miss}`);
     }
   }
+  // a recognised chain past its first sub-step, a polynomial with no exact ops (z^5 - 2z): the passed sub-step's NEWT op
+  // inverts it as at t = 1, so walking the ops' preimages back from H_t(z) finds z, as well as the ops composing to H_t;
+  // the polynomial chain z^5 - 2z + 1 (NEWT, AFF) and the rational 1/(z^5 - 2z) (NEWT, MOB), whose whole formula has no
+  // ops at t = 1
+  for (const expr of ['z^5-2z+1', '1/(z^5-2z)']) {
+    const b = Funcs.build(St('custom', { expr, cut: 180 }));
+    for (const t of [0.5, 0.667, 0.75, 0.999]) {
+      const h = Inverse.homOps(b, t), H = b.hom(t), kinds = h.ok ? h.ops.map((o) => o.kind).join() : h.reason;
+      let e = 0, miss = 0;
+      for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4), C(1.9, 0.1), C(-1.2, -1.5)]) {
+        const v = H(z);
+        if (!h.ok || !CX.isFin(v)) continue;
+        let w = z;
+        for (const o of h.ops) w = o.fwd(w);
+        e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
+        let us = [v];
+        for (let i = h.ops.length - 1; i >= 0; i--) us = us.flatMap((x) => h.ops[i].pre(x).map((m) => m.u));
+        if (!us.some((x) => CX.abs(CX.sub(x, z)) <= 1e-9 * (1 + CX.abs(z)))) miss++;
+      }
+      check(`homOps ${expr} at t = ${t}: past its first sub-step the ops compose to H_t and find z over H_t(z)`, h.ok && /NEWT/.test(kinds) && e < 1e-12 && miss === 0, `${kinds}; err ${e}; missed ${miss}`);
+    }
+  }
   const lin = Funcs.build(St('custom', { expr: 'z+0.2*conj(z)' }));
   check('homOps: a straight-line homotopy has none', !Inverse.homOps(lin, 0.5).ok);
+  // a recognised formula's NEWT op names its sub-step (sub), whose own homotopy the GPU walks; a NEWT op that is not
+  // polynomial keys it (@j), as its program calls that sub-step's homotopy (#1805)
+  {
+    const sub = (expr, t) => Inverse.homOps(Funcs.build(St('custom', { expr, cut: 180 })), t).ops.filter((o) => o.kind === 'NEWT').map((o) => [o.sub, Inverse.opSig(o)]);
+    const g25 = sub('gamma(z)+1', 0.25), g75 = sub('gamma(z+1)', 0.75), p25 = sub('z^5-2z+1', 0.25), p75 = sub('z^5-2z+1', 0.75);
+    check('homOps: Γ(z) + 1 at t = 0.25, its NEWT op names sub-step 0 and keys it', g25.length === 1 && g25[0][0] === 0 && /@0$/.test(g25[0][1]), g25);
+    check('homOps: Γ(z + 1) at t = 0.75, its NEWT op names sub-step 1 and keys it', g75.length === 1 && g75[0][0] === 1 && /@1$/.test(g75[0][1]), g75);
+    check('homOps: z^5 - 2z + 1 at t = 0.25 and 0.75, its polynomial NEWT op names sub-step 0 (its key is its degree)', p25.length === 1 && p25[0][0] === 0 && p25[0][1] === 'NEWT^5' && p75.length === 1 && p75[0][0] === 0 && p75[0][1] === 'NEWT^5', { p25, p75 });
+  }
+  // a polynomial NEWT op's members in increasing Re u + 0.37 Im u (InvOps' ROOT_ORDER, as RAT<n>'s and the GLSL op's),
+  // each m its place in that order: which of Aberth's start points finds which root depends on the rounding, so the
+  // CPU and the GPU agree on the order of the roots, not on that
+  for (const [expr, t, w] of [['z^5+z', 0.5, C(3, 1)], ['z^5-2z+1', 0.25, C(-0.4, 2)], ['z^7+3z^2-1', 0.75, C(1e3, -40)], ['z^6+z', 1, C(0.2, 0.1)]]) {
+    const op = Inverse.homOps(Funcs.build(St('custom', { expr, cut: 180 })), t).ops.find((o) => o.kind === 'NEWT'), ms = op ? op.pre(w) : [];
+    const ks = ms.map((m) => m.u.re + 0.37 * m.u.im);
+    check(`homOps: ${expr} at t = ${t}, w = ${w.re} + ${w.im}i: the polynomial NEWT op's members in increasing Re + 0.37 Im, m their places`, ms.length > 0 && ks.every((k, i) => i === 0 || ks[i - 1] <= k) && ms.every((m, i) => m.m === i), ms.map((m) => `${m.m}:${(m.u.re + 0.37 * m.u.im).toFixed(4)}`).join(' '));
+  }
+  // a Repeat × N's NEWT op names its sub-step by the block, as its program names the block's homotopies (GLChain's
+  // repPlan, cxs<k>r<j>, j < len): the block step it names exists, and its homotopy at the op's t is the op's own map.
+  // Repeated inverse Joukowski (len 1, N = 3: three times) at t = 0.5 and 0.8, and the block [exp, inverse Joukowski]
+  // twice (len 2: inverse Joukowski, exp, inverse Joukowski) at t = 0.2 and 0.9
+  const ij = (repeat) => ({ type: 'ijouk', params: Funcs.defaults('ijouk'), repeat });
+  for (const [steps, ts] of [[[ij({ n: 3, len: 1 })], [0.5, 0.8]], [[{ type: 'exp' }, ij({ n: 2, len: 2 })], [0.2, 0.9]]]) {
+    const built = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st))), b = built[built.length - 1], block = b.repeat.block;
+    for (const t of ts) {
+      const news = Inverse.homOps(b, t).ops.filter((o) => o.kind === 'NEWT'), bad = [];
+      for (const o of news) {
+        const st = block[o.sub];
+        if (!st) { bad.push({ sub: o.sub, len: block.length }); continue; }
+        const H = st.hom(o.p.t);
+        for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4)]) { const v = H(z), e = CX.abs(CX.sub(o.fwd(z), v)) / (1 + CX.abs(v)); if (!(e < 1e-12)) bad.push({ sub: o.sub, step: st.def.id, e }); }
+      }
+      check(`homOps: ${steps.map((st) => st.type).join(', ')} repeated (len ${block.length}) at t = ${t}: each NEWT op names the block step whose homotopy it walks`, news.length > 0 && bad.length === 0, { subs: news.map((o) => o.sub), bad: bad.slice(0, 3) });
+    }
+  }
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
+  // A plan's ops are its own: two plans of one glide whose ops share the step's decomposition (as the app's glide
+  // skeleton shares it, each step's ops made once and the same op objects in the homotopy's ops at every t) each keep
+  // their own step, node and j. z^3 - 2z + 1 is recognised as two sub-steps: at t = 0.25 its ops are AFF, RAT3, AFF (RAT3
+  // node 1), at t = 0.75 the same RAT3 comes first (node 0); the plan at 0.25, made first, still has RAT3 at node 1
+  {
+    const once = (b) => { const r = Inverse.stepOps(b), o = Object.assign({}, b, { __homOps: () => r }); if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(once) }); return o; };
+    const st = St('custom', { expr: 'z^3-2z+1', cut: 180 }), sk = once(Funcs.build(st));
+    const plan = (t) => { const h = Inverse.homOps(sk, t); return { h, p: Inverse.planChain([st], [Inverse.homBuilt(sk, h)], 0, 1) }; };
+    const at = (q) => q.p.ops.map((o) => `${o.kind}${o.node}`).join();
+    const a = plan(0.25), b = plan(0.75), shared = a.h.ops.some((o) => b.h.ops.includes(o));
+    check('planChain: a plan keeps its own nodes when a later plan of the same glide puts a shared op at another node', shared && at(a) === 'AFF0,RAT31,AFF2' && /^RAT30/.test(at(b)), { shared, a: at(a), b: at(b) });
+  }
 }
 
 // Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a
@@ -1203,6 +1287,51 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
     check(`opNewt zeta at t = ${t} over the pole's image: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > MIN_TRUTH && r.share >= floor[t], r);
   }
 }
+// The walks take the GPU kit's derivative (#1929): member 0's walk (op.pre(w, trace)'s first newtGridK(t) + 1 iterates: one
+// step at each grid stage k / NEWT_K, then one at t) is Newton with H' by the forward difference over NEWT_FD (1 + |u|) from
+// H(u), glsl.js's _step, step for step. Where a stage's one step leaves |H - w| large the walk leaps between basins and the
+// derivative decides where it lands: at the zeta pixel w = 0.0875 + 25.3125i of #1396, t = 0.5, a central difference over
+// 1e-6 (1 + |u|) walked to -0.905 + 38.244i, where the kit's walk ends on none. glsl.js's _fd has the same step. Member
+// 1's deflated steps (glsl.js's _run in its DEFL phase, _step deflated by dz) too.
+{
+  const GLSL = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'glsl.js'), 'utf8');
+  const fdAt = /_fd\(vec2 u, vec2 hu, float t\) \{ float h = ([0-9.e-]+) \* \(1\.0 \+ cx_abs\(u\)\)/.exec(GLSL);
+  check('glsl.js\'s _fd differences H over InvOps.NEWT_FD (1 + |u|)', !!fdAt && Number(fdAt[1]) === InvOps.NEWT_FD, fdAt && fdAt[1]);
+  const fdStep = (u, w, f) => { const fu = f(u), h = InvOps.NEWT_FD * (1 + CX.abs(u)); return CX.sub(u, CX.div(CX.sub(fu, w), CX.scale(CX.sub(f(CX.add(u, { re: h, im: 0 })), fu), 1 / h))); };
+  const CASES = [['zeta', 0.5, [[0.0875, 25.3125], [0.5, 14], [-3, 20], [2, 30]]], ['zeta', 0.75, [[0.0875, 25.3125], [1, 8]]], ['series', 0.5, [[1, 1], [-2, 0.5]]]];
+  for (const [type, t, ws] of CASES) {
+    const b = Funcs.build(St(type)), op = Inverse.homOps(b, t).ops[0], k0 = InvOps.newtGridK(t);
+    for (const [x, y] of ws) {
+      const w = { re: x, im: y }, got = [];
+      op.pre(w, (m, u) => { if (m === 0) got.push(u); });
+      let u = w, worst = 0, steps = 0;
+      for (let k = 1; k <= k0 + 1 && k <= got.length && Number.isFinite(u.re + u.im); k++, steps++) {
+        u = fdStep(u, w, b.hom(k <= k0 ? k / InvOps.NEWT_K : t));
+        worst = Math.max(worst, CX.abs(CX.sub(u, got[k - 1])) / (1 + CX.abs(u)));
+      }
+      check(`opNewt ${type} at t = ${t}, w = ${x} + ${y}i: member 0's walk is the kit's, Newton with the forward difference, step for step`, steps === k0 + 1 && worst <= 1e-12, { steps, of: k0 + 1, worst });
+    }
+  }
+  // member 1, Newton deflated by member 0 u from 2w - u (no pole: the series), takes the same forward difference: its
+  // NEWT_DEF iterates are glsl.js's _run's in its DEFL phase, step for step
+  {
+    const b = Funcs.build(St('series')), t = 0.5, op = Inverse.homOps(b, t).ops[0], Ht = b.hom(t);
+    for (const [x, y] of [[1, 1], [-2, 0.5], [0.5, -1.5]]) {
+      const w = { re: x, im: y }, got = [];
+      const m0 = op.pre(w, (m, v) => { if (m === 1) got.push(v); }).find((e) => e.m === 0);
+      // (both stop where a step leaves the finite numbers: on the root itself H(v) - w is 0 and the deflated step divides by it)
+      const fin = (z) => Number.isFinite(z.re + z.im);
+      let v = CX.sub(CX.scale(w, 2), m0.u), worst = 0, steps = 0;
+      for (let it = 0; it < got.length; it++, steps++) {
+        const hv = Ht(v), h = InvOps.NEWT_FD * (1 + CX.abs(v)), d = CX.scale(CX.sub(Ht(CX.add(v, { re: h, im: 0 })), hv), 1 / h);
+        v = CX.sub(v, CX.inv(CX.sub(CX.div(d, CX.sub(hv, w)), CX.inv(CX.sub(v, m0.u)))));
+        if (!fin(v) || !fin(got[it])) { if (fin(v) !== fin(got[it])) worst = Infinity; steps++; break; }
+        worst = Math.max(worst, CX.abs(CX.sub(v, got[it])) / (1 + CX.abs(v)));
+      }
+      check(`opNewt series at t = ${t}, w = ${x} + ${y}i: member 1's deflated steps are the kit's (the DEFL phase), forward difference, step for step`, got.length >= 3 && steps === got.length && worst <= 1e-12, { steps, traced: got.length, worst });
+    }
+  }
+}
 // the exponential series sum z^n / n! (no exact inverse), the disc |z| < 2, w over [-3, 3]^2: the members keep reaching
 // the true image
 {
@@ -1214,13 +1343,13 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   }
 }
 // degree (the straight line for a formula, the zoom for the catalog's polynomial), so the NEWT op's members are every
-// root of H_t(u) = w: the partial sum of the exponential to z^8 / 8! and z^3 - z have 8 and 3 distinct points over each
+// root of H_t(u) = w: the partial sum of the exponential to z^8 / 8! and z^5 - z have 8 and 5 distinct points over each
 // w of a 20 x 20 grid over [-6, 6]^2 at t = .002 to .998, each where H_t is w
 {
   // (two roots closer than DISTINCT (1 + |root|) count as one; a root is off when H_t of it is further than ON_W
   // (1 + |w|) from w)
   const DISTINCT = 1e-6, ON_W = 1e-8;
-  for (const [name, st, deg] of [['sum z^n / n!, n <= 8', St('custom', { expr: '\\sum_{n=0}^{8} \\frac{z^n}{n!}', cut: 180 }), 8], ['z^3 - z', St('poly', { co: '1, 0, -1, 0' }), 3]]) {
+  for (const [name, st, deg] of [['sum z^n / n!, n <= 8', St('custom', { expr: '\\sum_{n=0}^{8} \\frac{z^n}{n!}', cut: 180 }), 8], ['z^5 - z', St('poly', { co: '1, 0, 0, 0, -1, 0' }), 5]]) {
     const b = Funcs.build(st);
     for (const t of [0.002, 0.25, 0.5, 0.75, 0.998]) {
       const o = Inverse.homOps(b, t).ops[0], Hh = b.hom ? b.hom(t) : null;
@@ -1235,6 +1364,162 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
       check(`homOps ${name} at t = ${t}: NEWT^${deg} finds every root of H_t(u) = w`, o.kind === 'NEWT' && o.p.deg === deg && o.fam.count === deg && Inverse.opSig(o) === `NEWT^${deg}` && short === 0 && off === 0, { kind: o.kind, short, off });
     }
   }
+}
+
+// Inverse.homOps for a step of degree 3 or 4 in closed form (InvOps.opRatN: Cardano's or Ferrari's roots, polished): its
+// glide's ops have no NEWT, and walking them back from each w of a 20 x 20 grid over [-6, 6]^2 finds n distinct points
+// (fewer where the degree drops: none of the grid's w), each where H_t is w, at t = .002 to .998 and at t = 1. The cubic
+// z^3 - z, z^3 - 2z + 1 as a formula, the rational maps 1/(z^3 - 2z) and (z^3 + 1)/(z^2 - 4); the quartic
+// z^4 + z^3 - 2z + 1, z^3 + 1/z and (z^4 + 1)/(z^2 - 2z)
+{
+  const DISTINCT = 1e-6, ON_W = 1e-9;
+  const steps = [['z^3 - z', St('poly', { co: '1, 0, -1, 0' }), 3], ['z^3 - 2z + 1', St('custom', { expr: 'z^3-2z+1', cut: 180 }), 3],
+    ['1/(z^3 - 2z)', St('custom', { expr: '1/(z^3-2z)', cut: 180 }), 3], ['(z^3 + 1)/(z^2 - 4)', St('custom', { expr: '(z^3+1)/(z^2-4)', cut: 180 }), 3],
+    ['z^4 + z^3 - 2z + 1', St('poly', { co: '1, 1, 0, -2, 1' }), 4], ['z^3 + 1/z', St('custom', { expr: 'z^3+1/z', cut: 180 }), 4],
+    ['(z^4 + 1)/(z^2 - 2z)', St('custom', { expr: '(z^4+1)/(z^2-2z)', cut: 180 }), 4]];
+  for (const [name, st, deg] of steps) {
+    const b = Funcs.build(st);
+    for (const t of [0.002, 0.25, 0.5, 0.75, 0.998, 1]) {
+      const h = Inverse.homOps(b, t), H = t >= 1 ? b.f : b.hom(t), kinds = h.ok ? h.ops.map((o) => o.kind).join() : h.reason;
+      let short = 0, off = 0;
+      for (let i = 0; h.ok && i < 20; i++) {
+        for (let j = 0; j < 20; j++) {
+          const w = C(-6 + (i + 0.5) * 0.6, -6 + (j + 0.5) * 0.6);
+          let G = [w];
+          for (let k = h.ops.length - 1; k >= 0; k--) G = G.flatMap((x) => h.ops[k].pre(x).map((m) => m.u));
+          if (G.length !== deg || G.some((g, k) => G.some((q, m) => m < k && CX.abs(CX.sub(g, q)) <= DISTINCT * (1 + CX.abs(g))))) short++;
+          if (G.some((g) => CX.abs(CX.sub(H(g), w)) > ON_W * (1 + CX.abs(w)))) off++;
+        }
+      }
+      check(`homOps ${name} at t = ${t}: closed-form ops (RAT${deg}, no NEWT) find every point over w`, h.ok && kinds.includes(`RAT${deg}`) && !/NEWT/.test(kinds) && short === 0 && off === 0, { kinds, short, off });
+    }
+  }
+}
+// InvOps.cubicRoots and quarticRoots on p - w q (InvOps.ratPoly's, as the ops give it) for random p and q (coefficients
+// of modulus 0.1 to 10) and w far out, near the value at infinity (the leading coefficient vanishes, one root runs off) or
+// near p(0)/q(0) (a root near 0): every root within 1e3 of 0 has a residual within 1e-12 of the polynomial's size there
+{
+  const { cubicRoots, quarticRoots, ratPoly } = InvOps;
+  let fz = 9;
+  const fr = () => { fz = (fz * 16807) % 2147483647; return fz / 2147483647; };
+  const rcm = () => { const m = 10 ** (fr() * 2 - 1), a = fr() * 2 * PI; return C(m * Math.cos(a), m * Math.sin(a)); };
+  for (const [n, roots] of [[3, cubicRoots], [4, quarticRoots]]) {
+    let worst = 0, bad = 0, tried = 0;
+    for (let k = 0; k < 6000; k++) {
+      const p = Array.from({ length: n + 1 }, rcm), q = k % 2 ? [C(1, 0)] : Array.from({ length: n + 1 - (k % 3 === 0 ? 1 : 0) }, rcm);
+      const Q = [...Array(n + 1 - q.length).fill(C(0, 0)), ...q], dir = C(Math.cos(fr() * 2 * PI), Math.sin(fr() * 2 * PI)), near = 10 ** (-1 - fr() * 7);
+      const wInf = CX.isZero(Q[0]) ? C(0, 0) : CX.div(p[0], Q[0]), w0 = CX.div(p[n], Q[n]);
+      const w = k % 3 === 0 ? CX.scale(dir, 10 ** (fr() * 6 - 3)) : CX.add(k % 3 === 1 ? wInf : w0, CX.scale(dir, near));
+      const co = p.map((pk, i) => CX.sub(pk, CX.mul(w, Q[i])));
+      for (const { u } of roots(ratPoly(p, Q, w))) {
+        if (CX.abs(u) > 1e3) continue;
+        const e = CX.abs(CX.polyEval(co, u)) / co.reduce((s0, c, i) => s0 + CX.abs(c) * CX.abs(u) ** (n - i), 0);
+        tried++; worst = Math.max(worst, e); if (!(e <= 1e-12)) bad++;
+      }
+    }
+    check(`${n === 3 ? 'cubicRoots' : 'quarticRoots'} on p - w q: every root within 1e3 has a relative residual within 1e-12`, bad === 0 && tried > 1000, { bad, tried, worst });
+  }
+}
+
+// RAT3 and RAT4 far out and at the value at infinity (InvOps.ratPoly: a leading coefficient of p - w q is dropped only
+// when it cancels against its own terms, p_k and w q_k; Ferrari's resolvent keeps its exact leading 8): z^3 - 2z + 1 at
+// |w| = 3e7 to 1e18, whose roots all have modulus |w|^(1/3) (to 1e6), (z^3 + 1)/(z^2 - 4) at |w| = 1e6 to 1e15 (one
+// root near w, two near the poles +-2), z^3 + 1/z at |w| = 1e3 to 1e9 (roots of modulus |w|^(1/3), and one near 1/w),
+// and the quartic whose roots are 1e4, 1.1e4 i, -0.9e4 and -1e4 i at w = 0 each give 3 or 4 distinct members u, each a
+// root of p - w q to 1e-13 of its terms' sizes (|p|(|u|) + |w| |q|(|u|): near a pole H itself is too steep to say it);
+// (z^3 + 1)/(z^3 + z^2 - 2z + 1/2) gives 2 at its value at infinity w = 1, where the degree drops, and 3 at w = 1 + 1e-6,
+// one of them far out
+{
+  const R = (a) => a.map((x) => C(x, 0)), DISTINCT = 1e-9, ON_W = 1e-13;
+  const fromRoots = (rs) => rs.reduce((co, r) => [...co, C(0, 0)].map((x, i) => (i ? CX.sub(x, CX.mul(r, co[i - 1])) : x)), [C(1, 0)]);
+  const rows = [['z^3 - 2z + 1', R([1, 0, -2, 1]), R([1]), [C(3e7, 9e6), C(1e12, 0), C(1e15, 3e14), C(-1e18, 1e17)], 3],
+    ['(z^3 + 1)/(z^2 - 4)', R([1, 0, 0, 1]), R([1, 0, -4]), [C(1e6, 0), C(3e9, -1e9), C(1e15, 0)], 3],
+    ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1, 0)], 2],
+    ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1 + 1e-6, 0)], 3],
+    ['z^3 + 1/z', R([1, 0, 0, 0, 1]), R([1, 0]), [C(1e3, 0), C(1e6, -2e5), C(3e7, 9e6), C(1e9, 0)], 4],
+    ['the quartic with roots near 1e4', fromRoots([C(1e4, 0), C(0, 1.1e4), C(-0.9e4, 0), C(0, -1e4)]), R([1]), [C(0, 0)], 4]];
+  const absEval = (co, r) => co.reduce((s, x) => s * r + CX.abs(x), 0);
+  for (const [name, p, q, ws, want] of rows) {
+    const o = InvOps.opRatN(p, q);
+    for (const w of ws) {
+      const G = o.pre(w).map((m) => m.u);
+      const distinct = G.every((g, k) => G.every((h, m) => m >= k || CX.abs(CX.sub(g, h)) > DISTINCT * (1 + CX.abs(g))));
+      const res = Math.max(0, ...G.map((g) => CX.abs(CX.sub(CX.polyEval(p, g), CX.mul(w, CX.polyEval(q, g)))) / (absEval(p, CX.abs(g)) + CX.abs(w) * absEval(q, CX.abs(g)))));
+      check(`${o.kind} ${name} at w = ${w.re} ${w.im >= 0 ? '+' : '-'} ${Math.abs(w.im)}i: ${want} distinct members, each over w`, G.length === want && distinct && res <= ON_W, { n: G.length, res, mods: G.map((g) => CX.abs(g)) });
+    }
+  }
+}
+
+// RAT3 and RAT4 at a critical value (InvOps.rootMembers): a multiple root is one member of its multiplicity, the
+// simple roots others, as a polynomial NEWT op lists them: z^3 - 3z + 2 at 0 (1 twice, -2), z^3 - 1.2z + 0.3 at its
+// critical value f(sqrt 0.4), (z - 1)^2 (z + 2)(z - 3) and (z - 1)^3 (z + 2) at 0; 1e-6 off the critical value every
+// root is simple
+{
+  const R = (a) => a.map((x) => C(x, 0)), s4 = Math.sqrt(0.4), f3 = (x) => x * x * x - 1.2 * x + 0.3;
+  for (const [name, p, w, mr, k, others] of [['z^3 - 3z + 2 at 0', R([1, 0, -3, 2]), C(0, 0), C(1, 0), 2, [C(-2, 0)]],
+    ['z^3 - 1.2z + 0.3 at f(sqrt 0.4)', R([1, 0, -1.2, 0.3]), C(f3(s4), 0), C(s4, 0), 2, [C(-2 * s4, 0)]],
+    ['(z - 1)^2 (z + 2)(z - 3) at 0', R([1, -3, -3, 11, -6]), C(0, 0), C(1, 0), 2, [C(-2, 0), C(3, 0)]],
+    ['(z - 1)^3 (z + 2) at 0', R([1, -1, -3, 5, -2]), C(0, 0), C(1, 0), 3, [C(-2, 0)]]]) {
+    const o = InvOps.opRatN(p, R([1])), G = o.pre(w), at = G.findIndex((m) => CX.abs(CX.sub(m.u, mr)) <= 1e-6);
+    const rest = G.filter((m, i) => i !== at);
+    check(`${o.kind} ${name}: ${others.length + 1} members, the ${k}-fold root once with multiplicity ${k}`, G.length === others.length + 1 && at >= 0 && G[at].mult === k && others.every((z) => rest.some((m) => !m.mult && CX.abs(CX.sub(m.u, z)) <= 1e-9)), G.map((m) => [m.u, m.mult]));
+    const G2 = o.pre(CX.add(w, C(1e-6, 0)));
+    check(`${o.kind} ${name}, 1e-6 off: ${p.length - 1} simple members`, G2.length === p.length - 1 && G2.every((m) => !m.mult), G2.map((m) => [m.u, m.mult]));
+  }
+}
+
+// =================================================================================================
+// the sheet key's weights (#1742): an All-at-once span's key points weigh their step's time (keySing's wOf), so the
+// key goes from the span's first plane's to its last's with no jump
+// =================================================================================================
+section('sheet key weights');
+{
+  const prepOf = (sing, per = null) => { const R = Math.hypot(WIN0.x1 - WIN0.x0, WIN0.y1 - WIN0.y0) / 2; return { win: WIN0, R, rs: R / 8, sing, per }; };
+  const ps = (pts) => pts.map((p) => [p.re, p.im, Inverse.keyW(p)]);
+  // [Joukowski, Cayley] in full: Cayley's pole pulled back through Joukowski (two points) and Joukowski's own (0)
+  const { plan: jc } = planOf([{ type: 'joukowski' }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }], 0, 2);
+  const { plan: j1 } = planOf([{ type: 'joukowski' }], 0, 1);
+  const plain = Inverse.keySing(jc, WIN0), w1 = Inverse.keySing(jc, WIN0, undefined, () => 1);
+  check('keySing with every weight 1 is the plain key (the same points, none weighted)', JSON.stringify(ps(w1)) === JSON.stringify(ps(plain)) && w1.every((p) => p.w === undefined), [ps(w1), ps(plain)]);
+  const w0 = Inverse.keySing(jc, WIN0, undefined, (o) => (o.step === 2 ? 0 : 1));
+  check("keySing with step 2's weight 0 leaves its points out: the key of step 1 alone", JSON.stringify(ps(w0)) === JSON.stringify(ps(Inverse.keySing(j1, WIN0))), [ps(w0), ps(Inverse.keySing(j1, WIN0))]);
+  const wh = Inverse.keySing(jc, WIN0, undefined, (o) => (o.step === 2 ? 0.3 : 1));
+  check("keySing with step 2's weight 0.3: its points weigh 0.3, step 1's 1", wh.length === plain.length && wh.filter((p) => Inverse.keyW(p) === 0.3).length === plain.length - 1 && wh.filter((p) => Inverse.keyW(p) === 1).length === 1, ps(wh));
+  // a point's penalty scales with its weight: at w = 0.5 the key is midway between w = 0 and w = 1
+  const p0 = C(0.4, -0.2), at = (w) => Inverse.sheetKey(prepOf([Object.assign(C(p0.re, p0.im), { w })]), C(0.45, -0.18));
+  check('sheetKey: a point of weight 0.5 adds half its penalty', Math.abs(at(0.5) - (at(0) + at(1)) / 2) < 1e-12 && at(1) - at(0) > 1, [at(0), at(0.5), at(1)]);
+  // keyClasses keeps one point of each class modulo the period, with the class's largest weight
+  const per = C(0, TAU), kc = Inverse.keyClasses([Object.assign(C(0.5, 1), { w: 0.2 }), Object.assign(C(0.5, 1 + TAU), { w: 0.7 })], per);
+  check("keyClasses: one point of the class, the first's place, the class's largest weight", kc.length === 1 && kc[0].re === 0.5 && kc[0].im === 1 && kc[0].w === 0.7, ps(kc));
+  // the span (1, 4] of [J, 1.2 z, Cayley, z³] at a small time t: weighted, its key is plane 1's at rest within a hair away
+  // from 0; unweighted, Cayley's pole pulled back beside 0 doubles the penalty there (#1742's downward glide)
+  const steps = [St('joukowski'), St('mul', { c: '1.2' }), St('mobius', { a: '1', b: '-i', c: '1', d: 'i' }), St('pown', { n: 3 })], built = steps.map(Funcs.build);
+  const t = 1e-3, bh = built.map((b, k) => (k >= 1 ? Inverse.homBuilt(b, Inverse.homOps(b, t)) : b));
+  const span = Inverse.planChain(steps, bh, 0, 4), rest = Inverse.keySing(Inverse.planChain(steps, built, 0, 1), WIN0);
+  const kw = Inverse.keySing(span, WIN0, undefined, (o) => (o.step > 1 ? t : 1)), ku = Inverse.keySing(span, WIN0);
+  const zs = [C(0.3, 0.1), C(-0.2, 0.25), C(0.15, -0.3), C(0.5, 0), C(-1, 0.6), C(2, -1)];
+  const dev = (k) => Math.max(...zs.map((z) => Math.abs(Inverse.sheetKey(prepOf(k), z) - Inverse.sheetKey(prepOf(rest), z))));
+  check(`the span's key at t = ${t}, weighted by t: plane 1's at rest (within 0.01 octave at |z| >= 0.2)`, span.ok && dev(kw) < 0.01, { dev: dev(kw), kw: ps(kw), rest: ps(rest) });
+  check(`control: unweighted, it is off plane 1's by over half an octave`, dev(ku) > 0.5, { dev: dev(ku), ku: ps(ku) });
+  // the walk's inward bound (affStopLB, the GPU's ixStop): with a point of weight 0.3 beside the segment the members still
+  // to come lie on, it is at most the key at every point of the segment; the control's bound counts the point at weight 1
+  // while the key counts it at 0.3, and then passes the key, so the row tells a weighted bound from an unweighted one
+  const sp = { kind: 'clip', A: C(1, 0), B: C(0, 0) }, F = { type: 'mul', S: C(0.3, 0) }, lf = { z: C(0.5, 0.02), D: 0 };
+  const pt = (w) => Object.assign(C(0.1, 0.05), { w }), za = C(0, 0), z1 = CX.add(za, CX.scale(CX.sub(lf.z, za), Math.exp(-0.3)));
+  const seg = Array.from({ length: 200 }, (_, j) => CX.add(za, CX.scale(CX.sub(z1, za), 1 - j / 200)));
+  const minKey = Math.min(...seg.map((z) => Inverse.sheetKey(prepOf([pt(0.3)]), z)));
+  const lbW = Inverse.affStopLB(prepOf([pt(0.3)]), F, sp, lf, false), lb1 = Inverse.affStopLB(prepOf([pt(1)]), F, sp, lf, false);
+  check('affStopLB with a point of weight 0.3: at most the key along the segment the members still to come lie on', lbW <= minKey + 1e-12 && lbW > 0, { lbW, minKey });
+  check('control: the bound with that point at weight 1 passes the weight-0.3 key', lb1 > minKey + 0.1, { lb1, minKey });
+  // the Möbius stop's bound (mobStopLB): the members still to come lie within r of the accumulation point pAcc, a key point
+  // of weight 0.3 (pInP); the bound is at most the key over that disk, and the control's (pInP 1) passes it
+  const pAcc = C(0.1, 0.05), zr = C(0.15, 0.05), rr = CX.abs(CX.sub(zr, pAcc)), accPt = Object.assign(C(pAcc.re, pAcc.im), { w: 0.3 });
+  const disk = [];
+  for (let i = 0; i <= 20; i++) for (let j = 0; j < 36; j++) disk.push(CX.add(pAcc, CX.scale(C(Math.cos(j * TAU / 36), Math.sin(j * TAU / 36)), rr * (0.02 + 0.98 * i / 20))));
+  const minDisk = Math.min(...disk.map((z) => Inverse.sheetKey(prepOf([accPt]), z)));
+  const mW = Inverse.mobStopLB(prepOf([accPt]), { pAcc, pInP: 0.3 }, zr), m1 = Inverse.mobStopLB(prepOf([accPt]), { pAcc, pInP: 1 }, zr);
+  check("mobStopLB with the accumulation point at weight 0.3: at most the key over the disk the members still to come lie in", mW <= minDisk + 1e-12 && mW > 0, { mW, minDisk });
+  check('control: the bound with pInP 1 passes the weight-0.3 key', m1 > minDisk + 0.1, { m1, minDisk });
 }
 
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);

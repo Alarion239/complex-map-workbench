@@ -65,26 +65,6 @@
   "ru": "Выберите две точки или отрезок: прямая из точек, равноудалённых от обеих.",
   "note": "Tooltip's second line."
  },
- "chip.points": {
-  "en": "{tool}: point {n} of {m} · Esc cancels",
-  "ru": "{tool}: точка {n} из {m} · Esc — отмена",
-  "note": "Draft chip of a construction tool (mouse)."
- },
- "chip.points_touch": {
-  "en": "{tool}: point {n} of {m}",
-  "ru": "{tool}: точка {n} из {m}",
-  "note": "The same on touch (the chip has a × instead of Esc)."
- },
- "chip.meet": {
-  "en": "{tool}: a crossing, or curve {n} of 2 · Esc cancels",
-  "ru": "{tool}: пересечение или кривая {n} из 2 · Esc — отмена",
-  "note": "Draft chip of Intersect."
- },
- "chip.meet_touch": {
-  "en": "{tool}: a crossing, or curve {n} of 2",
-  "ru": "{tool}: пересечение или кривая {n} из 2",
-  "note": "The same on touch."
- },
  "chip.switch": {
   "en": "Curve or region",
   "ru": "Кривая или область",
@@ -312,16 +292,6 @@
   "ru": "Точка на этой кривой",
   "note": "Plane menu on a curve."
  },
- "act.c3here": {
-  "en": "Circle through this point…",
-  "ru": "Окружность через эту точку…",
-  "note": "Plane menu on a point: starts the tool with this point."
- },
- "act.midhere": {
-  "en": "Midpoint with…",
-  "ru": "Середина между этой точкой и…",
-  "note": "Plane menu on a point."
- },
  "act.puton": {
   "en": "Put on this curve",
   "ru": "Поместить на эту кривую",
@@ -474,7 +444,7 @@
  },
  "tour.c3_title": {
   "en": "Circle through three points",
-  "ru": "Окружность по трём точкам",
+  "ru": "Окружность по 3 точкам",
   "note": "Tour step title."
  },
  "tour.c3_body": {
@@ -494,7 +464,7 @@
  },
  "tour.follow_title": {
   "en": "It follows its points",
-  "ru": "Она следует за своими точками",
+  "ru": "Следует за точками",
   "note": "Tour step title (она: the circle)."
  },
  "tour.follow_body": {
@@ -511,16 +481,6 @@
   "en": "Intersections",
   "ru": "Пересечения",
   "note": "Tour step title."
- },
- "tour.meet_body": {
-  "en": "Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Hold Alt to place freely. Intersect marks a crossing.",
-  "ru": "Инструменты рисования, инструмент «Точка» и перетаскиваемые маркеры привязываются к точкам, нулям и пересечениям и следуют за ними; «Точка» привязывается и к кривым. Удерживайте Alt, чтобы ставить свободно. «Пересечение» отмечает точку пересечения.",
-  "note": "Tour step body. [review regress-5: the three v15 gestures that changed]"
- },
- "tour.meet_touch": {
-  "en": "Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Turn Snap off in the tools sheet to place freely.",
-  "ru": "Инструменты рисования, инструмент «Точка» и перетаскиваемые маркеры привязываются к точкам, нулям и пересечениям и следуют за ними; «Точка» привязывается и к кривым. Чтобы ставить свободно, отключите привязку в панели инструментов.",
-  "note": "Tour step body on touch (no Alt). [review regress-5]"
  },
  "tour.meet_try": {
   "en": "Draw a line from a crossing.",
@@ -673,16 +633,6 @@
   "en": "Esc cancels",
   "ru": "Esc — отмена",
   "note": "Draft chip tail (mouse) [review user-2]."
- },
- "chip.meet2": {
-  "en": "A crossing, or curve {n} of 2",
-  "ru": "Пересечение или кривая {n} из 2",
-  "note": "Draft chip of Intersect: the counter first [review user-2]."
- },
- "chip.pointn": {
-  "en": "Point {n} of {m}",
-  "ru": "Точка {n} из {m}",
-  "note": "Draft chip: the counter first [review user-2]."
  },
  "t.c3": {
   "en": "0 at {p}, ¼ at {q}, ½ at {r}",

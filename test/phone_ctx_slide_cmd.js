@@ -1,7 +1,7 @@
 // [#463] Selecting a shape on a phone: the chain bar (the function overlay) and the planes stay exactly where they are and
-// fully opaque through select and release, and the shape's bar slides up from behind the chain bar to sit above it (it
-// used to push the chain bar up 56 px at once and show itself where the chain bar had been). Under prefers-reduced-motion
-// the slide has no duration. Portrait 390 x 844 and 360 x 640, the default view and ?view=steps (its strip is the chain bar).
+// fully opaque through select and release, and the shape's bar slides up from behind the chain bar to sit above it.
+// Under prefers-reduced-motion the slide has no duration. Portrait 390 x 844 and 360 x 640, the default view and
+// ?view=steps (its strip is the chain bar).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -36,7 +36,7 @@ const waitPh = async () => {
 for (const [w, h] of [[390, 844], [360, 640]]) {
   for (const v of ['', '&view=steps']) {
     await view(w, h, false, true); await load('pcs' + w + v.length + '-' + Date.now(), ST);
-    if (v) await send('Page.navigate', { url: `${U}?ns=pcs${w}x-${Date.now()}${v}` });
+    if (v) await go(`${U}?ns=pcs${w}x-${Date.now()}${v}`);
     await waitPh();
     const tag = `${w}×${h}${v ? ' steps' : ''}`;
     // (the sampler runs in the page every 25 ms: the chain bar's (or the strip's) top, its opacity, the plane's height, the bar's top)
@@ -73,7 +73,7 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
   for (const lang of ['en', 'ru']) {
     for (const v of ['', '&view=steps']) {
       await view(w, h, false, true); await load('pcf' + w + lang + v.length + '-' + Date.now(), ST);
-      await send('Page.navigate', { url: `${U}?ns=pcf${w}${lang}${v.length}-${Date.now()}&lang=${lang}${v}` });
+      await go(`${U}?ns=pcf${w}${lang}${v.length}-${Date.now()}&lang=${lang}${v}`);
       await waitPh();
       const tag = `${w}×${h} ${lang}${v ? ' steps' : ''}`;
       const probe = () => ev(`(() => { const bar = document.querySelector('.ph-ctx'), b = bar && !bar.hidden ? bar.getBoundingClientRect() : null;

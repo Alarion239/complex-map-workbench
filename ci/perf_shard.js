@@ -22,7 +22,7 @@ const fs = require('fs');
 const { execFileSync } = require('child_process');
 const os = require('os');
 const path = require('path');
-const { ROOT, PY, summary, run, esc } = require('./lib');
+const { ROOT, PY, summary, run, esc, reEscape } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
 const { SHARDS, PARTS, find } = require('./perf_shards');
 const { defaultLoadMax, quietWait, attemptTally, shardExit } = require('./perf_busy');
@@ -107,7 +107,7 @@ async function main() {
     const units = [...new Set([...listed('failing-units.txt'), ...listed('busy-units.txt')])].filter((u) => u && u !== '*');
     if (units.length) {
       console.log(`confirming ${units.join(', ')}: ${CONFIRM} more paired attempt(s), the sides in the opposite order`);
-      const re = `^(${units.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`;
+      const re = `^(${units.map(reEscape).join('|')})$`;
       for (let k = 2; k <= CONFIRM + 1; k++) await paired(re, k, true);
       const ks = Array.from({ length: CONFIRM + 1 }, (_, i) => i + 1);
       for (const side of ['cur', 'ref']) {

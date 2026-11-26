@@ -1,4 +1,4 @@
-// The export dialog's video preview scrubber, driven by the keyboard (export_deform_classic_cmd.js, export_deform_cmd.js). An expression
+// The export dialog's video preview scrubber, driven by the keyboard (export_deform_cmd.js). An expression
 // for eval in a suite: `const { scrubberKeys } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'preview_scrubber.js'), 'utf8'))({ ev, key, settled, pvState })`,
 // where pvState() is the suite's read of the preview ({ i, n, playing, seek: [value, max, text] }).
 // scrubberKeys(): with the preview paused, the scrubber is put on its middle frame by an input event, as a drag does (a loop

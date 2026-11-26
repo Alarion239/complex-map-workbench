@@ -1,7 +1,10 @@
 // A Repeat chain's exact plane (#1472, #1323): the REPT op (InvOps' REPT section) that stands for n copies of one
 // rational step of degree 3, and its CPU twin's search (Inverse.enumerate).
-//  1. routing: Newton's step for z^3 - 1 repeated 20 times (gallery 28) is one REPT op; other repeats keep their path;
-//     a plan that holds a REPT op and another op is refused with its reason;
+//  1. routing: Newton's step for z^3 - 1 repeated 20 times (gallery 28) is one REPT op, and so is a catalog step of
+//     degree 3 (Integer power z^3, a coprime rational step, zeros and poles), the same op as its formula's; other
+//     repeats (a P/Q that is not coprime among them) keep their path;
+//     a repeat next to another step plans its copies: exactly when they are few, too long for a plan (tooLong) when
+//     they are many; a plane range that holds the repeat alone plans it as REPT, with an inverse program of its own;
 //  2. the root certificate: every certified root lies within its radius of a root that an independent float64
 //     Durand-Kerner finds; a root set with a duplicate, a far-off root or a chain error past the roots' separation
 //     fails;
@@ -13,6 +16,9 @@
 //     it does not (the control); |R(z)| >= REPT_ESC_GROW |z| at sampled |z| >= REPT_ESC_R (a test, never the
 //     certificate); Newton's step has none; z^3 x 20 on a disc off the unit circle is empty with no root solved at every
 //     pixel; at Repeat x 2 with escaped cells every pixel's verdict equals the brute force over its 9 chains;
+//  4c. the radius bound (a monomial step on a disc region): z^3 x 20 on a disc tangent to |z| = 1 from inside is empty
+//     with no root solved past |w| = 1, never empty inside it, E_r bounded by |z| <= ~1; a disc strictly inside and one
+//     across |z| = 1 as before; at Repeat x 2 every pixel's verdict equals the brute force;
 //  5. the search against brute force: at Repeat x 2 every pixel's verdict equals the one from all 9 chains, unpruned;
 //     at Repeat x 20 a box in the basin of 1 is empty outside E_20 with no root solved;
 //  6. the budget: REPEAT_NODES_MAX is at least NODES_MARGIN times the most solves a gallery pixel needs, and a starved
@@ -64,13 +70,88 @@ check('its P/Q is (2z^3 + 1) / (3z^2) up to a power of 2', (() => {
 check(`Newton x ${InvOps.REPEAT_COPIES_MAX + 1} is not REPT (past the stack)`, !/^REPT/.test(kinds(newton(InvOps.REPEAT_COPIES_MAX + 1).built[0])));
 check('Newton x 1 is the step itself, not REPT', !/^REPT/.test(kinds(newton(1).built[0])));
 check('a cubic polynomial x 3 is REPT', kinds(chainOf([St('poly', { co: '1, 0, 0.5, 0.2' }, { n: 3, len: 1 })]).built[0]) === 'REPT');
+// (a catalog step whose rational form is of degree 3, deg P > deg Q: the same REPT op as its formula's)
+const opOf = (st) => { const r = InvOps.stepOps(chainOf([st]).built[0]); return r.ok && r.ops.length === 1 ? r.ops[0] : null; };
+// (the same map: P and Q equal up to one factor, the leading coefficients' ratio; each scaled by a power of 2 near 1)
+const sameOp = (a, c) => {
+  if (!a || !c || a.kind !== 'REPT' || c.kind !== 'REPT' || a.p.n !== c.p.n) return false;
+  const k = CX.div(a.p.P[0], c.p.P[0]), xs = [...a.p.P, ...a.p.Q], ys = [...c.p.P, ...c.p.Q];
+  return xs.every((x, i) => CX.abs(CX.sub(x, CX.mul(k, ys[i]))) < 1e-14) && xs.every((x) => CX.abs(x) < 2) && Math.max(...xs.map(CX.abs)) > 0.5;
+};
+check('Integer power z^3 x 20 (a catalog step) is one REPT op, the one z^3 written as a formula has', sameOp(opOf(St('pown', { n: 3 }, { n: 20, len: 1 })), opOf(St('custom', { expr: 'z^3', cut: 180 }, { n: 20, len: 1 }))), kinds(chainOf([St('pown', { n: 3 }, { n: 20, len: 1 })]).built[0]));
+check('a rational step of degree 3 (deg q < 3) x 3 is the REPT op of its formula', sameOp(opOf(St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 })), opOf(St('custom', { expr: '(z^3+0.5)/(z+0.3)', cut: 180 }, { n: 3, len: 1 }))), kinds(chainOf([St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 })]).built[0]));
+check('zeros and poles of degree 3 (zeros 1, -1, 2; pole 0) x 3 is the REPT op of its formula', sameOp(opOf(St('zp', { a: '1', zeros: '1, -1, 2', poles: '0' }, { n: 3, len: 1 })), opOf(St('custom', { expr: '(z-1)*(z+1)*(z-2)/z', cut: 180 }, { n: 3, len: 1 }))), kinds(chainOf([St('zp', { a: '1', zeros: '1, -1, 2', poles: '0' }, { n: 3, len: 1 })]).built[0]));
+check('a P/Q that is not coprime ((z^3 - z)/z, degree 2 in fact) x 3 is not REPT', !/^REPT/.test(kinds(chainOf([St('rational', { p: '1, 0, -1, 0', q: '1, 0' }, { n: 3, len: 1 })]).built[0])), kinds(chainOf([St('rational', { p: '1, 0, -1, 0', q: '1, 0' }, { n: 3, len: 1 })]).built[0]));
+check('Integer power z^2 x 3 keeps its ops, copy by copy', kinds(chainOf([St('pown', { n: 2 }, { n: 3, len: 1 })]).built[0]) === 'IPOW>IPOW>IPOW', kinds(chainOf([St('pown', { n: 2 }, { n: 3, len: 1 })]).built[0]));
+check('Integer power z^-3 x 3 is not REPT (deg Q = 3)', !/^REPT/.test(kinds(chainOf([St('pown', { n: -3 }, { n: 3, len: 1 })]).built[0])));
 check('a degree-2 step x 3 keeps its ops, copy by copy', kinds(chainOf([St('custom', { expr: 'z^2+0.3', cut: 180 }, { n: 3, len: 1 })]).built[0]) === 'IPOW>AFF>IPOW>AFF>IPOW>AFF');
 check('deg Q = 3 is not REPT', !/^REPT/.test(kinds(chainOf([St('custom', { expr: '(z^3+1)/(z^3+2)', cut: 180 }, { n: 3, len: 1 })]).built[0])));
 check('a block of two steps is not REPT', !/^REPT/.test(kinds(chainOf([St('mul', { c: '2' }), St('custom', { expr: NEWTON, cut: 180 }, { n: 3, len: 2 })]).built[1])));
+// (a repeat next to another step: its copies make the plan, as any other repeat's, so a short one plans exactly and a
+// long one is too long for a plan (tooLong: the no-value hatch's case); one REPT op stands for a repeat only as the
+// plane's one step)
 const AN = chainOf([St('mul', { c: '2' }), St('custom', { expr: NEWTON, cut: 180 }, { n: 20, len: 1 })]);
 const planAN = Inverse.planChain(AN.steps, AN.built, 0, 2);
-check('a plan with REPT and another op is refused, with its reason', !planAN.ok && /repeated step/.test(planAN.reason), planAN.reason);
-check('the REPT plane alone has a plan', Inverse.planChain(AN.steps, AN.built, 1, 2).ok);
+check('Newton x 20 after x 2 is too long for a plan, not REPT', !planAN.ok && planAN.tooLong === true && planAN.reason === 'chain too long', planAN.reason);
+// (a plane range that holds the repeat alone plans it as one REPT op, with an inverse program of its own: the repeat's
+// own plane (1, 2] here, and plane 1 of a chain where the repeat comes first)
+const planAN12 = Inverse.planChain(AN.steps, AN.built, 1, 2);
+check('... and its plane (1, 2] alone plans as REPT', planAN12.ok && planAN12.ops.map((o) => o.kind).join('>') === 'REPT', planAN12.ok ? planAN12.ops.map((o) => o.kind).join('>') : planAN12.reason);
+const NA = chainOf([St('custom', { expr: NEWTON, cut: 180 }, { n: 20, len: 1 }), St('mul', { c: '2' })]);
+const planNA01 = Inverse.planChain(NA.steps, NA.built, 0, 1), planNA02 = Inverse.planChain(NA.steps, NA.built, 0, 2);
+check('Newton x 20, then x 2: plane 1 plans as REPT, plane 2 is too long for a plan', planNA01.ok && planNA01.ops.map((o) => o.kind).join('>') === 'REPT' && !planNA02.ok && planNA02.tooLong === true, [planNA01.reason, planNA02.reason]);
+const planKinds = (steps) => { const c = chainOf(steps), p = Inverse.planChain(c.steps, c.built, 0, steps.length); return p.ok ? p.ops.map((o) => o.kind).join('>') : `X: ${p.reason}${p.tooLong ? ' (tooLong)' : ''}`; };
+const TIMES2 = St('mul', { c: '2' });
+const NEXT_TO = [
+  ['Integer power z^3 x 3, then x 2', [St('pown', { n: 3 }, { n: 3, len: 1 }), TIMES2], 'IPOW>IPOW>IPOW>AFF'],
+  ['x 2, then Integer power z^3 x 10', [TIMES2, St('pown', { n: 3 }, { n: 10, len: 1 })], 'AFF' + '>IPOW'.repeat(10)],
+  ['the formula z^3 x 3, then x 2', [St('custom', { expr: 'z^3', cut: 180 }, { n: 3, len: 1 }), TIMES2], 'IPOW>IPOW>IPOW>AFF'],
+  ['Integer power z^3 x 20, then x 2', [St('pown', { n: 3 }, { n: 20, len: 1 }), TIMES2], 'X: chain too long (tooLong)'],
+  ['x 2, then Integer power z^3 x 20', [TIMES2, St('pown', { n: 3 }, { n: 20, len: 1 })], 'X: chain too long (tooLong)'],
+  ['the formula z^3 x 20, then x 2', [St('custom', { expr: 'z^3', cut: 180 }, { n: 20, len: 1 }), TIMES2], 'X: chain too long (tooLong)'],
+  ['a rational step of degree 3 x 20, then x 2', [St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 20, len: 1 }), TIMES2], 'X: chain too long (tooLong)'],
+  ['zeros and poles of degree 3 x 20, then x 2', [St('zp', { a: '1', zeros: '1, -1, 2', poles: '0' }, { n: 20, len: 1 }), TIMES2], 'X: chain too long (tooLong)'],
+];
+for (const [name, steps, want] of NEXT_TO) check(`${name}: ${want}`, planKinds(steps) === want, planKinds(steps));
+check('a rational step of degree 3 x 3, then x 2, has a plan with no REPT op', !/REPT|^X/.test(planKinds([St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 }), TIMES2])), planKinds([St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 }), TIMES2]));
+check('Integer power z^3 x 20 alone plans as REPT', planKinds([St('pown', { n: 3 }, { n: 20, len: 1 })]) === 'REPT', planKinds([St('pown', { n: 3 }, { n: 20, len: 1 })]));
+// (a point's plan, Inverse.pointPlan, decomposes each step as the chain's plans do; a step standing for its homotopy,
+// Inverse.homBuilt, with a REPT op next to another step's op is refused: the walkers' REPT search is the plan's only op)
+{
+  const c = chainOf([TIMES2, St('pown', { n: 3 }, { n: 3, len: 1 })]), pp = Inverse.pointPlan(c.steps, c.built, 0, 2);
+  check('x 2, then Integer power z^3 x 3: its point plan is AFF>IPOW>IPOW>IPOW, as its plan', pp.ok && pp.ops.map((o) => o.kind).join('>') === 'AFF>IPOW>IPOW>IPOW', pp.ok ? pp.ops.map((o) => o.kind).join('>') : pp.reason);
+  const solo = chainOf([St('pown', { n: 3 }, { n: 20, len: 1 })]), hk = InvOps.stepOps(solo.built[0]);
+  const hb = [c.built[0], Inverse.homBuilt(solo.built[0], hk)], hp = Inverse.planChain([c.steps[0], solo.steps[0]], hb, 0, 2);
+  check('a homotopy stand-in carrying a REPT op next to x 2 is refused, with its reason', hk.ok && hk.ops[0].kind === 'REPT' && !hp.ok && /only as the plane's one step/.test(hp.reason), hp.reason);
+}
+// (each plan's ops are ops of the chain's GLSL inverse program, by step, node and kind, as the GPU's pass data reads them:
+// a plane's plan and the program decompose a repeat the same way; a chain too long for a program has none to match)
+{
+  const chains = NEXT_TO.map(([name, steps]) => [name, steps]).concat([['Integer power z^3 x 20 alone', [St('pown', { n: 3 }, { n: 20, len: 1 })]],
+    ['Integer power z^3 x 3, then x 2, on plane 1', [St('pown', { n: 3 }, { n: 3, len: 1 }), TIMES2], 1]]);
+  let plans = 0;
+  const wrong = [];
+  for (const [name, steps, top = steps.length] of chains) {
+    const c = chainOf(steps);
+    for (let a = 0; a < top; a++) {
+      const p = Inverse.planChain(c.steps, c.built, a, top), inv = GLChain.buildInverse(c.steps, c.built, p.opts);
+      if (!p.ok) continue;
+      plans++;
+      if (inv.ok && !p.ops.every((o) => inv.ops.some((q) => q.step === o.step && q.node === o.node && q.kind === o.kind))) wrong.push(`${name} (${a}, ${top}]`);
+    }
+  }
+  check('every plan\'s ops are ops of the GLSL inverse program for its options (step, node, kind)', plans >= 6 && wrong.length === 0, `${plans} plans, ${JSON.stringify(wrong)}`);
+  // (a lone repeat's plan needs a program other than the chain's: the chain's holds the repeat's copies)
+  const c = chainOf([TIMES2, St('pown', { n: 3 }, { n: 3, len: 1 })]), p = Inverse.planChain(c.steps, c.built, 1, 2), own = GLChain.buildInverse(c.steps, c.built);
+  check('x 2, then z^3 x 3: plane (1, 2] plans REPT, an op the chain\'s own program does not hold', p.ok && p.ops[0].kind === 'REPT' && own.ok && !own.ops.some((q) => q.kind === 'REPT'), p.ok ? p.ops.map((o) => o.kind).join('>') : p.reason);
+  // (a range whose one live step is not a repeat with a REPT form keeps the chain's options: no program of its own, even
+  // when the chain holds such a repeat elsewhere)
+  const p1 = Inverse.planChain(c.steps, c.built, 0, 1), plain = chainOf([TIMES2, St('add', { c: '1' })]), p2 = Inverse.planChain(plain.steps, plain.built, 1, 2);
+  check('x 2, then z^3 x 3: plane 1 (x 2 alone) and plane (1, 2] of x 2, then + 1 keep their chain\'s options', p1.ok && p1.opts.rept === Inverse.chainOpts(c.steps, c.built).rept && p2.ok && p2.opts.rept === Inverse.chainOpts(plain.steps, plain.built).rept, [p1.opts, p2.opts]);
+  const ezx = chainOf([St('exp', {}), St('pown', { n: 3 }, { n: 3, len: 1 }), TIMES2]), ch = Inverse.chainOpts(ezx.steps, ezx.built);
+  const [e01, e12, e23] = [[0, 1], [1, 2], [2, 3]].map(([a, b]) => Inverse.planChain(ezx.steps, ezx.built, a, b));
+  check('exp, then z^3 x 3, then x 2: planes (0, 1] and (2, 3] keep the chain\'s options, (1, 2] plans REPT', e01.ok && e01.opts.rept === ch.rept && e23.ok && e23.opts.rept === ch.rept && e12.ok && e12.ops[0].kind === 'REPT' && e12.opts.rept && !ch.rept, [e01.opts, e12.ok && e12.ops.map((o) => o.kind).join('>'), e23.opts]);
+}
 const plan20 = Inverse.planChain(N20.steps, N20.built, 0, 1);
 check('the gallery plane has a plan', plan20.ok && plan20.ops.length === 1);
 check('a REPT plan is not injective, and a point\'s preimages are past the exact cap', !plan20.injective && !Inverse.pointPre(plan20, C(0.3, 0.1)).exact);
@@ -238,6 +319,46 @@ const brute2 = (o, L, w) => {
     }
     check(`${expr} x 2, ${shape.kind} with escaped cells: every pixel's verdict equals the brute force over its 9 chains`, same === scored && scored > 1000 && covered > 20 && covered < scored - 20 && pruned > 100 && pr2.rept.E[2].esc > 0, `${same}/${scored}, ${covered} covered, ${pruned} pruned, esc ${pr2.rept.E[2].esc}`);
   }
+}
+
+// ---- 4c. the radius bound (a monomial step on a disc region, #1485)
+{
+  const TANGENT = { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 };          // the disc tangent to |z| = 1 from inside
+  const INSIDE = { id: 'ti', kind: 'disc', c: [0, 0.5], r: 0.2 };            // strictly inside |z| < 1
+  const ACROSS = { id: 'ta', kind: 'disc', c: [1, 0], r: 0.12 };             // across |z| = 1
+  const RW = { x0: -1.6, x1: 1.6, y0: -1.2, y1: 1.2 }, RG = 25;            // the measured view and its grid
+  const NEAR = 0.02;                                                         // |w| within this of 1 is left out (the pixel's own reach)
+  const ACROSS_SOLVES = 20;                                                  // the most root solves an across pixel needs (measured)
+  const pts = gridOf(RW, RG);
+  const run = (shape, n) => {
+    const p = planOf(repOf('z^3', n)), pr = Inverse.prepare(p, { win: RW, shape }), t = { out: 0, outEmpty0: 0, inn: 0, innEmpty: 0, inside: { 1: 0, 0: 0, '-1': 0 }, solves: 0, max: 0 };
+    for (const w of pts) {
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, a = CX.abs(w);
+      t.solves += e.nodes; t.max = Math.max(t.max, e.nodes); t.inside[e.verdict]++;
+      if (a > 1 + NEAR) { t.out++; if (e.verdict === 0 && e.nodes === 0) t.outEmpty0++; }
+      else if (a < 1 - NEAR) { t.inn++; if (e.verdict === 0) t.innEmpty++; }
+    }
+    return { t, pr };
+  };
+  const tg = run(TANGENT, 20);
+  check('z^3 x 20 on the tangent disc: every pixel with |w| > 1 (past the pixel\'s reach) is empty with no root solved', tg.t.out > 300 && tg.t.outEmpty0 === tg.t.out, JSON.stringify(tg.t));
+  check('... and no pixel with |w| < 1 reads empty (each holds a chain into the disc)', tg.t.inn > 200 && tg.t.innEmpty === 0, JSON.stringify(tg.t));
+  check('... its E_r has a radius bound at every level, E_20\'s within 1e-4 of 1', tg.pr.rept.E.slice(1).every((e) => e && e.rad > 0) && tg.pr.rept.E[20].rad < 1 + 1e-4, JSON.stringify(tg.pr.rept.E[20]));
+  const ins = run(INSIDE, 20);
+  check('z^3 x 20 strictly inside |z| < 1: every pixel but the one at 0 empty with no root solved', ins.t.solves <= 1 && ins.t.inside[0] >= pts.length - 1, JSON.stringify(ins.t));
+  const acr = run(ACROSS, 20);
+  check(`z^3 x 20 across |z| = 1: every pixel but one covered, at most ${ACROSS_SOLVES} root solves a pixel`, acr.t.inside[1] >= pts.length - 1 && acr.t.max <= ACROSS_SOLVES, JSON.stringify(acr.t));
+  // (at x 2 every pixel's verdict equals the brute force over its 9 chains, the radius bound pruning)
+  const p2 = planOf(repOf('z^3', 2)), pr2 = Inverse.prepare(p2, { win: RW, shape: TANGENT }), L = Region.levelOf(TANGENT);
+  let same = 0, scored = 0, pruned = 0;
+  for (const w of pts) {
+    const e = Inverse.enumerate(p2, pr2, w, PIX, { leaves: false }).rept, b = brute2(p2.ops[0], L, w);
+    pruned += e.pruned;
+    if (b === null) continue;
+    scored++;
+    if (e.verdict === b) same++;
+  }
+  check('z^3 x 2 on the tangent disc: E_2 has a radius bound, and every pixel\'s verdict equals the brute force over its 9 chains', same === scored && scored > 500 && pr2.rept.E[2].rad > 0, `${same}/${scored}, pruned ${pruned}`);
 }
 
 // ---- 5. the search against brute force

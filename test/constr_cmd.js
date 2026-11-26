@@ -22,8 +22,8 @@ const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __O
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
-// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
-// full names become the tile labels, so each suite states the label once)
+// (the chip names its tool in full on the wide plane, X's, in both views; the full names become the tile labels, so each
+// suite states the label once)
 const CHIP_NAMES = [
   ['Circle through 3 points', '3-pt circle'],
   ['Perpendicular circle', 'Perpendicular'],
@@ -33,7 +33,7 @@ const CHIP_NAMES = [
   ['Касающаяся окружность', 'Касание']
 ];
 const chipLabel = async (c) => {
-  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  if (!c) return c;
   const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
   return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
 };
@@ -396,7 +396,7 @@ await section('B', async () => {
   if (!run('A')) { await tool('circle3'); const a = await W(-1.5, 0), b = await W(0.5, -1), z = await W(1, 0.5); await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80); await click(z[0], z[1]); await settle(300); }
   let st = await ST();
   const before = st.list.filter((s) => s.def || s.at).map((s) => JSON.stringify([s.id, s.kind, s.def, s.at, s.c, s.r, s.p, s.a, s.b]));
-  await nav(`${U}?ns=${NS}`); await settle(1500);
+  await nav(`${U}?ns=${NS}`);
   st = await ST();
   const after = st.list.filter((s) => s.def || s.at).map((s) => JSON.stringify([s.id, s.kind, s.def, s.at, s.c, s.r, s.p, s.a, s.b]));
   ok('reload: every construction comes back, bitwise', before.length > 0 && before.join('\n') === after.join('\n'), { before: before.length, after: after.length, diff: before.filter((x, i) => x !== after[i]).slice(0, 2) });
@@ -411,7 +411,7 @@ await section('B', async () => {
   ok('after a reload ζ₁ still drives its disc', near(dist(zeta, c3b.c), c3b.r, 1e-12) && zeta[0] !== zeta0[0], [zeta, c3b.c, c3b.r]);
   // a link: encodeLink of the saved state, opened in a fresh namespace
   const payload = await ev(`await Params.encodeLink(__cmwP().figure)`);
-  await nav(`${U}?ns=${NS}lk#cmw=${payload}`); await settle(1800);
+  await nav(`${U}?ns=${NS}lk#cmw=${payload}`);
   st = await ST();
   const c3l = st.list.find((s) => s.id === c3.id);
   ok('a link opens the constructions', !!c3l && c3l.def && c3l.def.op === 'circle3' && near(dist(zeta, c3l.c), c3l.r, 1e-12), c3l);
@@ -423,7 +423,7 @@ await section('C', async () => {
   // Russian: the tiles, the chip, the rows, the cascade toast
   await view(1440, 900, false, false);
   await load(NS + 'ru', STATE);
-  await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
+  await nav(`${U}?ns=${NS}ru&lang=ru`);
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool > span')].map((s) => s.textContent.replace(/\u00ad/g, ''))`);
   ok('RU tiles', JSON.stringify(tiles) === JSON.stringify(['По 3 точкам', 'Пересечение', 'Середина', 'Перпендикуляр', 'Ортогональная', 'Касание', 'Гиперболическая']), tiles);
   ok('RU heading', (await ev(`document.querySelector('#cmHead').textContent`)) === 'Построения', null);
@@ -523,7 +523,7 @@ await section('E', async () => {
   ok('phone: an empty spot makes a free point in the same step', c3.def && c3.def.op === 'circle3' && c3.def.args[2].s === fp.id && !fp.def, [c3.def, fp]);
   await shot('cm-p390-done');
   // Russian on the phone (the tiles at 390 px)
-  await nav(`${U}?ns=${NS}ph&lang=ru`); await settle(1800);
+  await nav(`${U}?ns=${NS}ph&lang=ru`);
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
   await ev(`Phone.tab('construct')`); await settle(200);
@@ -652,13 +652,6 @@ await section('G', async () => {
   await key('z', 4); await settle(300);
   st = await ST();
   ok('G: undo brings ζ₁ and the circle back', st.zeros === '1.5-1i' && !byId(st, cz.id).cundef, [st.zeros, byId(st, cz.id).cundef]);
-  // the export caption names the circle through its points (the plain picture: a phase figure names no shapes; the
-  // steps view opens coloured)
-  const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
-    return f ? f.captionTex : null;
-    })()`);
-  info.capEn = cap;
-  ok('G: the caption: the circle through z₂ = …, z₀ = … and ζ₁ = …', /the (circle|disc bounded by the circle) through z₂ = .*, z₀ = .* and ζ₁ = 1\.5 − i/.test(cap || '') || /through/.test(cap || ''), cap);
   // drawing in Y: Circle through 3 points picks z₂″ (F(z₂) of X's point) and two empty spots
   await tool('circle3');
   const st0 = await ST();
@@ -675,11 +668,20 @@ await section('G', async () => {
   const yt = last(st);
   ok('G: in Y the circle picks z₂″ (an image ref)', yt.def && yt.def.args[0].img === 'u5' && st.list.length === st0.list.length + 3, [yt.def, info.yRing]);
   await shot('cm-d1440-y');
+  // the export caption names the circle through its points. It is read on the classic view's X → Y figure: X there is
+  // the plain picture, which names its shapes, where the steps view's plane is coloured and its caption a phase portrait's
+  // (the page opens the classic view at its load: the same scene, reloaded with view=classic)
+  const capClassic = async (lang) => {
+    await nav(`${U}?ns=${NS}g&view=classic${lang ? '&lang=' + lang : ''}`);
+    // (the page opens in the view the scene saved, which may be Phase or the Sphere: the caption is read in X → Y on the plane)
+    await ev(`__cmwSetMain('xy'); __cmwSetView('L', 'plane'); 1`); await settle(400);
+    return ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' }); return f ? f.captionTex : null; })()`);
+  };
+  const cap = await capClassic('');
+  info.capEn = cap;
+  ok('G: the caption: the circle through z₂ = …, z₀ = … and ζ₁ = …', /the (circle|disc bounded by the circle) through z₂ = .*, z₀ = .* and ζ₁ = 1\.5 − i/.test(cap || '') || /through/.test(cap || ''), cap);
   // Russian caption
-  await nav(`${U}?ns=${NS}g&lang=ru`); await settle(1800);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
-    return f ? f.captionTex : null;
-    })()`);
+  const capRu = await capClassic('ru');
   info.capRu = capRu;
   ok('G: the Russian caption names the circle', /проходящей через|проходящая через/.test(capRu || ''), capRu);
   // no English inside the Russian caption (outside maths and TeX commands)

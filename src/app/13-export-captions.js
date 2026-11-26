@@ -26,7 +26,7 @@
   // formulas go through TeX.set, which skips unchanged nodes and, during a scrub or drag, waits for input to
   // pause (TeX.hush). A hidden panel costs nothing: only the rail lamps update, and the panel catches up when shown.
   const PROPS = { sig: null, stale: false, texF: '', rail: '', ro: null, el: null };
-  // ---- v15: the selection and the Inspector (notes/ui-redesign-2/desktop/DESIGN.md 2.4) ----
+  // ---- the selection and the Inspector (notes/ui-redesign-2/desktop/DESIGN.md 2.4) ----
   // S.sel: the selected object, a step k (0: the region) or 'F'; null follows the step shown alone, else the last step.
   // Selecting is not focusing: the planes keep what they show; Show alone (S.focus) is its own action.
   function selOf() {
@@ -35,7 +35,7 @@
     if (Number.isInteger(S.sel) && S.sel >= 0 && S.sel <= n) return S.sel;
     return S.focus > 0 && S.focus <= n ? S.focus : n;
   }
-  // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4, design-23): "f₃ alone ×"
+  // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4): "f₃ alone ×"
   function syncAloneChip() {
     const head = document.querySelector('#paneL .pane-head');
     if (!head) return;
@@ -55,48 +55,28 @@
     if (pv) pv.disabled = !(k > 1);
     if (nx) nx.disabled = !(k > 0 && k < S.steps.length);
   }
-  // The modes Esc steps out of, innermost first: a step shown alone, an expanded plane, the deformation. Each one is a
-  // chip at the right end of the head of the plane that stays in view, with the key that leaves it and a ×; the
-  // chip of the mode Esc closes next also shows Esc.
-  const modeNext = () => {
-    if (S.focus > 0) return 'alone';
-    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view, morphOn())) return 'solo';
-    return morphOn() ? 'morph' : null;
-  };
+  // The modes shown as chips at the right end of X's pane head (a Construct tool in use, Listening along, a step shown
+  // alone), each with the key that leaves it and a ×; the chip of the mode Esc closes next also shows Esc.
+  const modeNext = () => (S.focus > 0 ? 'alone' : null);
   function modeClose(m) {
     if (m === 'tool') { Construct.cancel(); setTool('select'); return; }
     if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
     if (m === 'alone') setFocus(0);
-    else if (m === 'solo') setSolo(S.solo);
-    else if (m === 'morph') closeTransport();
   }
   function syncModeChips() {
-    const mg = Views.merged(S.view, morphOn()), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
-    const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
+    const head = document.querySelector('#paneL .pane-head');
     if (!head) return;
     let box = $('modeChips');
     if (!box) box = h('span', { class: 'mode-chips', id: 'modeChips' });
     const next = modeNext();
     const want = [];
-    if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
-    if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
     // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
     const tc = Construct.toolChip && Construct.toolChip();
     if (tc) want.push(['tool', tc.name, $t('Leave the tool'), '', tc.count || '']);
     // Listening along: the plane's own chip says it and has the Stop
     const lp = snd.play;
     if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
-    // an expanded plane leaves the other one as a labelled strip at the edge, a way back
-    const strip = $('hiddenStrip') || h('button', { type: 'button', class: 'hidden-strip', id: 'hiddenStrip', hidden: true, onclick: () => setSolo(S.solo) });
-    const hid = S.view.main === 'xy' && S.solo && !mg ? (S.solo === 'L' ? 'R' : 'L') : null;
-    if (strip.parentNode !== $('panes')) $('panes').append(strip);
-    strip.hidden = !hid;
-    if (hid) {
-      const t = hid === 'R' ? $t('Y hidden') : $t('X hidden');
-      strip.dataset.side = hid;
-      if (strip.textContent !== t) { strip.textContent = t; strip.setAttribute('aria-label', $t('Show both planes')); strip.setAttribute('data-tip', $t('Show both planes')); }
-    }
-    const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
+    const sig = want.map((w) => w.join('|')).join('/') + '|' + next;
     if (box.dataset.sig !== sig) {
       box.dataset.sig = sig;
       box.replaceChildren(...want.map(([m, label, tip, key, count]) => h('span', { class: 'mode-chip', 'data-mode': m },
@@ -106,7 +86,7 @@
         m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
           : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
     }
-    if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
+    if (box.parentNode !== head) head.insertBefore(box, $('leftLed'));
     box.hidden = !want.length;
     if (SV.on) svFitHead();   // (the chips take room in the plane's head: its bar is fitted to what is left)
     const ac = $('aloneChip');
@@ -121,10 +101,10 @@
   let tempInsp = false;
   function selectStep(k) {
     setSel(k);
-    // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
+    // (the Inspector edits what was selected last: a step chosen in the chain takes the place of the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     svFSync();
-    if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
+    if (Params.syncUnused) Params.syncUnused();   // (Use in names the selected step)
     if (S.hideRight) {
       if (underChain()) setPanels(S.hideLeft, false);
       else if (window.innerWidth >= 1024) openTemp();
@@ -152,7 +132,7 @@
     tempInsp = true;
     host.classList.add('temp');
     host.setAttribute('role', 'dialog'); host.setAttribute('aria-label', $t('Inspector'));
-    // (review design-5: with X and Y side by side, an overlay would cover Y's centre; the stage gives the Inspector
+    // (with X and Y side by side, an overlay would cover Y's centre; the stage gives the Inspector
     // its width for the time it is open instead. A merged view is wide enough to keep its centre clear.)
     const L = $('paneL').getBoundingClientRect(), R = $('paneR').getBoundingClientRect();
     const lay = document.querySelector('.layout');
@@ -198,7 +178,7 @@
       h, $t, $tx, $tn, ICONS, TeX, sub, fsub, wvar, Funcs, Expr, CX, BADGES, CHIP_DEFS,
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, replacePalette: (el, k) => openPalette(el, null, { fnOnly: true, replace: k }), toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
-      moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
+      moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),
       repeatOf, setRepeat, repeatField, repeatStep, Params, stepsView: () => SV.on, focusStep: focusStepChip,   // (the steps view's Repeat row)
       paramField, dhAdd: dhAddShape, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
       regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
@@ -250,8 +230,9 @@
   // a video frame's relief window rounding (a function of the screen's window) and the aspect (width / height) the 3D camera is
   // fitted at: the still's, so a frame is the still's camera widened (null: the screen's window, the frame's own aspect)
   let artLandRound = null, artCamAsp = null;
-  // the steps view: the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
-  const svFigView = () => (SV.on && S.view.main === 'xy' ? 'xyL' : figViewKind());
+  // X → Y's figure is X's plane alone, the left panel (Y is not drawn); in the steps view, the shown plane, past the colour
+  // plane too
+  const svFigView = () => (S.view.main === 'xy' ? 'xyL' : figViewKind());
   // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
   // the shapes to it from z (carried: the caption says "the images of ... under it")
   function svCapParts(o) {
@@ -278,11 +259,61 @@
     const src = svPathsSeg(P, i - 1, i, i);
     return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
   }
+  // a filmstrip over a Number (the figure's Number source): the shared numbers it can run over, those with a value of their
+  // own rather than a formula
+  const figNumbers = () => Params.list().filter((p) => !p.expr && Number.isFinite(p.value))
+    .map((p) => ({ name: p.name, label: Params.display(p.name), tex: Params.tex(p.name), value: { re: p.value, im: p.im || 0 }, min: p.min, max: p.max }));
+  // a Number held at a filmstrip's values: its value and range as they were, put back when the last build that runs over it
+  // ends (a preview's build superseded by the next one shares the hold, so neither takes the other's value for the original).
+  // -> release(), or null when there is no such Number
+  const numHolds = new Map();
+  function figNumberHold(name) {
+    let hd = numHolds.get(name);
+    if (!hd) {
+      const p = Params.list().find((q) => q.name === name);
+      if (!p || p.expr) return null;
+      hd = { users: 0, value: p.im ? { re: p.value, im: p.im } : p.value, min: p.min, max: p.max, step: p.step };
+      numHolds.set(name, hd);
+    }
+    hd.users++;
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      if (--hd.users > 0) return;
+      numHolds.delete(name);
+      Params.setRange(name, hd.min, hd.max, hd.step);
+      Params.set(name, hd.value);
+    };
+  }
+  // the Number at the value v ({re, im}), set as a change at rest (the steps and shapes that use it follow), then the app's
+  // work on it settled: two frames drawn and no fill, line or smoothing job left, at most FIG_SETTLE_MS. -> false when the
+  // build was cancelled (alive() false)
+  const FIG_SETTLE_MS = 20000;
+  async function figNumberAt(name, v, alive) {
+    Params.set(name, v.im ? { re: v.re, im: v.im } : v.re);
+    const t0 = performance.now();
+    for (;;) {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (alive && !alive()) return false;
+      if (!(fixJob.running || lineJob.running || sm.running) || performance.now() - t0 > FIG_SETTLE_MS) return true;
+    }
+  }
+  // a value typed for a Number (a real or complex number, as its field takes): {re, im}, or null
+  function figNumberParse(text) {
+    try { const v = Params.evalVal(String(text)); return v && Number.isFinite(v.re) && Number.isFinite(v.im) ? { re: v.re, im: v.im } : null; } catch (e) { return null; }
+  }
+  // the thread's range a glide video records, the Play range else all of it: its first and last planes, and the span it
+  // glides across as one homotopy when the order is All at once (the screen's own span when it is that one, which keeps its
+  // steps' times), else null, whatever span the screen still holds
+  function svVideoRange() {
+    const R = svRange(), first = R ? R.lo : 0, last = R ? R.hi : svPlanes().length - 1, sp = SV.span, own = svSpanOf(first, last);
+    return { lo: first, hi: last, span: own && sp && sp.x0 === first && sp.x1 === last ? sp : own };
+  }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
-    // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
-    canDeform: () => morphRange().steps.length > 0,
-    deformOn: () => { if (!morphRange().steps.length) return false; if (!morph.open) openTransport(); return morphOn(); },
+    numbers: figNumbers, numberHold: figNumberHold, numberAt: figNumberAt, numberParse: figNumberParse,
+    svIndex: () => SV.i,
     soundDone: () => sndExportDone(), soundError: () => sndError(),
     art: artRender,
     state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
@@ -306,29 +337,34 @@
     svGlide: () => {
       const P = svPlanes();
       if (!SV.on || P.length < 2 || (SV.surf === 'sphere' ? !lGlobe() : SV.surf === 'land' ? !lLand() : SV.surf !== 'plane')) return null;
-      const R = svRange();
-      return { surf: SV.surf, at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
+      // (stops: the planes inside the range a video holds at, counted from lo: each one a step at a time; under All at
+      // once those the span does not cross, as the screen's Play runs the span straight through)
+      const vr = svVideoRange(), sp = vr.span, stops = [];
+      for (let k = vr.lo + 1; k < vr.hi; k++) if (!sp || k <= sp.x0 || k >= sp.x1) stops.push(k - vr.lo);
+      return { surf: SV.surf, at: SV.g.x, lo: vr.lo, hi: vr.hi, stops, from: svName(P[vr.lo]), to: svName(P[vr.hi]) };
     },
     svGlideArt: async (x, o) => {
       // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
       const real = paneL.h > 20 ? paneL : paneR;
       const draw = () => artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW('L') / Math.max(1, real.h) }, o));
-      // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's)
-      const k = Math.round(x);
-      if (Math.abs(x - k) <= SV_REST_U) return svAtPlane(k, draw);
+      // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's.
+      // A plane an All-at-once glide leaves out has no picture at rest in it: its frame is the glide's, drawn a hair off the
+      // plane, where the pane draws a glide)
+      const k = Math.round(x), { span } = svVideoRange(), out = !!span && k > span.x0 && k < span.x1;
+      if (Math.abs(x - k) <= SV_REST_U && !out) return svAtPlane(k, draw);
       const keep = { x: SV.g.x, span: SV.span };
-      SV.span = null; SV.g.set(x); SV.offscreen++;
+      SV.span = span; SV.g.set(out && Math.abs(x - k) <= SV_REST_U ? k + 2 * SV_REST_U : x); SV.offscreen++;
       try { return await draw(); } finally { SV.g.set(keep.x); SV.span = keep.span; SV.offscreen--; requestRender('L'); }
     },
-    svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
+    svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = svVideoRange().span; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
     svMaskOn,
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
-    // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
-    // plane the line saying where the colour is carried from; and the plane's name for the axis title
+    // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or on every plane but the colour
+    // plane's own the line saying where the colour is carried from; and the plane's name for the axis title
     svKey: (x) => {
       if (!SV.on) return null;
       // (the plane the key and the title name is the thread's nearest one: they change at the midpoint between two)
@@ -346,6 +382,20 @@
     svRangeEnds: () => { const R = svRange(); return R ? [R.lo, R.hi] : null; },
     svMapTex: (i, j) => { const P = svPlanes(); return svMapName('tex', P[i], P[j]); },
     shapes: () => S.shapes.filter((s) => s.visible !== false),
+    // a shape's map from its own plane into a panel's plane (side 'L' or 'R'), F the panel's map of the z-plane's shapes:
+    // null where the page does not draw it (a plane after the panel's, a d/dz step between)
+    shapeF: (s, side, F) => shapeF(s, F, side === 'L' ? leftStage() : rightStage()),
+    // the plane a shape is drawn on (0 the z-plane), and the window its curves are sampled in there (winOf: X's view of that plane
+    // the last time X showed it, else the shape's own box with room around it); null for a shape of the z-plane
+    shapeStage: (s) => shapeStage(s),
+    shapeWin: (s) => (shapeStage(s) ? winOf(s) : null),
+    // a point's name on a panel, the one the page's figure frames give it (pointLabel in the figure's mode: F(z₀), w₂(z₁)),
+    // idx its place among the points the panel draws
+    pointName: (s, idx, side) => {
+      const keep = figMode;
+      figMode = true;
+      try { return pointLabel(s, idx, primesOf(s, side === 'L' ? leftStage() : rightStage())); } finally { figMode = keep; }
+    },
     F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
     homF: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.imageF : stageF(rightStage()); } finally { morph.T = keep; } },
@@ -358,23 +408,23 @@
     paneAspect: (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return (real.h > 20 ? real.h : other.h) / effW(side); },
     panelVar,
     fname: () => (morphOn() ? 'H_t' : SV.on ? svCapParts().Fname : fNameTex()),
-    // ([#383] the map Y shows while ‹ › rest it on a step's plane: F_j, the composite of the first j steps; -1 otherwise)
+    // (the map Y shows while ‹ › rest it on a step's plane: F_j, the composite of the first j steps; -1 otherwise)
     fTex: () => fNameTex(), parkedAt: () => parkedAt(),
     formulaTex: () => svCapParts().formula,
     formulaRaw: () => svCapParts().raw,
     capParts: svCapParts,
-    sheetsClause,   // (v16.1 user-5: the caption's clause on what All sheets draws, from capParts().sheets)
+    sheetsClause,   // (the caption's clause on what All sheets draws, from capParts().sheets)
     segsTex: (segs) => captionLatex(segs, true),
     sceneName: figSceneName,
-    sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (review regress-1: step ids only when a shape refers to them)
+    sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (step ids only when a shape refers to them)
     chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', xyR: $t('Deformation'), phase: $t('Phase'), land: $t('Landscape'), morph: $t('Deformation') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
     hue: hueBytes,
-    // (export round 3) the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
+    // the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
     // time T; the lift of the plane to the Riemann sphere (the globe's vector marks)
     defo: () => { const rt = morphOn() ? rangeTex() : null; return { on: morphOn(), T: morph.T, m: morphLen(), deriv: morphHasDeriv(), rGlobe: rGlobe(), main: S.view.main, paths: S.morphPaths !== false, range: rt ? rt.range : null, pre: rt ? rt.pre : null, post: rt ? rt.post : null, qp: rt ? rt.qp : null, qpz: rt ? rt.qpz : null, wdef: rt ? rt.wdef : null }; },
     plotFAt: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.F : focusF(); } finally { morph.T = keep; } },
     lift: liftC,
-    // (export review r3) the screen's deformation paths (their points z), for the video's Paths
+    // the screen's deformation paths (their points z), for the video's Paths
     screenPaths: () => (S.view.main === 'xy' && S.morphPaths !== false && mfCache.sel && mfCache.sel.kept ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
     // the deformation's paths as print vectors (figure.js: the paths figure, plane and globe), and the live globe's
     // chosen points (the globe's paths figure draws the same ones)
@@ -393,8 +443,8 @@
       focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
       lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
       morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
-      pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage,
-      fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
+      pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, requestRender, rightStage, shapeF, shapeStage, stageF,
+      fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
       smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt,
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },
@@ -420,11 +470,10 @@
       get paneR() { return paneR; }, set paneR(v) { paneR = v; },
       get printInk() { return printInk; }, set printInk(v) { printInk = v; },
       get probe() { return probe; }, set probe(v) { probe = v; },
-      get rHover() { return rHover; }, set rHover(v) { rHover = v; },
       get selected() { return selected; }, set selected(v) { selected = v; },
     };
   }
-  // the app calls the module by the old names (as untyped calls: their types stay the module's own)
+  // the app calls the module by plain function names (as untyped calls: their types stay the module's own)
   const EXP = /** @type {any} */ (Export);
   function getDownloads(...args) { return EXP.getDownloads(...args); }
   function saveFile(...args) { return EXP.saveFile(...args); }

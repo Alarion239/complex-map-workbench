@@ -167,6 +167,8 @@
   // the caption of a two-plane figure: its two planes and the map between them, in TeX
   const svTwoSentence = (fi) => $t('The planes %{a} and %{b}, joined by %{map}.', { a: `$${fi.frames[0].name}$`, b: `$${fi.frames[1].name}$`, map: `$${fi.arrow}$` });
   // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
+  // a filmstrip over a Number: "The plane w₁ at c = −1.5, −1, −0.5, 0.25." (a decimal comma's list is set off by semicolons)
+  const numFilmSentence = (fi) => $t('The plane $%{p}$ at $%{c}=%{list}$.', { p: fi.plane, c: fi.num, list: fi.labs.join(capComma() ? ';\\,' : ',\\,') });
   function captionFor(o, view, body) {
     const ru = capRu();
     const fi = body.info || {};
@@ -176,6 +178,7 @@
     }
     // the steps view's paths figure: the shown plane's caption, then the sentence naming the paths
     if (fi.svPaths) return captionFor(o, 'xyL', Object.assign({}, body, { info: {} })) + (fi.sentence ? ' ' + fi.sentence : '');
+    if (fi.numFilm) return numFilmSentence(fi);
     if (fi.svFilm) {
       const note = fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.');
       const own = fi.ownWin ? ' ' + note : '';
@@ -323,7 +326,11 @@
     const pat0 = A.segsTex(us(c.pattern)), pat = pat0 ? ' ' + pat0 : '';
     // (a) and (b): in Russian «а — круг …; б — образ …», the list in lower case after the dash
     const head = ru ? list : cap1;
-    if (two) return list ? (many ? $t('(a) %{head} in the $%{lvar}$-plane. (b) Their images under %{map}.%{pat}', { head, lvar, map, pat }) : $t('(a) %{head} in the $%{lvar}$-plane. (b) Its image under %{map}.%{pat}', { head, lvar, map, pat })) : $t('(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}', { lvar, map, pat });
+    // (the shapes of a plane after (a)'s, which (b) shows by their images: named with their own plane)
+    const laterS = (c.later || []).map((pl) => (pl.n > 1 ? $t(' Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.', { list: A.segsTex(us(pl.gen)), p: pl.p }) : $t(' Panel (b) also shows the image of %{list}, drawn in the $%{p}$-plane.', { list: A.segsTex(us(pl.gen)), p: pl.p }))).join('');
+    // (F, which (b)'s labels name at a focused step, defined as the whole map)
+    const defS = c.defF ? $t(' Here $%{F}$ is the whole map.', { F: c.defF }) : '';
+    if (two) return (list ? (many ? $t('(a) %{head} in the $%{lvar}$-plane. (b) Their images under %{map}.%{pat}', { head, lvar, map, pat }) : $t('(a) %{head} in the $%{lvar}$-plane. (b) Its image under %{map}.%{pat}', { head, lvar, map, pat })) : $t('(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}', { lvar, map, pat })) + laterS + defS;
     // (the steps view past its colour plane: the left panel shows the shapes carried there, their images)
     if (i.panels[0] === 'L' && !c.carried) return list ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : $t('The $%{lvar}$-plane.', { lvar });
     return list ? (many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map, pat }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map, pat })) : $t('The image under %{map}.%{pat}', { map, pat });
@@ -371,7 +378,7 @@
     const defo = defoOf(view), tag = { plane: 'deformation', deriv: 'deformation', globe: 'globe', phase: 'phase', phaseGlobe: 'phase-sphere', land: 'landscape' }[defo];
     if (fmt === 'video') return defo ? `${base}-${tag}-video` : base;
     if (defo) return `${base}-${tag}-${deform === 'paths' && PATHS_OK.has(defo) ? 'paths' : deform === 'frame' && defo !== 'plane' ? 'frame' : 'film'}`;
-    if (view === 'svFilm') return `${base}-filmstrip`;
+    if (view === 'svFilm' || view === 'svNumFilm') return `${base}-filmstrip`;
     if (view === 'svTwo') return `${base}-two-planes`;
     if (view === 'svPaths') return `${base}-paths`;
     if (view === 'phase') return `${base}-phase`;
@@ -384,6 +391,7 @@
   function shortFor(view, body) {
     const fi = body.info || {}, c = A.capParts(), ts = fi.labs ? `$t=${fi.labs.join(',\\,')}$` : '';
     if (fi.svFilm) return $t('The planes along %{chain}.', { chain: svChain(fi.frames) });
+    if (fi.numFilm) return numFilmSentence(fi);
     if (fi.svTwo) return svTwoSentence(fi);
     const at = c.hom ? `$t=${tnum(c.hom.T.toFixed(2))}$` : '';
     if (fi.globePaths) return $t('Paths of the deformation $H_t$ on the Riemann sphere.');
@@ -429,7 +437,7 @@
     if (o.axes) P.axes = o.axes;
     // a slide's figure fits under the frame title (16:9: about half its width tall)
     P.maxH = o.for === 'slides' ? 0.5 * W : Infinity;
-    const view = o.view || (A.svOn() && o.svPic === 'film' ? 'svFilm' : A.svOn() && o.svPic === 'two' ? 'svTwo' : o.svPic === 'paths' && A.svOn() && A.svPathsFig && A.svPathsFig() && A.svPathsFig().i != null ? 'svPaths' : A.viewKind());
+    const view = o.view || (A.svOn() && o.svPic === 'film' ? (o.film === 'number' ? 'svNumFilm' : 'svFilm') : A.svOn() && o.svPic === 'two' ? 'svTwo' : o.svPic === 'paths' && A.svOn() && A.svPathsFig && A.svPathsFig() && A.svPathsFig().i != null ? 'svPaths' : A.viewKind());
     const name = (o.name || defaultName(view, o.deform) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
     // the caption language: o.lang ('en' | 'ru' | 'it'), else the interface's
     const lang = o.lang === 'en' || o.lang === 'ru' || o.lang === 'it' ? o.lang : uiLang();
@@ -441,6 +449,7 @@
     const defo = defoOf(view);
     if (defo && defo !== 'plane' && o.deform !== 'frame') body = null;
     else if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
+    else if (view === 'svNumFilm') body = await figNumFilm(o, P, W, T);
     else if (view === 'svTwo') body = await figSvTwo(o, P, W, T);
     else if (view === 'svPaths') body = await figPaths(Object.assign({}, o, { sv: A.svPathsFig() }), P, W, T);
     else if (view === 'phase') body = await figPhase(o, P, W, T);

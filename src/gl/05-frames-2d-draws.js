@@ -7,9 +7,14 @@
       gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
       if (!gl) return false;
       shadowUniforms(gl);
+      // (the GLSL library's sin and cos for this renderer, before the first program: GLChain.useRenderer, #1739)
+      GLChain.useRenderer(gl);
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
+      GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
       rtOK = !!gl.getExtension('EXT_color_buffer_float');
+      const dri = gl.getExtension('WEBGL_debug_renderer_info');
+      swiftShader = /SwiftShader/i.test(String(gl.getParameter(dri ? dri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
       ok = true;
       prestart(PRESTART_2D);
       canvas.addEventListener('webglcontextlost', (e) => {
@@ -31,15 +36,16 @@
         // every GPU object is gone: forget them and let the app rebuild its meshes
         progs.clear(); tplCache.clear();
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = standInTex = standInKey = ptsTex = rtFbo = null;
-        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
+        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; layers.clear(); invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         reptAccs.clear(); ctxGen++;
         lands.clear(); lastLand = landS = null;
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
         rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null;
         maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
+        GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
-        rtOK = !!gl.getExtension('EXT_color_buffer_float');
+        rtOK = !!gl.getExtension('EXT_color_buffer_float'); halfOK = null;
         ok = true; lost = false;
         prestart(PRESTART_2D);
         if (api.onRestore) api.onRestore();
@@ -63,7 +69,7 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; }
+      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; }
       invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
@@ -83,7 +89,7 @@
     if (preActive) { preActive = false; gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
     if (halfOpen && halfOpen.pre) halfOpen = null;
     fw = w; fh = h; vpX = x; vpY = y;
-    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; invFrame++;
     gl.viewport(x, y, w, h);
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(x, y, w, h);
@@ -137,6 +143,7 @@
   // so its compiled programs can draw while the new ones compile.
   const sigsOf = (key) => { try { const k = JSON.parse(key); return Array.isArray(k[1]) ? k[1] : []; } catch (e) { return []; } };
   function setChain(info) {
+    if (!sideMode) chainRefused = '';
     if (sideMode) {
       // a side chain: its own version object (never the user's, whose parameter values it would overwrite)
       let ch = sideChs.get(info.key);
@@ -154,6 +161,7 @@
       cur = j >= 0 ? hist.splice(j, 1)[0] : { key: info.key, info: null, data: null, hash: '', sigs: sigsOf(info.key) };
       if (hist.length > PROG_KEEP) hist.length = PROG_KEEP;
     }
+    if (discardPending && !sideMode) dropOtherChains();
     cur.info = info;
     const n = Math.max(4, info.slots * 4);
     if (!cur.data || cur.data.length !== n) cur.data = new Float32Array(n); else cur.data.fill(0);
@@ -299,8 +307,9 @@
   }
   // nothing ready for a direct draw while the current chain compiles: an earlier version's cached evaluation of
   // the (translated) map stands in, so the pane keeps showing the previous image instead of going blank (or, for a
-  // deformation whose mode compiles, this chain's evaluation of its start)
-  function stand(res, isMesh, L, map, name) {
+  // deformation whose mode compiles, this chain's evaluation of its start); with none, lines whose caller gave the
+  // map's CPU twin (cpuOf) are evaluated by it (cpuEntry)
+  function stand(res, isMesh, L, map, name, cpuOf) {
     const d = progs.get(progId(name, cur, map));
     if (!d || d.state !== 'pending' || sideMode) return null;   // a failed compile is reported, never covered up
     for (const h of hist) {
@@ -308,7 +317,8 @@
       if (T) return tfEntry(res, isMesh, L, map, 'stand-in', T);
     }
     const T = modeOf(map) ? getProg(isMesh ? 'tfRegion' : 'tfLine', cur, false, startOf(map)) : null;
-    return T ? tfEntry(res, isMesh, L, map, 'stand-in', T) : null;
+    if (T) return tfEntry(res, isMesh, L, map, 'stand-in', T);
+    return !isMesh && cpuOf ? cpuEntry(res, L, map, cpuOf) : null;
   }
   function freeTmp(e) {
     if (!tmpAll.delete(e)) return;
@@ -366,26 +376,39 @@
   }
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
   // (a layer of carryLayers keeps its depth: the next layer reads it)
-  function carryDepthEnd() { if (!ok) return; if (!peelOn) gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  // (pass 1 of carryResolve keeps its depth too: pass 2 reads it)
+  function carryDepthEnd() { if (!ok) return; if (!peelOn && resOn !== 1) gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
   // ---- the carried colour's layers (opacity below 1) ----
   // The carried colour shows the front sheet alone (one depth for all meshes). With opacity a < 1 it shows the layers as the
   // exact pass does: carryLayers calls draw once per layer, front to back, into a target of the canvas's size (the layers
   // share the frame's viewport and scissor); layer j keeps the fragments behind layer j-1's key (PRE_KEY's uPeelOn: the
   // previous layer's depth, two 32-bit float depth textures alternating), and one pass composites them into the frame,
   // each layer at a, the farthest opaque
-  const PEEL_MAX = 8, PEEL_UNIT = 7;
+  // (KPOS_UNIT is also the inverse pass's uHalf, which binds it for its own draws: the resolve binds it again in resBind
+  // before each pass 2, and drawAll's draws inside a resolved frame are carried meshes alone)
+  const PEEL_MAX = 8, PEEL_UNIT = 7, KMIN_UNIT = 6, KPOS_UNIT = 5;
   let peel = null, peelBad = false;
   // the layers that drew something in the last frame whose occlusion queries have answered (0: none known): the next
   // frame draws one layer more, which shows a layer that has appeared, and no more
   let peelSeen = 0, peelQ = null;
   let peelOn = 0;   // the 1-based layer being drawn, 0 outside carryLayers
   let layerFrames = 0;   // the frames carryLayers composited (the tests read it: carryLayerFrames)
+  let resOn = 0, resBand = 0, resOrd = 0;   // carryResolve's pass (1, 2; 0 outside it), its band in units of the key's s, and the rotation's order its last frame tested the orbit of (0: none; the tests read it: carryResolveOrd)
+  let kposBad = false;   // the source points' float target cannot be drawn into here: the resolve ties by the band alone
+  // EXT_color_buffer_half_float: the source points' target is RG16F where RG32F cannot be drawn into. Asked for there
+  // alone, the first time (null: not yet), so a context that draws into RG32F enables no extension for it
+  let halfOK = null;
+  const halfOn = () => halfOK ?? (halfOK = !!gl.getExtension('EXT_color_buffer_half_float'));
+  let resFrames = 0;   // the frames carryResolve drew (the tests read it: carryResolveFrames)
   function peelFree() {
     if (!peel) return;
     gl.deleteFramebuffer(peel.fbo); gl.deleteTexture(peel.col); peel.dep.forEach((t) => gl.deleteTexture(t));
+    if (peel.kmin) gl.deleteTexture(peel.kmin);
+    if (peel.kpos) gl.deleteTexture(peel.kpos);
     peel = null;
   }
-  // -> {W, H, n, fbo, col (RGBA8 array of n layers), dep}, or null when the target is not complete
+  // -> {W, H, n, fbo, col (RGBA8 array of n layers), dep, kmin and kpos (resMin's, made on their first use)}, or null when the
+  // target is not complete
   function peelTarget(n) {
     const W = gl.drawingBufferWidth, H = gl.drawingBufferHeight;
     if (peel && peel.W === W && peel.H === H && peel.n >= n) return peel;
@@ -413,6 +436,80 @@
     peelBad = true; peelFree();
     return null;
   }
+  // ---- the carried colour's ties ----
+  // Where two sheets' keys are equal (a map symmetric about the key's centre: z³'s three sheets over every w), the key a
+  // mesh draws differs between them by the mesh's own error (the source point interpolated across a triangle, far more
+  // than a step of the key), so a single depth puts the sheet in front that the error favours, a triangle at a time.
+  // carryResolve draws the frame's carried draws twice, with the variants that write the key per fragment (st.peel), as
+  // the inverse pass orders keys: pass 1 into a 32-bit float depth target of the canvas's size, its colour masked, each
+  // pixel left with its smallest key; pass 2 into the frame, the fragments within the band of that key in front by their
+  // tie order alone (PRE_KEY_RES: KEY_ERR_K times the key's error across the fragment's triangle, at least band, in units
+  // of s). Below full opacity carryLayers does pass 1 the same way and peels its layers in that order. -> null: no target
+  // (nothing was drawn, the caller draws as without it); else draw()'s last result (false: a pass failed, nothing reached
+  // the frame)
+  function carryResolve(band, draw, ord = 0) {
+    if (!ok || peelBad || peelOn || resOn) return null;
+    const T = peelTarget(1);
+    if (!T) return null;
+    let done = resMin(T, band, draw, ord);
+    if (!done) return false;
+    try {
+      resBind(T);
+      resOn = 2;
+      done = draw();
+    } finally { resOn = 0; }
+    if (done) resFrames++;
+    return done;
+  }
+  // pass 2's textures: each pixel's smallest key and, with a rotation's order, the front fragment's source point
+  function resBind(T) {
+    gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin);
+    gl.activeTexture(gl.TEXTURE0 + KPOS_UNIT); gl.bindTexture(gl.TEXTURE_2D, resOrd ? T.kpos : null);
+  }
+  // pass 1 of the resolve into target T: draw() with the key alone into T.kmin (made here, a 32-bit float depth of T's size),
+  // which each pixel's smallest key is left in, and with a rotation's order ord > 1 each fragment's source point, less the
+  // key window's centre, into T.kpos (made here: RG32F, or RG16F with half floats alone, whose 11 bits are then relative
+  // to the window wherever the centre is; carryProbe.kpos 'half' or 'none' takes the lesser path), which keeps the front
+  // one's; with no float target
+  // there (kposBad), ord is dropped and the band alone ties; -> draw()'s result
+  function resMin(T, band, draw, ord = 0) {
+    if (!T.kmin) {
+      T.kmin = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT32F, T.W, T.H);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    resBand = band;
+    const fmt = carryProbe.kpos === 'none' || kposBad ? 0 : rtOK && carryProbe.kpos !== 'half' ? gl.RG32F : halfOn() ? gl.RG16F : 0;
+    resOrd = ord > 1 && fmt ? ord : 0;
+    if (resOrd && T.kpos && T.kposFmt !== fmt) { gl.deleteTexture(T.kpos); T.kpos = null; }
+    if (resOrd && !T.kpos) {
+      T.kpos = gl.createTexture(); T.kposFmt = fmt;
+      gl.activeTexture(gl.TEXTURE0 + KPOS_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kpos);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, fmt, T.W, T.H);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    try {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
+      if (resOrd) gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, T.kpos, 0);
+      else gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, T.col, 0, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, T.kmin, 0);
+      if (resOrd && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        kposBad = true; resOrd = 0;
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, T.col, 0, 0);
+      }
+      // (the units the programs sample hold other textures than the ones they draw into)
+      gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[0]);
+      gl.activeTexture(gl.TEXTURE0 + PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[1]);
+      gl.activeTexture(gl.TEXTURE0 + KPOS_UNIT); gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.colorMask(!!resOrd, !!resOrd, false, false);
+      if (resOrd) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
+      resOn = 1;
+      return draw();
+    } finally { resOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+  }
   // the program and targets of carryLayers at opacity alpha made ahead (the idle job), so the first layered frame of a glide
   // creates nothing
   function carryLayersReserve(alpha) {
@@ -424,8 +521,12 @@
   // -> null: layers cannot be drawn here (opacity >= 1, one layer, no target or program yet): nothing was drawn, the
   // caller draws the front layer as it does at opacity 1; else draw()'s last result (false: a layer's draw failed, nothing
   // reached the frame)
-  function carryLayers(alpha, draw) {
-    if (!ok || peelBad || peelOn) return null;
+  // (band: the frame's sheets can tie, carryResolve's band: each pixel's smallest key is drawn first, and the layers peel in
+  // the order it resolves, the tied sheets by their tie order, so each layer is one sheet where they tie too. The band is
+  // about the front group's key alone: a second group of tied sheets behind it (z³ + z⁶'s outer ring of three) peels by
+  // the key's own order)
+  function carryLayers(alpha, draw, band = null, ord = 0) {
+    if (!ok || peelBad || peelOn || resOn) return null;
     let n = Math.min(PEEL_MAX, invK(alpha));
     if (n < 2) return null;
     if (peelQ && peelQ.every((q) => gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE))) {
@@ -436,6 +537,10 @@
     const Q = program('carryLayers'), T = Q ? peelTarget(n) : null;
     if (!T) return null;
     let done = true, nq = null;
+    if (band != null) {
+      done = resMin(T, band, draw, ord);
+      if (done) { resOn = 2; resBind(T); }
+    }
     // (the layers hold alpha: the frame's write mask does not apply to them)
     gl.colorMask(true, true, true, true);
     gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
@@ -451,7 +556,7 @@
         done = draw();
         if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); (nq || (nq = [])).push(q); }
       }
-    } finally { peelOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); }
+    } finally { peelOn = 0; resOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     if (nq && !peelQ) peelQ = nq; else if (nq) nq.forEach((q) => gl.deleteQuery(q));
     if (!done) return false;
@@ -472,14 +577,58 @@
   const noCutProg = (name, cuts) => (cuts ? name : name + 'N');
   // the programs a glide's carried colour draws with (drawRegionCarry, map mode 1), started without waiting: a renderer
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
-  // (peel: the variants of carryLayers, which write the sheet key per fragment)
-  function carryNames(peel) {
+  // (peel: the variants of carryLayers, which write the sheet key per fragment; cz: the Cauchy style's, CARRY_CAUCHY, whose
+  // masks are the others')
+  function carryNames(peel, cz) {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
     // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
     const names = clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : [noCutProg('regionKC', false)];
-    return peel ? names.map((n) => (n === 'fillPts' ? n : /m$/.test(n) ? n.slice(0, -1) + 'Pm' : n + 'P')) : names;
+    const named = peel ? names.map((n) => (n === 'fillPts' ? n : /m$/.test(n) ? n.slice(0, -1) + 'Pm' : n + 'P')) : names;
+    return cz ? named.map((n) => (n === 'fillPts' || /m$/.test(n) ? n : n + 'Z')) : named;
   }
   function prestartCarry(peel) { return prestartNames(carryNames(peel), [1]); }
+  // the programs a frame of map draws its carried colour with at full quality (carryPrep's for a glide's meshes, under
+  // the sheet key): with the map cache (rtOK), its places' program (tfRegion), the cached program and, for a chain with
+  // a cut, the fill's (carryNames); without it, the plain program or, with a cut, the sheet program and its mask. On the
+  // globe (globe: {id}, plane s the colour plane), drawCarriedGlobe's
+  function carryProgs(map, globe) {
+    if (globe) return [globe.id ? 'carryGId' : 'carryG'];
+    const m = map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
+    const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
+    if (rtOK && !isIdent(m)) return carryNames(false).concat(['tfRegion']);
+    return !cuts ? [noCutProg('regionK', false)] : clip ? ['regionKSclip'] : ['regionKS', 'regionKSm'];
+  }
+  // the state of the carried colour a frame of map would draw, nothing drawn: 'ready' when every program it draws with
+  // (carryProgs) is linked for this chain and map mode, not an earlier version's or the start's that program() stands
+  // in with; 'error' when one cannot link; else 'pending'. Asking starts the programs not yet started, as a draw does,
+  // and a frame that waits on them is drawn again when they land (as program() has it); a renderer that links at once
+  // has them linked here
+  function carryState(map, globe) {
+    if (!ok || lost || !cur.info) return 'error';
+    let state = 'ready';
+    for (const name of carryProgs(map, globe)) {
+      if (!DEFS[name] || getProg(name, cur, true, map)) continue;
+      const e = progs.get(progId(name, cur, map));
+      if (e && e.state === 'error') return 'error';
+      framePending = true;
+      standIn(e && e.id);
+      state = 'pending';
+    }
+    return state;
+  }
+  // whether a carried program of the Cauchy style (CARRY_CAUCHY: the meshes' and the pre-mapped mesh's, both map modes, started
+  // as the style is chosen) is still linking for the current chain: a glide waits on its first plane for them (svLinkHold),
+  // as for its inverse program, since no other program draws the Cauchy integral past z
+  function carryCauchyLinking() {
+    if (!ok || lost || sideMode || !cur.info) return false;
+    for (const n of carryNames(false, true).concat(['regionPKZ'])) {
+      for (const m of [0, 1]) {
+        const e = DEFS[n] && progs.get(progId(n, cur, { mode: m }));
+        if (e && e.state === 'pending') return true;
+      }
+    }
+    return false;
+  }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
@@ -491,8 +640,9 @@
   function carryPrep(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
-    // (st.peel: the variants that write the sheet key per fragment, for the layers of carryLayers)
-    const N = (n) => (st.peel ? n + 'P' : n);
+    // (st.peel: the variants that write the sheet key per fragment, for the layers of carryLayers; the Cauchy style's, CARRY_CAUCHY)
+    const cz = carryCauchyOn(st.carry);
+    const N = (n) => (st.peel ? n + 'P' : n) + (cz ? 'Z' : '');
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
     // triangles they tear across a cut on their centre's sheet (regionKSCpt, its places from its point pass); without
     // the cache, every triangle
@@ -518,7 +668,7 @@
     // while the sheet program itself links. Without the key (no depth to draw the mask into), the sheet program alone)
     const masked = !!(st.key && st.key.win) && !clip;
     const maskOf = (name, R, get) => {
-      const M = get(name + 'm', st.map);
+      const M = get(name.replace(/Z$/, '') + 'm', st.map);
       return M && M.ch === R.ch && M.mode === R.mode ? M : null;
     };
     let fill = null, fp = null, mask = null;
@@ -545,7 +695,7 @@
     if (typeof prep === 'boolean') return prep;
     const { L, e, P, fill, fp, full, clip, mask } = prep;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
-    const k = st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
+    const k = st.key && st.key.win && (peelOn || resOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     const sheet = fill || full;
     const set = (Q) => {
       use(Q, st.map);
@@ -556,6 +706,7 @@
       u1f(Q, 'uKLim', st.lim || 1e30);
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
+      if (Q !== mask) carryCauchy(Q, st.carry);
       if (Q === sheet || Q === mask) u1i(Q, 'uKPass', 0);
       if (fp && Q !== P) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex); u1i(Q, 'uFTW', fp.W); u1i(Q, 'uFTP', fp.P); }
     };
@@ -598,16 +749,20 @@
     gl.bindVertexArray(null);
     return true;
   }
-  // the sheet key's uniforms (PRE_KEY_DECL) of program Q: k {win, R, rs, sing}, or null (uKeyOn 0)
+  // the sheet key's uniforms (PRE_KEY_DECL) of program Q: k {win, R, rs, sing, per}, or null (uKeyOn 0)
   function keyUniforms(Q, k) {
     u1i(Q, 'uKeyOn', k ? 1 : 0);
     u1i(Q, 'uPeelOn', k && peelOn > 1 ? 1 : 0); u1i(Q, 'uPeelD', PEEL_UNIT);
+    // (uKRes: the pass, and the frame's rotation's order in pass 2; one vector, as the chain's uniform slots are counted)
+    u2i(Q, 'uKRes', k ? resOn : 0, k && resOn === 2 ? resOrd : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
+    u1i(Q, 'uKPos', KPOS_UNIT);
     if (!k) return;
     const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
     sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
     u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
     if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
     u1i(Q, 'uKSingN', sing.length);
+    u2f(Q, 'uKSingT', k.per ? k.per.re : 0, k.per ? k.per.im : 0);
   }
   // a carried-colour draw under the sheet key k (none: the draw order). depth: 'only' (default) a depth of its own;
   // 'first', 'mid', 'last' draws sharing one depth, so the key orders the points of all of them: the first clears it,
@@ -660,7 +815,8 @@
     } finally { if (st.sync) syncDepth--; }
   }
   // st: {map, view, dpr, M, width (device px), color, alpha, casing:{color, alpha, width}, fade, cacheKey, sphere,
-  //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}}
+  //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}, cpu}
+  // cpu (2D only): () => the map's CPU twin, which evaluates the stand-in while the chain's first version links (stand)
   // arc.data: per segment (in createLines order) the arc length of the mapped curve at the segment start and the
   // segment's length, in plane units (the dash phase follows the curve across pieces and segments).
   function drawLines(res, st) {
@@ -674,7 +830,7 @@
       if (pend) e = null;
       const nameOf = () => (flo ? (ident ? 'lineF' : e ? 'lineFC' : 'lineFM') : sph ? (e ? 'lineSC' : 'lineS') : (ident ? 'line0' : e ? 'lineC' : 'line'));
       let P = pend ? readyProg(nameOf(), st.map, 'tfLine') : program(nameOf(), st.map);
-      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf()))) P = program(nameOf(), st.map);
+      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf(), sph || flo ? null : st.cpu))) P = program(nameOf(), st.map);
       if (!P) return;
       use(P, st.map);
       if (e) bindCache(P, e);
@@ -691,7 +847,9 @@
         }
       } else view2D(P, st.view, dpr, res.org);
       fadeUniforms(P, st.fade);
-      gl.bindVertexArray(lineVAO(res, M));
+      // (a CPU stand-in's own template size, which may be coarser than M)
+      const Me = e && e.cpu ? e.L : M;
+      gl.bindVertexArray(lineVAO(res, Me));
       const dash = !sph && !flo && st.dash && st.arc && st.arc.data && res.arcs && st.arc.data.length >= 2 * res.n ? st.dash : null;
       if (dash) {
         let b = res.arcs.get(st.arc.key);
@@ -705,7 +863,7 @@
         attrib(12, 2, 8, 0, 1);
         u1f(P, 'uArcPx', st.view.s * dpr);
       } else { gl.disableVertexAttribArray(12); gl.vertexAttrib2f(12, 0, 0); }
-      const count = lineTemplate(M).count;
+      const count = lineTemplate(Me).count;
       const pass = (width, color, alpha, d) => {
         u1f(P, 'uWidth', width);
         u3(P, 'uColor', col3(color, [0, 0, 0]));
@@ -762,8 +920,8 @@
   // Float64Array [ax, ay, bx, by] * m: the polygon's edges, simplified to a fraction of a pixel): the edges as a texture
   // row relative to their centre, the poles and their principal parts as uniforms. -> {n edges, origin}
   let edgeTex = null, edgeKey = null, edgeO = [0, 0], edgeN = 0;
-  function cauchyEdges(c) {
-    gl.activeTexture(gl.TEXTURE4);
+  function cauchyEdges(c, unit = 4) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
     if (edgeTex && edgeKey === c.edges) { gl.bindTexture(gl.TEXTURE_2D, edgeTex); return; }
     const E = c.edges, m = Math.min(Math.floor(E.length / 4), maxTex);
     let ox = 0, oy = 0;
@@ -779,10 +937,39 @@
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Math.max(1, m), 1, 0, gl.RGBA, gl.FLOAT, d);
     edgeKey = c.edges; edgeO = [ox, oy];
   }
-  // the colour plot's stand-in (st.standIn): its texture (unit 4) and the w array last uploaded into it
+  // the plan's uniforms of the Cauchy shader (CAUCHY_CORE): the edge row on sampler `unit` (4 for the plot, CARRY_EDGE_UNIT for the carried colour), the poles and their principal parts relative to edgeO, the part shown
+  function cauchyPlan(P, cp, unit) {
+    cauchyEdges(cp, unit);
+    u1i(P, 'uEdgeN', edgeN);
+    const poles = cp.plan.poles.slice(0, 16), pd = new Float32Array(64), cd = new Float32Array(128);
+    poles.forEach((q, k) => {
+      pd[4 * k] = q.z.re - edgeO[0]; pd[4 * k + 1] = q.z.im - edgeO[1]; pd[4 * k + 2] = Math.min(4, q.order); pd[4 * k + 3] = q.n;
+      for (let j = 0; j < 4 && j < q.a.length; j++) { cd[4 * k + 2 * j] = q.a[j].re; cd[4 * k + 2 * j + 1] = q.a[j].im; }
+    });
+    u1i(P, 'uPoleN', poles.length);
+    if (P.loc.uPole) gl.uniform4fv(P.loc.uPole, pd);
+    if (P.loc.uCoef) gl.uniform4fv(P.loc.uCoef, cd);
+    u2f(P, 'uShow', cp.show || 0, cp.sign || -1);
+  }
+  // the carried colour's Cauchy mode (CARRY_FS): c.cauchy = {plan, edges, show, sign, T} (T: the chain's length) draws the carried points in the
+  // Cauchy integral's colour, anything else leaves the stages' colour
+  // whether the residue theorem's data (a plan and its polygon's edges) are there to draw
+  const cauchyUsable = (c) => !!(c && c.plan && c.edges && c.edges.length >= 4);
+  // whether carried colour c draws the Cauchy integral: its programs are then the CARRY_CAUCHY variants
+  const carryCauchyOn = (c) => !!(c && cauchyUsable(c.cauchy));
+  const CARRY_EDGE_UNIT = SAMPLER_UNITS.uCEdges;
+  function carryCauchy(P, c) {
+    const cp = carryCauchyOn(c) ? c.cauchy : null;
+    u1i(P, 'uCT', cp ? cp.T : -1);
+    if (!cp) return;
+    cauchyPlan(P, cp, CARRY_EDGE_UNIT);
+    u2f(P, 'uEdgeO', edgeO[0], edgeO[1]);
+  }
+  // the stand-ins' node texture (unit 4: the colour plot's and the phase globe's) and the w array last uploaded into it
   let standInTex = null, standInKey = null;
-  function standInUniforms(P, st, dpr) {
-    const g = st.standIn, k = st.view.s * dpr;
+  // binds the stand-in grid g ({nx, ny, w}: w = F(z) at the nx x ny nodes, node (i, j) at w[2 (j nx + i)], re and im; a
+  // Float32Array) to unit 4, uploading it when it is not the one there
+  function standInTexture(g) {
     gl.activeTexture(gl.TEXTURE4);
     if (!standInTex) standInTex = floatTex(); else gl.bindTexture(gl.TEXTURE_2D, standInTex);
     if (standInKey !== g.w) {
@@ -790,42 +977,48 @@
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, g.nx, g.ny, 0, gl.RG, gl.FLOAT, g.w);
       standInKey = g.w;
     }
+  }
+  const standInRelease = () => { if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; } };
+  function standInUniforms(P, st, dpr) {
+    const g = st.standIn, k = st.view.s * dpr;
+    standInTexture(g);
     u2f(P, 'uGO', (g.x0 - st.view.cx) * k + fw / 2, (g.y0 - st.view.cy) * k + fh / 2);
     u1f(P, 'uGC', g.h * k);
   }
+  // the colour plot of st and the program that draws it: the Cauchy style's residue plot (cp: st.cauchy with its plan and
+  // edges, cauchyF), its node sum (cz: st.cauchy with nodes, cauchy), else the colour plot (color) -> {cp, cz, pname}
+  function colorPlotOf(st) {
+    const cp = cauchyUsable(st.cauchy) ? st.cauchy : null;
+    const cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
+    return { cp, cz, pname: cp ? 'cauchyF' : cz ? 'cauchy' : 'color' };
+  }
+  const colorProgName = (st) => colorPlotOf(st).pname;
   // st.standIn: the plot's stand-in while its program links, {x0, y0, h, nx, ny, w}: w = F(z) at the nx x ny nodes, node
-  // (i, j) the point (x0 + i h, y0 + j h) with its value at w[2 (j nx + i)] (re, im; a Float32Array). Drawn, coloured as
-  // the plot is, only when the plot's program gives nothing to draw: the frame in which its link completes draws the
-  // plot. st.noValue: only where F has no finite value, its no-value colour (the NaN hatch, infinity's white), nothing
-  // elsewhere, and no stand-in. -> true when the plot or its stand-in was drawn
+  // (i, j) the point (x0 + i h, y0 + j h) with its value at w[2 (j nx + i)] (re, im; a Float32Array). Drawn in the
+  // plot's style (the Cauchy style colours F's values as 'enhanced' does), only when the plot's program gives nothing to
+  // draw: first the color program, where it is linked (the Cauchy plot's program compiling: F's values in the same style, no
+  // compile started for it), else the stand-in, else nothing; the frame in which the plot's link completes draws the plot. st.noValue: only where F has no finite value, its
+  // no-value colour (the NaN hatch, infinity's white), nothing elsewhere, and no stand-in. -> true when the plot or its
+  // stand-in was drawn
   function drawColorPlot(st) {
     if (!ok) return false;
-    const cp = st.cauchy && st.cauchy.plan && st.cauchy.edges && st.cauchy.edges.length >= 4 ? st.cauchy : null;
-    const cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
-    const pname = cp ? 'cauchyF' : cz ? 'cauchy' : 'color';
+    let { cp, cz, pname } = colorPlotOf(st);
     const dpr = st.dpr || 1;
     // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
     let P = program(pname, st.map, st.exact);
+    // (the Cauchy plot's program is still linking: F's values drawn by the color program in the stand-in's style (enhanced), with no compile of
+    // its own started, until the plot's lands; a failed compile is not this: frameErr says so)
+    if (!P && pname !== 'color' && programPending(pname, st.map) && (P = programLinked('color', st.map, st.exact))) { cp = cz = null; pname = 'color'; }
     if (!P) {
-      if (pname !== 'color' || !st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
+      if (!st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
       use(P);
       standInUniforms(P, st, dpr);
       return colorPass(P, st, dpr);
     }
-    if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; }
+    standInRelease();
     use(P, st.map);
     if (cp) {
-      cauchyEdges(cp);
-      u1i(P, 'uEdgeN', edgeN);
-      const poles = cp.plan.poles.slice(0, 16), pd = new Float32Array(64), cd = new Float32Array(128);
-      poles.forEach((q, k) => {
-        pd[4 * k] = q.z.re - edgeO[0]; pd[4 * k + 1] = q.z.im - edgeO[1]; pd[4 * k + 2] = Math.min(4, q.order); pd[4 * k + 3] = q.n;
-        for (let j = 0; j < 4 && j < q.a.length; j++) { cd[4 * k + 2 * j] = q.a[j].re; cd[4 * k + 2 * j + 1] = q.a[j].im; }
-      });
-      u1i(P, 'uPoleN', poles.length);
-      if (P.loc.uPole) gl.uniform4fv(P.loc.uPole, pd);
-      if (P.loc.uCoef) gl.uniform4fv(P.loc.uCoef, cd);
-      u2f(P, 'uShow', cp.show || 0, cp.sign || -1);
+      cauchyPlan(P, cp);
       u2f(P, 'uCenter', st.view.cx, st.view.cy);
       u2f(P, 'uRelC', st.view.cx - edgeO[0], st.view.cy - edgeO[1]);
     } else if (cz) {

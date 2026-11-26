@@ -13,18 +13,26 @@
 // - bareCount(px): { n, paper }, the points of a read that are on the page and the ones of them on bare paper;
 // - grid(P, nx, ny, frac): an nx x ny grid of plane points over the middle frac (default 0.8) of the pane P;
 // - shown(P, z): whether z is inside the middle 90 % of the pane P, where a reference of plane z shows it;
-// - fronts(lists, b, sing): for each list of points z, the index of the front one under the steps view's sheet key of
-//   plane b (Inverse.sheetKey and Inverse.front in the page; sing: the key's points in place of plane b's), -1 for none;
+// - fronts(lists, b, sing, t): for each list of points z, the index of the front one under the steps view's sheet key of
+//   plane b (Inverse.sheetKey and Inverse.order in the page, with the key's period; t: the glide's key at t, __cmwSvKey(b,
+//   t); sing: the key's points in place of the key's own), -1 for none;
 // - joukPath(outside, leave): the Joukowski airfoil's path H_t (tanh((1 + t) artanh z - i pi t / 2) on the disc,
 //   coth((1 + t) arcoth z) outside it) for the region outside the circle that `outside` measures: candAt(t)(w) the points
 //   z at w along H_t, each branch's inverse over k, kept where H_t gives w back (within 1e-7), each as { z, name, out }
-//   with out set near the circle's outline (0.12) and where leave(z, w); poleAt(t) the key's points at t, plane w1's
+//   with out set near the circle's outline (0.12) and where leave(z, w) (none by default); poleAt(t) the key's points at t, plane w1's
 //   (z = 0) and the path's pole on the disc, -i tan(pi (1 - t) / (2 (1 + t))), there from t = 1/3 on;
 // - chainPoints(steps, box): a chain's points by its steps' inverses (steps: the page's { type, params }, of exp, sin,
 //   pown with n > 0 and mobius with real or imaginary parameters), as cand(w, b): the points z of box { x0, x1, y0, y1 } that the
 //   steps before plane b take to w, each as { z } (every period of exp and sin within reach, kept where the forward map
 //   gives w back within 1e-7);
 // - carryRead(env): measure(), the front point's colour on a plane against plane z's (below, at its definition).
+// - DRAWN: an expression for settled's until, true once the left pane's frame is drawn (none pending or compiling);
+// - openSteps(port, steps, extra, o): a fresh page of the steps view on a saved state of the chain steps (no shapes, alpha 1,
+//   the view about 0 at scale 80; extra's fields over those), its colour plane set to plane z; o.startMs (30 s) for the strip;
+// - toPlane(i, o): plane i of the strip clicked, then until it rests there fixed (o.fixedMs, 15 s) and drawn (o.drawnMs, 60 s);
+// - rough(o): the roughness of the frame on the pane now: over an o.nx x o.ny grid (20 x 14) o.step (0.09) apart in plane
+//   units about the view's centre, shifted by o.skew ([0.003, 0.002]) off the centre and the quadrant seams, the points whose
+//   3 x 3 pixels spread over o.spread (30 of 255) in some channel: { of: the grid's points, n: those read, rough, share }.
 (() => {
   // (canvasL in the left pane's camera, __cmwCards().main: a plane point x + iy at device pixel (W/2 + (x - cx) s dpr,
   // H/2 - (y - cy) s dpr); a read that throws answers { __exc }, which fails the suite here rather than reading as no
@@ -72,19 +80,19 @@
     return out;
   };
   const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
-  const fronts = async (lists, b, sing) => {
+  const fronts = async (lists, b, sing, t) => {
     const r = await ev(`(() => {
-      const k = Object.assign(__cmwSvKey(${b}), ${sing ? `{ sing: ${JSON.stringify(sing)} }` : '{}'}), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])) };
+      const k = Object.assign(__cmwSvKey(${b}${t != null ? `, ${t}` : ''}), ${sing ? `{ sing: ${JSON.stringify(sing)} }` : '{}'});
+      const prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])), per: k.per && CX.C(k.per[0], k.per[1]) };
       return ${JSON.stringify(lists)}.map((L) => {
-        let bi = -1, bc = null;
-        L.forEach((p, i) => { const z = CX.C(p[0], p[1]), c = { z, D: Inverse.sheetKey(prep, z, null), lam: null }; if (!bc || Inverse.front(c, bc)) { bc = c; bi = i; } });
-        return bi;
+        const cs = L.map((p, i) => { const z = CX.C(p[0], p[1]); return { z, D: Inverse.sheetKey(prep, z, null), lam: null, i }; });
+        return cs.length ? Inverse.order(cs)[0].i : -1;
       });
     })()`);
     if (r && r.__exc !== undefined) throw new Error('fronts failed: ' + r.__exc);
     return r;
   };
-  const joukPath = (outside, leave) => {
+  const joukPath = (outside, leave = () => false) => {
     const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
     const div = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
     const lg = (a) => [Math.log(Math.hypot(a[0], a[1])), Math.atan2(a[1], a[0])];
@@ -199,7 +207,7 @@
   // measure(at, b, P, pts, cand, pick): the front point's colour at the plane points pts of plane b in the state at
   // (__cmwSteps' go, now, scope, park; or at.hold, the thread held at x mid-glide, a scrub on the rail not let go, read
   // once its programs are linked and two frames are alike), P the pane (paneOf()). cand(w): the points landing at w,
-  // [{ z, out }] (out: near an outline, a cut or a label, left out). pick(lists, b, sing): the index of the front point of
+  // [{ z, out }] (out: near an outline, a cut or a label, left out). pick(lists, b, sing, t): the index of the front point of
   // each list, fronts() by default. A point w is also left out where the front point jumps (a seam of that choice): its
   // front differs by more than SEAM from the front 1.5 px away in any direction; and where the front point is not shown
   // in P. Plane z's own colours (Everywhere, at rest on it) at the front points are the reference: answers tally()'s
@@ -222,7 +230,7 @@
       const C = pts.flatMap((w) => nb.map(([a, e]) => cand([w[0] + a, w[1] + e])));
       // (mid-glide, the key of the glide's frame at t: its points are the glide map's poles at t, __cmwSvKey(b, t))
       const xt = at.hold != null ? at.hold : at.park, t = xt != null ? xt - Math.floor(xt) : 0;
-      const F = await pick(C.map((c) => c.map((e) => e.z)), b, t > 0 ? (await ev(`__cmwSvKey(${b}, ${t})`)).sing : null);
+      const F = await pick(C.map((c) => c.map((e) => e.z)), b, null, t > 0 ? t : null);
       const at5 = (k, j) => { const i = 5 * k + j; return F[i] < 0 ? null : C[i][F[i]]; };
       const W = [], Z = [];
       let left = 0;
@@ -237,5 +245,29 @@
     };
     return { measure };
   };
-  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
+  const DRAWN = `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()`;
+  const openSteps = async (port, steps, extra = {}, o = {}) => {
+    const ns = 'svk' + Date.now();
+    const st = Object.assign({ v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } }, extra);
+    await go(`http://localhost:${port}/gl-helpers.html`); await settled({ panes: false });
+    await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+    await go(`http://localhost:${port}/test.html?ns=${ns}&lang=en&view=steps`);
+    await settled({ max: o.startMs || 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
+    await ev(`document.querySelector('.sv-cp').click(); 1`);
+    await settled({});
+  };
+  const toPlane = async (i, o = {}) => {
+    await ev(`document.querySelector('#svStrip .sv-plane[data-i="${i}"]').click(); 1`);
+    await settled({ max: o.fixedMs || 15000, until: `__cmwSteps().stage === ${i} && !__cmwSteps().moving && __cmwSvFixed()` });
+    await settled({ max: o.drawnMs || 60000, until: `__cmwSvFixed() && ${DRAWN}` });
+  };
+  const rough = async (o = {}) => {
+    const nx = o.nx || 20, ny = o.ny || 14, step = o.step || 0.09, skew = o.skew || [0.003, 0.002], spread = o.spread || 30;
+    const V = (await lpx([])).view, pts = [];
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) pts.push([V.cx + (i - (nx - 1) / 2) * step + skew[0], V.cy + (j - (ny - 1) / 2) * step + skew[1]]);
+    const sp = (await lpx(pts)).px.filter(Boolean).map((p) => Math.max(...[0, 1, 2].map((c) => Math.max(...p.map((x) => x[c])) - Math.min(...p.map((x) => x[c])))));
+    const n = sp.filter((x) => x > spread).length;
+    return { of: nx * ny, n: sp.length, rough: n, share: n / sp.length };
+  };
+  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead, DRAWN, openSteps, toPlane, rough };
 })()

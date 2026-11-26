@@ -1,4 +1,4 @@
-// Editing a series without the lag (#243) and a number inside a_n on a slider (#241 part 2): typing a_n rebuilds the
+// Editing a series without the lag and a number inside a_n on a slider: typing a_n rebuilds the
 // chain once per pause, not per key, and Enter applies it at once, one Undo step; of two quick edits the later one is
 // the picture; a formula step stays synchronous (the field's change is the chain's at once); a slider of a number in
 // a_n keeps its drag (the first drag after the page opens too) and the picture follows the number. The timing checks
@@ -14,10 +14,10 @@ const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'E
 async function openApp(st) {
   const ns = 'se' + Date.now();
   await view(1440, 900, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(350);
   const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', sel: 1 }, st);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}`); await sleep(2300);
   await settle(1500);
   await settled({ only: true, max: 10000, until: 'typeof __cmwP === "function" && !!document.querySelector("#svStrip .sv-add")' });
   // the chain's rebuilds (Funcs.build of each step) and the page's long tasks from here on

@@ -4,6 +4,7 @@
 # entries (tools/ru_extra.json). Re-run it whenever a table or a $t() call site changes:
 #     python3 tools/make_ru_table.py            (writes src/i18n_ru.js and tools/ru_report.json)
 #     python3 tools/make_ru_table.py --strict   (also fails when a call site has no Russian entry)
+#     python3 tools/make_ru_table.py --check    (writes nothing; fails when src/i18n_ru.js is not what this gives)
 #
 # Keys are the English source (notes/i18n/DESIGN.md 1): $t(s) -> s, $tx(ctx, s) -> ctx + U+0004 + s,
 # $tn(one, many, n) -> one + U+0004 + many. Two kinds of entries:
@@ -16,13 +17,42 @@
 #      occurrence when one name stands for two values. Entries without en_key fall back to the inventory text, with
 #      the names its context lists. The Russian always writes '%{name}', which i18n.js fills in any template.
 #      tools/ru_extra.json wins over both (templates restructured in code, Russian-only messages).
+# Where an edit goes: a string's Russian is kept in tools/ru_extra.json and nowhere else. A key that tools/ru_extra.json
+# and a table of notes/i18n/ru (the files read below, in the order they are listed: the phase-2b tables, then the later
+# rounds') both hold is reported ("IN BOTH") and fails --strict and --check; the Russian that ships is then
+# tools/ru_extra.json's, so an edit there always ships. Of two tables holding one key, the one read last gives the Russian.
+# chrome.json, math.json and guide-tour.json hold the inventory's entries, which tools/ru_extra.json overrides by design.
 # The table is written as one JSON string inside a JS call, I18N.define('ru', "..."): English never parses it.
 import json
 import pathlib
 import re
+import subprocess
 import sys
 
 from src_parts import src_texts  # (the files of src/, app.js and gl.js joined from their parts in src/app/ and src/gl/)
+
+
+def blank_comments(texts):
+    """The JavaScript texts with each comment replaced by spaces: the parser's own comments (tools/js_blank_comments.js)."""
+    run = subprocess.run(['node', str(pathlib.Path(__file__).resolve().parent / 'js_blank_comments.js')], input=json.dumps(texts),
+                         check=True, capture_output=True, text=True, encoding='utf-8')
+    return json.loads(run.stdout)
+
+
+_code = {}
+
+
+def code_texts(src):
+    """[(name, text)] as src_texts gives them, with the comments of every JavaScript file blanked: what holds a string, and
+    what calls $t, is the code, never a comment (a key held only by a comment would ship as dead bytes, and an edit of a
+    comment would change the table). page.html is read as it is."""
+    key = str(src)
+    if key not in _code:
+        files = src_texts(src)
+        blanked = iter(blank_comments([t for n, t in files if n.endswith('.js')]))
+        _code[key] = [(n, next(blanked) if n.endswith('.js') else t) for n, t in files]
+    return _code[key]
+
 
 root = pathlib.Path(__file__).resolve().parent.parent
 notes = root / 'notes' / 'i18n'
@@ -36,7 +66,8 @@ sample = json.load(open(notes / 'proto' / 'ru.json'))
 extra_doc = json.load(open(root / 'tools' / 'ru_extra.json'))
 extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 # phase 2b's new strings (notes/i18n/ru/phase2b*.json): id -> {en, ru, plural, en_plural, ctx, note}. Keyed like the
-# call sites ($tx: ctx + U+0004 + en; $tn: one + U+0004 + many), and they win like tools/ru_extra.json
+# call sites ($tx: ctx + U+0004 + en; $tn: one + U+0004 + many); they win over the inventory's entries, not over
+# tools/ru_extra.json (a key in both is reported below)
 # (the redesign's strings, the first group of notes/i18n/ru tables below, after phase 2b's; a table whose build is not
 # merged into this tree is left out, so its strings and its changes to shared ones arrive with its sources)
 # (the video preview (work/xvv), the phone tour's step toggle (work/xvp) and the formula recognizer (src/recognize.js)
@@ -73,6 +104,8 @@ V17_HERE = {'v17-planemenu.json'}
 # (Hear the function, the marimba notes and the Glide (perfwin/sound/impl/SOUND-PLAN.md 4.3): notes/i18n/ru/v165-hear.json,
 # read after the other v165 tables, so it overrides v152-sound.json and v164-tour.json; before V17_HERE's, which is read last)
 V165_HEAR_HERE = {'v165-hear.json'}
+ru_extra_keys = set(extra)               # (the keys tools/ru_extra.json holds, before any table is read)
+in_both = []                             # (key, table file, entry id) of a table entry whose key tools/ru_extra.json holds too
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
 for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_FIX_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HEAR_HERE) + sorted(p for p in (notes / 'ru').glob('v17-*.json') if p.name in V17_HERE):  # read in this order: a later table's strings win
@@ -81,9 +114,18 @@ for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == '
             continue
         pl = v.get('en_plural')
         key = pl[0] + CTX + pl[1] if v.get('plural') and isinstance(pl, list) else (v['ctx'] + CTX if v.get('ctx') else '') + v['en']
-        extra[key] = v.get('plural') or v['ru']
         if f.name in PHASE2B_PINNED:
             phase2b_keys.add(key)
+        if key in ru_extra_keys:
+            in_both.append((key, f.name, k))
+            continue
+        extra[key] = v.get('plural') or v['ru']
+
+for key, table_name, entry_id in in_both:
+    print(f'  IN BOTH {json.dumps(key, ensure_ascii=False)[:100]}: tools/ru_extra.json and notes/i18n/ru/{table_name} ({entry_id}); '
+          f'delete the table entry, tools/ru_extra.json is the one place to edit')
+if in_both and ('--strict' in sys.argv or '--check' in sys.argv):
+    sys.exit(f'{len(in_both)} key(s) held by tools/ru_extra.json and by a table of notes/i18n/ru: keep each in one place')
 
 entries = [(k, v) for k, v in C.items() if k != '_meta'] + list(M['entries'].items()) + list(G.items())
 entries += [(k, v) for k, v in M.get('missing_from_inventory', {}).items()]
@@ -235,7 +277,7 @@ def read_lit(s, i):
 def call_sites(src):
     """[(kind, key, file:line)] for every $t / $tx / $tn whose arguments are string literals."""
     out = []
-    for name, s in src_texts(src):
+    for name, s in code_texts(src):
         if not name.endswith('.js') or name.startswith('i18n'):
             continue
         for m in re.finditer(r'(?<![A-Za-z0-9_$.])\$t(x|n)?\(', s):
@@ -379,7 +421,8 @@ for k in sorted(table):
 # English no source holds any more (a string the code removed: the old paths captions, the old tour and guide texts on
 # sound) is dead weight that hides real misses: it is dropped and listed ('dropped', why 'removed'). "Holds" is generous:
 # the English (the one form of a plural, the text after a context) equals a string literal of src/*.js or occurs in one,
-# or in page.html. Entries of the inventory are matched by other rules (their placeholders are rewritten), so they are
+# or in page.html. A comment of a JavaScript file holds nothing (code_texts): neither a key nor a $t() call.
+# Entries of the inventory are matched by other rules (their placeholders are rewritten), so they are
 # only counted when no literal holds them ('unused', report only).
 # The inventory's entries that no source holds are dropped too ('dropped', why 'removed'):
 # they would ship as dead bytes (' Arrows that meet show points with the same image.', the old
@@ -401,7 +444,7 @@ def js_unescape(lit):
 
 
 src_lits, src_blob, src_raw = set(), [], []
-for name, t in src_texts(root / 'src'):
+for name, t in code_texts(root / 'src'):
     f = pathlib.Path(name)
     # (the Italian table, src/i18n_it.js, is generated from the same English keys and holds none of the
     # source's strings: a string the source does not call must not be kept because the Italian table has it)
@@ -454,11 +497,19 @@ orphans = [k for k in orphans if k in table]
 out = root / 'src' / 'i18n_ru.js'
 blob = json.dumps(table, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
 lit = json.dumps(blob, ensure_ascii=False).replace('</', '<\\/').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
-out.write_text(
+text = (
     "'use strict';\n"
     "// GENERATED by tools/make_ru_table.py from notes/i18n/ru/*.json, the inventory and tools/ru_extra.json: do not\n"
     "// edit. The Russian table as one JSON string; i18n.js parses it on the first Russian lookup, English never does.\n"
     f"I18N.define('ru', {lit});\n")
+# --check: write nothing, and fail when the committed table is not what a fresh generation gives (test/t_i18n_tables.js)
+if '--check' in sys.argv:
+    if not out.exists() or out.read_text(encoding='utf-8').replace('\r\n', '\n') != text:
+        sys.exit(f'{out.relative_to(root)} is not what a fresh generation gives: run python3 tools/make_ru_table.py --strict and commit it'
+                 f' ({len(table)} entries now)')
+    print(f'{out.relative_to(root)}: the committed table is a fresh generation ({len(table)} entries)')
+    sys.exit(0)
+out.write_text(text)
 report = {
     'entries': len(table), 'call_sites': len({s[1] for s in sites}), 'resolved': len(resolved),
     'unresolved': unresolved, 'collisions': len(collisions), 'how': how, 'dropped': dropped, 'orphans': orphans,

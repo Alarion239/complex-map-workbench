@@ -1,4 +1,4 @@
-// v16.5 wave 1 merge (notes/ux-build/W1-MERGE.md): one look at the merged app in the real browser, as a person would
+// Merge check (notes/ux-build/W1-MERGE.md): one look at the merged app in the real browser, as a person would
 // use it, where the five pieces meet. Laptop 1366 × 768 (mouse) and phone 412 × 860 (Android emulation, touch through
 // Input.dispatchTouchEvent); English and Russian; light and dark. Not a gate: it loads, works, and says nothing in the
 // console; pictures go to <daemon>/shots/w1-merge/.
@@ -7,7 +7,7 @@
 //   L2 one Alt+→ on a focused card moves the step one place, not two (learn and chain built the same key: merged as one)
 //   L3 Examples: "New: empty canvas" first (chain) and the sound example's ♫ (learn) in the same list
 //   L4 the user's case (rail): Perpendicular circle on the shown unit circle, two picks on it: the circle is made; a press
-//      on the first pick is refused in the chip, by the pointer (plane's UX52 through the merge), not as a toast
+//      on the first pick is refused in the chip, by the pointer (the plane's merge), not as a toast
 //   L5 dark, Russian: loads with no console error; pictures
 //   P1 phone light: loads, no console error; Undo in a sheet's head (phone); the user's case with real taps
 //   P2 phone Russian: the More tools sheet's Construct tiles on one line each, «Гиперб.» for the new tool; no Ctrl/⌘ in a
@@ -39,13 +39,12 @@ const tool = async (id) => { await ev(`(() => { const b = [...document.querySele
 const scale = async () => { const a = await W(0, 0), b = await W(1, 0); return b[0] - a[0]; };
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim()).join(' | ')`);
 // a namespace's saved state is cleared first, so every run starts from the default scene
-const fresh = async (ns, q = '') => { await nav(U + '?ns=w1mclean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); await settle(1200); };
+const fresh = async (ns, q = '') => { await nav(U + '?ns=w1mclean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); };
 const st0 = (extra) => Object.assign({ v3: true, v4: true, unit: true, snap: true, shapes: [], steps: [], nextId: 10, focus: 0 }, extra || {});
 async function section(k, f) { try { await f(); } catch (e) { fails.push({ name: k + ' threw', got: String(e && e.stack || e).slice(0, 600) }); } await grab(); }
 logs();
 
 // ---------------------------------------------------------------- L1 laptop, light, English
-// (Y's head with its "Y · " tag is the classic view's right pane; its check is in ux165_merge_classic_cmd.js)
 await section('L1', async () => {
   await laptop();
   await fresh(NS + 'a');

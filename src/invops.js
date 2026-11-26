@@ -20,16 +20,24 @@ const InvOps = (() => {
   //               | {type: 'log', beta, S, lo, hi, inf, radial, count, L0(w), member(w, m, L0)},
   //      undef, branch: (C|null)[] (null = infinity) input points; poles: C[] (input points mapped to infinity);
   //      lattice: {base, step} | null (a pole lattice); infPre: infinity is a preimage of infinity; infAt(w): infinity
-  //      is a preimage of the finite point w}
+  //      is a preimage of the finite point w; critical() -> Crit | null (not known)}
+  // Crit: {crit: [{u, mult, w}] (the critical points u in the input plane, null = infinity, where fwd' vanishes to order
+  //      mult, and their values w, null = infinity), lattice: {base, step, values} | null (critical points base + n step,
+  //      each simple, their values among values), asym: (C|null)[] (asymptotic values: limits of fwd along a path to
+  //      infinity, null = infinity)}
   // Member: {u, d: du/dw | anti: true, lvl (output units, +Infinity: no range), lg: unit gradient of lvl (output
   //      plane) | null, lam: log u | null, dlam: d(log u)/dw (with lam), m}
   // Parameters in p (read by glsl.js's uInv allocator): AFF {a, b}; MOB {m: [a, b, c, d]}; IPOW {n};
   //      ROOTPOW {s, beta, theta, k, lo, hi, mode: 'int' | 'finite' | 'inf'}; EXPC {L0}; LOG {theta, k, lo, hi};
-  //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; NEWT {t, back?: the step's exact ops, anchor?: {re, y0, y1}};
+  //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; RAT3 ... RAT12 {P: [p_n, ..., p0], Q: [q_n, ..., q0]}; NEWT {t, back?: the step's exact ops, anchor?: {re, y0, y1}};
 //      the others {}.
   function op(kind, p, fwd, o) {
-    return Object.assign({ kind, p, fwd, fam: null, undef: [], branch: [], poles: [], lattice: null, infPre: true, infAt: null }, o);
+    return Object.assign({ kind, p, fwd, fam: null, undef: [], branch: [], poles: [], lattice: null, infPre: true, infAt: null, critical: () => CRIT_NONE }, o);
   }
+  // the Crit of an op with no critical points and no asymptotic values (a Möbius map, a branch of a root, log or an
+  // inverse trigonometric function, conjugation)
+  const CRIT_NONE = Object.freeze({ crit: [], lattice: null, asym: [] });
+  const crit = (list, lattice = null, asym = []) => ({ crit: list, lattice, asym });
   const ONEM = (u, d, extra) => Object.assign({ u, d, lvl: Infinity, lg: null, lam: null, dlam: null }, extra);
 
   function opAff(a, b) {
@@ -53,6 +61,7 @@ const InvOps = (() => {
     return op('IPOW', { n }, fwd || ((u) => CX.ipow(u, n)), {
       fam: { type: 'fin', count: an }, poles: n < 0 ? [ZERO] : [], infPre: n > 0,
       infAt: (w) => n < 0 && isZero(w),
+      critical: () => (an < 2 ? CRIT_NONE : crit([{ u: ZERO, mult: an - 1, w: n > 0 ? ZERO : null }, { u: null, mult: an - 1, w: n > 0 ? null : ZERO }])),
       pre: (w) => {
         if (w.re === 0 && w.im === 0) return n > 0 ? [ONEM(ZERO, C(Infinity, 0), { m: 0, mult: an })] : [];
         const q = n > 0 ? w : CX.inv(w);
@@ -101,14 +110,18 @@ const InvOps = (() => {
   function famAdd(p, nb, bases, dudw) {
     return { type: 'add', p, nb, bases, member: (w, b, m, base) => { const u = add(base, scale(p, m)); return ONEM(u, dudw(u, w), { m }); } };
   }
+  // (exp's asymptotic values: 0, as Re u tends to -infinity, and infinity, as Re u tends to +infinity)
+  const EXP_ASYM = [ZERO, null];
   function opExp(Lc) {
     if (!Lc) {
       return op('EXP', {}, CX.exp, {
         undef: [null], fam: famAdd(C(0, TAU), 1, (w) => (isZero(w) ? [] : [log(w)]), (u, w) => CX.inv(w)), pre: () => [],
+        critical: () => crit([], null, EXP_ASYM),
       });
     }
     return op('EXPC', { L0: Lc }, (u) => CX.exp(mul(u, Lc)), {
       undef: [null], fam: famAdd(div(C(0, TAU), Lc), 1, (w) => (isZero(w) ? [] : [div(log(w), Lc)]), (u, w) => CX.inv(mul(Lc, w))), pre: () => [],
+      critical: () => crit([], null, EXP_ASYM),
     });
   }
   function opLog(theta, k, fwd) {
@@ -145,14 +158,23 @@ const InvOps = (() => {
   }
   const atanhS = (w) => { const t = atanS(C(-w.im, w.re)); return C(t.im, -t.re); };        // -i atan(i w)
   const periodic = (kind, fwd, p, nb, bases, dudw, o) => op(kind, {}, fwd, Object.assign({ undef: [null], fam: famAdd(p, nb, bases, dudw), pre: () => [] }, o));
-  const opSin = () => periodic('SIN', CX.sin, C(TAU, 0), 2, (w) => { const a = asinS(w); return [a, sub(C(PI, 0), a)]; }, (u) => CX.inv(CX.cos(u)));
-  const opCos = () => periodic('COS', CX.cos, C(TAU, 0), 2, (w) => { const a = acosS(w); return [a, neg(a)]; }, (u) => neg(CX.inv(CX.sin(u))));
+  // (sin and cos: critical points a lattice of step pi with the values +-1; sinh and cosh the same turned by i, with
+  // the values +-i and +-1; each of the four the asymptotic value infinity, along the axis where it grows; tan and tanh:
+  // no critical points, the asymptotic values +-i and +-1)
+  const MINUS_ONE = C(-1, 0), PM1 = [ONE, MINUS_ONE], PMI = [I, C(0, -1)];
+  const critLat = (base, step, values) => () => crit([], { base, step, values }, [null]);
+  const opSin = () => periodic('SIN', CX.sin, C(TAU, 0), 2, (w) => { const a = asinS(w); return [a, sub(C(PI, 0), a)]; }, (u) => CX.inv(CX.cos(u)),
+    { critical: critLat(C(PI / 2, 0), C(PI, 0), PM1) });
+  const opCos = () => periodic('COS', CX.cos, C(TAU, 0), 2, (w) => { const a = acosS(w); return [a, neg(a)]; }, (u) => neg(CX.inv(CX.sin(u))),
+    { critical: critLat(ZERO, C(PI, 0), PM1) });
   const opTan = () => periodic('TAN', CX.tan, C(PI, 0), 1, (w) => (w.re === 0 && Math.abs(w.im) === 1 ? [] : [atanS(w)]),
-    (u, w) => CX.inv(add(ONE, mul(w, w))), { infPre: false, lattice: { base: C(PI / 2, 0), step: C(PI, 0) } });
-  const opSinh = () => periodic('SINH', CX.sinh, C(0, TAU), 2, (w) => { const a = asinhS(w); return [a, sub(C(0, PI), a)]; }, (u) => CX.inv(CX.cosh(u)));
-  const opCosh = () => periodic('COSH', CX.cosh, C(0, TAU), 2, (w) => { const a = CX.acosh(w); return [a, neg(a)]; }, (u) => CX.inv(CX.sinh(u)));
+    (u, w) => CX.inv(add(ONE, mul(w, w))), { infPre: false, lattice: { base: C(PI / 2, 0), step: C(PI, 0) }, critical: () => crit([], null, PMI) });
+  const opSinh = () => periodic('SINH', CX.sinh, C(0, TAU), 2, (w) => { const a = asinhS(w); return [a, sub(C(0, PI), a)]; }, (u) => CX.inv(CX.cosh(u)),
+    { critical: critLat(C(0, PI / 2), C(0, PI), PMI) });
+  const opCosh = () => periodic('COSH', CX.cosh, C(0, TAU), 2, (w) => { const a = CX.acosh(w); return [a, neg(a)]; }, (u) => CX.inv(CX.sinh(u)),
+    { critical: critLat(ZERO, C(0, PI), PM1) });
   const opTanh = () => periodic('TANH', CX.tanh, C(0, PI), 1, (w) => (w.im === 0 && Math.abs(w.re) === 1 ? [] : [atanhS(w)]),
-    (u, w) => CX.inv(sub(ONE, mul(w, w))), { infPre: false, lattice: { base: C(0, PI / 2), step: C(0, PI) } });
+    (u, w) => CX.inv(sub(ONE, mul(w, w))), { infPre: false, lattice: { base: C(0, PI / 2), step: C(0, PI) }, critical: () => crit([], null, PM1) });
   // Saturation points (P2 review): u = tanh w tends to +-1 (tan w to +-i) far out in its strip, and float32 rounds u to the
   // point itself long before the strip ends (tanh 8 = 1 - 2.3e-7): a shape through +-1 then lost its image there. The
   // members of ATANH / ATAN carry the offset from their anchor, computed without cancellation, with its logarithm (no
@@ -183,6 +205,7 @@ const InvOps = (() => {
   function opJouk(fwd) {
     return op('JOUK', {}, fwd || ((u) => scale(add(u, CX.inv(u)), 0.5)), {
       fam: { type: 'fin', count: 2 }, poles: [ZERO],
+      critical: () => crit([{ u: ONE, mult: 1, w: ONE }, { u: MINUS_ONE, mult: 1, w: MINUS_ONE }]),
       pre: (w) => {
         const s = mul(CX.sqrt(sub(w, ONE)), CX.sqrt(add(w, ONE))), e = add(w, s);
         return [e, CX.inv(e)].map((u, m) => { const u2 = mul(u, u); return ONEM(u, div(scale(u2, 2), sub(u2, ONE)), { m }); });
@@ -209,8 +232,13 @@ const InvOps = (() => {
   // newtBackK(t) stages from 1 down to t, then NEWT_POL more; a member is kept when it differs from every one before it in the list.
   // Without back, m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where a map near a 2:1
   // one about w puts it; NEWT_DEF steps); or, for pole {p, res, reg} (f's one simple pole), Newton from the root the pole
-  // puts over w (poleSeed; NEWT_LAD steps), whether or not member 0 exists. A member is dropped when H_t(u) misses w (a central
-  // difference for H').
+  // puts over w (poleSeed; NEWT_LAD steps), whether or not member 0 exists. A member is dropped when H_t(u) misses w.
+  // The walks (member 0's grid and its step at t, the seeded walk back, member 1's deflated steps, the pole's and the
+  // ladder's NEWT_LAD steps) take
+  // the GPU kit's own derivative, a forward difference over NEWT_FD (1 + |u|) that reuses H(u) (glsl.js's _fd): where a
+  // stage's one step leaves |H - w| large, the walk leaps between basins and its derivative decides where it lands, so
+  // the CPU's and the GPU's walks land alike and part only by float32's rounding (#1929). The polish, the hit test and a
+  // member's own H' take a central difference over 1e-6 (1 + |u|), which float64 holds: the roots stay float64's.
   // glsl.js's NEWT runs the same walks with chainHom. (One step per stage, as every pixel of a glide frame walks: on a
   // 41 x 41 grid of w at five t, more steps per stage change the root found only where the walk passes near a critical
   // point: nowhere for Joukowski, under 0.6 % of the points for z^2 + 1/z, z + z^3/3, cos z, ζ. The walks from t = 0
@@ -231,13 +259,32 @@ const InvOps = (() => {
   // two members closer than this (relative to 1 + |u|) are one (the CPU's; glsl.js has the float32 one)
   const NEWT_SAME = 1e-6;
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4, NEWT_LAD = 10;
+  // the walks' forward difference step, relative to 1 + |u| (glsl.js's _fd has the same: float32 cannot difference finer)
+  const NEWT_FD = 1e-3;
+  // The external ray's landing of a seed that is only near a root (a seed op flagged ray): from |w| = R, where the
+  // identity is the root's first guess (R: the radius at which inverse.js verifies the step is tangent to the
+  // identity), the target w_s keeps the argument of w and its potential G = log|w_s| falls from log R to log|w| in the
+  // geometric stages G_s = log R 2^(-s/SUB), NEWT Newton steps each (a stage that still moves the root by more than
+  // TOL (1 + |u|) after them fails the member), HALVINGS halvings at most (a |w| that needs more, below
+  // exp(log R 2^-HALVINGS), fails the member: newtRayStages answers -1, and so does the program). TOL is a tracking
+  // test only (the final accuracy is the hit test): at the step tolerance 1e-5 the band 1 < |w| < 1.1 of the
+  // Douady-Hubbard map and the Böttcher coordinate is off the parked plane on 8 % and 26 % of its pixels, since NEWT
+  // steps per stage do not reach it near the set; at 1e-2 on none. SUB = 0: no stages, the seed is landed on w itself
+  const NEWT_RAY = { R: 32, SUB: 4, HALVINGS: 12, NEWT: 3, TOL: 1e-2 };
+  const newtRayStages = (w) => {
+    const g0 = Math.log(NEWT_RAY.R), gw = Math.log(abs(w));
+    if (!(gw > 0)) return -1;
+    if (gw >= g0 || NEWT_RAY.SUB <= 0) return 0;
+    const n = Math.ceil(NEWT_RAY.SUB * Math.log2(g0 / gw));
+    return n > NEWT_RAY.SUB * NEWT_RAY.HALVINGS ? -1 : n;
+  };
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
   // the last stage k of member 0's grid walk at t (k / NEWT_K <= t), of t as float32: the GPU's
   const newtGridK = (t) => Math.min(NEWT_K, Math.floor(NEWT_K * Math.fround(t)));
   // the member counts of exact ops ops when every one is single-valued (AFF, MOB, IJOUK) or a finite family (IPOW,
-  // JOUK, QUAD, RAT2) with NEWT_SEEDS members in all at most, else null. (The others' points over w are infinitely many,
+  // JOUK, QUAD, RAT2, RAT3, RAT4) with NEWT_SEEDS members in all at most, else null. (The others' points over w are infinitely many,
   // or a log family's, which prepare sets: a principal member alone would seed one sheet of many)
-  const NEWT_SEED_KINDS = new Set(['AFF', 'MOB', 'IJOUK', 'IPOW', 'JOUK', 'QUAD', 'RAT2']);
+  const NEWT_SEED_KINDS = new Set(['AFF', 'MOB', 'IJOUK', 'IPOW', 'JOUK', 'QUAD', 'RAT2', 'RAT3', 'RAT4']);
   function newtSeedCounts(ops) {
     if (!ops || !ops.length || !ops.every((o) => NEWT_SEED_KINDS.has(o.kind))) return null;
     const n = ops.map((o) => (!o.fam ? 1 : o.fam.type === 'fin' && !o.lattice ? o.fam.count : 0));
@@ -246,12 +293,36 @@ const InvOps = (() => {
   // A polynomial homotopy's members (opNewt with deg): every root of H_t(u) = w, for a step that is a polynomial of
   // degree deg (2 to NEWT_POLY_MAX) whose homotopy is one in u at each t (the straight line from z to f(z), or an
   // affine conjugate of f: its zoom). H_t's coefficients a_0 ... a_d (low first) are read off its values at the d + 1
-  // roots of unity (newtPolyCoeffs); its degree at t, de, is the last coefficient above NEWT_POLY_EPS of the largest
-  // (a homotopy pieced from several steps may have a lower one). Aberth's simultaneous iteration (newtAberth) finds the
-  // de roots of a(u) - w from de points on the circle of Fujiwara's bound, rotated by NEWT_ABERTH_ROT; a root is then
-  // polished by Newton on H_t itself, as the other members are, and kept when it hits w and differs from every earlier
-  // one. glsl.js's NEWT runs the same iteration in float32 from the same start.
-  const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4;
+  // roots of unity (newtPolyCoeffs, to within NEWT_COEF_ERR (de + 1) times the sum of their sizes: to 0.4 times that at
+  // most on 3000 seeded polynomials of degree 3 to 12 with coefficients up to 2); its degree at t, de, is the last
+  // coefficient above NEWT_POLY_EPS of the largest (a homotopy pieced from several steps may have a lower one).
+  // Aberth's simultaneous iteration (newtAberth) finds the de roots of a(u) - w from de points on the circle of
+  // Fujiwara's bound, rotated by NEWT_ABERTH_ROT, and multipleRoots groups the points that stand for one multiple root.
+  // A point is polished by Newton on H_t itself, as the other members are, and is a root where it hits w, or where H_t
+  // is within the rounding bound of a(u) - w there and Newton's step has converged. A group's centre is polished on H_t
+  // as a root of its multiplicity until it hits w, and kept, with that multiplicity, where it hits w; else, where every
+  // point of the group is a root and the points stay apart, they are simple roots (two near roots stay two); else the
+  // centre is kept where H_t is within the group's rounding bound; else the points that are roots. A kept centre gives
+  // up the multiplicity of each of its points that hits w on its own away from it. For pointPre, each member has a
+  // rounding radius, and members whose discs meet are one where H_t - w winds round their mean as many times as their
+  // multiplicities sum to (out.exact, with out.spread its largest radius); the members stay as they are. glsl.js's NEWT
+  // runs the same iteration in float32 from the same start, keeping the first of roots closer than its NEWT_DEDUPE.
+  // The members come in increasing ROOT_ORDER, in the order GLSL's NEWT keeps its roots (GLSLRoots.orderFns); their indices
+  // can differ where the GPU's dedupe leaves a slot open, which nothing compares.
+  // That list is exact to NEWT_POLY_RES: every root lies within NEWT_POLY_RES (1 + |z|) of a member, whose multiplicity
+  // is the sum over the roots it stands for (roots nearer each other than that may come as one, as a multiple root
+  // does). Where rounding cannot promise it, there is no list (out.exact null, with out.reason): the multiplicities fall
+  // short of the degree, members' discs meet and H_t - w does not show them to be one, or a member's disc reaches past
+  // NEWT_POLY_RES (1 + |u|). 1e-2 is about 0.6 px at 60 px per unit.
+  const NEWT_POLY_RES = 1e-2;
+  const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4, NEWT_COEF_ERR = Number.EPSILON;
+  // the order of a polynomial's roots, here and in GLSL: increasing Re u + ROOT_DIR Im u. Which of Aberth's start points
+  // converges to which root differs between float64 and float32 where two roots are near; the order of the roots does
+  // not (it changes only where two keys are equal; the direction ROOT_DIR keeps conjugate roots apart)
+  const ROOT_DIR = 0.37;
+  const ROOT_ORDER = (u) => u.re + ROOT_DIR * u.im;
+  // n of a RAT<n> op's kind, 0 for any other kind
+  const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
   function newtPolyCoeffs(g, d) {
     const M = d + 1, v = [];
     for (let m = 0; m < M; m++) v.push(g(C(Math.cos(2 * Math.PI * m / M), Math.sin(2 * Math.PI * m / M))));
@@ -276,10 +347,12 @@ const InvOps = (() => {
     R = 2 * R || 1;
     return Array.from({ length: de }, (_, k) => C(R * Math.cos(2 * Math.PI * k / de + NEWT_ABERTH_ROT), R * Math.sin(2 * Math.PI * k / de + NEWT_ABERTH_ROT)));
   }
+  // [a(u), a'(u)] for a_0 + ... + a_de u^de, by Horner's rule
+  function polyValDer(a, de, u) { let q = a[de], dq = ZERO; for (let k = de - 1; k >= 0; k--) { dq = add(mul(dq, u), q); q = add(mul(q, u), a[k]); } return [q, dq]; }
   // the de roots of a_0 + ... + a_de u^de from z (Aberth: each root moves by N / (1 - N sum_j 1 / (z_i - z_j)), N its
   // Newton step, until every step is within 1e-12 (1 + |z_i|), NEWT_ABERTH_IT sweeps at most)
   function newtAberth(a, de, z) {
-    const ev = (u) => { let q = a[de], dq = ZERO; for (let k = de - 1; k >= 0; k--) { dq = add(mul(dq, u), q); q = add(mul(q, u), a[k]); } return [q, dq]; };
+    const ev = (u) => polyValDer(a, de, u);
     const done = z.map(() => false);
     for (let it = 0; it < NEWT_ABERTH_IT && !done.every(Boolean); it++) {
       for (let i = 0; i < de; i++) {
@@ -297,13 +370,40 @@ const InvOps = (() => {
     }
     return z;
   }
+  // f's derivative at u by the central difference (step 1e-6 (1 + |u|)), and one Newton step for f(u) = w with it:
+  // opNewt's, and singleRoot's (inverse.js) checks
+  const newtDH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+  const newtStep = (u, w, f) => sub(u, div(sub(f(u), w), newtDH(f, u)));
   function opNewt(t, H, back, deg, anchor, pole) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
-    const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+    const ray = !!counts && back.some((q) => q.ray), single = !!counts && back.some((q) => q.single);
+    const dH = newtDH, step = newtStep;
     const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
-    const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
-    const polishAt = (u, w) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) u = step(u, w, Ht); return u; };
+    // (the walks' H': the forward difference over NEWT_FD (1 + |u|) from fu = f(u), glsl.js's _fd; a walk's step, as
+    // glsl.js's _step takes it)
+    const fdH = (f, u, fu) => { const h = NEWT_FD * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), fu), 1 / h); };
+    const walk = (u, w, f) => { const fu = f(u); return sub(u, div(sub(fu, w), fdH(f, u, fu))); };
+    // (tr, when given: each iterate of the polish, as it is made)
+    const polishAt = (u, w, tr) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) { u = step(u, w, Ht); if (tr) tr(u); } return u; };
+    // the seed v landed on a root of H_1 = w by the external ray (newtRayStages): v, or null when a stage fails
+    const rayLand = (v, w) => {
+      const n = newtRayStages(w), f1 = H(1), g0 = Math.log(NEWT_RAY.R), gw = Math.log(abs(w));
+      if (n < 0) return null;
+      if (n > 0) v = scale(w, NEWT_RAY.R / abs(w));
+      for (let s = 0; s <= n; s++) {
+        const g = s >= n ? gw : Math.max(g0 * Math.pow(2, -s / NEWT_RAY.SUB), gw), target = scale(w, Math.exp(g) / abs(w));
+        let moved = Infinity;
+        for (let it = 0; it < NEWT_RAY.NEWT && isFin(v); it++) { const nv = walk(v, target, f1); moved = abs(sub(nv, v)); v = nv; }
+        if (!isFin(v) || !(moved <= NEWT_RAY.TOL * (1 + abs(v)))) return null;
+      }
+      return v;
+    };
+    // the seed v walked back from t = 1 to t in K stages, polished: v, or null (a null v stays null)
+    const walkBack = (v, w, K) => {
+      for (let s = 1; s <= K && v && isFin(v); s++) v = walk(v, w, H(1 - (1 - t) * s / K));
+      return v && polishAt(v, w);
+    };
     // f's i-th point over w (back's members in turn, the last op's first), or null
     const seedOf = (w, i) => {
       let u = w;
@@ -317,18 +417,120 @@ const InvOps = (() => {
     };
     if (deg >= 2 && deg <= NEWT_POLY_MAX) {
       const { a, de } = newtPolyCoeffs(Ht, deg);
+      // a group's centre polished on H_t itself as a root of multiplicity k (Newton's step k (H_t(u) - w) / H_t'(u), H_t'
+      // from the coefficients a), until it hits w, while |H_t(u) - w| falls, NEWT_POL_MULT steps at most (in a k-fold
+      // root's rounding cloud |H_t - w| is about as small everywhere, and the centre found from the coefficients is the
+      // better one)
+      // (ROOT_STEP: Newton's step at a root within rounding, as a share of 1 + |u|: a point of a multiple root's cloud,
+      // where H_t' is about 0, takes a far longer one)
+      // (POINTS_APART: the share of their distance two polished points of distinct roots keep)
+      // (WIND_N: the steps round a circle on which the roots inside are counted; WIND_HALVE: the halvings of a kept
+      // centre's radius tried)
+      const NEWT_POL_MULT = 8, POINTS_APART = 0.5, ROOT_STEP = 5e-4, WIND_N = 96, WIND_HALVE = 16;
+      const polishMultiple = (u, k, w) => {
+        let best = abs(sub(Ht(u), w));
+        for (let it = 0; it < NEWT_POL_MULT && !hits(u, w); it++) {
+          const s = div(scale(sub(Ht(u), w), k), polyValDer(a, de, u)[1]), u2 = sub(u, s), e = isFin(s) ? abs(sub(Ht(u2), w)) : NaN;
+          if (!(e < best)) break;
+          u = u2; best = e;
+        }
+        return u;
+      };
       return op('NEWT', { t, deg, a, de }, Ht, {
         fam: { type: 'fin', count: deg },
+        critical: () => (de < 2 ? CRIT_NONE : ratCritical(a.slice(0, de + 1).reverse(), [ONE], Ht)),
         pre: (w) => {
           if (de < 1 || !isFin(w)) return [];
           const aw = a.slice(0, de + 1);
           aw[0] = sub(aw[0], w);
-          const out = [];
-          newtAberth(aw, de, newtAberthStart(aw, de)).forEach((z, m) => {
-            const v = isFin(z) ? polishAt(z, w) : null;
-            if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m }));
-          });
-          return out;
+          const out = [], hi = aw.slice().reverse();
+          // (H_t's own rounding at v, Horner's bound on a(u) - w: 2 (de + 1) EPSILON sum |a_j| |v|^j)
+          const evalErr = (v) => { let s = 0, p = 1; for (let j = 0; j <= de; j++) { s += abs(aw[j]) * p; p *= abs(v); } return 2 * (de + 1) * NEWT_COEF_ERR * s; };
+          // (the roots of H_t - w within rho of v: its winding round that circle in WIND_N steps, or -1 where |H_t - w|
+          // comes within its rounding on the circle or a step turns a quarter turn or more)
+          const wind = (v, rho) => {
+            let turn = 0, prev = null;
+            for (let i = 0; i <= WIND_N; i++) {
+              const z = add(v, C(rho * Math.cos(TAU * i / WIND_N), rho * Math.sin(TAU * i / WIND_N))), h = sub(Ht(z), w);
+              if (!(abs(h) > evalErr(z))) return -1;
+              if (prev) {
+                const q = div(h, prev), d = Math.atan2(q.im, q.re);
+                if (!(Math.abs(d) < PI / 2)) return -1;
+                turn += d;
+              }
+              prev = h;
+            }
+            return Math.round(turn / TAU);
+          };
+          // (each member's rounding radius. A simple root's: the larger of GROUP_SPREAD MULT_SAFETY evalErr and
+          // de |H_t(v) - w|, over |a'(v)| (a point of a k-fold root's cloud is about k Newton steps from it). A kept
+          // centre's of multiplicity m: centreRadius(v, m, r), or else r)
+          const rad = [];
+          const put = (mem, rr) => { out.push(mem); rad.push(rr); };
+          const simpleAt = (e) => put(ONEM(e.v, CX.inv(dH(Ht, e.v)), { m: e.m }), Math.max(GROUP_SPREAD * MULT_SAFETY * evalErr(e.v), de * abs(sub(Ht(e.v), w))) / abs(polyValDer(a, de, e.v)[1]));
+          // (the least of r / 2^j, j <= WIND_HALVE, round which H_t - w winds m times about v, or null)
+          const centreRadius = (v, m, r) => {
+            let rr = null;
+            for (let j = 0, rho = r; j <= WIND_HALVE; j++, rho /= 2) {
+              if (wind(v, rho) === m) rr = rho; else if (rr !== null) break;
+            }
+            return rr;
+          };
+          const zs = newtAberth(aw, de, newtAberthStart(aw, de));
+          // (a point is a root where it hits w, or where H_t is within the rounding bound b of a(u) - w there, and
+          // Newton's step on H_t has converged there: |H_t(v) - w| / |a'(v)| at most ROOT_STEP (1 + |v|))
+          const converged = (v) => abs(sub(Ht(v), w)) <= ROOT_STEP * (1 + abs(v)) * abs(polyValDer(a, de, v)[1]);
+          const isRoot = (v, b) => (hits(v, w) || abs(sub(Ht(v), w)) <= b) && converged(v);
+          for (const { u, k, pts, b0, r } of multipleRoots(hi, zs, NEWT_COEF_ERR * (de + 1))) {
+            const simple = pts.map(({ z, i, b }) => ({ v: polishAt(z, w), m: i, b }));
+            if (k === 1) { if (isRoot(simple[0].v, b0)) simpleAt(simple[0]); continue; }
+            const v = polishMultiple(u, k, w), hit = simple.filter((e) => hits(e.v, w) && converged(e.v));
+            // (the points' least distance before and after their polish: Newton on H_t draws the points of one multiple
+            // root together, and keeps those of distinct roots apart)
+            const gap = (l) => Math.min(...l.flatMap((p, x) => l.slice(x + 1).map((q) => abs(sub(p, q)))));
+            const apart = gap(simple.map((e) => e.v)) >= POINTS_APART * gap(pts.map((p) => p.z));
+            // (the centre where it hits w; else, where every point is a root on its own and they stay apart, the points:
+            // two near roots stay two; else the centre where H_t is within the rounding bound there; else the points that
+            // are roots. A kept centre gives up the multiplicity of each point that hits w on its own away from it, with
+            // Newton's step converged there, which is a root of its own)
+            const roots = simple.filter((e) => isRoot(e.v, e.b));
+            const centre = hits(v, w) || (!(roots.length === k && apart) && abs(sub(Ht(v), w)) <= b0);
+            const own = centre ? hit.filter((e) => abs(sub(e.v, v)) > r) : roots, m = k - (centre ? own.length : k);
+            for (const e of own) simpleAt(e);
+            if (m < 1) continue;
+            put(m > 1 ? ONEM(v, C(Infinity, 0), { m: pts[0].i, mult: m }) : ONEM(v, CX.inv(dH(Ht, v)), { m: pts[0].i }), centreRadius(v, m, r) ?? r);
+          }
+          // (the members in increasing ROOT_ORDER, each m its place, with their radii)
+          const ord = out.map((mem, x) => x).sort((x, y) => ROOT_ORDER(out[x].u) - ROOT_ORDER(out[y].u));
+          const mems = ord.map((x) => out[x]), rads = ord.map((x) => rad[x]);
+          out.length = 0; rad.length = 0;
+          mems.forEach((mem, x) => { mem.m = x; out.push(mem); rad.push(rads[x]); });
+          // (pointPre's list, out.exact: members whose rounding discs meet, a chain of them, are one, at their mean by
+          // multiplicity with the sum m of their multiplicities, where H_t - w winds m times about it (centreRadius from
+          // the farthest reach of their discs), until no two discs meet. The members themselves stay as they are)
+          const meet = (p, q) => !(p.r + q.r < abs(sub(p.u, q.u)));
+          let list = out.map((mem, x) => ({ u: mem.u, k: mem.mult || 1, r: rad[x], mem }));
+          for (let pass = 0; list && pass < out.length; pass++) {
+            const top = list.map((p, x) => x), find = (x) => (top[x] === x ? x : (top[x] = find(top[x])));
+            list.forEach((p, x) => list.forEach((q, y) => { if (y > x && meet(p, q)) top[find(x)] = find(y); }));
+            const comps = new Map();
+            list.forEach((p, x) => { if (!comps.has(find(x))) comps.set(find(x), []); comps.get(find(x)).push(p); });
+            if (comps.size === list.length) break;
+            const next = [];
+            for (const g of comps.values()) {
+              if (g.length === 1) { next.push(g[0]); continue; }
+              const k = g.reduce((acc, p) => acc + p.k, 0), u = scale(g.reduce((acc, p) => add(acc, scale(p.u, p.k)), ZERO), 1 / k);
+              const rr = centreRadius(u, k, Math.max(...g.map((p) => abs(sub(p.u, u)) + p.r)));
+              if (rr === null) { list = null; break; }
+              next.push({ u, k, r: rr, mem: ONEM(u, C(Infinity, 0), { m: g[0].mem.m, mult: k }) });
+            }
+            if (list) list = next;
+          }
+          if (list && list.some((p, x) => list.some((q, y) => y > x && meet(p, q)))) list = null;
+          const total = out.reduce((acc, q) => acc + (q.mult || 1), 0);
+          const reason = total !== de ? 'a polynomial step whose roots could not all be found to rounding'
+            : !list || list.some((p) => p.r > NEWT_POLY_RES * (1 + abs(p.u))) ? 'a polynomial step with roots that rounding cannot tell apart' : null;
+          return Object.assign(out, { exact: reason ? null : list.map((p) => p.mem), reason });
         },
       });
     }
@@ -339,40 +541,49 @@ const InvOps = (() => {
     const k0 = newtGridK(t), grid = [null];
     for (let k = 1; k <= k0; k++) grid.push(H(k / NEWT_K));
     const prm = counts ? { t, back } : { t, anchor: anchor || null, pole: pole || null };
+    // pre(w, trace): the members over w; trace(m, u), when given, gets every iterate of member 0's walk, of member 1's
+    // deflated steps and of the ladder's (a ladder member's seed first), as it is made, for a test that follows the walk
+    // (newt_member0_cmd.js, t_inverse.js). polish(u, w):
+    // u after NEWT_POL Newton steps on H_t for w, the polish every member ends with
     return op('NEWT', prm, Ht, {
-      fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
-      pre: (w) => {
+      fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length }, critical: () => null,
+      polish: (u, w) => polishAt(u, w),
+      pre: (w, trace) => {
+        const tr = (m) => trace && ((v) => trace(m, v)), t0 = tr(0);
         let u = w;
-        for (let s = 1; s <= k0 && isFin(u); s++) u = step(u, w, grid[s]);
-        if (isFin(u)) u = step(u, w, Ht);
-        u = polishAt(u, w);
+        for (let s = 1; s <= k0 && isFin(u); s++) { u = walk(u, w, grid[s]); if (t0) t0(u); }
+        if (isFin(u)) { u = walk(u, w, Ht); if (t0) t0(u); }
+        u = polishAt(u, w, t0);
         const out = [];
         if (hits(u, w)) out.push(ONEM(u, CX.inv(dH(Ht, u)), { m: 0 }));
         if (counts) {
           const K = newtBackK(t);
-          for (let i = 0; i < seeds; i++) {
-            let v = seedOf(w, i);
-            for (let s = 1; s <= K && v && isFin(v); s++) v = step(v, w, H(1 - (1 - t) * s / K));
-            v = v && polishAt(v, w);
+          for (let i = 0; i < seeds && !(single && out.length); i++) {
+            const v0 = seedOf(w, i);
+            let v = v0 && walkBack(v0, w, K);
+            if (ray && v0 && !(v && hits(v, w))) v = walkBack(rayLand(v0, w), w, K);
             if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 + i }));
           }
           return out;
         }
         if (pole) {
           let v = poleSeed(w);
-          for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = step(v, w, Ht);
+          for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = walk(v, w, Ht);
           v = polishAt(v, w);
           if (hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
         } else if (out.length) {
           let v = sub(scale(w, 2), u);
-          for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
+          const t1 = tr(1);
+          for (let it = 0; it < NEWT_DEF && isFin(v); it++) { const hv = Ht(v); v = sub(v, CX.inv(sub(div(fdH(Ht, v, hv), sub(hv, w)), CX.inv(sub(v, u))))); if (t1) t1(v); }
           if (hits(v, w) && abs(sub(v, u)) > NEWT_SAME * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
         }
         // members 2 + i: Newton from the ladder's seed i, kept when it hits w and is new
         for (let i = 0; i < NEWT_LADDER.length; i++) {
+          const ti = tr(2 + i);
           let v = ladderSeed(w, t, prm.anchor, NEWT_LADDER[i]);
-          for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = step(v, w, Ht);
-          v = polishAt(v, w);
+          if (ti) ti(v);
+          for (let it = 0; it < NEWT_LAD && isFin(v); it++) { v = walk(v, w, Ht); if (ti) ti(v); }
+          v = polishAt(v, w, ti);
           if (hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 2 + i }));
         }
         return out;
@@ -382,8 +593,10 @@ const InvOps = (() => {
   const opConj = () => op('CONJ', {}, CX.conj, { pre: (w) => [{ u: conj(w), anti: true, lvl: Infinity, lg: null, lam: null, dlam: null }] });
   // a u^2 + b u + c = w (stable quadratic)
   function opQuad(a, b, c, fwd) {
-    return op('QUAD', { a, b, c }, fwd || ((u) => add(mul(add(mul(a, u), b), u), c)), {
+    const f = fwd || ((u) => add(mul(add(mul(a, u), b), u), c)), vx = div(b, scale(a, -2));
+    return op('QUAD', { a, b, c }, f, {
       fam: { type: 'fin', count: 2 },
+      critical: () => crit([{ u: vx, mult: 1, w: f(vx) }, { u: null, mult: 1, w: null }]),
       pre: (w) => {
         const cc = sub(c, w), disc = CX.sqrt(sub(mul(b, b), scale(mul(a, cc), 4)));
         const sd = (b.re * disc.re + b.im * disc.im) < 0 ? neg(disc) : disc;        // Re(conj(b) s) >= 0
@@ -400,13 +613,15 @@ const InvOps = (() => {
     const dp = (u) => add(scale(mul(P[0], u), 2), P[1]), dq = (u) => add(scale(mul(Q[0], u), 2), Q[1]);
     // the value at infinity (p.length <= q.length): p2/q2 at equal degrees, 0 when the numerator is lower
     const wInf = p.length > q.length ? null : p.length === q.length ? div(p[0], q[0]) : ZERO;
-    return op('RAT2', { P, Q }, fwd || ((u) => div(CX.polyEval(p, u), CX.polyEval(q, u))), {
+    const f = fwd || ((u) => div(CX.polyEval(p, u), CX.polyEval(q, u)));
+    return op('RAT2', { P, Q }, f, {
       fam: { type: 'fin', count: 2 }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
+      critical: () => ratCritical(p, q, f),
       infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im,
       pre: (w) => {
         const A = sub(P[0], mul(w, Q[0])), B = sub(P[1], mul(w, Q[1])), Cc = sub(P[2], mul(w, Q[2]));
         let roots;
-        if (abs(A) <= 1e-14 * (abs(B) + abs(Cc))) roots = abs(B) > 0 ? [neg(div(Cc, B))] : [];
+        if (abs(A) <= RAT_DROP * (abs(B) + abs(Cc))) roots = abs(B) > 0 ? [neg(div(Cc, B))] : [];
         else {
           const disc = CX.sqrt(sub(mul(B, B), scale(mul(A, Cc), 4)));
           const sd = (B.re * disc.re + B.im * disc.im) < 0 ? neg(disc) : disc;
@@ -414,11 +629,146 @@ const InvOps = (() => {
           roots = (qq.re === 0 && qq.im === 0) ? [ZERO] : [div(qq, A), div(Cc, qq)];
         }
         // (B = C = 0: the double root 0, listed once with its multiplicity; the one root of a w at infinity is simple)
-        const dbl = roots.length === 1 && abs(A) > 1e-14 * (abs(B) + abs(Cc));
+        const dbl = roots.length === 1 && abs(A) > RAT_DROP * (abs(B) + abs(Cc));
         return roots.map((u, m) => {
           const pu = CX.polyEval(p, u), qu = CX.polyEval(q, u);
           const fp = div(sub(mul(dp(u), qu), mul(pu, dq(u))), mul(qu, qu));
           return ONEM(u, CX.inv(fp), dbl ? { m, mult: 2 } : { m });
+        });
+      },
+    });
+  }
+  // a root u of the polynomial co (highest first) polished by ROOT_POLISH Newton steps on it (GLSL's RAT3 ... RAT<n> take
+  // at most as many, each only where it lowers |p|)
+  const ROOT_POLISH = 2;
+  function polishRoot(co, u) {
+    const dco = co.slice(0, -1).map((x, i) => scale(x, co.length - 1 - i));
+    for (let it = 0; it < ROOT_POLISH; it++) {
+      const g = CX.polyEval(dco, u);
+      if (isZero(g)) break;
+      const v = sub(u, div(CX.polyEval(co, u), g));
+      if (isFin(v)) u = v;
+    }
+    return u;
+  }
+  // the roots of the polynomial co (highest first, its leading coefficient not negligible) by raw, a closed formula
+  // ([{u, mult?}] of the polynomial it is given), each polished on co (polishRoot). raw is given the reverse of co,
+  // whose roots are the reciprocals, when |co_0| < |co_n|: the formulas shift by co_1/(n co_0), which for a small leading
+  // coefficient (one root far out) wipes out the digits of the small roots; the reverse has the smaller roots on the whole.
+  // With n simple roots, the one of least modulus is then the product's (Vieta: (-1)^n c_n / c_0 over the others): the
+  // formulas give it to the largest root's absolute rounding, which for roots 1e15 apart is no digit at all
+  function closedRoots(co, raw) {
+    const rev = abs(co[0]) < abs(co[co.length - 1]), c = rev ? co.slice().reverse() : co, n = c.length - 1, r = raw(c);
+    if (r.length === n && r.every((x) => !x.mult)) {
+      const k = r.reduce((m, x, i) => (abs(x.u) < abs(r[m].u) ? i : m), 0);
+      const pr = r.reduce((m, x, i) => (i === k ? m : mul(m, x.u)), ONE), v = div(scale(c[n], n % 2 ? -1 : 1), mul(c[0], pr));
+      if (isFin(v) && !isZero(pr)) r[k] = { u: v };
+    }
+    return r.map(({ u, mult }) => ({ u: rev ? CX.inv(u) : u, mult })).filter((x) => isFin(x.u))
+      .map(({ u, mult }) => (mult ? { u: polishRoot(co, u), mult } : { u: polishRoot(co, u) }));
+  }
+  // the roots of a u^3 + b u^2 + c u + d = 0 by Cardano's formula: on the depressed cubic v^3 + p v + q (u = v - b/3a),
+  // S the principal cube root of the larger-modulus of -q/2 +- sqrt(q^2/4 + p^3/27) and T = -p / (3S), the roots
+  // ω^k S + ω^-k T - b/3a (ω = e^{2 pi i/3}, k = 0, 1, 2); a triple root (p = q = 0) once, [{u, mult: 3}]
+  const CUBE_ROOTS_1 = [ONE, C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)];
+  function cardano([a, bb, cc, dd]) {
+    const b = div(bb, a), c = div(cc, a), d = div(dd, a), b3 = scale(b, 1 / 3), p3 = scale(sub(c, mul(b, b3)), 1 / 3);
+    const hq = scale(add(sub(scale(mul(mul(b3, b3), b3), 2), mul(b3, c)), d), -0.5);
+    const sq = CX.sqrt(add(mul(hq, hq), mul(mul(p3, p3), p3))), s1 = add(hq, sq), s2 = sub(hq, sq), s = abs(s1) >= abs(s2) ? s1 : s2;
+    if (isZero(s)) return [{ u: neg(b3), mult: 3 }];
+    const S = CX.exp(scale(log(s), 1 / 3)), T = div(neg(p3), S);
+    return CUBE_ROOTS_1.map((om, k) => ({ u: sub(add(mul(om, S), mul(CUBE_ROOTS_1[(3 - k) % 3], T)), b3) }));
+  }
+  // the roots of the polynomial co (highest first) of degree 3 at most, its leading coefficient exact (a zero one aside:
+  // ratPoly decides which leading coefficients are rounding): Cardano's (closedRoots, so polished; GLSL's RAT3 does the
+  // same in float32), the stable quadratic's (RAT2's) or the linear one's. A triple root comes once: [{u, mult: 3}], a
+  // double root of the quadratic [{u, mult: 2}]; else [{u}] per root
+  function cubicRoots(co) {
+    const i = co.findIndex((x) => !isZero(x)), c = i < 0 ? [] : co.slice(i);
+    if (c.length === 4) return closedRoots(c, cardano);
+    if (c.length === 2) return [{ u: neg(div(c[1], c[0])) }];
+    if (c.length !== 3) return [];
+    const [a, b, cc] = c, disc = CX.sqrt(sub(mul(b, b), scale(mul(a, cc), 4)));
+    const q = scale(add(b, (b.re * disc.re + b.im * disc.im) < 0 ? neg(disc) : disc), -0.5);
+    return isZero(q) ? [{ u: ZERO, mult: 2 }] : [{ u: div(q, a) }, { u: div(cc, q) }];
+  }
+  // a leading coefficient at most RAT_DROP of the terms it is made of is the rounding left of a zero, and is dropped (ratPoly;
+  // RAT2's, and GLSL's RAT3 ... RAT<n>, by the same rule)
+  const RAT_DROP = 1e-14;
+  // the coefficients of p(u) - w q(u) (P, Q padded to one length, highest first), the leading ones that cancel dropped:
+  // p_k - w q_k at most RAT_DROP of |p_k| + |w| |q_k| is the rounding left of a zero (w at the value at infinity, where the
+  // degree drops). Judged against the terms it is made of, not against the other coefficients, whose sizes grow with the
+  // roots: a cubic whose roots are all near 1e5 keeps its exact leading 1
+  function ratPoly(P, Q, w) {
+    const co = P.map((pk, k) => sub(pk, mul(w, Q[k]))), aw = abs(w);
+    let i = 0;
+    while (i < co.length - 1 && abs(co[i]) <= RAT_DROP * (abs(P[i]) + aw * abs(Q[i]))) i++;
+    return co.slice(i);
+  }
+  // the roots of a u^4 + b u^3 + c u^2 + d u + e = 0 by Ferrari's method: on the depressed quartic y^4 + p y^2 + q y + r
+  // (u = y - b/4a), m the root of largest modulus of the resolvent 8m^3 + 8p m^2 + (2p^2 - 8r) m - q^2 (cubicRoots: its
+  // leading 8 is exact, so it is never dropped, however large p, q and r are), and with s = sqrt(2m) the quartic is
+  // (y^2 - s y + p/2 + m + q/2s)(y^2 + s y + p/2 + m - q/2s): the stable quadratics' roots; a quadruple root
+  // (p = q = r = 0) once, [{u, mult: 4}]
+  function ferrari([a, bb, cc, dd, ee]) {
+    const b4 = scale(div(bb, a), 1 / 4), c = div(cc, a), d = div(dd, a), e = div(ee, a), b42 = mul(b4, b4);
+    const p = sub(c, scale(b42, 6)), q = add(sub(d, scale(mul(b4, c), 2)), scale(mul(b42, b4), 8));
+    const r = sub(add(sub(e, mul(b4, d)), mul(b42, c)), scale(mul(b42, b42), 3));
+    if (isZero(p) && isZero(q) && isZero(r)) return [{ u: neg(b4), mult: 4 }];
+    const m = cubicRoots([C(8, 0), scale(p, 8), sub(scale(mul(p, p), 2), scale(r, 8)), neg(mul(q, q))]).reduce((x, y) => (abs(y.u) > abs(x.u) ? y : x)).u;
+    const s = CX.sqrt(scale(m, 2)), h = add(scale(p, 0.5), m), qs = isZero(s) ? ZERO : div(q, scale(s, 2));
+    // (y^2 + beta y + gamma = 0, stable)
+    const quad = (beta, gamma) => {
+      const disc = CX.sqrt(sub(mul(beta, beta), scale(gamma, 4))), k = scale(add(beta, (beta.re * disc.re + beta.im * disc.im) < 0 ? neg(disc) : disc), -0.5);
+      return isZero(k) ? [ZERO, ZERO] : [k, div(gamma, k)];
+    };
+    return quad(neg(s), add(h, qs)).concat(quad(s, sub(h, qs))).map((y) => ({ u: sub(y, b4) }));
+  }
+  // the roots of the polynomial co (highest first) of degree 4 at most, its leading coefficient exact (a zero one aside):
+  // Ferrari's (closedRoots, so polished; GLSL's RAT4 does the same in float32), else cubicRoots'. A quadruple root comes
+  // once: [{u, mult: 4}]; else [{u}] per root
+  function quarticRoots(co) {
+    const i = co.findIndex((x) => !isZero(x));
+    return i >= 0 && co.length - i === 5 ? closedRoots(co.slice(i), ferrari) : cubicRoots(i < 0 ? [] : co.slice(i));
+  }
+  // the roots of the polynomial co (highest first) of degree 5 to NEWT_POLY_MAX, its leading coefficient exact (a zero
+  // one aside: ratPoly decides which leading coefficients are rounding), by Aberth's iteration (newtAberth from
+  // newtAberthStart, the polynomial NEWT op's; its start scales with the roots, so it needs no reversal), each polished
+  // on co (polishRoot), in increasing ROOT_ORDER(u), as GLSL's RAT<n> orders them (GLSLRoots.orderFns)
+  function aberthRoots(co) {
+    const i = co.findIndex((x) => !isZero(x)), c = i < 0 ? [] : co.slice(i), n = c.length - 1;
+    if (n < 1) return [];
+    const a = c.slice().reverse();
+    return newtAberth(a, n, newtAberthStart(a, n)).filter(isFin).map((u) => polishRoot(c, u)).sort((u, v) => ROOT_ORDER(u) - ROOT_ORDER(v)).map((u) => ({ u }));
+  }
+  // the roots rs ([{u, mult?}], closedRoots') of co as members: points that rounding cannot tell from one k-fold root of
+  // co (multipleRoots, NEWT's grouping: at a critical value the formulas give a double root as two points about
+  // sqrt(EPS) apart) are one root of multiplicity k at their centre; roots apart stay apart, and a root that is already
+  // a multiple one (Cardano's triple, Ferrari's quadruple) stays as it is
+  function rootMembers(co, rs) {
+    if (rs.length < 2 || rs.some((r) => r.mult)) return rs;
+    return multipleRoots(co, rs.map((r) => r.u), NEWT_COEF_ERR * co.length).map((g) => (g.k > 1 ? { u: g.u, mult: g.k } : { u: g.u }));
+  }
+  // p(u)/q(u) of degree n = 3 to NEWT_POLY_MAX (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0 (ratPoly, then
+  // cubicRoots, quarticRoots or, from degree 5, aberthRoots, then rootMembers; from degree 5 the members again in
+  // increasing ROOT_ORDER, as GLSL's RAT<n> orders them), the op RAT<n>
+  function opRatN(p, q, fwd) {
+    const n = Math.max(p.length, q.length) - 1, roots = n === 3 ? cubicRoots : n === 4 ? quarticRoots : aberthRoots;
+    const pad = (co) => [...Array(Math.max(0, n + 1 - co.length)).fill(ZERO), ...co];
+    const P = pad(p), Q = pad(q), der = (co, u) => CX.polyEval(co.slice(0, -1).map((x, i) => scale(x, n - i)), u);
+    // the value at infinity (p.length <= q.length): the leading coefficients' ratio at equal degrees, 0 when the
+    // numerator is lower
+    const wInf = p.length > q.length ? null : p.length === q.length ? div(p[0], q[0]) : ZERO;
+    const f = fwd || ((u) => div(CX.polyEval(p, u), CX.polyEval(q, u)));
+    return op(`RAT${n}`, { P, Q }, f, {
+      fam: { type: 'fin', count: n }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
+      infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im, critical: () => ratCritical(p, q, f),
+      pre: (w) => {
+        const co = ratPoly(P, Q, w), ms = rootMembers(co, roots(co));
+        if (n >= 5) ms.sort((a, b) => ROOT_ORDER(a.u) - ROOT_ORDER(b.u));
+        return ms.map(({ u, mult }, m) => {
+          const pu = CX.polyEval(P, u), qu = CX.polyEval(Q, u);
+          return ONEM(u, CX.inv(div(sub(mul(der(P, u), qu), mul(pu, der(Q, u))), mul(qu, qu))), mult ? { m, mult } : { m });
         });
       },
     });
@@ -479,6 +829,7 @@ const InvOps = (() => {
   const REPT_ESC_GROW = 2;           // the escape set's growth per step: |R(z)| > REPT_ESC_GROW |z| on |z| >= REPT_ESC_R
   const REPT_ESC_BISECT = 60;        // bisection steps of the escape radius (float64 halves its bracket to the last bit)
   const ENCL_R_MAX = 1e15;           // an enclosure wider than this is the whole plane (float32 bounds stay finite)
+  const RAD_UP = 1 + 2 ** -48;       // a radius bound's rounding up per float64 operation, a few ulps (reptEncloseNew's disc)
   const OMEGA = [ONE, C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)];
   // P, Q high-first, padded to REPT_DEG + 1 coefficients
   const padTo = (co, n) => [...Array(Math.max(0, n - co.length)).fill(ZERO), ...co];
@@ -670,8 +1021,9 @@ const InvOps = (() => {
     for (let i = 0; i < REPT_ESC_BISECT; i++) { const m = (lo + hi) / 2; if (reptEscF(P, Q, m) > 0) hi = m; else lo = m; }
     return hi;
   }
-  // Inverse's prepare: [E_0 .. E_n] for the region's box b {x0, x1, y0, y1}, each {x0, x1, y0, y1, esc} or null (the
-  // whole plane): the points of the box (empty when x0 > x1) and, when esc > 0, of {|z| >= esc}. The box is cut into
+  // Inverse's prepare: [E_0 .. E_n] for the region's box b {x0, x1, y0, y1}, each {x0, x1, y0, y1, esc, rad} or null
+  // (the whole plane): the points of the box (empty when x0 > x1) and, when esc > 0, of {|z| >= esc}; when rad > 0, only
+  // those of them within |z| <= rad (a disc region under a monomial step: disc). The box is cut into
   // ENCL_GRID x ENCL_GRID cells, each pushed through the n steps as its circumscribed disc; a cell whose disc meets a
   // pole (or outgrows ENCL_R_MAX) at some level is cut in four and pushed again, while the cells pushed stay within
   // ENCL_CELLS_MAX. A cell that cannot be cut makes every level from its failure on the whole plane. A cell whose disc
@@ -679,19 +1031,19 @@ const InvOps = (() => {
   // later level r' it lies in {|z| >= s REPT_ESC_GROW^(r' - r)} (each step rounded down, at most ENCL_R_MAX). E_r's box
   // holds every disc pushed to level r and its esc is the least escape bound at r (each cell's discs and escape sets
   // enclose its points' images, and the cells cover b).
-  // (cached by P, Q, n and the box, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
+  // (cached by P, Q, n, the box, escR and the disc, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
   // prepares the shape again)
   const ENCL_CACHE = 8, enclCache = new Map();
-  function reptEnclose(P, Q, n, b, escR = null) {
-    const key = JSON.stringify([P, Q, n, b.x0, b.x1, b.y0, b.y1, escR]);
+  function reptEnclose(P, Q, n, b, escR = null, disc = null) {
+    const key = JSON.stringify([P, Q, n, b.x0, b.x1, b.y0, b.y1, escR, disc]);
     const hit = enclCache.get(key);
     if (hit) { enclCache.delete(key); enclCache.set(key, hit); return hit.map((e) => e && Object.assign({}, e)); }
-    const E = reptEncloseNew(P, Q, n, b, escR);
+    const E = reptEncloseNew(P, Q, n, b, escR, disc);
     enclCache.set(key, E.map((e) => e && Object.assign({}, e)));
     if (enclCache.size > ENCL_CACHE) enclCache.delete(enclCache.keys().next().value);
     return E;
   }
-  function reptEncloseNew(P, Q, n, b, escR) {
+  function reptEncloseNew(P, Q, n, b, escR, disc) {
     const E = [Object.assign({ esc: 0 }, b)];
     for (let r = 1; r <= n; r++) E.push({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, esc: 0 });
     // the escape bounds of a cell in {|z| >= s} at level r0, at r0 and every later level
@@ -705,6 +1057,9 @@ const InvOps = (() => {
     if (![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return E.map(() => null);
     let open = n + 1;                         // levels from here on are the whole plane
     const Pa = Float64Array.from(P.flatMap((c) => [c.re, c.im])), Qa = Float64Array.from(Q.flatMap((c) => [c.re, c.im])), o = new Float64Array(24);
+    // (a monomial step: P's leading term alone over a constant Q, k = p_n / q_0 and its degree d)
+    const qi0 = Q.findIndex((q) => !isZero(q)), mono = P.slice(1).every(isZero) && qi0 === Q.length - 1;
+    const monoD = P.length - 1, monoK = mono ? abs(div(P[0], Q[qi0])) * RAD_UP * RAD_UP : 0;
     const size = Math.abs(b.x0) + Math.abs(b.x1) + Math.abs(b.y0) + Math.abs(b.y1);
     const hx = (b.x1 - b.x0) / ENCL_GRID, hy = (b.y1 - b.y0) / ENCL_GRID, queue = [];
     for (let i = 0; i < ENCL_GRID; i++) for (let j = 0; j < ENCL_GRID; j++) queue.push([b.x0 + i * hx, b.y0 + j * hy, hx, hy]);
@@ -736,10 +1091,30 @@ const InvOps = (() => {
         e.y0 = Math.min(e.y0, discs[4 * k + 2]); e.y1 = Math.max(e.y1, discs[4 * k + 3]);
       }
     }
+    // (a monomial step k z^d and a disc region D(c, rho): its image after r steps lies in |z| <= R_r, R_0 = |c| + rho
+    // and R_{r+1} = |k| R_r^d, each rounded up: E_r's rad, its box clipped to [-R_r, R_r]^2, and a level the box's cells
+    // could not reach is that square alone)
+    if (mono && disc && disc.r >= 0) {
+      // (each float64 product, sum and square root rounded up by RAD_UP, several ulps: R_r's error stays near d^r ulps,
+      // where ENCL_UP's would reach 0.01 at 20 copies)
+      let R = (mag(disc.c[0], disc.c[1]) * RAD_UP + disc.r) * RAD_UP, upto = 0;
+      for (let r = 1; r <= n; r++) {
+        let p = monoK;
+        for (let k = 0; k < monoD; k++) p = p * R * RAD_UP;
+        R = p;
+        if (!(R < ENCL_R_MAX)) break;
+        // (past the cells' failure the level is the disc's bound alone, with no escape bound)
+        if (r >= open) E[r] = { x0: -R, x1: R, y0: -R, y1: R, esc: 0, rad: R };
+        else { const e = E[r]; e.x0 = Math.max(e.x0, -R); e.x1 = Math.min(e.x1, R); e.y0 = Math.max(e.y0, -R); e.y1 = Math.min(e.y1, R); e.rad = R; }
+        upto = r + 1;
+      }
+      if (upto > open) open = upto;
+    }
     return E.map((e, r) => (r >= open ? null : e));
   }
   // a Repeat built step (Funcs.repeatBuilt) whose block is one step with a rational form P/Q of degree REPT_DEG,
-  // deg P = REPT_DEG > deg Q -> {P, Q} (high-first, padded), or null
+  // deg P = REPT_DEG > deg Q -> {P, Q} (high-first, padded), or null; the step a formula (its rationalForm), a
+  // polynomial, or a catalog step that is a rational map (Integer power, P/Q, zeros and poles)
   function reptForm(b) {
     const rp = b.repeat, blk = rp && rp.block;
     if (!rp || !blk || blk.length !== 1 || rp.n < 2 || rp.n > REPEAT_COPIES_MAX) return null;
@@ -756,8 +1131,19 @@ const InvOps = (() => {
       if (!rf.ok || rf.removed.length) return null;
       P = rf.P; Q = rf.Q;
     } else if (id === 'poly') { P = CX.polyTrim(v.co); Q = [ONE]; }
+    // (the catalog steps that are rational maps: Integer power z^n, P/Q and zeros and poles, whose coprime P and Q are
+    // their own; Integer power z^n with n = REPT_DEG is z^n over 1)
+    else if (id === 'pown' && v.n === REPT_DEG) { P = [ONE].concat(Array.from({ length: REPT_DEG }, () => ZERO)); Q = [ONE]; }
+    else if (id === 'rational' && s.props && s.props.rational && s.props.degExact) { P = CX.polyTrim(v.p); Q = CX.polyTrim(v.q); }
+    else if (id === 'zp' && s.zp) { P = CX.polyTrim(s.zp.P); Q = CX.polyTrim(s.zp.Q); }
     else return null;
     if (P.length - 1 !== REPT_DEG || Q.length - 1 >= REPT_DEG || isZero(P[0]) || !P.concat(Q).every(isFin)) return null;
+    // (a catalog step's coefficients scaled as rationalForm scales a formula's: by the power of 2 that brings the largest
+    // near 1, which keeps the GPU's float32 in range)
+    if (id !== 'custom') {
+      const sc = Math.pow(2, -Math.round(Math.log2(Math.max(...P.concat(Q).map(abs)))));
+      P = P.map((c) => scale(c, sc)); Q = Q.map((c) => scale(c, sc));
+    }
     return { P: padTo(P, REPT_DEG + 1), Q: padTo(Q, REPT_DEG + 1) };
   }
   // the op: p = {P, Q, n, escR (reptEscR)}; its members come from Inverse.enumerate's search (rept), not from pre(); pre lists the leaves
@@ -787,7 +1173,7 @@ const InvOps = (() => {
   const INEL = (reason) => ({ ok: false, reason });
   const OK = (ops) => ({ ok: true, ops });
   // Inverse.stepOps(b) -> {ok: true, ops} | {ok: false, reason}; b: a Funcs.build() result
-  function stepOps(b) {
+  function stepOps(b, opts = {}) {
     if (!b || b.error || !b.def) return INEL(b && b.error ? b.error : 'no step');
     // a step standing for its homotopy at a time t (Inverse.homBuilt): its homotopy's ops
     if (b.__homOps) return b.__homOps();
@@ -838,6 +1224,7 @@ const InvOps = (() => {
           return OK([opMob([a, bb, c, d])]);
         }
         if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
+        if (P.degExact && P.deg >= 3 && P.deg <= NEWT_POLY_MAX) return OK([opRatN(p, q, b.f)]);
         return INEL(`rational map of degree ${P.deg}${P.degExact ? '' : ' (not known exactly)'}`);
       }
       case 'zp': {
@@ -845,7 +1232,7 @@ const InvOps = (() => {
         const { P: p, Q: q } = b.zp;
         if (q.length === 1) {
           const r = polyOps(p.map((c) => div(c, q[0])), b.f);
-          return r.ok ? r : INEL(`${r.reason} (the exact renderer inverts degree ≤ 2)`);
+          return r.ok ? r : INEL(`${r.reason} (the exact renderer inverts degree ≤ 4)`);
         }
         if (P.mobius) {
           const two = (co) => (co.length === 1 ? [ZERO, co[0]] : co);
@@ -854,11 +1241,12 @@ const InvOps = (() => {
           return OK([opMob(m)]);
         }
         if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
-        return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ 2)`);
+        if (P.degExact && P.deg >= 3 && P.deg <= NEWT_POLY_MAX) return OK([opRatN(p, q, b.f)]);
+        return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ ${NEWT_POLY_MAX})`);
       }
       case 'custom': {
-        // a Repeat of one step of degree REPT_DEG: one REPT op for every copy
-        const rf = b.repeat ? reptForm(b) : null;
+        // a Repeat of one step of degree REPT_DEG: one REPT op for every copy, unless opts.rept is false (the copies' ops)
+        const rf = b.repeat && opts.rept !== false ? reptForm(b) : null;
         if (rf) return OK([opRept(rf.P, rf.Q, b.repeat.n, b.f)]);
         // a formula recognized as catalog steps (Funcs, src/recognize.js): their ops, when every one has them
         if (b.rec) {
@@ -882,6 +1270,13 @@ const InvOps = (() => {
       if (d > IPOW_MAX) return INEL(`integer power |n| > ${IPOW_MAX}`);
       return OK([opIpow(d), opAff(c[0], c[d])]);
     }
+    // (a polynomial in z^g first: IPOW and a lower degree, the cheaper ops)
+    const g = ratGcd(c, [ONE]);
+    if (g > 1) {
+      const r = polyOps(subPow(c, g), null);
+      if (r.ok) return OK([opIpow(g)].concat(r.ops));
+    }
+    if (d === 3 || d === 4) return OK([opRatN(c, [ONE], f)]);
     return INEL(`polynomial of degree ${d}`);
   }
   // ---- rational custom formulas (SPEC 3.3, rev 3) ----
@@ -896,7 +1291,9 @@ const InvOps = (() => {
   // where the formula itself is 0/0) ARE roots for w = lim R(z) at r: they are kept as the op's holes and left out of
   // pullFinite (point and singular-point pull-backs), matching the natural domain.
   // Degree 1: MOB; degree 2: RAT2 (QUAD when Q is constant), whose stable quadratic also covers the degree drop at the
-  // value at infinity; P/Q = R(z^g) with g > 1: IPOW(g) then R. Other degrees go forward with the reason.
+  // value at infinity; P/Q = R(z^g) with g > 1: IPOW(g) then R; else degree 3 or 4: RAT3 or RAT4 (ratPoly drops the
+  // degree there, then cubicRoots or quarticRoots); a rational map (Q not constant) of degree 5 to NEWT_POLY_MAX:
+  // RAT<n> (ratPoly, then aberthRoots). Other degrees go forward with the reason.
   const RAT_EXP_MAX = 64;          // degree cap of the expansion (intermediate products)
   const RAT_DEG_MAX = 32;          // degree cap of the normal form (IPOW 16 under a degree-2 R)
   const RAT_SNAP = 1e-12;          // a coefficient below RAT_SNAP x the sum of its terms' sizes is rounding noise: 0
@@ -1164,13 +1561,93 @@ const InvOps = (() => {
           if (grp.some((q) => abs(sub(q, rs[j])) <= 1e-3 * (1 + abs(q)))) { grp.push(rs[j]); used[j] = 1; grow = true; }
         }
       }
-      let m = grp.reduce((acc, q) => add(acc, q), ZERO);
-      m = scale(m, 1 / grp.length);
-      // a root of multiplicity k is a simple root of the (k-1)-th derivative: polish the mean there
-      let dk = co;
-      for (let k = 1; k < grp.length && dk.length > 1; k++) dk = dk.slice(0, -1).map((x, i) => scale(x, dk.length - 1 - i));
-      out.push({ r: dk.length > 1 ? polish(dk, m) : m, m: grp.length });
+      out.push({ r: clusterCentre(co, grp), m: grp.length });
     }
+    return out;
+  }
+  // InvOps.ratCritical(p, q, f) -> Crit: the critical points of f = p/q (high-first coefficients, coprime, degree d):
+  // the zeros of p'q - pq', clustered (rootClusters), and infinity for the rest of the 2 d - 2 of them, where f takes
+  // its value at infinity (null = infinity). A zero of p'q - pq' that is a zero of q (to RAT_POLE_REL of q's terms
+  // there) is a pole of order 2 or more: its value is infinity. (rootClusters takes zeros within 1e-3 of each other for
+  // one: two simple critical points that close, as next to a simple pole of residue below about 2.5e-7, read as one)
+  const RAT_POLE_REL = 1e-8;
+  function ratCritical(p, q, f) {
+    p = CX.polyTrim(p); q = CX.polyTrim(q);
+    const der = (c) => (c.length > 1 ? Derivs.polyDer(c) : [ZERO]);
+    const co = CX.polyTrim(Derivs.polySub(Derivs.polyMul(der(p), q), Derivs.polyMul(p, der(q))));
+    const d = Math.max(p.length, q.length) - 1, wInf = p.length > q.length ? null : p.length === q.length ? div(p[0], q[0]) : ZERO;
+    const valueAt = (r) => { if (abs(CX.polyEval(q, r)) <= RAT_POLE_REL * polyBound(q, r)) return null; const w = f(r); return isFin(w) ? w : null; };
+    const fin = co.length > 1 ? rootClusters(co).map(({ r, m }) => ({ u: r, mult: m, w: valueAt(r) })) : [];
+    const atInf = 2 * d - 2 - fin.reduce((s, e) => s + e.mult, 0);
+    return crit(atInf > 0 ? fin.concat([{ u: null, mult: atInf, w: wInf }]) : fin);
+  }
+  // the one root of co (high-first) that the points grp stand for, of multiplicity grp.length: their mean, polished as a
+  // simple root of co's (grp.length - 1)-th derivative
+  function clusterCentre(co, grp) {
+    const m = scale(grp.reduce((acc, q) => add(acc, q), ZERO), 1 / grp.length);
+    let dk = co;
+    for (let k = 1; k < grp.length && dk.length > 1; k++) dk = dk.slice(0, -1).map((x, i) => scale(x, dk.length - 1 - i));
+    return dk.length > 1 ? polish(dk, m) : m;
+  }
+  // The roots zs of co (high-first; zs as an iteration returns them, a root of multiplicity k as k points about
+  // EPS^(1/k) apart) grouped into numerical multiple roots: [{u, k, pts, b0, r}], the root u, its multiplicity k, the
+  // group's points pts: [{z, i, b}] (i: the index in zs, b: the rounding bound of co's value there), the first point's
+  // first, the rounding bound b0 of co's value at u (at the point, for a simple root) and, for a group, r:
+  // GROUP_SPREAD times the spread that rounding allows a k-fold root, (b_0 / |t_k|)^(1/k). At a point u, co's Taylor
+  // coefficients t_j have the rounding bounds b_j: Derivs.taylorAt's, plus coErr times the sum of |co| for the
+  // coefficients' own error, times MULT_SAFETY. A point is a simple root when |t_1| times its distance to the nearest
+  // other point is above SIMPLE_MARGIN b_0 (k points of a k-fold root have it about k |t_k| r^k, r their spread, which
+  // rounding sets to about b_0). A point z is apart from a centre u when rounding moves it, as a simple root
+  // (b_0 / |t_1| at z), by less than APART_SHARE of |z - u|; a point of u's rounding cloud is moved farther than its
+  // distance. Each other point, in order, takes the largest group of itself and the other points nearest it, not yet
+  // taken, whose centre (clusterCentre) is a root of exactly that multiplicity to rounding (|t_j| <= b_j there for
+  // j < k, |t_k| > b_k) and holds within r every point of the group, none of them apart from it, and no other point,
+  // taken or not, but those apart from it. A non-finite point is left out.
+  const MULT_SAFETY = 4, SIMPLE_MARGIN = 1e6, GROUP_SPREAD = 3, APART_SHARE = 0.5;
+  function multipleRoots(co, zs, coErr) {
+    const ones = co.map(() => ONE), coNoise = coErr * co.reduce((s, x) => s + abs(x), 0);
+    const taylor = (u) => {
+      const { t, e } = Derivs.taylorAt(co, u), T = Derivs.taylorAt(ones, C(abs(u), 0)).t;
+      return { t: t.map(abs), b: e.map((x, j) => MULT_SAFETY * (x + coNoise * T[j].re)) };
+    };
+    const fin = zs.map(isFin), used = zs.map((z, i) => !fin[i]), out = [];
+    const tay = zs.map((z, i) => (fin[i] ? taylor(z) : null));
+    const simple = zs.map((z, i) => {
+      if (!fin[i]) return false;
+      let gap = Infinity;
+      zs.forEach((q, j) => { if (j !== i && fin[j]) gap = Math.min(gap, abs(sub(q, z))); });
+      const { t, b } = tay[i];
+      return t.length < 2 || t[1] * gap > SIMPLE_MARGIN * b[0];
+    });
+    // the group of the points g about their centre u, as a k-fold root to rounding, or null
+    const group = (g) => {
+      const k = g.length, u = clusterCentre(co, g.map((j) => zs[j]));
+      if (!isFin(u)) return null;
+      const { t, b } = taylor(u);
+      for (let j = 0; j < k; j++) if (!(t[j] <= b[j])) return null;
+      if (!(t[k] > b[k])) return null;
+      const r = GROUP_SPREAD * (b[0] / t[k]) ** (1 / k);
+      // (a point apart from u: rounding moves it, as a simple root, less than APART_SHARE of its distance to u)
+      const apart = (j) => tay[j].t.length > 1 && tay[j].b[0] < APART_SHARE * tay[j].t[1] * abs(sub(zs[j], u));
+      // (every point of the group within r and not apart from u, and no other point within r but those apart from u)
+      const inR = zs.filter((q, j) => fin[j] && abs(sub(q, u)) <= r && !apart(j)).length;
+      return inR === k && g.every((j) => abs(sub(zs[j], u)) <= r && !apart(j)) ? { u, k, b0: b[0], r, pts: g.map((j) => ({ z: zs[j], i: j, b: tay[j].b[0] })) } : null;
+    };
+    zs.forEach((z, i) => {
+      if (used[i]) return;
+      used[i] = true;
+      const one = { u: z, k: 1, b0: fin[i] ? tay[i].b[0] : 0, pts: [{ z, i, b: fin[i] ? tay[i].b[0] : 0 }] };
+      if (simple[i]) { out.push(one); return; }
+      const near = zs.map((q, j) => j).filter((j) => !used[j] && !simple[j]).sort((p, q) => abs(sub(zs[p], z)) - abs(sub(zs[q], z)));
+      for (let k = near.length + 1; k > 1; k--) {
+        const gr = group([i, ...near.slice(0, k - 1)]);
+        if (!gr) continue;
+        near.slice(0, k - 1).forEach((j) => { used[j] = true; });
+        out.push(gr);
+        return;
+      }
+      out.push(one);
+    });
     return out;
   }
   // Inverse.rationalForm(ast) -> {ok, P, Q (high-first, coprime, scaled by a power of 2), deg, exact, removed: C[]
@@ -1263,13 +1740,16 @@ const InvOps = (() => {
       }
       if (d === 2) return OK([opRat2(P, Q, f)]);
     }
+    // (a function of z^g first: IPOW and a lower degree, the cheaper ops)
     const g = ratGcd(P, Q);
     if (g > 1 && g <= IPOW_MAX) {
       const r = ratOps(subPow(P, g), subPow(Q, g), null);
       if (r.ok) return OK([opIpow(g)].concat(r.ops));
     }
+    if (d === 3 || d === 4) return OK([opRatN(dq === 0 ? P.map((x) => div(x, Q[0])) : P, dq === 0 ? [ONE] : Q, f)]);
+    if (dq > 0 && d <= NEWT_POLY_MAX) return OK([opRatN(P, Q, f)]);
     const how = g > IPOW_MAX ? `; a function of z^${g}, |n| > ${IPOW_MAX}` : g > 1 ? `; degree ${d / g} in z^${g}` : '';
-    return INEL(`${dq === 0 ? 'polynomial' : 'rational'} formula of degree ${d} (the exact renderer inverts degree ≤ 2, also of a power z^k${how})`);
+    return INEL(`${dq === 0 ? 'polynomial' : 'rational'} formula of degree ${d} (the exact renderer inverts polynomials of degree ≤ 4 and rational maps of degree ≤ ${NEWT_POLY_MAX}, also of a power z^k${how})`);
   }
   // a custom formula: its nodes, outermost first, become ops (returned in forward order); a node whose operands both
   // depend on z must be rational in z (its whole subtree becomes one rational op, or IPOW and one)
@@ -1345,11 +1825,12 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm,
+    opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, cubicRoots, quarticRoots, ratPoly, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtDH, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm, ratCritical,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF
   };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
+import { Derivs } from './derivs.js';
 export { InvOps };

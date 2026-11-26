@@ -81,7 +81,7 @@ const Phone = (() => {
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
     els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
-    els.body.display.append(els.style, els.viewOpts);
+    els.body.display.append(els.viewOpts);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain sheet's first row: Numbers
@@ -105,6 +105,10 @@ const Phone = (() => {
     // a message (a toast, with its Undo) takes that row for as long as it shows; the planes give it up when no finger is down
     const th = $('toastHost');
     if (th) new MutationObserver(() => barLayout()).observe(th, { childList: true });
+    // the plane's key column and view stack ride up above the context bar and a message, and a message eases to its place over the plane,
+    // each with a transition on `bottom`: the labels and the plane's note keep off them where they stop, so one full placement follows
+    // the move (liftSettled asks where there is no transition)
+    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.ph-col, .viewstack, #toastHost')) A.relabel(); }, true);
     document.addEventListener('pointerdown', () => { fingers++; }, true);
     for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)
@@ -230,7 +234,7 @@ const Phone = (() => {
     // (the desktop gets each plane's large view back; no view is drawn small while merged or held)
     for (const side of ['L', 'R']) if (keep[side]) grow(side);
     on = false;
-    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
+    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
     $('panes').classList.remove('ph-big-L', 'ph-big-R', 'ph-one');
     unparkAll();
     A.showPanels(false);
@@ -238,14 +242,14 @@ const Phone = (() => {
   }
 
   // ---------------- the planes ----------------
-  function merged() { const p = $('panes'); return p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (one plane, X's, in the steps view and the classic view alike: Y's pane is not drawn, so it has no inset and no Both key)
+  function merged() { return 'L'; }
   function syncPanes() {
     const p = $('panes'), mg = merged();
     const b = mg || big;
     p.classList.toggle('ph-big-L', b === 'L');
     p.classList.toggle('ph-big-R', b === 'R');
     p.classList.toggle('ph-one', !!mg);
-    rootEl.classList.toggle('ph-morph', !!A.morphOn());
     const split = twoUp();
     p.classList.toggle('ph-both', both && !land && !mg);
     for (const side of ['L', 'R']) { const bb = els['both' + side]; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
@@ -384,15 +388,17 @@ const Phone = (() => {
     const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
     if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
     c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
-    syncPanes(); A.resize();
+    syncPanes(); A.resize(); liftSettled();
+  }
+  // the lift of the plane's keys has stopped when no transition of `bottom` runs two frames after the change that asked for it (the
+  // context bar's slide in starts a frame later): one full placement of the labels, which is where a transition's end asks too
+  function liftSettled() {
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (!document.getAnimations().some((a) => /** @type {CSSTransition} */ (a).transitionProperty === 'bottom')) A.relabel(); }));
   }
   function ctx(force) {
     if (!on || !els.ctx) return;
     let st = null;
     try { st = A.ctxState(); } catch (e) { st = null; }
-    // (the deformation's transport has the bottom; a sheet covers the bar but leaves its room, so that opening and closing
-    // one is no second layout change for the planes)
-    if (A.morphOn()) st = null;
     els.ctx.classList.toggle('under', !!kind);
     const key = st ? JSON.stringify(st) : '';
     if (key === ctxKey && !force) return;
@@ -473,7 +479,8 @@ const Phone = (() => {
       });
       return t;
     };
-    const tiles = [...document.querySelectorAll('#tools .tool[data-tool]')].map(tile);
+    // (a tool hidden where it does not apply, the Pick tool's tool-na, has no tile)
+    const tiles = [...document.querySelectorAll('#tools .tool[data-tool]:not(.tool-na)')].map(tile);
     // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
     // the long press, taught where people look (never on the plane)
@@ -761,11 +768,13 @@ const Phone = (() => {
   // and rows no group names go to the last (the overlays)
   const matches = (sel) => (k) => k.matches(sel), holds = (sel) => (k) => !!k.querySelector(sel);
   function displayGroups(kids) {
+    const land = kids.some((k) => k.matches('#viewSeg'));   // (the Landscape: Reset camera follows its View choice; elsewhere it has a group of its own)
     const groups = [
       { name: $t('Where colour shows'), rows: [matches('.sv-sheet-scope')] },
-      { name: $t('Colour style'), rows: [matches('.sty-seg, #landPaint')] },
+      { name: $t('Colour style'), label: '#landPaint', rows: [matches('.ph-style'), matches('.sty-seg, #landPaint')] },
       { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
-      { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg')] },
+      { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg'), (k) => land && matches('.cam-reset')(k)] },
+      { name: $t('View'), rows: [matches('.sv-sheet-stack'), matches('.cam-reset')] },
       { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
       { name: $t('Overlays'), rows: [] },
     ];
@@ -776,7 +785,8 @@ const Phone = (() => {
         const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, grp.name);
         // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
         if (grp.opacity) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
-        // (a choice whose buttons name the kind alone, the Landscape's Height, is named by its group's label: said once)
+        // (a choice whose buttons name the kind alone, the Landscape's Height, or that the group's label names better than its own word, the
+        // Landscape's Colouring, is named by the group's label: said once)
         if (grp.label) for (const r of ks) if (r.matches(grp.label)) r.setAttribute('aria-labelledby', head.id);
         return h('section', { class: 'ph-grp' }, head, ...ks);
       });
@@ -786,7 +796,7 @@ const Phone = (() => {
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    const tn = A.targetNote(), scope = A.scopeSeg();
+    const tn = A.targetNote(), scope = A.scopeSeg(), stackv = A.stackSeg();
     // the regions' display and the mesh quality are groups like the rest. One opacity: the regions box's own slider
     // drives the same value as the opacity group's in the steps view, so it is hidden there (the classic views keep it)
     const alpha = reg && $('alphaRange') && /** @type {HTMLElement | null} */ ($('alphaRange').closest('.fader-row'));
@@ -796,7 +806,7 @@ const Phone = (() => {
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]),
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...(stackv ? [stackv] : []), ...(els.style.hidden ? [] : [els.style]), ...kids, ...(unit ? [unit] : [])]),
       ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }
@@ -1035,10 +1045,10 @@ const Phone = (() => {
   return {
     init, open, close, chain, refreshDisplay: () => refreshDisplay(), swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK (dropped from the published page by build.py)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
     _kb: (h) => kbHeight(h),   // (a keyboard of h px, for the browser checks; headless Chrome has none)
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
   };
 })();
 import { $, h } from './util.js';

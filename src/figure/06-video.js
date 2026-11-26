@@ -10,17 +10,23 @@
   const VSECS = [2, 3, 4, 6];
   const vdefaults = () => ({ size: '1920x1080', fps: 30, secs: 3, ends: 'once', paths: true, tlabel: true, look: 'light', win: 'screen' });
   // the frames' times (export review r3, editor-7, a lecture's pace): each step eased on its own (t = k + ease(u)) over
-  // secs seconds, a hold of 0.6 s at every whole t inside, holds of 1.2 s at both ends. Bounce: there and back.
+  // secs seconds, a hold of 0.6 s at every whole t inside, holds of 1.2 s at both ends. stops (a glide's plan,
+  // A.svGlide): the whole t inside where it holds, the others crossed in one ease with the steps either side (an
+  // All-at-once span, which passes the planes inside it), each part taking secs seconds a step; none: every whole t
+  // inside. Bounce: there and back.
   // Loop: three runs, each followed by a 0.5 s cross-fade from t = m back to t = 0 (the last one too, so a player's loop
   // does not jump). An entry is a time, or {a, b, k}: the frame at a faded into the frame at b by k
-  function videoTimes(v, m) {
+  function videoTimes(v, m, stops = null) {
     const fps = v.fps === 60 ? 60 : 30, nSteps = m >= 1 && Math.abs(m - Math.round(m)) < 1e-9 ? Math.round(m) : 1;
     const per = Math.max(2, Math.round((v.secs || 3) * fps)), mid = Math.round(0.6 * fps), end = Math.round(1.2 * fps);
     const ease = (u) => u * u * (3 - 2 * u), hold = (t, n) => Array(n).fill(t);
+    // (the parts' ends, in steps: 0, the stops inside, nSteps)
+    const inner = [...Array(Math.max(0, nSteps - 1)).keys()].map((k) => k + 1), ends = [0, ...(stops ? inner.filter((k) => stops.includes(k)) : inner), nSteps];
     const run = [0];
-    for (let k = 0; k < nSteps; k++) {
-      for (let i = 1; i <= per; i++) run.push((k + ease(i / per)) * m / nSteps);
-      if (k < nSteps - 1) run.push(...hold((k + 1) * m / nSteps, mid));
+    for (let p = 0; p + 1 < ends.length; p++) {
+      const a = ends[p], b = ends[p + 1], n = per * (b - a);
+      for (let i = 1; i <= n; i++) run.push((a + (b - a) * ease(i / n)) * m / nSteps);
+      if (p + 2 < ends.length) run.push(...hold(b * m / nSteps, mid));
     }
     if (v.ends === 'bounce') return [...hold(0, end), ...run, ...hold(m, end), ...run.slice().reverse().slice(1), ...hold(0, end)];
     const one = [...hold(0, end), ...run, ...hold(m, end)];
@@ -110,7 +116,7 @@
     // (the key stands in a column at the right, beside the picture as in the still, so it never covers it)
     const picW = key ? W - keyColumn(H) : W;
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
+    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m, gl.stops), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
   }
   // the app's hue ring as a canvas of the frame's own scale (0.14 H across), drawn once and kept for every frame
   function ringCanvas(Hpx) {
@@ -286,12 +292,19 @@
     if (plan.box) {
       // (the readout at the bottom left keeps its place: an axis number that would run through it is left out)
       const labW = kind === 'glide' && v.tlabel ? vWidth(ctx, [[A.svGlideText(plan.gl.lo + t), false]], Math.round(0.04 * H)) + 0.035 * H : 0;
-      const b = plan.box, step = niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0), 8), dec = XD.decimals(step);
+      const b = plan.box, step = niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0), 8), xs = XD.ticks(b.x0, b.x1, step), ys = XD.ticks(b.y0, b.y1, step);
       const ox = Math.min(Math.max(P(C(0, 0))[0], 0), W), oy = Math.min(Math.max(P(C(0, 0))[1], 0), H);
       if (look === 'print') { line([[0, oy], [W, oy]], '#555555', 1.2 * lw); line([[ox, 0], [ox, H]], '#555555', 1.2 * lw); }
-      const num = (x) => { const s2 = (Math.abs(x) < 1e-12 ? 0 : x).toFixed(dec); return (I18 ? I18.num(s2) : s2).replace(/^-/, '−'); };
-      for (const x of XD.ticks(b.x0, b.x1, step)) { if (Math.abs(x) < 1e-12) continue; const px = P(C(x, 0))[0]; if (px < 0.04 * W || px > 0.96 * W) continue; line([[px, oy - 4 * lw], [px, oy + 4 * lw]], '#333333', 1.2 * lw); if (!(oy + fs * 1.15 > H - 0.1 * H && px < labW + fs)) vText(ctx, [[num(x), false]], px, Math.min(H - 0.02 * H, oy + fs * 1.15), fs, 'center'); }
-      for (const y of XD.ticks(b.y0, b.y1, step)) { if (Math.abs(y) < 1e-12) continue; const py = P(C(0, y))[1]; if (py < 0.06 * H || py > 0.9 * H) continue; line([[ox - 4 * lw, py], [ox + 4 * lw, py]], '#333333', 1.2 * lw); vText(ctx, [[num(y), false]], Math.max(fs * 2.2, ox - 0.4 * fs), py + 0.35 * fs, fs, 'right'); }
+      const num = (x, d) => { const s2 = (Math.abs(x) < 1e-12 ? 0 : x).toFixed(d); return (I18 ? I18.num(s2) : s2).replace(/^-/, '−'); };
+      const decX = XD.axisDec('x', xs, step, num), decY = XD.axisDec('y', ys, step, num), recY = XD.axes ? XD.axes[XD.axes.length - 1] : null;
+      for (const x of xs) { if (Math.abs(x) < 1e-12) continue; const px = P(C(x, 0))[0]; if (px < 0.04 * W || px > 0.96 * W) continue; line([[px, oy - 4 * lw], [px, oy + 4 * lw]], '#333333', 1.2 * lw); if (!(oy + fs * 1.15 > H - 0.1 * H && px < labW + fs)) vText(ctx, [[num(x, decX), false]], px, Math.min(H - 0.02 * H, oy + fs * 1.15), fs, 'center'); }
+      for (const y of ys) { if (Math.abs(y) < 1e-12) continue; const py = P(C(0, y))[1]; if (py < 0.06 * H || py > 0.9 * H) continue; line([[ox - 4 * lw, py], [ox + 4 * lw, py]], '#333333', 1.2 * lw);
+        // (right-aligned left of the axis; an axis at the frame's left edge, or a label wider than the room left of it,
+        // moves the label right so that it starts inside the frame)
+        const lab = num(y, decY), w = vWidth(ctx, [[lab, false]], fs), lx = Math.max(fs * 2.2, w + 0.3 * fs, ox - 0.4 * fs);
+        if (recY) recY.left = Math.min(recY.left ?? Infinity, lx - w);
+        vText(ctx, [[lab, false]], lx, py + 0.35 * fs, fs, 'right');
+      }
     }
     // print look on a plane: the boundaries as vectors (the art layer draws fills only); X's boundary as a thin gray
     // line for t > 0; an open set's boundary dashed (a dash means "not included", editor-9)

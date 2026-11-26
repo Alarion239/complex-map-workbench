@@ -9,19 +9,15 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
+// the strip's slow and fast speeds: ms a plane (SV_SPEEDS)
+const SLOW_MS = 2000, FAST_MS = 450;
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // (a picture's FNV-1a hash: the suite has no require)
 const fnv = (b) => { let h = 0x811c9dc5; for (let i = 0; i < b.length; i++) { h ^= b[i]; h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); };
 const ns = 'sv' + Date.now();
+const { MOB, CUBE, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 // Cayley, then cube's chain with the upper half-plane: z → w₁ (Möbius) → w₂ (cube)
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
-  steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
-const open = async (w, h, mobile, flag) => {
-  await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${flag ? 'steps' : 'classic'}` }); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
-};
+const open = (w, h, mobile, flag) => openChain({ ns, steps: [MOB, CUBE], w, h, mobile, view: flag ? 'steps' : 'classic', until: `typeof __cmwSteps === 'function'`, max: 30000 });
 const S = () => ev('__cmwSteps()');
 // (a glide: until it lands, at most 15 s on a software renderer)
 const rest = async () => { for (let i = 0; i < 150; i++) { const s = await S(); if (!s.moving) return s; await sleep(100); } return S(); };
@@ -30,16 +26,23 @@ const hash = async (name) => { await settle(400); await shot(name, await plot())
 const press = (k) => ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '${k}', bubbles: true, cancelable: true })); 1`);
 
 
-const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
+// (a press of ▶ or an arrow waits for the prestart and its idle jobs: the suite presses once the chain is prepared)
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const calm = () => kit.prepared('true', 120000, { only: true });
+const ctl = async (o) => { if (o && o.play === true) await calm(); return ev(`__cmwSteps(${JSON.stringify(o)})`); };
 const kdown = (k, mods = {}) => ev(`(document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: '${k}', bubbles: true, cancelable: true }, ${JSON.stringify(mods)}))); 1`);
 const until = async (expr, max = 15000) => { const r = await settled({ until: expr, max, only: true, poll: 25 }); return { s: await S(), ms: r.ms, timeout: !r.ok }; };
 const nodes = () => ev(`[...document.querySelectorAll('#svStrip .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })`);
 
-// the thread's place sampled in the page once a frame for ms (the heavy __cmwSteps() poll starves the frames and aliases a loop): its
-// highest place and whether it fell back by more than half a plane (a wrap)
-const watchX = async (ms) => {
-  await ev(`window.__wx = { hi: 0, wrapped: false, last: -1, done: false }; (() => { const t0 = Date.now(), tick = () => { const x = __cmwSvX(), w = window.__wx; w.hi = Math.max(w.hi, x); if (x < w.last - 0.5) w.wrapped = true; w.last = x; if (Date.now() - t0 < ${ms}) requestAnimationFrame(tick); else w.done = true; }; requestAnimationFrame(tick); })(); 1`);
-  for (let i = 0; i < 600; i++) { await sleep(100); const w = await ev('window.__wx'); if (w && w.done) return w; }
+// the thread's place sampled in the page once a frame (the heavy __cmwSteps() poll starves the frames and aliases a loop), for
+// n frames or until 3 frames past a wrap: its highest place and whether it fell back by more than half a plane (a wrap). The
+// loops are watched on the test clock, LOOP_CLOCK ms of play time a frame, whatever the frame costs: on the wall clock a
+// software renderer's frame can outlast a whole loop at fast (900 ms, 450 for one step), which then starts over within
+// that frame and is never seen near its end (#1999)
+const LOOP_CLOCK = 100;
+const watchX = async (n) => {
+  await ev(`window.__wx = { hi: 0, wrapped: false, last: -1, n: 0, at: -1, done: false }; (() => { const tick = () => { const x = __cmwSvX(), w = window.__wx; w.hi = Math.max(w.hi, x); if (x < w.last - 0.5 && !w.wrapped) { w.wrapped = true; w.at = w.n; } w.last = x; w.n++; if (w.n < ${n} && !(w.wrapped && w.n >= w.at + 3)) requestAnimationFrame(tick); else w.done = true; }; requestAnimationFrame(tick); })(); 1`);
+  for (let i = 0; i < 1800; i++) { await sleep(100); const w = await ev('window.__wx'); if (w && w.done) return w; }
   return ev('window.__wx');
 };
 // the speed, measured in the page's own clock: with the test clock on (CLOCK ms of play time a frame, whatever the frame costs) the
@@ -71,6 +74,7 @@ ok('▶ says how to reach Speed and Loop, and the glide order', await ev(`/^Hold
 
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
 await choose('.sv-speed', 'fast');
+await calm();
 const tClick = Date.now();
 // (the glide is 0.9 s of frame time and the button's label follows on a frame: from the press, every frame is looked at
 // until the glide runs and the button says Pause, at most 5 s, so a page whose frames are slow is read while it plays)
@@ -91,12 +95,25 @@ const e1 = await until('!__cmwSteps().play'); e1.ms = Date.now() - tClick;   // 
 ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
 ok('… in about two planes of the speed (fast: 450 ms a plane)', e1.ms > 700 && e1.ms < 6000, e1.ms);
-await ev(`document.querySelector('.sv-play').click(); 1`);
-const p2 = await S();
+await calm();
+// (▶ pressed again in the frame its glide is first seen in, the glide read in that frame and the pause in the next, all
+// in the page: two reads from outside it can take longer to come back than the whole 0.9 s glide on a loaded renderer,
+// and the second press would then find the glide over and start another, as for the first press above)
+const pp = await ev(`await new Promise((res) => {
+  const btn = document.querySelector('.sv-play'), t0 = performance.now(), pick = (s) => ({ play: s.play, x: s.x, i: s.i, moving: s.moving, playRec: s.playRec });
+  btn.click();
+  const look = () => {
+    const s = __cmwSteps();
+    if (s.play === 'glide' && s.moving) { const p2 = pick(s); btn.click(); requestAnimationFrame(() => res({ p2, pz: pick(__cmwSteps()) })); return; }
+    if (performance.now() - t0 > 5000) { res({ p2: pick(s), pz: null }); return; }
+    requestAnimationFrame(look);
+  };
+  look();
+})`);
+const p2 = pp.p2;
 ok('▶ at the end starts over', p2.play === 'glide' && p2.x < 1, p2);
-await ev(`document.querySelector('.sv-play').click(); 1`);
-const pz = await S();
-ok('▶ again pauses: it stays where it was, and nothing moves on', pz.play === null, pz);
+const pz = pp.pz || await S();
+ok('▶ again pauses: it stays where it was, and nothing moves on', !!pp.pz && pz.play === null, pz);
 await sleep(300); const pz2 = await S();
 ok('… (no drift after the pause)', Math.abs(pz2.x - pz.x) < 1e-9, [pz.x, pz2.x]);
 // (nominal planes a second: slow 0.5, normal 1.11, each told from the other; fast, 2.2, is a 0.9 s glide that a software renderer's frames
@@ -109,18 +126,32 @@ await ev(`document.querySelector('.sv-play').click(); 1`);
 await sleep(1000);
 const sl = await S();
 ok('a play at slow is still going a second in', sl.play === 'glide', sl);
+// (the speed is checked on the play's own schedule, not on the wall clock: at the switch the play goes on from where it is
+// at the new speed, its clock from then (svPlayRebase), and __cmwSteps().rebased keeps that schedule after the play ends.
+// The rest of the play is a frame or two, and on a software renderer one frame of this chain can take 2 s, so a
+// wall-clock limit there would time the frames, not the speed: #1999)
+const before = sl.playRec;
 await choose('.sv-speed', 'fast');
+const sw = await S(), after = sw.rebased;
+info.speedSwitch = { before, after };
+ok('the play\'s schedule at slow: 2000 ms a plane (the control)', !!before && Math.abs(before.ms - SLOW_MS * (before.to - before.from)) < 1e-6, before);
+// (its clock starts at the switch, after the control was read: t0 at or past before's t0 + el)
+ok('a new speed takes over while it plays: the play goes on at fast, 450 ms a plane, from where it is',
+  !!before && !!after && after.t0 >= before.t0 + before.el && after.to === before.to && after.from >= before.from
+  && Math.abs(after.ms - FAST_MS * Math.max(sw.rebaseMinSpan, after.to - after.from)) < 1e-6, after);
 const e2 = await until('!__cmwSteps().play');
-ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
+info.speedTakeover = { ms: e2.ms, i: e2.s.i, ahead: e2.s.ahead, probe: e2.s.aheadProbe };
+ok('… and it ends on the last plane', !e2.timeout && e2.s.i === 2 && Math.abs(e2.s.x - 2) < 1e-9, e2);
 ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', (await S()).svSpeed === 'fast' && await ev(`localStorage.getItem('cmw-sv-speed') === 'fast'`), await S());
 
 // keys: K plays and pauses, Esc pauses, ‹ › pause
 await ctl({ go: 0, now: true });
 await ev(`document.body.focus(); 1`);
-await press('k'); ok('K plays', (await S()).play === 'glide', await S());
+// (a play of a chain whose frames are slow waits first while they are drawn ahead, #1339: K and M play once that wait ends)
+await press('k'); const kp = await until("__cmwSteps().play === 'glide'"); ok('K plays', !kp.timeout && kp.s.play === 'glide', kp);
 await press('k'); ok('K pauses', (await S()).play === null, await S());
 await ctl({ go: 0, now: true });
-await press('m'); ok('M plays', (await S()).play === 'glide', await S());
+await press('m'); const mp = await until("__cmwSteps().play === 'glide'"); ok('M plays', !mp.timeout && mp.s.play === 'glide', mp);
 await press('Escape'); ok('Esc pauses', (await S()).play === null, await S());
 await ctl({ go: 0, now: true });
 await ctl({ play: true }); await sleep(100);
@@ -168,12 +199,12 @@ await ctl({ go: 0, now: true });
 await ev(`document.querySelector('.sv-loop').click(); 1`);
 const l1 = await S();
 ok('Loop is on: aria-pressed, and kept for the browser', l1.loop === true && await ev(`document.querySelector('.sv-loop').getAttribute('aria-pressed') === 'true' && localStorage.getItem('cmw-sv-loop') === '1'`), l1);
-await ctl({ play: true });
-const wx = await watchX(6000);
+await ctl({ clock: LOOP_CLOCK, play: true });
+const wx = await watchX(60);
 const wrapped = wx.wrapped;
 const l2 = await S();
 ok('looping: it wrapped from the last plane to the start and still plays', wrapped && l2.play === 'glide', [wx, l2]);
-await ctl({ play: false });
+await ctl({ play: false, clock: 0 });
 await ctl({ loop: false });
 
 // the range: Shift-drag along the thread
@@ -191,14 +222,15 @@ const bd = await ev(`(() => { const b = document.querySelector('.sv-band'); retu
 ok('the band shows, the clear button and the ring name it', !bd.hidden && /w₁/.test(bd.label) && bd.x === 'Clear the range' && /range z to w₁/.test(bd.vt), bd);
 ok('the range is saved as S.homRange', JSON.stringify((await S()).homRange) === '[1,1]', (await S()).homRange);
 await ctl({ play: true });
-const e3 = await until('!__cmwSteps().play');
+// (until it has played: a play of a chain whose frames are slow waits first while they are drawn ahead, #1339, and moving counts the wait)
+const e3 = await until('!__cmwSteps().moving');
 ok('play keeps to the range: it stops on w₁, not at w₂', !e3.timeout && e3.s.i === 1 && Math.abs(e3.s.x - 1) < 1e-9, e3.s);
 await ev(`document.querySelector('.sv-loop').click(); 1`);
-await ctl({ play: true });
-const wr0 = await watchX(5000);
+await ctl({ clock: LOOP_CLOCK, play: true });
+const wr0 = await watchX(60);
 const hi = wr0.hi, wr = wr0.wrapped;
 ok('looping in a range: never past its end, and it starts over at its start', hi <= 1 + 1e-9 && wr, [hi, wr]);
-await ctl({ play: false }); await ctl({ loop: false });
+await ctl({ play: false, clock: 0 }); await ctl({ loop: false });
 await press('Escape');
 ok('Esc clears the range', (await S()).range === null, await S());
 

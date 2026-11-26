@@ -75,7 +75,13 @@ function mountainKing(landscapeOnly) {
 // --walk steps (#439): the steps view (?view=steps) on Strip to disk, the zeros of zeta and the Mountain King: a
 // glide over a step from z (the carried colour while gliding, map mode 1), a quarter-step scrub back, parked between two
 // planes (Shift+←: a two-plane chain is at its last plane after the glide; tiers' review of #456), and the colour plane set to z, then a glide to the plane after it (the carried colour at rest past the
-// colour plane): the carry, mesh, region and line programs a glide links. The keys are the view's own (svKeys)
+// colour plane): the carry, mesh, region and line programs a glide links. The keys are the view's own (svKeys).
+// The rest before the first glide lasts until the glides of the plane shown are made ready (__cmwSteps().invWarm, #2039:
+// their inverse programs linked at rest; true at once on a build without that warm-up, whose hook has no invWarm), so
+// those links are the rest's, not the glide's; the glide's firstS is its first frame by the inverse pass, or the end of
+// a glide that drew none (measure: the path of its last frame), a new glide record against the one before the key (#2067)
+const STEPS_REST = "(() => { const v = __cmwSteps().invWarm; return v !== false; })()";
+const STEPS_GLIDE = "(() => { const q = __cmwSteps(), g = q.glide; return !!g && g !== window.__gpGlide0 && (g.path === 'inverse' || !q.moving); })()";
 const svKey = (key, shift) => `(document.dispatchEvent(new KeyboardEvent('keydown', { key: '${key}', shiftKey: ${!!shift}, bubbles: true })), true)`;
 function stepsWalk() {
   const s = [];
@@ -83,8 +89,9 @@ function stepsWalk() {
     const i = exampleIndex(nm);
     if (i < 0) { console.log(`[glprof] no example named ${nm}: skipped`); continue; }
     const tag = `${nm} (example ${i})`;
-    s.push([`steps: ${tag}`, `(__cmwExample(${i}), ${svKey('PageUp')}, ${svKey('PageUp')}, ${svKey('PageUp')})`, false, null]);
-    s.push([`steps: ${tag}: glide to the next plane`, svKey('PageDown'), false, null]);
+    s.push([`steps: ${tag}`, `(__cmwExample(${i}), ${svKey('PageUp')}, ${svKey('PageUp')}, ${svKey('PageUp')})`, false, { until: STEPS_REST }]);
+    s.push([`steps: ${tag}: glide to the next plane`, `(window.__gpGlide0 = __cmwSteps().glide, ${svKey('PageDown')})`, false,
+      { until: STEPS_GLIDE, measure: "(() => { const g = __cmwSteps().glide; return g ? g.path : null; })()" }]);
     s.push([`steps: ${tag}: scrub a quarter step back`, svKey('ArrowLeft', true), false, null]);
     s.push([`steps: ${tag}: back to z`, `(${svKey('PageUp')}, ${svKey('PageUp')})`, false, null]);
     s.push([`steps: ${tag}: colour from z`, svKey('c'), false, null]);
@@ -317,7 +324,7 @@ const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
   for (const r of rows.slice(0, 30)) lines.push(`| ${s2(r.ms || 0)} | ${s2(r.share)} | ${r.peers || ''} | ${s2(r.warm)} | ${s2(r.wshare)} | ${r.inv ? 'inverse ' : ''}${r.name} \`${r.key}\` | ${r.mode} | ${r.vs} + ${r.fs} | ${r.step} |`);
   lines.push('', '| step | cold: links, wall s | warm: links, wall s |', '|---|---|---|');
   cold.steps.forEach((s, i) => { const w = warm.steps[i] || { programs: [], s: 0 }; lines.push(`| ${s.label}${s.timedOut ? ' (timed out)' : ''} | ${s.programs.length}, ${s.s.toFixed(1)} | ${w.programs.length}, ${w.s.toFixed(1)} |`); });
-  // (--walk extended: the timed steps and the measurements, cold and warm)
+  // (--walk extended and steps: the timed steps and the measurements, cold and warm)
   const timed = cold.steps.map((s, i) => [s, warm.steps[i] || {}]).filter(([s]) => s.firstS !== undefined || s.measure !== undefined);
   if (timed.length) {
     lines.push('', '| step | cold: first s, measured | warm: first s, measured |', '|---|---|---|');

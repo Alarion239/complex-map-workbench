@@ -5,8 +5,7 @@
 // - at rest, the picture drawn: no cue (control);
 // - the second pass held (__cmwRept({ holdB })), the frame pending: the cue, on every frame watched (CUE_FRAMES);
 // - released: the cue is gone once the picture is drawn;
-// - the steps view's polite live region says "Drawing the exact picture…" once the cue has lasted CUE_DELAY_MS, and
-//   "Exact picture drawn" when it ends;
+// - the LEDs' polite live region (#ledLive) says the cue's words once the cue has lasted, and "Up to date" when it ends;
 // - in tiles of TILE_SOLVES root solves with the first pass at FAST_NODES, the cue names the tiles done, "k of n", with
 //   0 <= k < n, on some frame while they draw, the count joined by no-break spaces (a tip never wraps inside it);
 // - on a phone (PHONE_W x PHONE_H), where the LED is not laid out: the pane's corner note says the cue's words while the
@@ -16,10 +15,10 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const CUE = /^Drawing the exact picture/, CUE_FRAMES = 10, FAST_NODES = 5, TILE_SOLVES = 2 ** 26, HELD_TILES = 2 ** 49, WATCH_FRAMES = 80;
-// (CUE_DELAY_MS: the page's wait before the live message and the phone's note, as the hairline's; LIVE_WAIT_MS: how long a
-// read waits for them past it)
+// (CUE_DELAY_MS: the page's wait before the phone's note, as the hairline's; LIVE_WAIT_MS: how long a read waits for it,
+// and for the LEDs' live region, past it)
 const CUE_DELAY_MS = 300, LIVE_WAIT_MS = 5000, PHONE_W = 360, PHONE_H = 640;
-const LIVE = `((document.querySelector('#stage > .sr-only[aria-live="polite"]') || {}).textContent || '')`;
+const LIVE = `((document.getElementById('ledLive') || {}).textContent || '')`;
 // (the parked plane drawn, and the gallery parked on plane 1, Inside regions: test/lib/parked_kit.js)
 const { PARKED_DRAWN: DRAWN, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
 // the cue as the page shows it: the left LED's class and tip (its aria-label), and the plot's aria-busy
@@ -47,16 +46,16 @@ info.held = held;
 ok(`with the second pass held (the frame pending), every frame of ${CUE_FRAMES} shows the cue: the LED busy, its tip and aria-label "Drawing the exact picture…", the plot aria-busy`, held.every((c) => c.pending && on(c)), held.find((c) => !(c.pending && on(c))));
 // (the tile count agrees with its number: one tile is "of 1 tile")
 ok('the tile count agrees with its number ("of 1 tile", not "of 1 tiles")', held.every((c) => !/\sof\s1 tiles\b/.test(c.label)), held.map((c) => c.label));
-// (the live region: the cue's start said once it has lasted CUE_DELAY_MS)
-const said = info.said = await poll(`${LIVE} === 'Drawing the exact picture…'`, CUE_DELAY_MS + LIVE_WAIT_MS);
-ok('the live region says "Drawing the exact picture…" once the cue has lasted its delay', said.ok, { said, live: await ev(LIVE) });
+// (the LEDs' live region: the cue's words said once it has lasted)
+const said = info.said = await poll(`/Drawing the exact picture/.test(${LIVE})`, CUE_DELAY_MS + LIVE_WAIT_MS);
+ok('the LEDs\' live region says "Drawing the exact picture…" once the cue has lasted', said.ok, { said, live: await ev(LIVE) });
 await ev('__cmwRept({ holdB: false }); 1');
 await settled({ max: 120000, until: DRAWN });
 await frames(2);
 const done = info.done = await cue();
 ok('released, once the picture is drawn the cue is gone', off(done), done);
-const landed = info.landed = await poll(`${LIVE} === 'Exact picture drawn'`, LIVE_WAIT_MS);
-ok('the live region says "Exact picture drawn" when the cue ends', landed.ok, { landed, live: await ev(LIVE) });
+const landed = info.landed = await poll(`/Up to date/.test(${LIVE})`, LIVE_WAIT_MS);
+ok('the LEDs\' live region says "Up to date" when the cue ends', landed.ok, { landed, live: await ev(LIVE) });
 // (tiles of TILE_SOLVES: the second pass draws in several tiles, a call each)
 await ev(`__cmwRept({ fast: ${FAST_NODES}, tiles: ${TILE_SOLVES} }); 1`);
 let counted = null;
@@ -80,9 +79,9 @@ await settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof
 await loadGallery(60000);
 await parkInside(60000);
 await settled({ max: 120000, until: DRAWN });
-const phone = info.phone = { led: await ev("document.getElementById('leftLed').offsetWidth"), rest: (await ev("__cmwPaneStatus('L')") || {}).note || null };
+const phone = info.phone = { led: await ev("document.getElementById('leftLed').offsetWidth"), rest: (await ev("__cmwPaneStatus('L')") || {}).cue || null };
 await ev(`__cmwRept({ fast: ${FAST_NODES}, holdB: true, tiles: ${HELD_TILES} }); 1`);
-const noted = await poll(`(() => { const s = __cmwPaneStatus('L'); return !!s && s.rept && /^Drawing the exact picture/.test(s.note || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
+const noted = await poll(`(() => { const s = __cmwPaneStatus('L'); return !!s && s.rept && /^Drawing the exact picture/.test(s.cue || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
 phone.held = Object.assign({ ok: noted.ok }, await ev("__cmwPaneStatus('L')"));
 ok('a phone: the LED is not laid out (control: the corner note stands in for it)', phone.led === 0, phone);
 ok('a phone: at rest, the picture drawn, no corner note', !phone.rest, phone);
@@ -90,7 +89,7 @@ ok('a phone: the second pass held, the pane\'s corner note says the cue ("Drawin
 await ev('__cmwRept({ holdB: false }); 1');
 await settled({ max: 120000, until: DRAWN });
 await frames(2);
-phone.done = (await ev("__cmwPaneStatus('L')") || {}).note || null;
+phone.done = (await ev("__cmwPaneStatus('L')") || {}).cue || null;
 ok('a phone: released, once the picture is drawn the note is gone', !phone.done, phone);
 await ev('__cmwRept({ fast: 0, tiles: 0 }); 1');
 return { pass: fails.length === 0, fails, info };

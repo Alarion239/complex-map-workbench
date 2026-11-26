@@ -11,6 +11,15 @@
 //   default's two) takes the carried mesh; the Mountain King's glide from z to u takes the inverse pass (its homotopy
 //   runs a Möbius path, then a power path), its glide from u to F the carried mesh (its formula has no inverse).
 // - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
+// - (z - i)/(z + i), then z^3, gliding w1 -> w2 Everywhere (x = 1.47, 1.82, 1.98): the inverse pass composites the two or
+//   three points over each w at the frame's opacity, and held_frames' judge, compositing them the same way, passes.
+// - formulas recognised as chains whose sub-step has no exact ops, z^3 - 2z + 1 (u = 0.25, 0.5, 0.75) and Γ(z) + 1
+//   (u = 0.25): the inverse pass, and the CPU reference within the same tolerance (#1693, #1805).
+// - a Repeat × N whose block step has no exact ops (inverse Joukowski three times; [exp, inverse Joukowski] twice): the
+//   inverse pass, its NEWT op
+//   walking the block step's own homotopy.
+// - a formula typed in the place of another with the same inverse ops (z exp(z), then sin(z)/z) glides with its own
+//   inverse program: its frame is the one a fresh page draws.
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -19,7 +28,7 @@ const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const names = exampleNames();
-const { GI_REF } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { GI_REF, grab, judge } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const { holdIdle, releaseIdle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'idle_queue.js'), 'utf8'))({ ev });
 const ready = () => settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
 // (the page's helpers: the left pane's pixels, and the comparison of a frame with the CPU reference; the pixel compare,
@@ -81,6 +90,52 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   ok('a non-analytic formula after the Möbius map: its straight-line glide takes the carried mesh', !!g && g.b === 3 && g.path === 'mesh', g);
 }
 
+// ---- formulas recognised as chains whose sub-step has no exact ops: their NEWT op walks that sub-step's homotopy ----
+// - z^3 - 2z + 1 is z^3 - 2z, then + 1: z^3 - 2z by every root (a polynomial NEWT op) to u = 0.5, then that cubic at
+//   t = 1 by its roots and the sum's path (#1693); the GPU polishes and checks the roots on the op's own polynomial
+//   (#1805);
+// - Γ(z) + 1 is Γ, then + 1: at u = 0.25 Γ's homotopy at 0.5 by Newton (a NEWT op that is not polynomial), which walks
+//   that sub-step's own homotopy, not the formula's at the op's t (#1805).
+// Each is drawn by the inverse pass and matches the CPU reference within the default example's tolerance (a disc, as
+// ci/fxc_size's survey types it; Γ's grid of pixels every 3 px, as its image covers a small part of the pane)
+for (const [expr, us, step] of [['z^3-2z+1', [0.25, 0.5, 0.75], 8], ['gamma(z)+1', [0.25], 3]]) {
+  const ns = 'gc' + Date.now();
+  await loadView('steps', ns, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr, cut: 180 }, on: true }] });
+  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await ready();
+  await ev(HELP);
+  await ev('__cmwSteps({ bare: true }), 1');
+  await park(0); await ev('window.__gi.p0 = __giGrab(), 1');
+  for (const u of us) {
+    const g = await at(u, 'inverse', 120000);
+    const r = await ev(`__giRef(window.__gi.p0, __giGrab(), 6, ${step})`, 120000);
+    info[`${expr} u ${u}`] = { g, r };
+    ok(`${expr}, z → w₁ at u = ${u}: drawn by the inverse pass`, !!g && g.path === 'inverse' && g.b === 1, g);
+    ok(`${expr}, z → w₁ at u = ${u}: the CPU reference's colours away from the lines (> 6 on <= 0.2 %)`, r.n > 400 && r.over <= 0.002, r);
+  }
+}
+
+// ---- a Repeat × N whose block step has no exact ops: its NEWT op walks that block step's homotopy, as its program names
+// the block's homotopies (cxs<k>r<j>, j < len) ----
+// the inverse Joukowski map repeated 3 times (len 1) on its glide z → w₁ at u = 0.4 and 0.6, inside its second one (the
+// NEWT op of sequence step 1, block step 0), and the block [exp, inverse Joukowski] twice (len 2: inverse Joukowski, exp,
+// inverse Joukowski) on its glide w₁ → w₂ at u = 0.2, inside its first inverse Joukowski map (sequence step 0, block step
+// 1): each frame is drawn by the inverse pass, so its program
+// compiles. (Past 2/3 of the glide these chains need more families than the pass holds and take the carried mesh)
+for (const [steps, b, us] of [[[{ type: 'ijouk', repeat: { n: 3, len: 1 } }], 1, [0.4, 0.6]], [[{ type: 'exp' }, { type: 'ijouk', repeat: { n: 2, len: 2 } }], 2, [0.2]]]) {
+  const ns = 'gr' + Date.now(), name = `${steps.map((st) => st.type).join(', ')} repeated (len ${steps[steps.length - 1].repeat.len})`;
+  await loadView('steps', ns, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: steps.map((st) => ({ ...st, on: true })) });
+  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await ready();
+  await ev(HELP);
+  await ev('__cmwSteps({ bare: true }), 1');
+  for (const u of us) {
+    const g = await at(b - 1 + u, 'inverse', 120000);
+    info[`${name} x ${b - 1 + u}`] = g;
+    ok(`${name}, glide ${b} at u = ${u}: drawn by the inverse pass`, !!g && g.path === 'inverse' && g.b === b, g);
+  }
+}
+
 // ---- the fallback, per step ----
 {
   const ex = names.indexOf('In the Hall of the Mountain King');
@@ -112,11 +167,14 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   // (the prestart's idle warm draw lands in the GL canvas next to whichever frame is requested while it runs: the
   // frames are measured once the prestart is done)
   await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
+  // (the machine a red came from: the renderer, the cores that share its load, the pane's pixels, in every zeta row's detail)
+  const machine = await ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'), d = g && g.getExtension('WEBGL_debug_renderer_info'), c = document.querySelector('#canvasL'); return { renderer: g ? String(g.getParameter(d ? d.UNMASKED_RENDERER_WEBGL : g.RENDERER)) : 'none', cores: navigator.hardwareConcurrency, dpr: devicePixelRatio, pane: c.width + 'x' + c.height }; })()`);
+  info['zeta machine'] = machine;
   for (const x of [0.25, 0.5, 0.75]) {
     const g = await at(x, 'inverse', FRAME_MS);
     const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
     info[`zeta x ${x}`] = { g, share };
-    ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share });
+    ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share, floor: floor[x], machine });
   }
   // (the source window moved to where the strip's image near its pole z = 1 lies, Im -2.8 to 13.8: most of the true image there
   // is the pole's, which the ladder's seeds do not reach; the pole member draws it)
@@ -126,7 +184,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     const g = await at(x, 'inverse', FRAME_MS);
     const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
     info[`zeta pole window x ${x}`] = { g, share };
-    ok(`zeta over its pole's image at x = ${x}: the inverse pass draws at least ${POLE_FLOOR[x]} of the pane`, !!g && g.path === 'inverse' && share >= POLE_FLOOR[x], { g, share });
+    ok(`zeta over its pole's image at x = ${x}: the inverse pass draws at least ${POLE_FLOOR[x]} of the pane`, !!g && g.path === 'inverse' && share >= POLE_FLOOR[x], { g, share, floor: POLE_FLOOR[x], machine });
   }
 }
 // ---- a scrub right after load, before step b's pole tracks exist (zeta) ----
@@ -269,5 +327,55 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const log = await ev('window.__nrLog.slice(0, 40)'), drawn = log.filter((e) => e[0] === 'drawn');
   info['newt roots'] = log;
   ok('Partial sums of the exponential: the NEWT roots pass draws in the glide\'s frames and reads no GL state back (no getParameter in GLR.newtRoots after its first call)', drawn.length > 1 && drawn.slice(1).every((e) => e[1] === 0), log);
+}
+// ---- a glide where sheets overlap, composited: (z - i)/(z + i), then z^3, gliding w1 -> w2 Everywhere, colour from z ----
+// (step w2's homotopy is z^(1 + 2u) on the principal branch: two or three points of plane z over most w, drawn front to back
+// at the frame's opacity, the farthest opaque; held_frames' judge composites them the same way, from the glide record's
+// alpha and window. The judge's Newton seeds every 1/24 of the window across and 1/18 down: from the default 8 x 6
+// they miss the points beside the Möbius step's pole, z = -i)
+{
+  const ns = 'gk' + Date.now();
+  await loadView('steps', ns, { shapes: [], steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] });
+  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await ready();
+  await ev('__cmwSteps({ bare: true }), 1');
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); __cmwSteps({ T: 0 }); 1`);
+  await settled({ max: 30000, until: '__cmwSvFixed()' });
+  ok("Cayley, z^3: plane z's parked frame settles", await grab('R0'), null);
+  for (const x of [1.47, 1.82, 1.98]) {
+    const g = await at(x, 'inverse');
+    ok(`Cayley, z^3 at x = ${x}: the moving frame settles`, await grab('M'), null);
+    const j = await judge('R0', 'M', { seeds: [24, 18], step: 8 });
+    info[`Cayley, z^3 x ${x}`] = { g, j };
+    ok(`Cayley, z^3, w1 → w2 at x = ${x}: drawn by the inverse pass, its sheets composited, and the exact picture (held_frames' judge)`, !!g && g.path === 'inverse' && g.b === 2 && j.pass, { g, j });
+  }
+}
+// ---- a typed formula's glide draws with its own inverse program ----
+// (the carried variants of the inverse program compile the chain in. z exp(z), then sin(z)/z typed in its place, both
+// inverted by a NEWT op with no seeds, the same inverse ops: sin(z)/z's glide frame at u = 0.5, Inside regions, against the
+// same frame on a fresh page, the left pane's pixels on a grid of its plane (test/lib/carry_kit.js): no point may be wrong
+// against the best of the fresh frame's 3 x 3 pixels about it, and not every point may be bare paper)
+{
+  const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+  const FIRST = 'z*exp(z)', SECOND = 'sin(z)/z';
+  const held = "(() => { const q = __cmwSteps(), g = q.glide; return q.ready.ready && !!g && g.path === 'inverse' && Math.abs(g.u - 0.5) < 1e-9; })()";
+  let pts = null;
+  const frameOf = async (first) => {
+    await go(`${BASE}/test.html?ns=gf${Date.now()}&lang=en&view=steps`);
+    await ready();
+    await ev(`__cmwAddStep('custom', { expr: ${JSON.stringify(first)} }, 0), 1`);
+    await ev("__cmwSteps({ bare: true, scope: 'in' }), __cmwSteps({ T: 0 }), __cmwSteps({ x: 0.5 }), 1");
+    let wait = await settled({ max: 60000, until: held });
+    if (first !== SECOND) {
+      await ev(`window.__gfG = __cmwSteps().glide, __cmwStepParam(0, 'expr', ${JSON.stringify(SECOND)}), 1`);
+      wait = await settled({ max: 60000, until: `__cmwSteps().glide !== window.__gfG && ${held}` });
+    }
+    if (!pts) pts = K.grid(await K.paneOf(), 24, 16);
+    return { wait, px: (await K.lpx(pts)).px };
+  };
+  const typed = await frameOf(FIRST), fresh = await frameOf(SECOND);
+  const t = K.tally(typed.px, fresh.px);
+  info['typed formula'] = { n: t.n, wrong: t.wrong, worst: t.worst };
+  ok(`${SECOND} typed in the place of ${FIRST} (the same inverse ops): its glide frame is its own, as on a fresh page`, typed.wait.ok && fresh.wait.ok && t.n > 300 && t.paper < t.n && t.wrong === 0, Object.assign({ wait: [typed.wait, fresh.wait] }, t));
 }
 return { pass: fails.length === 0, fails, info };

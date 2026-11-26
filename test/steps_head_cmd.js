@@ -3,7 +3,7 @@
 // - the head is one row: every item it shows sits on the bar's row, none overlaps the next, none is cut;
 // - it keeps the style row (#247) and every control of the bar: the title, the colour plane, the scope, the surface;
 // - short of room, the colour-plane button keeps its wheel and its name (its words in its accessible name);
-// - the surface is one button, named "Surface: …", that opens a menu of the three, the shown one checked; a pick
+// - the surface is one button, named "Surface: …", that opens a menu of the four, the shown one checked; a pick
 //   changes the surface;
 // - on a phone the head's controls are in the header and the surface button is the same one;
 // - (#1596) on a phone at 360 px, in en, ru and it, each segment of the scope switch keeps the segmented control's 10 px of padding
@@ -16,16 +16,19 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const ns = 'svh' + Date.now();
+// a page opened through the kit (loadView: the saved state seeded, the document opened again by go() if its body stops arriving) and waited
+// for until `until` is true; one that does not come up throws, naming the page, rather than letting the suite read on a page with no hooks
+const up = async (what, view, name, state, lang, until, faces) => {
+  await loadView(view, name, state, { lang });
+  const r = await settled({ max: 60000, until, faces });
+  if (!r.ok) throw new Error(`steps_head: ${what}: the page did not come up within 60000 ms (${JSON.stringify(r.busy)})`);
+};
 // Cayley, then cube's chain with the upper half-plane: z → w₁ (Möbius) → w₂ (cube)
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
   steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
 const open = async (w, h, mobile, lang) => {
   await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang}&lang=${lang}&view=steps` });
-  // (the steps view's head built and its chain on: a slow start takes longer than any fixed wait)
-  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.getElementById('svHead') && !!document.querySelector('#paneL .pane-head')" });
+  await up(`${w}x${h} ${lang}`, 'steps', `${ns}${lang}`, st, lang, "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.getElementById('svHead') && !!document.querySelector('#paneL .pane-head')");
   await settle(500);
 };
 // the head's items, as laid out: each shown item's box, whether it is on the bar's row, cut or overlapping the next
@@ -67,11 +70,11 @@ for (const go of [1, 2]) {
   const L = await ev(LAYOUT);
   ok(`ru 1024 after a glide to plane ${go}: the head is one row`, L.off.length === 0 && L.hh <= 44 && L.lap.length === 0, L);
 }
-// the surface menu (en, 1280): one button, a menu of the three with the shown one checked, a pick changes the surface
+// the surface menu (en, 1280): one button, a menu of the four with the shown one checked, a pick changes the surface
 await open(1280, 800, false, 'en');
 await ev(`document.querySelector('#svHead .sv-surf1').click(); 1`); await settle(400);
 const menu = await ev(`(() => { const m = document.querySelector('.pop.menu'); if (!m) return null; return { label: m.getAttribute('aria-label'), items: [...m.querySelectorAll('[role=menuitemradio]')].map((b) => b.textContent.trim() + ':' + b.getAttribute('aria-checked')) }; })()`);
-ok('the surface button opens a menu of the three, Plane checked', menu && menu.label === 'Surface' && menu.items.join() === 'Plane:true,Sphere:false,Landscape:false', menu);
+ok('the surface button opens a menu of the four, Plane checked', menu && menu.label === 'Surface' && menu.items.join() === 'Plane:true,Sphere:false,Landscape:false,Stack:false', menu);
 await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Landscape/.test(b.textContent)).click(); 1`); await settle(1500);
 const after = await ev(`({ surf: __cmwSteps().surf, name: document.querySelector('#svHead .sv-surf1').getAttribute('aria-label') })`);
 ok('a pick in the menu changes the surface, and the button names it', after.surf === 'land' && after.name === 'Surface: Landscape', after);
@@ -111,9 +114,8 @@ for (const lang of ['en', 'ru', 'it']) {
   for (const [w, h, mobile] of [[1024, 768, false], [1440, 900, false], [390, 844, true]]) {
     for (const steps of [false, true]) {
       await view(w, h, false, mobile);
-      await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
-      await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}s${lang}${w}${steps ? 1 : 0}', ${JSON.stringify(JSON.stringify(Object.assign({}, st, { view: { main: 'phase' } })))}); 1`);
-      await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}s${lang}${w}${steps ? 1 : 0}&lang=${lang}${steps ? '&view=steps' : ''}` }); await sleep(3000); await settle(500);
+      await up(`style row ${w}x${h} ${lang} ${steps ? 'steps' : 'classic'}`, steps ? 'steps' : 'classic', `${ns}s${lang}${w}${steps ? 1 : 0}`, Object.assign({}, st, { view: { main: 'phase' } }), lang, "typeof window.__cmwPaneStatus === 'function' && typeof __cmwSteps === 'function'");
+      await settle(500);
       if (!steps) { await ev(`__cmwSetMain('phase'), 1`); await settle(800); }
       if (mobile) { await ev(`Phone.open('display'), 1`); await settle(1000); }
       // (the style row is built after the page's first layout, later on a loaded runner than the fixed wait above: wait for it, at most 15 s)
@@ -139,10 +141,8 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
   await view(W, H, false, false);
   // (waits on a condition: the state the next step reads, polled every 100 ms for up to 15 s)
-  const until = async (expr) => (await settled({ until: expr, max: 15000, only: true, poll: 100 })).ok;
-  await seed(`${ns}land${lang}${W}`, LAND);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}${W}&lang=${lang}&view=steps` });
-  await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
+  const until = async (expr, faces) => (await settled({ until: expr, faces, max: 15000, only: true, poll: 100 })).ok;
+  await up(`landscape ${W}x${H} ${lang}`, 'steps', `${ns}land${lang}${W}`, LAND, lang, `typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title')`, true);
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
   // (the head is fitted: the surface is the Landscape, the title shows its words, and the bar's classes hold across two reads)
   await until(`(() => { const b = document.getElementById('svHead'), k = b.className + '|' + b.querySelector('.sv-title').innerText, r = window.__fk !== k; window.__fk = k;
@@ -177,6 +177,44 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
     const after = await ev(`(() => { const m = document.querySelector('.sv-scope-menu'); return { scope: __cmwSteps().scope, name: m.getAttribute('aria-label'), text: m.textContent.trim() }; })()`);
     okl('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Where colour shows: Inside regions' && after.text === 'Inside', after);
   }
+}
+const SV_ELL = 12, SV_MORE = 40;   // (the ellipsis' room, and the room a cut role has beyond its first word: svFitHead's SV_ROLE_ELL and SV_ROLE_MORE)
+// the Landscape carried past the colour plane, ln|w₁| on w₂: the title's role is long ("landscape of ln|w₁|, carried from w₁").
+// Where it does not fit whole (1024 and 1280 px) the head shows its short form, which keeps where the surface is carried from
+// ("landscape, carried from w₁"), the whole title in its tip; at 1440 px it is whole
+const CLAUSE = { en: 'carried from w₁', ru: 'перенесённый из w₁', it: 'trasportato da w₁' };
+for (const [lang, W, H] of [1024, 1280, 1440].flatMap((w) => ['en', 'ru', 'it'].map((l) => [l, w, w === 1024 ? 768 : w === 1280 ? 800 : 900]))) {
+  await view(W, H, false, false);
+  const CARRY = Object.assign({}, st, { shapes: [], height: 'log', steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] });
+  await up(`carry ${lang}`, 'steps', `${ns}carry${lang}`, CARRY, lang, "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.querySelector('#svHead .sv-title')", true);
+  await ev(`__cmwSteps({ T: 1, surf: 'land', go: 2, now: true }); 1`);
+  await settled({ max: 60000, until: "__cmwSteps().i === 2 && __cmwSteps().surf === 'land' && !__cmwSteps().moving" });
+  await settled({ max: 60000 });
+  const C = await ev(`(() => { const b = document.getElementById('svHead'), t = b.querySelector('.sv-title'), role = t.querySelector('.sv-role'), head = document.querySelector('#paneL .pane-head'), hr = head.getBoundingClientRect();
+    const kids = [...b.children, ...[...head.children].filter((c) => c !== b)].filter((c) => c.getClientRects().length && c.getBoundingClientRect().width > 0.5);
+    const sp = [...head.children].find((c) => c.classList.contains('grow')), wordW = (text) => { const r = document.createElement('span'); r.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:400 13px ' + getComputedStyle(role).fontFamily; r.textContent = text; document.body.appendChild(r); const w = r.getBoundingClientRect().width; r.remove(); return Math.round(w); };
+    const words = role.textContent.trim().split(' '), re = b.classList.contains('sv-re'), rs = b.classList.contains('sv-rs'), shown = re ? [...role.children].filter((w) => !w.classList.contains('sv-wx')).length : rs ? 1 : words.length;
+    return { hh: Math.round(hr.height), empty: sp ? Math.round(sp.getBoundingClientRect().width) : -1, has: { title: !!t.getClientRects().length, cp: !!b.querySelector('.sv-cp').getClientRects().length, surf: !!b.querySelector('.sv-surf1').getClientRects().length, styles: !!document.getElementById('dcSeg') && document.getElementById('dcSeg').getClientRects().length > 0 },
+      cut: role.classList.contains('sv-cut') && getComputedStyle(role, '::after').content.replace(/"/g, '') === '…' && role.scrollWidth <= role.clientWidth + 1, tip: t.getAttribute('data-tip'), firstW: wordW(words[0]), nextW: shown < words.length ? wordW(words[shown]) : 0, bar: b.className, full: t.textContent, shown: t.innerText, roleW: Math.round(role.getBoundingClientRect().width), role: role.textContent, short: (role.dataset.short || '') + (role.dataset.shortP || ''), shortP: role.dataset.shortP || '', shortFont: getComputedStyle(role, '::after').fontStyle + ' ' + getComputedStyle(role, '::after').fontFamily, nameFont: (() => { const i = t.querySelector('.sv-role i'); return i ? getComputedStyle(i).fontStyle + ' ' + getComputedStyle(i).fontFamily : ''; })(), kept: [...role.children].filter((w) => !w.classList.contains('sv-wx')).map((w) => w.textContent).join(''), tnote: !!document.querySelector('#svTnote') && !document.querySelector('#svTnote').hidden,
+      hw: Math.round(head.clientWidth), kids: kids.map((c) => (c.id || String(c.className).slice(0, 14)) + ':' + Math.round(c.getBoundingClientRect().left - hr.left) + '+' + Math.round(c.getBoundingClientRect().width)), T: __cmwSteps().T, surf: __cmwSteps().surf, stage: __cmwSteps().stage }; })()`);
+  info[`carry${lang}${W}`] = C;
+  const n = `${lang} ${W} carried Landscape`;
+  const cut = /\bsv-(re|rs)\b/.test(C.bar);
+  ok(`${n}: the head is one row, the title, the colour plane and the surface all show`, C.hh <= 44 && C.has.title && C.has.cp && C.has.surf, C);
+  // (the role as the head shows it: whole, its whole words cut by the room with an ellipsis (sv-re), its short form (sv-rs), or none
+  // (sv-c2))
+  const seen = /\bsv-c2\b/.test(C.bar) ? '' : /\bsv-rs\b/.test(C.bar) ? C.short : /\bsv-re\b/.test(C.bar) ? C.kept + '…' : C.role;
+  ok(`${n}: the role shown keeps where the surface is carried from ("${CLAUSE[lang]}")`, !!seen && seen.includes(CLAUSE[lang]), { seen, C });
+  if (W === 1440) ok(`${n}: the role is whole (control)`, !cut && !/\bsv-c2\b/.test(C.bar), C);
+  // (the scenario: at 1024 and 1280 px the carried title does not fit whole, and the fold lands on the role: a leg that the fold
+  // never reaches would pass empty)
+  else ok(`${n}: the role is shown short (sv-rs) or cut to the room (sv-re), not dropped (sv-c2) or left whole over the head`, cut && !/\bsv-c2\b/.test(C.bar) && C.roleW > 0, C);
+  if (W !== 1440) ok(`${n}: the role is shown as its short form (sv-rs)`, /\bsv-rs\b/.test(C.bar) && !/\bsv-c2\b/.test(C.bar), C);
+  if (W !== 1440) ok(`${n}: shown short, the plane's name that ends it is set as the role's other plane names are (italic, the maths face)`, C.shortP === 'w₁' && !!C.nameFont && C.shortFont === C.nameFont, { shortP: C.shortP, shortFont: C.shortFont, nameFont: C.nameFont });
+  ok(`${n}: shown short, the title's tip has the whole title`, !/\bsv-rs\b/.test(C.bar) || C.tip === C.full, C);
+  ok(`${n}: a role cut short leaves no room for the word that follows it (the room left is the role's, not a first word with a gap after it)`, !/\bsv-re\b/.test(C.bar) || C.nextW === 0 || C.empty < C.nextW + SV_ELL, C);
+  ok(`${n}: a role cut to the room is its whole words and an ellipsis (no word cut), and the title's tip has the whole title`, !/\bsv-re\b/.test(C.bar) || (C.cut && C.tip === C.full), C);
+  ok(`${n}: the role shows more than its first word when it is cut by the room`, !/\bsv-re\b/.test(C.bar) || C.roleW >= C.firstW + SV_MORE, C);
 }
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);
 info.checks = 'steps view head: one row at 1024/1280/1440 in en/ru/it on every plane, the surface menu, the phone';

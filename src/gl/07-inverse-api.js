@@ -1,6 +1,9 @@
   // ---- shape records (4.3): drawPreimage's kind / A / B, plus the clip primitive and the polygon vertices ----
   const PACK_W = 1024;                  // texels per row of the frame's record texture
   const INV_POLY_MAX = 64;
+  // the kinds a later plane strokes by the polylines opts.trace gives (their own trace at rest): a formula curve, an
+  // external ray, an equipotential, and a freehand curve
+  const TRACED = new Set(['curve', 'fcurve', 'dhray', 'dheq']);
   // the clip primitive of Region.clipPrimitive as texels: header (nIn, nHole), then 2 texels per piece
   const BIGF = 1e30, fcl = (x) => (x >= BIGF ? BIGF : x <= -BIGF ? -BIGF : x);
   function packPrim(prim, out) {
@@ -25,30 +28,66 @@
   const FORM_DEBOUNCE = 300;
   const hashStr = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ':' + s.length; };
   let bundle = { srcs: [], key: hashStr(''), exprs: [], ids: [] }, bundleWant = null, bundleT = 0, bundleTimer = 0;
+  // a traced curve's texels: its polylines' vertices (x, y, 1 where a polyline starts, arc) after one box per group of
+  // CURVE_GROUP segments (group g: the vertices CURVE_GROUP g to CURVE_GROUP (g + 1)); a polyline of fewer than two
+  // finite vertices adds none. arc: a vertex's third value ([x, y, arc]: its arc length along the stroke at rest, for an
+  // open region's dash), else 0. -> {n, texels}, or null for none
+  function traceRec(lines) {
+    const v = [];
+    for (const line of lines) {
+      const ps = (line || []).map((q) => { const p = xyOf(q); return [p[0], p[1], Array.isArray(q) && q.length > 2 ? +q[2] || 0 : 0]; }).filter((p) => Number.isFinite(p[0] + p[1]));
+      if (ps.length >= 2) ps.forEach((p, i) => v.push(p[0], p[1], i ? 0 : 1, p[2]));
+    }
+    const n = v.length / 4;
+    if (n < 2) return null;
+    const groups = Math.ceil((n - 1) / CURVE_GROUP), boxes = [];
+    for (let g = 0; g < groups; g++) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = g * CURVE_GROUP; i <= Math.min(n - 1, (g + 1) * CURVE_GROUP); i++) {
+        const x = v[4 * i], y = v[4 * i + 1];
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      }
+      boxes.push(x0, y0, x1, y1);
+    }
+    return { n, texels: boxes.concat(v) };
+  }
   // GLR.packShapes(list, opts) -> {recs, forms, formsKey}: packs every area shape of the frame once (one texture
   // upload when the records changed). rec (per shape id): {offset, kind, complement, formSlot, ok, reason, pending}.
-  // ok false: the shape cannot be drawn inverse (more than 64 polygon vertices, a fifth formula shape, a formula
-  // whose GLSL failed); pending: a formula edited within the last 300 ms (draw it forward meanwhile).
+  // ok false: the shape cannot be drawn inverse (more than 64 polygon vertices, a traced curve of more than 1024, a
+  // fifth formula shape, a formula whose GLSL failed); pending: a formula edited within the last 300 ms (draw it
+  // forward meanwhile). opts.trace(s): the polylines (arrays of [x, y]) a traced curve of a later plane is stroked by;
+  // with none, a freehand curve's own vertices. opts.dash(s): for an open region of a later plane, the polylines (arrays
+  // of [x, y, arc]) its dashed outline is stroked by, packed after its own texels as rec.edge {nPts, ptsOff} (drawInverse
+  // strokes its boundary by them when the stroke has a dash); none, or more than INV_CURVE_MAX vertices: no rec.edge
   function packShapes(list, opts = {}) {
     const now = opts.now ?? performance.now();
     const recs = new Map(), data = [];
     const want = [], wantExpr = [], wantIds = [];
     for (const s of list || []) {
-      if (!s || s.visible === false || !TKIND[s.kind]) continue;
       // stage: the plane the shape lies on; a shape of plane k > 0 holds the points z of plane 0 whose F_{0->k}(z) it
-      // holds, so its clip primitive and box (in its own plane) say nothing of z. A curve (kinds 11-16, a constructed
-      // circle 20) is packed only on a later plane, where the staged program strokes it (its level is minus its distance)
-      const stage = Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0;
-      if (TKIND[s.kind] > (stage ? 16 : 10)) continue;
+      // holds, so its clip primitive and box (in its own plane) say nothing of z. A curve (kinds 11-18, a constructed
+      // circle 20, a traced curve as 16) is packed only on a later plane, where the staged program strokes it (its
+      // level is minus its distance)
+      const stage = s && Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0;
+      const traced = stage > 0 && TRACED.has(s.kind);
+      if (!s || s.visible === false || !(TKIND[s.kind] || traced)) continue;
+      if (!traced && TKIND[s.kind] > (stage ? 18 : 10)) continue;
       const gk = gKind(s);
-      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false, stage };
+      const rec = { offset: 0, kind: traced ? 16 : gk || TKIND[s.kind], complement: gk || traced ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false, stage };
       recs.set(s.id, rec);
       let prim = null;
       try { prim = Region.clipPrimitive && !stage ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
-      const pk = packShape(s);
+      let tr = null;
+      if (traced) {
+        let lines = null;
+        try { lines = opts.trace ? opts.trace(s) : s.kind === 'curve' ? [s.pts || []] : null; } catch (e) { lines = null; }
+        tr = lines && traceRec(lines);
+      }
+      const pk = traced ? tr && { A: [0, 0, 0, 0], B: [0, 0, 0, 0], pts: null } : packShape(s);
       if (!pk) { rec.ok = false; rec.reason = 'shape'; continue; }
       rec.A = pk.A; rec.B = pk.B;
-      if ((s.kind === 'polygon' || s.kind === 'curve') && pk.pts.length > INV_POLY_MAX) { rec.ok = false; rec.reason = `${s.kind} with more than ${INV_POLY_MAX} vertices`; }
+      if (s.kind === 'polygon' && pk.pts.length > INV_POLY_MAX) { rec.ok = false; rec.reason = `${s.kind} with more than ${INV_POLY_MAX} vertices`; }
+      if (tr && tr.n > INV_CURVE_MAX) { rec.ok = false; rec.reason = `${s.kind} with more than ${INV_CURVE_MAX} vertices`; }
       if (s.kind === 'formula') {
         if (want.length >= MAX_INV_FORMS) { rec.ok = false; rec.reason = 'fifth formula shape'; }
         else {
@@ -81,7 +120,14 @@
       }
       rec.ptsOff = n;
       rec.nPts = 0;
-      if ((s.kind === 'polygon' || s.kind === 'curve') && rec.ok) { rec.nPts = pk.pts.length; for (const p of pk.pts) data.push(p[0], p[1], 0, 0); }
+      if (s.kind === 'polygon' && rec.ok) { rec.nPts = pk.pts.length; for (const p of pk.pts) data.push(p[0], p[1], 0, 0); }
+      if (tr && rec.ok) { rec.nPts = tr.n; for (const x of tr.texels) data.push(x); }
+      rec.edge = null;
+      if (stage && !traced && rec.ok && opts.dash) {
+        let ed = null;
+        try { const lines = opts.dash(s); ed = lines && traceRec(lines); } catch (e) { ed = null; }
+        if (ed && ed.n <= INV_CURVE_MAX) { rec.edge = { nPts: ed.n, ptsOff: data.length / 4 - rec.offset }; for (const x of ed.texels) data.push(x); }
+      }
     }
     // the formula bundle: an edit of the same formula shapes (same ids in the same slots) waits FORM_DEBOUNCE ms after
     // the last change, while the edited shapes are pending (forward) and the others keep the current program; a load,
@@ -117,14 +163,15 @@
   }
   const formsSrc = (srcs) => (srcs.length ? srcs.join('') + 'float formulaLevel(int f, vec2 z) {\n' + srcs.map((_, i) => `  if (f == ${i}) return ilev${i}(z);\n`).join('') + '  return -1.0;\n}\n' : '');
 
-  // ---- inverse programs (4.4): keyed inv|<inverse key>|<formula bundle>|B<n> (invS on the globe), in progs (so
+  // ---- inverse programs (4.4): keyed inv|<source key>|<formula bundle>|B<n> (invS on the globe), in progs (so
   // context loss clears them) with their own LRU of 8 that never evicts a program drawn in this or the last frame.
   // Never a history stand-in. A failed compile is silent (one console line, no frameErr / lastError) and marks the
   // chain structure ineligible for the session.
   const INV_KEEP = 8;
   let invFrame = 0;                     // begin() / viewport() count: "this or the previous frame" = the last 4
   const invFailed = new Set();          // inverse keys whose program failed (session)
-  function invProgKey(inv, B, globe, formsKey) { return `${globe ? 'invS' : 'inv'}|${inv.key}|${formsKey}|B${B}`; }
+  // (inv.srcKey: what the program's text is built from, GLChain's inverse key and the constants it bakes in)
+  function invProgKey(inv, B, globe, formsKey) { return `${globe ? 'invS' : 'inv'}|${inv.srcKey || inv.key}|${formsKey}|B${B}`; }
   // coldNonce (tests: the perf suite's cold-compile units, SPEC 13.12): every new inverse program gets a uniform the
   // compilers cannot fold, so its text is new to the machine (macOS caches compiled Metal libraries system-wide, and
   // ANGLE strips comments): its compile and first draw are cold, as on a user's first visit
@@ -133,20 +180,28 @@
   // plane uGs is shaded with the colour plane's colour of it, dcolor(G(z)), G the stages (uGs, uGt] (the forward
   // chain's chainRange, compiled in beside the walker), its footprints from the walk's dz across and down a pixel
   // (dcolorD: the screen's derivatives mean nothing inside the walk). G at z and z + dX; with uGan (G analytic) the
-  // footprint down is G'(z) dY from the one across, else G at z + dY too
+  // footprint down is G'(z) dY from the one across, else G at z + dY too (ixChain3, one chain call site). One dcolorD
+  // call site: z and its footprints themselves when G is the identity (uGs >= uGt)
   const INV_CARRY = { carry: true, pre: '', main: '' };
   // (its variant for a shape of a later plane, uShStage and the boundary draw compiled in: the chain's range evaluations the
   // test adds weigh on the programs that never draw one)
   const INV_CARRY_STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
+  // (CARRY_CAUCHY: each with the Cauchy integral compiled in, drawn only while the style is Cauchy with its residue data)
+  const INV_CARRY_CZ = Object.assign({}, INV_CARRY, { cz: true }), INV_CARRY_STAGED_CZ = Object.assign({}, INV_CARRY_STAGED, { cz: true });
+  // the carried colour's variant for st: staged or not, Cauchy or not
+  const carryExtra = (st, staged) => (carryCauchyOn(st.carry) ? (staged ? INV_CARRY_STAGED_CZ : INV_CARRY_CZ) : staged ? INV_CARRY_STAGED : INV_CARRY);
   // whether st's carried program is the staged variant: the shape's own plane when its record is known, else st.staged
   const stagedOf = (st, rec) => rec ? rec.stage > 0 : !!st.staged;
-  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') : '');
+  // (the carried variants compile the current chain in, invCarrySrc: their key names it, as a forward program's does,
+  // so a chain with the same inverse ops never draws with another chain's code)
+  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') + (extra.cz ? 'cz' : '') + ':' + cur.key : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
   }
-  function invCarryFns() {
-    return DCOLOR.replace('uniform float uDpr;', '') + `
+  // (cz: the Cauchy style's variant, CARRY_CAUCHY; without it the function has none of CAUCHY_CORE)
+  function invCarryFns(cz) {
+    if (!cz) return DCOLOR.replace('uniform float uDpr;', '') + glsl`
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 #ifdef IX_REPT
@@ -160,8 +215,33 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 #endif
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
-  if (uGs >= uGt) return dcolorD(z, dX, dY);
-  vec2 w = chainRange(z, uGs, uGt), wx = chainRange(z + dX, uGs, uGt) - w;
+  vec2 w = z, wx = dX, wy = dY;
+  if (uGs < uGt) {
+    bool an = uGan && dot(dX, dX) > 0.0;
+    vec2 wbx, wby;
+    ixChain3(z, dX, dY, uGs, uGt, an, false, w, wx, wy, wbx, wby);
+    if (an) wy = cmul(cdiv(wx, dX), dY);
+  }
+  return dcolorD(w, wx, wy);
+}
+`;
+    return DCOLOR.replace('uniform float uDpr;', '') + CAUCHY_CORE('sw', 'uCEdges') + `
+uniform int uGs; uniform int uGt; uniform bool uGan; uniform int uCT; uniform vec2 uEdgeO;
+` + CARRY_W + glsl`
+vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
+  if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
+  bool cz = uCT >= 0;
+  if (!cz && uGs >= uGt) return dcolorD(z, dX, dY);
+  vec2 w = carryW(z), wx = carryW(z + dX) - w;
+  if (cz) {
+    // the Cauchy integral at z and z + dX (the winding number of z for both), its footprint down from the one across (it is analytic on each side of the curve)
+    vec2 zr = z - uEdgeO, c0, c1;
+    int wn = cauchyWind(zr);
+    if (!cauchyShown(wn) || !cauchyVal(z, zr, wn, w, c0)) return cauchyGrey();
+    if (!cauchyVal(z + dX, zr + dX, wn, w + wx, c1)) c1 = c0;
+    vec2 cx = c1 - c0;
+    return dcolorD(c0, cx, dot(dX, dX) > 0.0 ? cmul(cdiv(cx, dX), dY) : vec2(0.0));
+  }
   return dcolorD(w, wx, uGan && dot(dX, dX) > 0.0 ? cmul(cdiv(wx, dX), dY) : chainRange(z + dY, uGs, uGt) - w);
 }
 `;
@@ -189,7 +269,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
     const L = GLChain.LIB;
-    let main = extra && extra.main ? extra.main : INV_MAIN(globe), pre = (globe ? INV_GLOBE_PRE : '') + (extra && extra.pre || '');
+    let main = extra && extra.main ? extra.main : INV_MAIN(globe), pre = (globe ? INV_GLOBE_PRE : '') + (swiftShader ? '#define IX_CHAIN3_CALLS 1\n' : '') + (extra && extra.pre || '');
     if (coldNonce && !extra) {
       const tag = `uIxNonce${coldNonce++}_${Math.floor(Math.random() * 1e9)}`;
       pre += `uniform float ${tag};\n`;
@@ -197,7 +277,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     const nrN = globe ? 0 : nrCount(info.inverse.nr);
     if (nrN) pre = nrDecl(nrN, !!(extra && extra.nrPass)) + pre;
-    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns() : '') + info.inverse.walker + main;
+    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns(!!extra.cz) : '') + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
   function finishInv(e) {
@@ -243,9 +323,11 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // compile when it is missing (never in side mode, never while forward programs of this chain still compile, those of
   // a view no pane shows aside: e.offView).
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
+  const INV_NOT_STARTED = 'not started';
   function invProgram(B, globe, start, extra, invOv) {
-    // (invOv: an inverse op list other than the chain's, GLChain.buildInverse of the chain with a step's homotopy at t
-    // standing for the step: its own program, the chain's forward data beside it)
+    // (invOv: an inverse op list other than the chain's: GLChain.buildInverse of the chain with a step's homotopy at t
+    // standing for the step, or with a plan's own options (marked rest: a parked plane's, warmed as the chain's own):
+    // its own program, the chain's forward data beside it)
     const info = invOv && cur.info ? Object.assign({}, cur.info, { inverse: invOv }) : cur.info, inv = info && info.inverse;
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
@@ -256,9 +338,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const id = invProgKey(inv, B, globe, fk);
     let e = progs.get(id);
     if (!e) {
-      if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : 'not started' };
+      if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : INV_NOT_STARTED };
       for (const q of progs.values()) if (q.key === cur.key && q.state === 'pending' && !q.inv && !q.offView) return { state: 'pending', reason: 'forward programs first' };
-      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now() };
+      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now(),
+        rest: !!(invOv && invOv.rest), chainKey: cur.key };
       progs.set(id, e);
       try {
         const [vs, fs] = invSources(info, B, globe, pack ? pack.forms : [], extra);
@@ -309,7 +392,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (c && c.inv === inv && c.plan === plan) return c.d;
     const N = Math.max(1, inv.nOps), ops = inv.ops;
     const d = { ref: new Float32Array(2 * N), N: new Int32Array(N).fill(1), RK: new Int32Array(N), AB: new Float32Array(4 * N), box: new Float32Array(4 * N),
-      stopOp: -1, stopMob: [0, 0, 0, 0], stopT: new Float32Array(8), mobOn: false, pInP: 0, sing: new Float32Array(8), singN: 0, ok: true, reason: null,
+      stopOp: -1, stopMob: [0, 0, 0, 0], stopT: new Float32Array(8), mobOn: false, pInP: 0, sing: new Float32Array(12), singN: 0, ok: true, reason: null,
       tail: prep.tail ? 1 : 0 };
     const TAU = 2 * Math.PI;
     for (let j = 0; j < plan.ops.length; j++) {
@@ -340,21 +423,24 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     if (prep.stopMob && d.stopOp >= 0) {
       const sm = prep.stopMob, T = CX.mobScaled(sm.T);
-      d.mobOn = true; d.stopMob = [sm.uPole.re, sm.uPole.im, sm.pAcc.re, sm.pAcc.im]; d.pInP = sm.pInP ? 1 : 0;
+      d.mobOn = true; d.stopMob = [sm.uPole.re, sm.uPole.im, sm.pAcc.re, sm.pAcc.im]; d.pInP = sm.pInP;
       d.stopT.set([T[0].re, T[0].im, T[1].re, T[1].im, T[2].re, T[2].im, T[3].re, T[3].im]);
     }
     // a REPT plan's forward enclosures E_r (already rounded to float32 by Inverse.prepare): the box (x0, y0, x1, y1) and
-    // (the escape bound or -1, 1 when there is no box); the whole plane as x0 > x1 with no escape bound
+    // (the escape bound or -1, 1 when there is no box, the radius bound or -1); the whole plane as x0 > x1 with no
+    // escape bound
     const nE = GLChain.reptLevels();
-    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(2 * nE);
+    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(3 * nE);
     for (let r = 0; r < nE; r++) {
       const e = prep.rept && prep.rept.E[r];
       d.repE.set(e && !e.empty ? [e.x0, e.y0, e.x1, e.y1] : [1, 0, -1, 0], 4 * r);
-      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0] : [-1, 0], 2 * r);
+      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0, e.rad > 0 ? e.rad : -1] : [-1, 0, -1], 3 * r);
     }
     const sing = (prep.sing || []).slice(0, 4);
-    sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
+    // (each point's re, im and weight w, 1 when it has none, as Inverse.keyW reads it: uSing's vec3)
+    sing.forEach((p, i) => { d.sing[3 * i] = p.re; d.sing[3 * i + 1] = p.im; d.sing[3 * i + 2] = p.w === undefined ? 1 : p.w; });
     d.singN = sing.length;
+    d.singT = prep.per ? [prep.per.re, prep.per.im] : [0, 0];
     // saturation anchors (SPEC 13.12): the anchor op's index in the program, the affine ops' (A, B), each anchor's
     // model, geometry and (p, log p); the pattern origin (p - Q, Q) depends on the cell: drawInverse
     d.ancJ = -1; d.ancAB = [1, 0, 0, 0]; d.ancLA = [0, 0]; d.anc = new Float32Array(32); d.ancP = [];
@@ -425,7 +511,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     halfOpen = null;
     fw = pw; fh = ph; vpX = 0; vpY = 0;
-    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; invFrame++;
     preActive = true;
     resetState();
     return true;
@@ -454,6 +540,61 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     return halfFbo;
+  }
+  // Kept layers: a frame's picture copied out under a slot's name and drawn back into a later frame of the same size,
+  // texel for texel (the steps view's plots under a glide's carried colour, which are the same in every frame of the
+  // glide). slot -> { tex, fbo, w, h }; a lost context forgets them
+  const layers = new Map();
+  // the frame drawn so far (its fw x fh pixels at the viewport) into slot's texture -> true; false when it cannot be kept
+  function layerKeep(slot) {
+    if (!ok || lost || preActive) return false;
+    let L = layers.get(slot);
+    if (!L || L.w !== fw || L.h !== fh) {
+      if (L) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
+      L = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w: fw, h: fh };
+      gl.activeTexture(gl.TEXTURE5);
+      gl.bindTexture(gl.TEXTURE_2D, L.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fw, fh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST);
+      for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, p, gl.CLAMP_TO_EDGE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.tex, 0);
+      layers.set(slot, L);
+    }
+    // (a multisampled drawing buffer is resolved by the blit; the scissor would clip it)
+    const sc = gl.isEnabled(gl.SCISSOR_TEST);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
+    gl.blitFramebuffer(vpX, vpY, vpX + fw, vpY + fh, 0, 0, fw, fh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (sc) gl.enable(gl.SCISSOR_TEST);
+    return true;
+  }
+  // slot's picture drawn into the frame in place of what is there (invUp at the frame's own size: each pixel its texel)
+  // -> true; false when there is none of the frame's size or the program cannot draw
+  function layerDraw(slot) {
+    const L = layers.get(slot);
+    if (!ok || lost || preActive || !L || L.w !== fw || L.h !== fh) return false;
+    const Q = program('invUp');
+    if (!Q) return false;
+    use(Q);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, L.tex);
+    u1i(Q, 'uHalf', 5);
+    u4f(Q, 'uVp', vpX, vpY, fw, fh);
+    u2f(Q, 'uHalfSz', 1, 1);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.enable(gl.BLEND);
+    return true;
+  }
+  function layerDrop(slot) {
+    const L = layers.get(slot);
+    if (L && gl && !lost) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
+    layers.delete(slot);
   }
   // K (SPEC 4.2): the front count for the early stop and admission: 1 when alpha >= 0.999, else
   // ceil(ln(1/255) / ln(1 - alpha))
@@ -573,28 +714,47 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }
+  // the program arguments drawInverse draws the state st with: the B class of its opacity, the view kind (globe), and the
+  // variant (st.carry: the carried colour's, staged for a shape of a later plane (rec, or st.staged without a record)
+  // on the plane; else st.extra)
+  function invArgs(st, rec) {
+    const globe = st.viewKind === 'globe', look = st.look || {};
+    return { B: invB(look.alphaOwn ?? look.alpha ?? 1), globe, extra: st.carry ? carryExtra(st, !globe && stagedOf(st, rec)) : st.extra };
+  }
   // the state of the program drawInverse(st) would draw with (st.staged: for a shape of a later plane), nothing drawn: 'ready' (it or a ready B class of it
   // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
   // asking begins its compile when it is missing, as drawInverse does. For st.coldOk callers: a cold ready program counts
   // as ready
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
-    const globe = st.viewKind === 'globe', look = st.look || {};
-    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry ? (!globe && stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id))) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const { B, globe, extra } = invArgs(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id)));
     const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
   }
+  // How far the inverse programs of the states sts (drawInverse's arguments, as inverseState takes them) have come:
+  // {done, total}. A state is done when its program has linked (a cold one too: its first draw is the caller's, or the
+  // frame's), or when nothing will come of it (no inverse for it, a failed compile, a side draw). start: begin the
+  // compile of a program not started (it waits while the chain's forward programs link, and is asked again by the next
+  // call)
+  function inverseWarmup(sts, opt = {}) {
+    let done = 0;
+    if (!ok || lost) return { done, total: sts.length };
+    for (const st of sts) {
+      const { B, globe, extra } = invArgs(st, null);
+      const pr = /** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv));
+      if (pr.state === 'ready' || pr.state === 'error' || (pr.state === 'none' && pr.reason !== INV_NOT_STARTED)) done++;
+    }
+    return { done, total: sts.length };
+  }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
-    const globe = st.viewKind === 'globe';
     const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
     if (!rec || !rec.ok) return 'error';
-    const look = st.look || {};
-    let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
     // globe)
-    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const args = invArgs(st, rec), { globe, extra } = args, look = st.look || {};
+    let B = args.B;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
@@ -642,7 +802,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxAB) gl.uniform4fv(P.loc.uIxAB, d.AB);
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
     if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
-    if (P.loc.uIxRepS) gl.uniform2fv(P.loc.uIxRepS, d.repS);
+    if (P.loc.uIxRepS) gl.uniform3fv(P.loc.uIxRepS, d.repS);
     u1i(P, 'uIxRepNodes', reptNodes);
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
@@ -653,23 +813,27 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uIxStopMobOn', d.mobOn ? 1 : 0); u1f(P, 'uIxPAccInP', d.pInP);
     u1i(P, 'uIxTail', rec.stage ? 0 : d.tail);
     u1i(P, 'uShStage', rec.stage);
-    // st.edge {width, alpha, color, casing {width, alpha, color}} (shapeStroke's): the boundary alone (a shape of a later
-    // plane only: the boundary draw and the grow live in the staged program), a line width device px wide at alpha in
-    // color (default black: a mask's alpha band) over an optional casing. The widths are the full ones; the uniforms hold
-    // half widths: the line reaches width / 2 to each side
+    // st.edge {width, alpha, color, casing {width, alpha, color}, tint} (shapeStroke's): the boundary alone (a shape of a
+    // later plane only: the boundary draw and the grow live in the staged program), a line width device px wide at alpha
+    // in color (default black: a mask's alpha band) over an optional casing, over the shape's fill in tint [r, g, b, a]
+    // (none without it: the steps view's layer of a later plane's region has one). The widths are the full ones; the
+    // uniforms hold half widths: the line reaches width / 2 to each side
     const staged = rec.stage > 0;
     u1i(P, 'uEdgeOnly', staged && st.edge ? 1 : 0);
     if (staged && st.edge) {
       const e = st.edge, cs = e.casing;
       u1f(P, 'uEdgeW', 0.5 * e.width); u1f(P, 'uEdgeA', e.alpha); u3(P, 'uEdgeC', e.color || [0, 0, 0]);
       u1f(P, 'uEdgeCW', cs ? 0.5 * cs.width : 0); u1f(P, 'uEdgeCA', cs ? cs.alpha : 0); u3(P, 'uEdgeCC', cs ? cs.color : [0, 0, 0]);
+      const tn = e.tint || [0, 0, 0, 0];
+      u4f(P, 'uTint', tn[0], tn[1], tn[2], tn[3]);
     }
     u1f(P, 'uStageGrow', staged ? st.grow || 0 : 0);
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);
-    if (P.loc.uSing) gl.uniform2fv(P.loc.uSing, d.sing);
+    if (P.loc.uSing) gl.uniform3fv(P.loc.uSing, d.sing);
     u1i(P, 'uSingN', d.singN);
+    u2f(P, 'uSingT', d.singT[0], d.singT[1]);
     if (P.loc.uAncJ) {
       u1i(P, 'uAncJ', d.ancJ);
       if (d.ancJ >= 0) {
@@ -707,7 +871,17 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     uploadPack();
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, invTex);
     u1i(P, 'uShOff', rec.offset);
-    gl.uniform4i(L_(P, 'uShape'), rec.kind, rec.complement ? 1 : 0, rec.nPts, rec.ptsOff);
+    // (an open region's dashed boundary, st.edge.dash [on, off] in CSS px: stroked by its polylines at rest, rec.edge, a
+    // traced curve whose vertices carry their arc at rest, dashed along that arc in device px at the view's scale, as
+    // GLR.drawLines dashes it at rest; the casing stays whole, as drawLines' does. An edge with a fill under it (st.edge.tint)
+    // keeps the region's own level, which the fill needs: a curve's level holds no point)
+    const ed = rec.stage > 0 && st.edge && st.edge.dash && !(st.edge.tint && st.edge.tint[3] > 0) && rec.edge ? rec.edge : null;
+    if (ed) gl.uniform4i(L_(P, 'uShape'), 16, 0, ed.nPts, ed.ptsOff);
+    else gl.uniform4i(L_(P, 'uShape'), rec.kind, rec.complement ? 1 : 0, rec.nPts, rec.ptsOff);
+    if (P.loc.uEdgeDash) {
+      const dd = ed && st.edge.dash, ddpr = st.dpr || 1;
+      u3(P, 'uEdgeDash', dd ? [dd[0] * ddpr, dd[1] * ddpr, (st.view ? st.view.s : 1) * ddpr] : [0, 0, 0]);
+    }
     u4f(P, 'uShA', ...rec.A); u4f(P, 'uShB', ...rec.B); u4f(P, 'uShC', ...rec.C);
     u1i(P, 'uFormSlot', rec.formSlot); u1i(P, 'uIxOne', 1);
     if (P.loc.uClipP) { u4f(P, 'uClipH', rec.clipH[0], rec.clipH[1], 0, 0); gl.uniform4fv(P.loc.uClipP, rec.clipU); }
@@ -717,9 +891,11 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (extra && extra.carry) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
+      // (the carried variant ignores uPattern: it holds no pattern code, so a pattern there needs another variant)
       u1i(P, 'uPattern', 9);
       u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
+      carryCauchy(P, st.carry);
       bindLut(P);
     }
     if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
@@ -735,6 +911,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         invGlobeSc++; invGlobeScPx += (x1 - x0) * (y1 - y0);
       }
       uM4(P, 'uMVP', st.sphere.MVP); u3(P, 'uEye', st.sphere.eye);
+      // (st.opaqueOnly: only the pixels the composite covers opaquely; the stencil the caller set marks them)
+      u1i(P, 'uOpaqueOnly', st.opaqueOnly ? 1 : 0);
       globeLight(P, st.sphere);
       const g = sphere();
       const dt = gl.isEnabled(gl.DEPTH_TEST);
@@ -800,6 +978,20 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return 'drawn';
   }
   let invDraws = 0, invHalfDraws = 0, invAltUsed = false, invGlobeSc = 0, invGlobeScPx = 0;
+  // one pixel of the inverse program e into the current target (full resolution, or half: the half target), alpha 0
+  function warmDraw(e, half) {
+    if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, halfTarget(Math.max(1, halfW), Math.max(1, halfH))); gl.viewport(0, 0, 1, 1); }
+    gl.useProgram(e.p);
+    resetState();
+    gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, 1, 1);
+    // a globe program draws the globe's vertex layout (the pipeline includes it): one triangle, uMVP still 0, so
+    // nothing is rasterised
+    if (e.name === 'invS') { const g = sphere(); gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0); }
+    else { gl.bindVertexArray(empty()); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+    gl.bindVertexArray(null);
+    gl.disable(gl.SCISSOR_TEST);
+    if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(vpX, vpY, fw, fh); }
+  }
   // ---- a REPT draw (flat): passes of at most REPT_TILE_SOLVES root solves into accumulation targets, then into the pane
   // A REPT program's walk costs up to REPEAT_NODES_MAX root solves a pixel, so one draw of a pane could run for seconds
   // and trip a GPU watchdog (a reset, a lost context). It renders into accumulation targets of the rect's size (RGBA8,
@@ -888,6 +1080,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function reptAccFree(E) {
     for (const T of [E.A, E.B]) if (T) { gl.deleteTexture(T.tex); gl.deleteFramebuffer(T.fbo); }
     for (const q of E.q || []) gl.deleteQuery(q);
+    if (E.hq) gl.deleteQuery(E.hq);
   }
   // the tiles of a w x h rect of at most px pixels each: [x, y, w, h]
   function reptTiles(w, h, px) {
@@ -1040,6 +1233,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(Q, 'uAccMode', mark ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (mark) {
+      reptMarked = sig === null ? null : E;
       if (repMarkFrame !== invFrame) { repMarkFrame = invFrame; gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); }
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       gl.colorMask(false, false, false, false);
@@ -1058,23 +1252,52 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the frame (invFrame) whose stencil holds REPT marks, and the hatch over the marked pixels: the grey no-value hatch,
   // opaque, then the marks cleared. False when its program is not ready
   let repMarkFrame = -1;
-  function reptHatchFill(dpr) {
-    const Q = ok && program('reptHatch');
-    if (!Q || repMarkFrame !== invFrame) return false;
+  // the grey no-value hatch of program Q over the frame open, opaque: where the stencil holds the marks (marked), else everywhere
+  function hatchPass(Q, dpr, marked) {
     use(Q);
     u1f(Q, 'uDpr', dpr || 1);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+    if (marked) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); }
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
-    gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
-    repMarkFrame = -1;
+  }
+  // the hatch over the whole frame open (a plane whose image is nowhere known: a refused repeat's). False when its program is
+  // not ready
+  function hatchAll(dpr) {
+    const Q = ok && program('reptHatch');
+    if (!Q) return false;
+    hatchPass(Q, dpr, false);
     return true;
   }
+  // the accumulation entry whose picture the frame's mark pass composited (a cacheable draw's), for reptHatchFill
+  let reptMarked = null;
+  // The hatch over the marked pixels, then the marks cleared. -> whether the picture's hatch covers any pixel: an occlusion
+  // query over the hatch's draw, asked once for a picture (its accumulation entry) and answered, as WebGL answers, by a later
+  // frame, which is asked for (reptKick) until it finds the entry's answer; true or false once it is known, else undefined, as for
+  // an uncacheable picture. null when the frame has no mark pass to hatch or the program is not ready
+  function reptHatchFill(dpr) {
+    const Q = ok && program('reptHatch');
+    if (!Q || repMarkFrame !== invFrame) return null;
+    const E = reptMarked;
+    reptMarked = null;
+    const q = E && E.hatched === undefined && !E.hq ? gl.createQuery() : null;
+    if (q) gl.beginQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE, q);
+    hatchPass(Q, dpr, true);
+    if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); E.hq = q; reptKick(); }
+    gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
+    repMarkFrame = -1;
+    if (E && E.hq) {
+      // (a result not there yet asks for another frame, until it is)
+      if (gl.getQueryParameter(E.hq, gl.QUERY_RESULT_AVAILABLE)) { E.hatched = !!gl.getQueryParameter(E.hq, gl.QUERY_RESULT); gl.deleteQuery(E.hq); E.hq = null; } else reptKick();
+    }
+    return E ? E.hatched : undefined;
+  }
   // the pixels the frame's stencil marks unresolved (a REPT plan's region-mask pass, drawInverse), counted by a read-back
-  // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks
-  function reptMarkCount() {
+  // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks. cc: a
+  // 2D context the frame's size (row 0 at its top), where each marked pixel is also drawn opaque black, over what it
+  // holds (the Landscape's region mask: its no-value mark, svLandMask)
+  function reptMarkCount(cc) {
     const Q = ok && program('keepA');
     if (!Q || repMarkFrame !== invFrame) return 0;
     use(Q);
@@ -1090,6 +1313,15 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.readPixels(vpX, vpY, fw, fh, gl.RGBA, gl.UNSIGNED_BYTE, px);
     let n = 0;
     for (let i = 3; i < px.length; i += 4) if (px[i] === 0) n++;
+    if (cc && n) {
+      // (the read-back's rows run bottom up: each one goes to the canvas's row fh - 1 - y)
+      const im = new ImageData(fw, fh), d = im.data;
+      for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (px[4 * (y * fw + x) + 3] === 0) d[4 * ((fh - 1 - y) * fw + x) + 3] = 255;
+      const cv = document.createElement('canvas');
+      cv.width = fw; cv.height = fh;
+      cv.getContext('2d').putImageData(im, 0, 0);
+      cc.drawImage(cv, 0, 0);
+    }
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
     repMarkFrame = -1;
@@ -1107,23 +1339,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!ok || lost) return 0;
     flushHalf();
     let nFull = 0;
-    const one = (e, half) => {
-      if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, halfTarget(Math.max(1, halfW), Math.max(1, halfH))); gl.viewport(0, 0, 1, 1); }
-      gl.useProgram(e.p);
-      resetState();
-      gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, 1, 1);
-      // a globe program draws the globe's vertex layout (the pipeline includes it): one triangle, uMVP still 0, so
-      // nothing is rasterised
-      if (e.name === 'invS') { const g = sphere(); gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0); }
-      else { gl.bindVertexArray(empty()); gl.drawArrays(gl.TRIANGLES, 0, 3); }
-      gl.bindVertexArray(null);
-      gl.disable(gl.SCISSOR_TEST);
-      if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(vpX, vpY, fw, fh); }
-    };
     for (const e of progs.values()) {
       if (!invWarmable(e) || !e.p) continue;
-      if (!e.warm) { one(e, false); e.warm = true; nFull++; }
-      if (half && e.warmHalfWanted && !e.warmHalf && warmUpsample()) { one(e, true); e.warmHalf = true; e.warmHalfWanted = false; }
+      if (!e.warm) { warmDraw(e, false); e.warm = true; nFull++; }
+      if (half && e.warmHalfWanted && !e.warmHalf && warmUpsample()) { warmDraw(e, true); e.warmHalf = true; e.warmHalfWanted = false; }
     }
     return nFull;
   }
@@ -1149,8 +1368,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return true;
   }
   // a ready inverse program waits for warmInverse (a variant drawn in its place, or half resolution refused)
-  // (only the current chain's programs: an older structure's program that was never drawn is not worth a stall)
-  const invWarmable = (e) => e.inv && (e.name === 'inv' || e.name === 'invS') && e.state === 'ready' && !sideMode && !!cur.info && !!cur.info.inverse && e.ikey === cur.info.inverse.key;
+  // (only the current chain's programs: its own, and a parked plane's own (a plan's inv marked rest, the app's invPlan);
+  // an older structure's program that was never drawn is not worth a stall)
+  const invWarmable = (e) => e.inv && (e.name === 'inv' || e.name === 'invS') && e.state === 'ready' && !sideMode && !!cur.info && !!cur.info.inverse
+    && (e.ikey === cur.info.inverse.key || (e.rest && e.chainKey === cur.key));
   // 2: a program waits for its first (full-resolution) draw; 1: only half-resolution pipelines are wanted; 0: none
   const inverseColdState = () => {
     let s = 0;
@@ -1299,7 +1520,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, layerKeep, layerDraw, layerDrop, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     // whether a REPT draw answered 'pending' since the last call: { prog } (its second pass's tiles { done, total }, or
     // null), else null; reset by it (the pane's status, glStatusNote)
@@ -1309,14 +1530,15 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : 0; }, setReptFastNodes: (n) => { reptFastNodes = n > 0 ? n : 0; },
     holdReptB: (on) => { reptHoldB = !!on; },
     reptTiles: () => { const r = Object.assign({ kept: reptAccs.size }, reptStat); for (const k of Object.keys(reptStat)) reptStat[k] = 0; return r; },
-    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, reptHatchFill, reptMarkCount, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, hatchAll, reptHatchFill, reptMarkCount, packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, inverseWarmup, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
     // the current chain's inverse program for shapes of own (undimmed) alpha alphaOwn and a view kind, with the
     // frame's formula bundle (packShapes), without starting a compile: 'ready' | 'pending' | 'error' | 'none' (no
     // program for this chain, or its compile not started). pathOf's GLR.inverseReady(...) is status === 'ready'.
-    inverseStatus(alphaOwn = 1, viewKind = 'flat') { return ok ? invProgram(invB(alphaOwn), viewKind === 'globe', false).state : 'none'; },
+    // (inv: a plan's own inverse op list, path.inv, in place of the chain's)
+    inverseStatus(alphaOwn = 1, viewKind = 'flat', inv = null) { return ok ? invProgram(invB(alphaOwn), viewKind === 'globe', false, undefined, inv).state : 'none'; },
     // the same, starting the compile when allowed (not in side mode, after the chain's forward programs landed)
     inverseRequest(alphaOwn = 1, viewKind = 'flat') { if (!ok) return 'none'; const r = invProgram(invB(alphaOwn), viewKind === 'globe', true); if (r.state === 'pending') schedulePoll(); return r.state; },
     // the compile-time buffer size and the front count K of SPEC 4.2 for an alpha
@@ -1342,16 +1564,18 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     get inverseGlobeScissors() { return { n: invGlobeSc, px: invGlobeScPx }; },
     // internals for tests: shader sources (REGION_FS byte identity, the parity page's recording program, every program's uniforms against
     // the texture units finishLink sets, SAMPLER_UNITS)
-    _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
+    _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, IX_TIE_ORDER, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
-    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
+    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES, SEAM_EPS, SEAM_RINGS, CARRY_DISCS, CARRY_DISC_IN, CARRY_FAR_N,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
+    // the steps a map applies, [lo, hi] (1-based; none when lo > hi)
+    stepsOf,
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
     // stand-in was drawn for a program of the current chain still compiling; waiting: a draw of any pane has drawn one
     // and that program has not landed yet; refining: the Landscape's refinement follows (the frame is drawn without it)
-    frameStatus() { return { error: frameErr, pending: framePending, refining: frameRefining, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
+    frameStatus() { return { error: frameErr, pending: framePending, refining: frameRefining, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow(), over: frameOver }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
     // false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
@@ -1367,7 +1591,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key, offView: !!e.offView }); return out; },
     // bareMs(map, names): ms the current chain's draws of programs names (default its area draws) for map have had
     // nothing to draw (0: they draw), and the tests' hold on its links
-    bareMs, holdLinks, chainProgs,
+    bareMs, holdLinks, chainProgs, colorProgName,
     // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
     // waits for the final picture (the quality harness's settle, onReady's redraw) still waits
     markPending() { framePending = true; },
@@ -1396,7 +1620,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // All sheets for map (GPU map spec) with window W: {K (surfaces drawn, at most 24), total, W, infinite} or null
     // when the current chain cannot draw it (no multivalued step in (a, b], a homotopy, a d/dz in (a, b] with a > 0,
     // or no chainSheetRange in the chain's GLSL)
-    // TEMP-DEBUG-HOOK
+    sheetInfo(map, W, end, uniq) { const p = ok ? sheetPlan(map, W, end, uniq) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
+    // TEST-HOOK (dropped from the published page by build.py)
     // (tests, SPEC 13.3) the points pts ([[x, y], ...]) through the current chain's mapPoint under map, read back by
     // transform feedback: a Float32Array of pairs, or null while the program compiles or without WebGL
     evalMap(map, pts) {
@@ -1430,6 +1655,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.deleteBuffer(vbo); gl.deleteBuffer(out); gl.deleteVertexArray(vao);
       return res;
     },
+    // (tests) the lines' CPU stand-ins made or refused last (cpuEntry): {n, m, ms} each
+    lineStandIns: () => cpuLines.slice(),
     // (tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
     _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
     // (walls tests) the landscape's grid and refinement read back
@@ -1442,8 +1669,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       if (kind) d.vs = () => UTIL_V + HEIGHT + LAND_TF_VS(kind);
       try { return sources(name, cur, mode || 0); } finally { d.vs = save; }
     },
-    // TEMP-DEBUG-HOOK
-    sheetInfo(map, W, end, uniq) { const p = ok ? sheetPlan(map, W, end, uniq) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
+    // TEST-HOOK
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)
     ready(key) { for (const e of progs.values()) if (e.key === key && e.state === 'pending') return false; return true; },
     onRestore: null, onLost: null, onReady: null, onReptPending: null,

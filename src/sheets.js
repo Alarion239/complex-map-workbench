@@ -5,7 +5,7 @@
 const Sheets = (host) => {
   const { DEG, PI, circleAt, circleRel, isLive } = host;
   const { C } = CX;
-  const { joukAt, linHom, logHom, powHom, sc } = NatPaths;
+  const { joukAt, linHom, logHom, powHom, powaHom, sc } = NatPaths;
   // ---------------- whole Riemann surfaces: local cuts, every sheet ----------------
   // Each multivalued piece (an n-th root, log, a complex power, a branch node of a custom formula) is evaluated with
   // a LOCAL cut opposite the cell centre zc (cut angle = arg of the piece's input at zc + 180°, so the cut never
@@ -141,6 +141,11 @@ const Sheets = (host) => {
     if (id === 'custom') { try { return pairOf(b).nodes.map((x) => ({ n: x.n, of: nodeOf(x) })); } catch (e) { return []; } }
     return [];
   }
+  // a multivalued piece's sheets in the order its digit counts them (sheetSteps' e: n sheets, 0 for infinitely many):
+  // digit d is sheet d of n, or sheet d − W of the window −W … W (W: the sheets on each side of the principal one)
+  const sheetRadix = (e, W) => (e.n > 0 ? e.n : 2 * W + 1);
+  const sheetOfDigit = (e, d, W) => (e.n > 0 ? d : d - W);
+  const sheetOffsets = (e, W) => Array.from({ length: sheetRadix(e, W) }, (_, d) => sheetOfDigit(e, d, W));
   // Funcs.sheetSteps(steps, built) -> [{k, n, node}]: the multivalued pieces of the live steps (n sheets, 0 for
   // infinitely many); node is the index of the branch node within a custom formula (0 otherwise)
   function sheetSteps(steps, built) {
@@ -155,7 +160,7 @@ const Sheets = (host) => {
   // one); cap: at most SHEET_MAX (pass Infinity for the raw product)
   function sheetCombos(steps, built, W = 2, b = steps.length, cap = SHEET_MAX, a = 0) {
     let p = 1;
-    for (const e of sheetSteps(steps, built)) if (e.k > a && e.k <= b) p *= e.n > 0 ? e.n : 2 * W + 1;
+    for (const e of sheetSteps(steps, built)) if (e.k > a && e.k <= b) p *= sheetRadix(e, W);
     return Math.min(p, cap);
   }
   // one built step on the pair [value at the cell centre, value at the point], every multivalued piece on the local cut
@@ -193,10 +198,10 @@ const Sheets = (host) => {
     for (let k = a0 + 1; k <= b; k++) {
       if (!isLive(steps, built, k)) continue;
       S[k] = stepSheets(built[k - 1]).map((e) => {
-        const r = e.n > 0 ? e.n : 2 * W + 1;
+        const r = sheetRadix(e, W);
         const d = c % r;
         c = Math.floor(c / r);
-        return e.n > 0 ? d : d - W;
+        return sheetOfDigit(e, d, W);
       });
     }
     // circle levels of the d/dz steps (every d/dz is a circle formula here)
@@ -230,7 +235,7 @@ const Sheets = (host) => {
   // its path runs on that sheet, with the local cut opposite its input at the cell centre. GPU twin: chainSheetHom.
   // How a deformation map applies step k: 0 not at all, 1 in full, 2 its path at t. Map mode 1 (step hi at t): the
   // steps (base, hi) in full, hi at t; mode 3 (all at once): (base, a] in full, (a, b] at t; both: the post (b, post]
-  // in full when post > b (homrange.js state / cpuMap). The steps of the bracket not begun are not applied.
+  // in full when post > b (homrange.ts state / cpuMap). The steps of the bracket not begun are not applied.
   function sheetMapHow(map, k) {
     const mode = map.mode || 0, base = map.base || 0, a = map.a || 0, hi = map.hi || 0, b = map.b || 0, post = map.post || 0;
     if (mode === 1) { if (k > base && k < hi) return 1; if (k === hi) return 2; }
@@ -275,7 +280,7 @@ const Sheets = (host) => {
     const ps = sheetMapPieces(steps, built, map, end);
     if (!ps) return 0;
     let p = 1;
-    for (const e of ps) p *= e.n > 0 ? e.n : 2 * W + 1;
+    for (const e of ps) p *= sheetRadix(e, W);
     return Math.min(p, cap);
   }
   // a step's path at 0 < t < 1 on the pair, its pieces on the sheets s (stepPair's order): roots and powers z^s with
@@ -297,7 +302,7 @@ const Sheets = (host) => {
     }
     if (id === 'root' || id === 'powa' || id === 'log') {
       const th = Math.atan2(c0.im, c0.re) + PI, sh = s[0] + sheetOff(c0, stepTh(bb));
-      const H = id === 'log' ? logHom(th, sh)(t) : powHom(id === 'root' ? C(1 / Math.max(2, bb.vals.n), 0) : bb.vals.alpha, th, sh)(t);
+      const H = id === 'log' ? logHom(th, sh)(t) : (id === 'root' ? powHom(C(1 / Math.max(2, bb.vals.n), 0), th, sh) : powaHom(bb.vals.alpha, th, sh))(t);
       return [H(c0), H(w0)];
     }
     const H = bb.hom ? bb.hom(t) : linHom(bb.f)(t);
@@ -343,9 +348,9 @@ const Sheets = (host) => {
       if (!how && !(k > base && k <= end)) continue;
       const b = built[k - 1];
       const s = stepSheets(b).map((e) => {
-        const r = e.n > 0 ? e.n : 2 * W + 1, d = c % r;
+        const r = sheetRadix(e, W), d = c % r;
         c = Math.floor(c / r);
-        return e.n > 0 ? d : d - W;
+        return sheetOfDigit(e, d, W);
       });
       if (!how) continue;
       if (how === 1 || t >= 1) pr = stepPair(b, pr, s);
@@ -353,7 +358,7 @@ const Sheets = (host) => {
     }
     return pr[1];
   }
-  return { SHEET_MAX, branchNode, sheetCombos, sheetCount, sheetCountOf, sheetEval, sheetHomOk, sheetMapCombos, sheetMapEval, sheetMapHow, sheetMapPieces, sheetSteps, stepSheets };
+  return { SHEET_MAX, branchNode, sheetOffsets, sheetCombos, sheetCount, sheetCountOf, sheetEval, sheetHomOk, sheetMapCombos, sheetMapEval, sheetMapHow, sheetMapPieces, sheetSteps, stepSheets };
 };
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

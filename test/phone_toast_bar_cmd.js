@@ -22,7 +22,7 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   await view(w, h, false, true);
   const ns = 'ptb' + w + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwToast === 'function' && !!window.Phone && Phone.isOn() && document.getElementById('svStrip').getBoundingClientRect().height > 0 && document.getElementById('plotL').getBoundingClientRect().height > 0` });
   // (English: a long message with one action; Russian: the step added, "Показать отдельно" and "Отменить" beside its words)
   if (lang === 'ru') await ev(`(__cmwAddStep('exp'), 1)`); else await show('Added f₃: Exponential, and a longer second part so that the message needs its second line here');

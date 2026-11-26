@@ -31,7 +31,7 @@ const stub = (name, body) => fs.writeFileSync(path.join(BIN, name), '#!/usr/bin/
 stub('sudo', 'if [ "$1" = install ]; then a=(); while [ $# -gt 0 ]; do if [ "$1" = -o ]; then shift 2; else a+=("$1"); shift; fi; done; set -- "${a[@]}"; fi; exec "$@"');
 stub('sleep', 'echo "$1" >> "$STATE/sleeps"');
 stub('timeout', 'limit=(); while [ "$1" != apt-get ]; do limit+=("$1"); shift; done; echo "${limit[*]}" >> "$STATE/limits"; LIMITED=1 exec "$@"');
-const V = '25.2.8-0ubuntu0.24.04.4', NEWER = '25.2.8-0ubuntu0.24.04.5';
+const V = '25.2.8-0ubuntu0.24.04.4', NEWER = '25.2.8-0ubuntu0.24.04.5', OLDER = '25.2.7-0ubuntu0.24.04.1';
 stub('apt-cache', `printf "mesa-vulkan-drivers:\\n  Installed: (none)\\n  Candidate: %s\\n" "\${CANDIDATE:-${V}}"`);
 stub('apt-get', [
   `candidate=\${CANDIDATE:-${V}}; newest=\${NEWEST:-$candidate}`,
@@ -71,6 +71,8 @@ stub('dpkg', [
   '  *) exit 2 ;;',
   'esac',
 ].join('\n'));
+// (dpkg-deb -f FILE Version: the version a cached file holds, after a "bad " mark; a file with none is not a package)
+stub('dpkg-deb', '[ "$1" = -f ] && [ "$3" = Version ] || exit 2; v=$(sed "s/^bad //" "$2"); case $v in [0-9]*) echo "$v" ;; *) echo "dpkg-deb: error: \'$2\' is not a Debian format archive" >&2; exit 2 ;; esac');
 stub('dpkg-query', '[ -f "$STATE/version" ] || { echo "dpkg-query: no packages found matching mesa-vulkan-drivers" >&2; exit 1; }; cat "$STATE/version"');
 
 // a step's outputs from the lines NAME=VALUE it wrote
@@ -106,7 +108,7 @@ const FILES = ['libllvm20_20.1.2_amd64.deb', 'mesa-vulkan-drivers_25.2.8_amd64.d
 const INSTALL = `dpkg -i ${FILES.join(' ')}`;
 const GET = 'download mesa-vulkan-drivers', PINNED = 'fallback download mesa-vulkan-drivers=25.2.8-0ubuntu0.24.04.4';
 const MIRRORS = "Ubuntu's mirrors and mirrors.edge.kernel.org/ubuntu";
-const NO_CACHE = ', and the Actions cache had no copy for this image (ubuntu24 20261101.360).';
+const NO_CACHE = ', and the Actions cache had no copy for this release (ubuntu24).';
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // the seconds a run can take at most: the time limit of each apt call it made, the 5 s kill grace (timeout -k 5) of each
 // call that ended in 137 (SIGKILL), and its waits
@@ -139,9 +141,13 @@ const evalIf = (expr, steps) => {
 
 // the cache key
 const key = run({}, { args: ['--key'] });
-ok('--key: the step outputs key, the image (ImageOS, ImageVersion) and the package\'s version in its lists, and version, that version', key.status === 0 && same(key.outputs, { key: `lavapipe-ubuntu24-20261101.360-${V}`, version: V }) && key.stdout.trim().split('\n').length === 2, key.stdout);
+ok('--key: the step outputs key, the Ubuntu release (ImageOS) and the package\'s version in its lists; prefix, the key up to the version (the restore-keys); and version, that version', key.status === 0 && same(key.outputs, { key: `lavapipe-ubuntu24-${V}`, prefix: 'lavapipe-ubuntu24-', version: V }) && key.stdout.trim().split('\n').length === 3, key.stdout);
+const nextImage = run({ ImageVersion: '20261116.88.1' }, { args: ['--key'] });
+ok('--key: a new image of the same release with the same version has the same key (its cache is not empty)', same(nextImage.outputs, key.outputs), nextImage.stdout);
+const nextRelease = run({ ImageOS: 'ubuntu26' }, { args: ['--key'] });
+ok('--key: another release has another key and prefix (its files are never restored for this one)', nextRelease.outputs.key === `lavapipe-ubuntu26-${V}` && nextRelease.outputs.prefix === 'lavapipe-ubuntu26-', nextRelease.stdout);
 const odd = run({ CANDIDATE: '1:2,3' }, { args: ['--key'] });
-ok('--key: no comma in the key (a cache key may not hold one), the version as it is', same(odd.outputs, { key: 'lavapipe-ubuntu24-20261101.360-1_2_3', version: '1:2,3' }), odd.stdout);
+ok('--key: no comma in the key (a cache key may not hold one), the version as it is', same(odd.outputs, { key: 'lavapipe-ubuntu24-1_2_3', prefix: 'lavapipe-ubuntu24-', version: '1:2,3' }), odd.stdout);
 
 // the install
 const image = run({}, { installed: true });
@@ -151,8 +157,8 @@ ok('mirrors up: one download with the image\'s lists (no refresh, no wait), inst
 ok('mirrors up: the cache folder then holds exactly the downloaded files', same(mirror.debs, FILES), mirror.debs);
 ok('each part\'s time goes to the log', /attempt 1: download of mesa-vulkan-drivers from Ubuntu's mirrors: ok, \d+\.\d s/.test(mirror.stdout) && /install of the downloaded files: ok, \d+\.\d s/.test(mirror.stdout) && /Mesa step: \d+\.\d s/.test(mirror.stdout), mirror.stdout);
 ok('the end names the version, the source and the ICD file', /mesa-vulkan-drivers 25\.2\.8-0ubuntu0\.24\.04\.4 \(source: mirror\); lavapipe's ICD: \S+lvp_icd\.json/.test(mirror.stdout), mirror.stdout);
-const stale = run({}, { cached: { 'mesa-vulkan-drivers_25.2.7_amd64.deb': '' } });
-ok('mirrors up: older cached files are replaced by the downloaded ones', stale.status === 0 && same(stale.debs, FILES), stale.debs);
+const stale = run({}, { cached: { 'mesa-vulkan-drivers_25.2.7_amd64.deb': OLDER } });
+ok('mirrors up, an older version cached (the restore\'s prefix match): the key\'s version is downloaded and installed, and replaces the cached files', stale.status === 0 && same(stale.outputs, { source: 'mirror', version: V }) && same(stale.log, [GET, INSTALL]) && same(stale.debs, FILES), stale);
 const fromCache = run({ NET: 'down' }, { cached: { 'mesa-vulkan-drivers_25.2.8_amd64.deb': V } });
 ok('mirrors down, cache restored: the cached files install at once (no fallback, no refresh, no wait), source=cache', fromCache.status === 0 && fromCache.outputs.source === 'cache' && same(fromCache.log, [GET, 'dpkg -i mesa-vulkan-drivers_25.2.8_amd64.deb']) && !fromCache.sleeps.length, fromCache);
 
@@ -193,8 +199,16 @@ ok('mirrors down, no cache: the fallback, then 2 downloads after a refresh, wait
 ok('mirrors down, no cache: the step fails with the cause, not later with "no WebGL2"', down.outputs.source === '' && down.stdout.includes(`${ERROR}mesa-vulkan-drivers is not installed: apt could not download it in 4 attempts from ${MIRRORS}: of the 7 apt calls, 4 ended with an error (apt's errors above); 3, refreshes of the lists, ended without an error (apt exits 0 even when it could not fetch; see its warnings above)${NO_CACHE}`), down.stdout);
 ok('apt does not retry by itself (the attempts do; its retries of a file the mirrors cannot serve flood the log)', down.args.length === 7 && down.args.every((a) => a.includes('-o Acquire::Retries=0')), down.args);
 ok('mirrors down: apt\'s own error stays in the log', down.stdout.includes("Temporary failure resolving 'azure.archive.ubuntu.com'"), down.stdout);
-const badCache = run({ NET_THEN: 'down' }, { cached: { 'mesa-vulkan-drivers_25.2.8_amd64.deb': 'bad' } });
+const badCache = run({ NET_THEN: 'down' }, { cached: { 'mesa-vulkan-drivers_25.2.8_amd64.deb': `bad ${V}` } });
 ok('mirrors down, cached files that do not install: the fallback and the retries, then the cause names both', badCache.status === 1 && badCache.log.filter((l) => l.includes('download')).length === 4 && badCache.stdout.includes(`in 4 attempts from ${MIRRORS}: of the 7 apt calls, 4 ended with an error (apt's errors above); 3, refreshes of the lists, ended without an error (apt exits 0 even when it could not fetch; see its warnings above), and the cached files did not install`), badCache.stdout);
+// an older version cached (the restore matched the release prefix alone): installed last, after the fallback and the retries
+const older = run({ NET_THEN: 'down' }, { cached: { 'mesa-vulkan-drivers_25.2.7_amd64.deb': OLDER } });
+ok('mirrors down, an older version cached: the fallback and both retries first, then the cached files, source=cache and their version', older.status === 0 && same(older.outputs, { source: 'cache', version: OLDER }) && same(older.log, [GET, 'fallback update', PINNED, 'update', GET, 'update', GET, 'dpkg -i mesa-vulkan-drivers_25.2.7_amd64.deb']) && same(older.sleeps, [10, 20]), older);
+ok('an older version cached: the log names its version and the key\'s', older.stdout.includes(`the cache holds ${OLDER} of mesa-vulkan-drivers for this release, not ${V}`), older.stdout);
+const olderBad = run({ NET_THEN: 'down' }, { cached: { 'mesa-vulkan-drivers_25.2.7_amd64.deb': `bad ${OLDER}` } });
+ok('mirrors down, an older version cached that does not install (dpkg checks it): the step fails and the cause names its version', olderBad.status === 1 && olderBad.log[olderBad.log.length - 1] === 'dpkg -i mesa-vulkan-drivers_25.2.7_amd64.deb' && olderBad.stdout.includes(`and the cached files (${OLDER}) did not install`), olderBad.stdout);
+const olderFallback = run({ NET: 'hang' }, { cached: { 'mesa-vulkan-drivers_25.2.7_amd64.deb': OLDER } });
+ok('Ubuntu\'s mirrors hang, an older version cached: the fallback mirror gives the key\'s version first, and the cached files are not installed', olderFallback.status === 0 && same(olderFallback.outputs, { source: 'fallback', version: V }) && !olderFallback.log.includes('dpkg -i mesa-vulkan-drivers_25.2.7_amd64.deb'), olderFallback);
 const back = run({ NET: 'down down down' });
 ok('Ubuntu\'s mirrors back after the fallback failed: installed after one wait and a refresh, source=mirror', back.status === 0 && same(back.outputs, { source: 'mirror', version: V }) && same(back.sleeps, [10]) && same(back.log, [GET, 'fallback update', PINNED, 'update', GET, INSTALL]), back);
 const update = run({ NET: 'hang', NEWEST: NEWER });
@@ -218,6 +232,10 @@ ok('the browser job has llvmpipe emit AVX code only (GALLIUM_OVERRIDE_CPU_CAPS: 
 // every job that draws with lavapipe (CMW_ANGLE: vulkan, ci/lavapipe.sh) has it
 const lvpJobs = Y.split(/^ {2}(?=[\w-]+:\n)/m).filter((b) => /CMW_ANGLE: vulkan|ci\/lavapipe\.sh/.test(b));
 ok('every job that installs or draws with lavapipe sets GALLIUM_OVERRIDE_CPU_CAPS: avx', lvpJobs.length >= 1 && lvpJobs.every((b) => /^ {6}GALLIUM_OVERRIDE_CPU_CAPS: avx$/m.test(b)), lvpJobs.map((b) => b.split(':')[0]));
+// (#1835: the smoke shard runs the glsl page's chain that crashed Mesa 25's lavapipe on this image's Mesa 26, and the step fails when fewer than
+// its values are compared: on a lavapipe that does not run the chain the page passes with none)
+const sqrtStep = /name: GLSL page, the chain that crashed Mesa 25's lavapipe\n\s+if: matrix\.shard == 'smoke'\n\s+run: (.+)\n/.exec(job);
+ok('the browser job runs the sheets sqrt d d chain in the smoke shard and fails on fewer than 7172 values compared', !!sqrtStep && /ci\/glsl\.js --only glsl --filter 'sheets sqrt d d' --expect-compared 7172$/.test(sqrtStep[1]), sqrtStep && sqrtStep[1]);
 const at = (re) => job.search(re);
 const order = [/name: Mesa cache key\n\s+id: mesa-key\n\s+run: ci\/lavapipe\.sh --key >> "\$GITHUB_OUTPUT"\n/, /name: Mesa cache \(restore\)\n\s+id: mesa-cache\n\s+uses: actions\/cache\/restore@v\d+\n/, /name: Mesa's Vulkan drivers \(lavapipe\)\n\s+id: mesa\n\s+run: ci\/lavapipe\.sh "\$RUNNER_TEMP\/cmw-lavapipe-debs"/, /name: Mesa cache \(save\)\n\s+if: .+\n\s+uses: actions\/cache\/save@v\d+\n/, /run: node ci\/browser\.js/].map(at);
 ok('the steps: key, restore, install, save, then the suites', order.every((i, k) => i >= 0 && (k === 0 || i > order[k - 1])), order);
@@ -226,9 +244,11 @@ const saveIf = (/name: Mesa cache \(save\)\n\s+if: (.+)\n/.exec(job) || [])[1] |
 const saves = (r, hit = false) => Boolean(saveIf) && evalIf(saveIf, { 'mesa-key': key.outputs, 'mesa-cache': { 'cache-hit': String(hit) }, mesa: r.outputs });
 ok('save: after an install of the key\'s version from a mirror, Ubuntu\'s or the fallback, on a miss', saves(mirror) && saves(outage) && saves(back), saveIf);
 ok('no save: after a hit, from the cache or the image, or with nothing installed', saves(mirror) && !saves(mirror, true) && !saves(fromCache, true) && !saves(image) && !saves(hang), saveIf);
+ok('no save: after an older version from the cache (the restore matched the prefix alone, so no hit)', saves(mirror) && !saves(older, false), { saveIf, outputs: older.outputs });
 ok('no save: after a Mesa update, of the newer version under the key that names the image\'s (the cache holds only the key\'s version)', saves(mirror) && !saves(update), { saveIf, outputs: update.outputs, key: key.outputs });
 const blocks = job.split('- name: ').filter((b) => b.startsWith('Mesa cache ('));
-ok('restore and save use the same folder and the key step\'s key (no other key restores)', blocks.length === 2 && blocks.every((b) => b.includes('path: ${{ runner.temp }}/cmw-lavapipe-debs') && b.includes('key: ${{ steps.mesa-key.outputs.key }}') && !b.includes('restore-keys')), blocks);
+ok('restore and save use the same folder and the key step\'s key', blocks.length === 2 && blocks.every((b) => b.includes('path: ${{ runner.temp }}/cmw-lavapipe-debs') && b.includes('key: ${{ steps.mesa-key.outputs.key }}')), blocks);
+ok('the restore falls back to the key step\'s prefix (the release\'s newest entry), and only the restore: the save writes the exact key', blocks.length === 2 && /restore-keys: \$\{\{ steps\.mesa-key\.outputs\.prefix \}\}\n/.test(blocks[0]) && !blocks[1].includes('restore-keys'), blocks);
 
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(`t_lavapipe: ${pass} passed, ${fail} failed`);

@@ -4,8 +4,9 @@
 //      scrolls sideways, the top bar fits, and no element is clipped in Russian that is not clipped in English.
 //   2. No English left in the first screen and the header's menus at every width (test/i18n_scan.js). The full walk of
 //      every view, dialog and tour step is test/i18n_walk_cmd.js.
-//   3. The globe: in the bar at 768 px and up (v15.1, frame f6; before, folded into More below 1024); its menu Auto (resolved), English, Русский,
-//      Italiano (bd48ab3 added Italian); the same rows in the palette ("язык", "language"). The secondary buttons are in the bar from 768 too.
+//   3. Language: no globe in the bar; a four-way switch (Auto, English, Русский, Italiano) in ⚙ Settings and in the
+//      phone's More sheet; the same rows in the palette ("язык", "language"). From 768 px the bar has no More button
+//      and holds the secondary buttons, as at 1024 (frame f6, notes/ui-redesign-2/README.md).
 //   4. Switching round-trips: work, view, undo history and open panels come back, in both directions, through the UI.
 //   5. ЙЦУКЕН shortcuts through e.code; typing in a text field is never taken.
 //   6. Detection: a ru-RU browser gets Russian; ?ns= pages stay English; uk-UA stays English.
@@ -15,6 +16,7 @@ const U = `http://localhost:${PORT}/test.html`;
 const SCAN = fs.readFileSync(path.join(DIR, '..', 'i18n_scan.js'), 'utf8');
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail === undefined ? null : detail]);
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails: { push: (f) => check(f.name, false, f.got) } });
 const until = (expr, max = 5000) => settled({ max, only: true, until: expr });
 const PAL = `!!document.querySelector('#popHost .palette, .pop.palette')`;
 const ITEMS = `!!document.querySelector('#popHost .pal-item')`;
@@ -40,13 +42,17 @@ const open = async (lang, w, dark, extra = '') => {
 };
 logs();
 // ---- 1, 2: overflow and the first screen ----
+// (an element no one sees is never clipped for a reader: a box of 1 px or less each way, or one a clip-path of inset(50%)
+// or a clip of rect(0 0 0 0) hides, as the visually hidden live regions are styled (.sr-only); read from the computed style,
+// not the element's name, so the next live region is skipped too)
 const CLIP = `(() => {
   const out = [], W = innerWidth;
+  const unseen = (cs, r) => (r.width <= 1 && r.height <= 1) || /^inset\\(\\s*50%/.test(cs.clipPath) || /^rect\\(0(px)?,?\\s*0(px)?,?\\s*0(px)?,?\\s*0(px)?\\)$/.test(cs.clip);
   const name = (e) => (e.id ? '#' + e.id : (e.closest('[id]') ? '#' + e.closest('[id]').id + ' ' : '') + e.tagName.toLowerCase() + '.' + [...e.classList].slice(0, 2).join('.'));
   for (const e of document.querySelectorAll('body *')) {
     if (!e.offsetParent && getComputedStyle(e).position !== 'fixed') continue;
     const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none') continue;
-    const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue;
+    const r = e.getBoundingClientRect(); if (!r.width || !r.height || unseen(cs, r)) continue;
     if (e.closest('svg, mjx-container, canvas, .pane, .scroll, [data-scroll]')) continue;
     const text = [...e.childNodes].some((c) => c.nodeType === 3 && c.data.trim());
     if (text && (cs.overflow === 'hidden' || cs.textOverflow === 'ellipsis' || cs.overflowX === 'hidden') && e.scrollWidth > e.clientWidth + 1) out.push('clip ' + name(e));
@@ -55,6 +61,24 @@ const CLIP = `(() => {
   const top = document.querySelector('.top');
   return { page: document.documentElement.scrollWidth > W + 0.5, bar: top ? top.scrollWidth > top.clientWidth + 0.5 : false, els: [...new Set(out)] };
 })()`;
+// (the check itself, on the English page at 1440: a visually hidden live region with text, styled as .sr-only is but with no
+// class or id the check knows, is not reported; a visible element that cuts its text is)
+{
+  await open('en', 1440, false);
+  const got = await ev(`(() => {
+    const hid = document.createElement('div'), cut = document.createElement('div');
+    hid.id = 'xClipHidden'; hid.setAttribute('aria-live', 'polite'); hid.textContent = 'a long announcement that does not fit in one pixel';
+    hid.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0';
+    cut.id = 'xClipShown'; cut.textContent = 'a long label that does not fit in forty pixels';
+    cut.style.cssText = 'position:fixed;left:20px;top:200px;width:40px;overflow:hidden;white-space:nowrap';
+    document.body.append(hid, cut);
+    const r = ${CLIP};
+    hid.remove(); cut.remove();
+    return r.els;
+  })()`);
+  check('the clip check: a visually hidden live region with text is not reported', !got.includes('clip #xClipHidden'), got);
+  check('the clip check: a visible element that cuts its text is', got.includes('clip #xClipShown'), got);
+}
 const WIDTHS = [360, 390, 768, 900, 1024, 1440];
 for (const dark of [false, true]) {
   for (const w of WIDTHS) {
@@ -77,8 +101,8 @@ for (const dark of [false, true]) {
     }
   }
 }
-// ---- 1b: Italian against English (issue #61: wave 1's fitting rules are Russian-only; Italian gets the overflow checks too,
-// from a phone to a wide desktop; its text is longer than English, shorter than Russian in most labels) ----
+// ---- 1b: Italian against English (#61's fitting rules are Russian-only; Italian gets the overflow checks too, from a
+// phone to a wide desktop; its text is longer than English, shorter than Russian in most labels) ----
 for (const dark of [false, true]) {
   for (const w of [...WIDTHS, 1600, 1920]) {
     await open('en', w, dark); const en = await ev(CLIP);
@@ -90,8 +114,8 @@ for (const dark of [false, true]) {
   }
 }
 // ---- 3: Language in Settings, the tablet bar, the palette rows ----
-// ([v17 D5, the owner's decision of 2026-10-28, notes/i18n/USER-DECISIONS.md] the header's globe went: Language is a
-// four-way switch in ⚙ Settings, and in the phone's More sheet)
+// (the header has no globe: Language is a four-way switch in ⚙ Settings, and in the phone's More sheet; the owner's
+// decision of 2026-10-28, notes/i18n/USER-DECISIONS.md)
 const setLang = async (v) => { await ev(`document.getElementById('settingsBtn').click(), 1`); await settle(400); return ev(`(() => { const b = document.querySelector('.set-pop #setLang [data-v="${v}"]'); if (!b) return false; b.click(); return true; })()`); };
 await open('ru', 1440, false);
 check('no globe in the bar: Language is in Settings', await ev(`!document.getElementById('langBtn') && !!document.getElementById('settingsBtn').offsetParent`));
@@ -107,8 +131,8 @@ for (const q of ['язык', 'language']) {
   check(`palette "${q}": the four Language rows`, rows.length === 4, rows);
   await key('Escape'); await until(`!document.querySelector('#popHost .palette, .pop.palette')`);
 }
-// (v15.1, verify-6: from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the secondary buttons are
-// in the bar, inside the window, and Settings, with Language, opens there)
+// (from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the secondary buttons are in the bar,
+// inside the window, and Settings, with Language, opens there)
 for (const w of [768, 900, 1023]) {
   await open('ru', w, false);
   const st = await ev(`(() => { const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
@@ -159,7 +183,7 @@ for (const w of [1024, 1440]) {
   await sleep(4500); await settle(1500);
   const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.n === before2.n && after2.sv === before2.sv);
-  // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
+  // the phone (More is a sheet, with Language as a four-way switch in it): More → Русский
   await view(390, 844, false, true); await go(`${U}?ns=${ns}`); await loaded(3500);
   const b3 = await snap();
   await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
@@ -199,7 +223,7 @@ for (const w of [1024, 1440]) {
   // (a key that plays has no quiet wait of its own: the page is quiet only once the play has ended, 900 ms a plane at the
   // normal speed and the arrival's frames after it, which can take more than 3 s on a software renderer; the play's start
   // is waited for here, and its end after each check)
-  const playsTo = async (k, code, n) => { await press(k, code, 0, false); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
+  const playsTo = async (k, code, n) => { await kit.prepared('true', 60000); await press(k, code, 0, false); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
   check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playsTo('ь', 'KeyM', 1));
   await settled({ max: 20000, until: `!__cmwSteps().moving` });
   check('ЙЦУКЕН Л (KeyK) → the thread plays', await playsTo('л', 'KeyK', 2));
@@ -252,21 +276,26 @@ for (const w of [1024, 1440]) {
   const e = await ev(`(() => { try { Expr.parse('0,5'); return null; } catch (e) { return e.message; } })()`);
   check('en: "0,5" keeps its English message', e === "Unexpected ','", e);
 }
-// ---- 8 (v16.1 user-5): the logarithm's example and its Landscape title say which sheets, in Russian ----
+// ---- 8: the logarithm's example and its Landscape title say which sheets, in Russian ----
 {
   await open('ru', 1440, false);
   // (the example picked from the Examples list by its Russian name)
   await clickSel('#examplesBtn'); await until(`!!document.querySelector('#popHost .examples .ex-name')`);
   const ex = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .examples .ex-name')].find((e) => /Листы логарифма/.test(e.textContent)); if (!b) return [...document.querySelectorAll('#popHost .examples .ex-name')].map((e) => e.textContent).join(' | '); b.closest('button, [role="menuitem"], .mi').click(); return true; })()`);
   check('ru: the example is named «Листы логарифма» (not «Все листы»)', ex === true, ex);
-  // (the plane head of the thread's first plane and of the plane after the logarithm both name the window of sheets)
+  // (the plane head of the thread's first plane names the window of sheets its Landscape draws; the plane after the
+  // logarithm, a carry from z, draws one surface, and its head names none: the title says what the pane draws, #1741)
   const head = `(document.querySelector('#svHead') || document.querySelector('.prole') || {}).textContent || ''`;
   const sheetsHead = `/, листы k = −2…2/.test(${head}) && !/все листы/.test(${head})`;
   await until(sheetsHead, 15000);
   check('ru: the steps plane head names the window of sheets («листы k = −2…2»), not «все листы»', await ev(sheetsHead), await ev(head));
   await ev(`__cmwSteps({ go: 1, now: true }), 1`);
   await until(`/w1/.test(${head}) || /w₁/.test(${head})`, 5000);
-  check('ru: the plane after the logarithm names it too', await ev(sheetsHead), await ev(head));
+  // (the head changes as the step is taken; the Landscape's draw for plane 1 follows a frame or more later: until then
+  // __cmwLandSheets().drawn is still plane 0's window of sheets, K = 5)
+  await until('((__cmwLandSheets().drawn || {}).K || 1) === 1', 10000);
+  const one = await ev(`({ K: (__cmwLandSheets().drawn || {}).K || 1, head: ${head} })`);
+  check('ru: the plane after the logarithm draws one surface, and its head names no sheets (neither «листы» nor «все листы»)', one.K === 1 && !/листы/.test(one.head), one);
 }
 const errs = logs().filter((l) => /error|exception/i.test(JSON.stringify(l)) && !/favicon|404|fonts\.g/.test(JSON.stringify(l)));
 check('no console errors', errs.length === 0, errs.slice(0, 5));
