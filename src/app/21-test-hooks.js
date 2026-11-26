@@ -401,6 +401,19 @@
   // whether the plane point (x, y) lies in the strip of a far ring's copies (ring [x, y, ...] with dup [n.x, n.y, half-width],
   // LAND_CARRY_VS uDup); false for a ring without one
   const landInStrip = (ring, x, y) => !!ring.dup && Math.abs((x - ring[0]) * ring.dup[0] + (y - ring[1]) * ring.dup[1]) < ring.dup[2];
+  // The jump bits of an n x n carried grid's vertices with images P (x at 2v, y at 2v + 1; NaN where not finite), as
+  // LAND_CARRY_NRM_VS sets them: bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for v -> v + (1, 1), when
+  // its step on the plane is over w and over J times the larger of the steps of the edges before it and after it along
+  // the same line (of those that are finite; none: no jump); all 0 with J 0
+  const landJumpBits = (n, P, J, w) => {
+    const B = new Uint8Array(n * n);
+    if (!(J > 0)) return B;
+    const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
+    const step = (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
+    const jump = (i, j, di, dj) => { const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj)); return m >= 0 && s > w && s > J * m; };
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) B[j * n + i] = (jump(i, j, 1, 0) ? 1 : 0) | (jump(i, j, 0, 1) ? 2 : 0) | (jump(i, j, 1, 1) ? 4 : 0);
+    return B;
+  };
   // The triangles the last carried frame's draw keeps (LAND_CARRY_VS), on the CPU, grid by grid: the box ('box', cells x
   // cells vertices over src, less the triangles whose corners all lie in one seamed patch's disc, which that patch draws),
   // then as patches says (true: all; 'poles': no far ring; false: none) the pole patches ('pole' k) and the far rings
@@ -408,7 +421,8 @@
   // at svPatchZ, then the patches more ('more' k, [x, y, r0, r1], the same parametrisation, on the CPU only). A triangle is
   // kept when its corners' images under the carry's map F are finite and its edges are at most c.lim long; with step (the
   // heights' step limit, LAND_CARRY_VS's uStep: 0.3 H for Re F and Im F) and hgt (a plane point's drawn height), also when
-  // its corners' heights are finite and span at most step. visit(g, a, d, e) for each, with its corners' vertices a, d, e
+  // its corners' heights are finite and span at most step; and, under the frame's jump rule (c.jump {J, w}), when none of
+  // its edges crosses a jump (landJumpBits). visit(g, a, d, e) for each, with its corners' vertices a, d, e
   // (vertex v at grid place (v % n, floor(v / n))) and g {name, n, place, Z, P, Hv}: place (i, j) -> [x, y], fractional
   // places too; Z and P, the vertices' points and images (x at 2v, y at 2v + 1); Hv, their heights with hgt, or null
   const landKeptTris = (c, F, visit, { patches = /** @type {boolean | string} */ (true), more = [], step = Infinity, hgt = null } = {}) => {
@@ -421,8 +435,9 @@
         if (CX.isFin(w)) { P[2 * v] = w.re; P[2 * v + 1] = w.im; } else P[2 * v] = P[2 * v + 1] = NaN;
         if (Hv) Hv[v] = hgt(zc);
       }
-      const g = { name, n, place, Z, P, Hv };
-      const keep = (a, d, e) => {
+      const g = { name, n, place, Z, P, Hv }, B = landJumpBits(n, P, c.jump ? c.jump.J : 0, c.jump ? c.jump.w : Infinity);
+      const keep = (a, d, e, jumps) => {
+        if (jumps) return;
         const o = [2 * a, 2 * d, 2 * e];
         if (discs.some(([x, y, r]) => o.every((k) => Math.hypot(Z[k] - x, Z[k + 1] - y) < r))) return;
         if (ring && o.every((k) => landInStrip(ring, Z[k], Z[k + 1]))) return;
@@ -433,8 +448,8 @@
       };
       for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
         const v = j * n + i;
-        keep(v, v + 1, v + n + 1);
-        keep(v, v + n + 1, v + n);
+        keep(v, v + 1, v + n + 1, (B[v] & 5) | (B[v + 1] & 2));
+        keep(v, v + n + 1, v + n, (B[v] & 6) | (B[v + n] & 1));
       }
     };
     const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
@@ -571,6 +586,62 @@
       if (e > r.worst) { r.worst = e; r.at = [...(atW || [wx, wy]), ...zc].map((v) => +v.toFixed(3)); }
     }, { step, hgt });
     for (const r of Object.values(out)) r.worst = +r.worst.toFixed(1);
+    return out;
+  };
+  // The jump rule of the last carried Landscape frame's grids (landJumpBits, LAND_CARRY_NRM_VS) against the carry's map, on the
+  // CPU. An edge's ratio is its step on the plane over the larger of its neighbours' along the same line. The box's edges
+  // within a seamed patch's disc, which that patch draws, are not read. An edge over the
+  // rule's floor c.jump.w with a ratio over RATIO_SURE (or no finite neighbour) is put to an oracle: the map sampled at
+  // ORACLE_K points along the edge in plane s, then the widest step between neighbours halved ORACLE_HALVE times; the
+  // edge crosses a jump of the map when that step is still over the floor (a continuous map's steps shrink to nothing).
+  // An edge with a smaller ratio is taken as continuous. Per grid name: {edges: those over the floor, jumps: of them the
+  // oracle's, flagged: those the rule flags, missed: jumps it does not flag, extra: flags on continuous edges, maxCont:
+  // the largest ratio of a continuous edge, minJump: the smallest of a jump, across: the kept triangles (landKeptTris,
+  // with the rule) with an edge across a jump}, or null with no carried frame. g: the grids read (all by default)
+  window.__cmwLandJumps = (g = null) => {
+    const c = render3D.carried;
+    if (!c || !c.map || c.sheets || !c.jump) return null;
+    const F = cpuMap(c.map), w = c.jump.w, out = {}, RATIO_SURE = 1.5, ORACLE_K = 16, ORACLE_HALVE = 24;
+    const discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    const at = (x0, y0, x1, y1, t) => F(C(x0 + t * (x1 - x0), y0 + t * (y1 - y0)));
+    const jumpy = (Z, a, b) => {
+      const [x0, y0, x1, y1] = [Z[2 * a], Z[2 * a + 1], Z[2 * b], Z[2 * b + 1]], d = (p, q) => (CX.isFin(p) && CX.isFin(q) ? CX.abs(CX.sub(p, q)) : Infinity);
+      let lo = 0, hi = 1 / ORACLE_K, best = -1;
+      for (let k = 0; k < ORACLE_K; k++) { const e = d(at(x0, y0, x1, y1, k / ORACLE_K), at(x0, y0, x1, y1, (k + 1) / ORACLE_K)); if (e > best) { best = e; lo = k / ORACLE_K; hi = (k + 1) / ORACLE_K; } }
+      for (let k = 0; k < ORACLE_HALVE; k++) {
+        const m = (lo + hi) / 2, fl = at(x0, y0, x1, y1, lo), fm = at(x0, y0, x1, y1, m), fh = at(x0, y0, x1, y1, hi);
+        if (d(fl, fm) >= d(fm, fh)) hi = m; else lo = m;
+      }
+      return d(at(x0, y0, x1, y1, lo), at(x0, y0, x1, y1, hi)) > w;
+    };
+    const memo = new Map();
+    landKeptTris(c, F, ({ name, n, Z, P }, ...vs) => {
+      if (g && !g.includes(name)) return;
+      let r = out[name];
+      if (!r) {
+        r = out[name] = { edges: 0, jumps: 0, flagged: 0, missed: 0, extra: 0, maxCont: 0, minJump: Infinity, across: 0 };
+        const B = landJumpBits(n, P, c.jump.J, w), J = new Set();
+        const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
+        const step = (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
+        for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) for (const [di, dj, bit] of [[1, 0, 1], [0, 1, 2], [1, 1, 4]]) {
+          const s = step(i, j, di, dj);
+          if (!(s > w)) continue;
+          const a0 = j * n + i, b0 = (j + dj) * n + i + di;
+          if (name === 'box' && discs.some(([x, y, rr]) => [a0, b0].every((v) => Math.hypot(Z[2 * v] - x, Z[2 * v + 1] - y) < rr))) continue;
+          const m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj)), ratio = m > 0 ? s / m : Infinity;
+          const a = j * n + i, b = (j + dj) * n + i + di, jmp = ratio > RATIO_SURE ? jumpy(Z, a, b) : false, fl = !!(B[a] & bit);
+          r.edges++;
+          if (jmp) { r.jumps++; J.add(a * 8 + bit); if (Number.isFinite(ratio)) r.minJump = Math.min(r.minJump, ratio); if (!fl) r.missed++; } else { if (Number.isFinite(ratio)) r.maxCont = Math.max(r.maxCont, ratio); if (fl) r.extra++; }
+          if (fl) r.flagged++;
+        }
+        memo.set(name, J);
+      }
+      // (the triangle's edges as (vertex, bit): v -> v + (1, 0) bit 1, v -> v + (0, 1) bit 2, v -> v + (1, 1) bit 4)
+      const J = memo.get(name), [v0, v1, v2] = vs, hf0 = v1 === v0 + 1;
+      const es = hf0 ? [v0 * 8 + 1, v1 * 8 + 2, v0 * 8 + 4] : [v0 * 8 + 4, v2 * 8 + 1, v0 * 8 + 2];
+      if (es.some((e) => J.has(e))) r.across++;
+    }, {});
+    for (const r of Object.values(out)) { r.maxCont = +r.maxCont.toFixed(2); r.minJump = Number.isFinite(r.minJump) ? +r.minJump.toFixed(2) : null; }
     return out;
   };
   // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the

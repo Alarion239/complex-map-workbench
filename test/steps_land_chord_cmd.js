@@ -30,6 +30,9 @@ const PX_TOL = 30, SAT = 24;           // (the pixel rows: a channel more than P
 const LIM = 300000;
 
 const chord = (o = '') => evJson(`JSON.stringify(__cmwLandChordPx(${o}))`, LIM);
+const jumps = () => evJson('JSON.stringify(__cmwLandJumps())', LIM);
+// the kept triangles per grid (the chord rows' tris)
+const counts = (rows) => Object.fromEntries(Object.entries(rows || {}).map(([k, r]) => [k, r.tris]));
 const carried = () => evJson('JSON.stringify((({ u, s, far }) => ({ u, s, far: (far || []).map((p) => p[4]) }))(__cmwLandCarry() || {}))');
 const pane = () => ev(`(() => { const o = document.getElementById('overlayL').getBoundingClientRect(); return [o.left, o.top, o.width, o.height]; })()`);
 // the frame redrawn with the knob set (null: unset), once it has settled
@@ -70,8 +73,17 @@ for (const u of [0.05, 0.1, 0.25, 0.5, 0.75]) {
   await held(u);
   const c = await carried();
   ok(`A, held at u = ${u}: a carried frame from plane z`, c.s === 0 && Math.abs(c.u - u) < 0.004, c);
-  info.A['u' + u] = { rows: await chord() };
+  const rows = await chord(), jm = await jumps();
+  info.A['u' + u] = { rows, jumps: jm };
   if (u === 0.5) info.A['u' + u].px = await pixelRow('A-u0.5');
+  if (u >= 0.25) {
+    ok(`A, held at u = ${u} (iv): the box keeps no triangle across a jump of the log's glide, and none off by more than ${TOL} px`, !!rows && !!jm && rows.box.off === 0 && jm.box.across === 0 && jm.box.jumps > 0, { box: rows && rows.box, jumps: jm && jm.box });
+    await redraw({ noJump: true });
+    const nj = await chord();
+    info.A['u' + u].noJump = nj && nj.box;
+    ok(`A, held at u = ${u} (iv'): with the jump rule off (GLR._lw.noJump) the box keeps triangles off by more than ${TOL} px`, !!nj && nj.box.off > 0, nj && nj.box);
+    await redraw(null);
+  }
   await letGo();
 }
 await ev(`__cmwSteps({ go: 1, now: true }); 1`);
@@ -94,6 +106,11 @@ for (const u of [0.25, 0.5, 0.75]) {
   ok(`${tag} (i): on the box's smooth part, triangles and none off by more than ${SMOOTH_TOL} px`, !!smooth && smooth.box.tris > 500 && smooth.box.worst <= SMOOTH_TOL, smooth && smooth.box);
   if (u >= 0.5) ok(`${tag} (ii): the outer far ring keeps triangles, none off by more than ${TOL} px`, !!rows && !!rows.far1 && rows.far1.tris > 0 && rows.far1.off === 0, rows && rows.far1);
   if (u === 0.5) {
+    info.B.jumps = await jumps();
+    await redraw({ noJump: true });
+    const nj = await chord();
+    ok(`${tag} (v): the jump rule leaves out no triangle of the default page's glide (the same kept triangles without it)`, JSON.stringify(counts(nj)) === JSON.stringify(counts(rows)), { rule: counts(rows), noJump: counts(nj) });
+    await redraw(null);
     await redraw({ farN: COARSE });
     const cc = await carried(), coarse = await chord();
     info.B.coarse = { far: cc.far, far0: coarse && coarse.far0 };
@@ -102,4 +119,16 @@ for (const u of [0.25, 0.5, 0.75]) {
   }
   await letGo();
 }
+
+// ---- C: z³ parked on w₁, coloured from z: a carry with no jump
+await loadView('steps', `chordC${Date.now()}`, { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [{ type: 'custom', params: { expr: 'z^3' }, on: true }], nextId: 50, sheets: false });
+await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 0, go: 1, now: true }); 1`);
+await settled({ max: 90000, until: '__cmwSteps().ready.ready && __cmwSteps().i === 1' });
+const cC = await carried(), rC = await chord();
+await redraw({ noJump: true });
+const nC = await chord();
+await redraw(null);
+info.C = { rows: rC, jumps: await jumps() };
+ok('C, z³ parked on w₁ coloured from z (v): a carried frame, and the jump rule leaves out none of its triangles', cC.s === 0 && !!rC && JSON.stringify(counts(nC)) === JSON.stringify(counts(rC)), { carried: cC, rule: counts(rC), noJump: counts(nC) });
 return { pass: fails.length === 0, fails, info };
