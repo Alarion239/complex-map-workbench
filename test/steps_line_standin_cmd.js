@@ -9,9 +9,10 @@
 // is the one the stand-in takes when it fits. An expensive series (about 2 ms an evaluation on the CI machines) gets
 // none under the real budget: the lines are refused within the budget and a segment, as GLR.lineStandIns records.
 // The globe (lineS) on the same chain, w₂ on the Sphere, the links held: its outlines are read as the pixels the
-// shapes' strokes change (the frame against __cmwHideStrokes'), and while the links are held the linked frame's are
-// drawn (at most GLOBE_MISS of them with none of the held frame's within 2 px), each a stand-in at the lines' template
-// size.
+// shapes' strokes change (the frame against __cmwHideStrokes'), outside the "Compiling…" note (__cmwCompileBox: the
+// held frame draws it as its lines' program links, and the frame with the strokes hidden, which waits on no lines,
+// does not). While the links are held the held frame's outlines are the linked frame's: at most GLOBE_MISS of either's
+// pixels with none of the other's within 2 px, each a stand-in at the lines' template size.
 // A command file for a CDP daemon; CI runs it in the views shard (ci/browser_shards.js). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -51,13 +52,21 @@ ok('while the links are held: the outlines on w₂ are the linked frame\'s (at l
 info.made = held.made;
 ok('while the links are held: each shape\'s outline is a stand-in at the lines\' template size (8)', held.made.length === SHAPES.length && held.made.every((r) => r.m === 8), info.made);
 ok('timing: each outline\'s stand-in takes at most the real budget here (25 ms; the page\'s own budget is set)', held.made.length === SHAPES.length && held.made.every((r) => r.ms <= 25), info.made);
-// the globe: the pixels the shapes' strokes change in the frame (against the frame with them hidden), as indices
+// the globe: the pixels the shapes' strokes change in the frame (against the frame with them hidden), as indices,
+// outside the compiling note's box (2 px wider each way) as the held frame drew it, which no outline crosses
+let compileBox = null;
 const globeStrokes = async (tag) => {
-  for (const hide of [false, true]) { await ev(`__cmwHideStrokes(${hide}), 1`); await settled({ panes: false }); await grab(tag + (hide ? '0' : '')); }
+  for (const hide of [false, true]) {
+    await ev(`__cmwHideStrokes(${hide}), 1`); await settled({ panes: false }); await grab(tag + (hide ? '0' : ''));
+    if (!hide && !compileBox) compileBox = await ev('__cmwCompileBox()');
+  }
   await ev('__cmwHideStrokes(false), 1');
-  return ev(`(() => { const K = window.__heldPx, D = K[${JSON.stringify(tag)}], D0 = K[${JSON.stringify(tag + '0')}], W = document.getElementById('canvasL').width, idx = [];
-    for (let i = 0; i < D.length; i += 4) if (Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > 60) idx.push(i / 4);
+  const px = await ev(`(() => { const K = window.__heldPx, D = K[${JSON.stringify(tag)}], D0 = K[${JSON.stringify(tag + '0')}], c = document.getElementById('canvasL');
+    const W = c.width, dpr = W / c.getBoundingClientRect().width, n = ${JSON.stringify(compileBox)}, idx = [];
+    const inNote = (j) => { if (!n) return false; const x = (j % W) / dpr, y = Math.floor(j / W) / dpr; return x >= n.x - 2 && x <= n.x + n.w + 2 && y >= n.y - 2 && y <= n.y + n.h + 2; };
+    for (let i = 0; i < D.length; i += 4) if (Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > 60 && !inNote(i / 4)) idx.push(i / 4);
     return { W, idx }; })()`);
+  return px;
 };
 // (the share of a's pixels with none of b's within 2 px)
 const missOf = (a, b) => {
@@ -83,8 +92,8 @@ const missOf = (a, b) => {
   await ev('GLR.holdLinks(false), 1');
   const linkedG = await settled({ max: 30000 });
   const relG = await globeStrokes('GL');
-  info.globe = Object.assign(g, { linked: linkedG.ok, heldPx: heldG.idx.length, linkedPx: relG.idx.length, missing: missOf(relG, heldG), made: madeG });
-  ok(`the globe, while the links are held: its outlines are the linked frame's (at most ${GLOBE_MISS} of their pixels missing)`, linkedG.ok && relG.idx.length >= 1000 && info.globe.missing <= GLOBE_MISS, info.globe);
+  info.globe = Object.assign(g, { linked: linkedG.ok, heldPx: heldG.idx.length, linkedPx: relG.idx.length, missing: missOf(relG, heldG), extra: missOf(heldG, relG), compileBox, made: madeG });
+  ok(`the globe, while the links are held: its outlines are the linked frame's (at most ${GLOBE_MISS} of either's pixels off the other's)`, linkedG.ok && relG.idx.length >= 1000 && info.globe.missing <= GLOBE_MISS && info.globe.extra <= GLOBE_MISS, info.globe);
   ok('the globe, while the links are held: each shape\'s outline is a stand-in at the lines\' template size (8)', madeG.length === SHAPES.length && madeG.every((r) => r.m === 8), madeG);
 }
 // an expensive series: its stand-in is refused (the first segment's evaluations show it would not fit), not made
