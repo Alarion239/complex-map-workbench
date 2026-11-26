@@ -228,7 +228,7 @@ const Commands = (() => {
         ...integrateRows(),
         [$t('Show the roots: a target at 0'), () => { if (A.S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', $t('roots zeros poles solve solutions equation preimages target')],
         ...(Funcs.DEFS.deriv ? [[$t('Derivative of the chain: add d/dz'), () => addStep('deriv', null, A.S.focus > 0 ? A.S.focus : A.S.steps.length), '', $t('derivative prime differentiate d/dz')]] : []),
-        [$t('Fit view'), () => /** @type {any} */ ($('leftFit').click()) || $('rightFit').click(), 'Z'],
+        [$t('Fit view'), () => $('leftFit').click(), 'Z'],
         [$t('Unit circle on or off'), () => $('unitChk').click(), ''],
         [$t('Snap to grid and figures on or off'), () => $('snapBtn').click(), ''],
         [$t('Switch theme'), () => $('themeBtn').click(), ''],

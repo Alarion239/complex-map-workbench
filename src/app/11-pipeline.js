@@ -281,7 +281,6 @@
     // toast offers Show alone: Show alone is its own choice, ui-redesign-2)
     keepShown(at + 1, 1);
     commit();
-    startTransition(at + 1);
     noteRecent(type);
     soundCue('stepAdd');
     addedToast(at + 1, 1, null, o && o.msg);
@@ -327,7 +326,6 @@
     chainChanged(true);
     keepShown(at + 1, news.length);   // (the planes keep F, the first new step is selected)
     commit();
-    startTransition(at + 1);
     for (const s of news) noteRecent(s.type);
     soundCue('stepAdd');
     addedToast(at + 1, news.length);

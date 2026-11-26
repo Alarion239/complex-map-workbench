@@ -96,7 +96,7 @@
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }
   // the persisted state, as writeState saves it
-  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
+  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: S.rightView || null }), noRuntime));
   function tourSnapshot() {
     phHold();
     if (typeof svStore === 'function') svStore();   // (S.sv holds the steps view's place: the tour moves it, and the restore puts it back)
@@ -108,7 +108,7 @@
       mem: {
         hist: hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })), hi, hideLeft: S.hideLeft, hideRight: S.hideRight,
         tool, selected, currentExample, exLabel: xl ? xl.textContent : null,
-        V: JSON.parse(JSON.stringify(V)), leftAuto, rightAuto, clipWin: Object.assign({}, clipWin),
+        V: JSON.parse(JSON.stringify(V)), leftAuto, clipWin: Object.assign({}, clipWin),
         viewMem: JSON.parse(JSON.stringify(viewMem)), cams: [cam, camL, camS].map(camKeys), cell: [cellBase, cellKey],
         phBig: tourPhone() ? Phone.big() : null,
       },
@@ -147,7 +147,7 @@
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
     if (m) {
       setTool(TOOLS.some((t) => t[0] === m.tool) ? m.tool : 'select');
-      Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto; rightAuto = m.rightAuto;
+      Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto;
       [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
       hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
       currentExample = m.currentExample;
@@ -157,7 +157,6 @@
       if (m.phBig && tourPhone() && Phone.big() !== m.phBig) Phone.setBig(m.phBig);
     } else {
       setTool('select');
-      if (S.rightView && autoFit()) { Object.assign(V.right, S.rightView); rightAuto = false; }
       hist = [snap()]; hi = 0;
     }
     updateUndo();
