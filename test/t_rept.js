@@ -650,6 +650,26 @@ let vals0own = null;   // (the parked plane's own flag, cell 0's y, read again i
   check('... and the walker reads level 0\'s coefficients from the head\'s cells', /l == 0 \? uInv\[\d+\] : uInv\[\d+\]/.test(inv.lib) && /_dudv\(ixRZ\[ci\d+\], rsp\d+\)/.test(inv.walker));
   check('the parked plane\'s op is its step\'s own (cell 0\'s y 1), the frame\'s is not (0): the carried colour reads the pixel\'s w only for the own map', vals0own === 1 && hv[1] === 0 && pl.ops[0].p.own === false && op20.p.own === true, { vals0own, frame: hv[1] });
   check('... and the walker sets ixRepOwn from that cell when the op is active', /if \(ra\d+\) ixRepOwn = uInv\[\d+\]\.y > 0\.5;/.test(inv.walker));
+  // a head turns the closed form off (#2519, rvC): reptHead takes any middle op that is the copy's own map, a monomial's
+  // too, so a monomial copy between two affine maps gets a head, and the closed form (every level the monomial, 4d)
+  // would then be wrong. z^3 x 4 on 4c's tangent disc: with a head composed from AFF, z^3, AFF, prepare has no closed
+  // form (cf null); the same op with no head (the control) has one
+  {
+    const M = chainOf([St('custom', { expr: 'z^3', cut: 180 }, { n: 4, len: 1 })]), bm = M.built[0], rfm = InvOps.reptForm(bm);
+    const mid = InvOps.opIpow(3), A1 = InvOps.opAff(C(0.6, 0), C(0.2, 0.1)), A2 = InvOps.opAff(C(1.5, -0.2), C(-0.1, 0.05));
+    const hm = rfm && InvOps.reptHead(rfm.P, rfm.Q, [A1, mid, A2]);
+    const DISC = { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 };
+    const cfOf = (head) => {
+      const op = InvOps.opRept(rfm.P, rfm.Q, 4, (z) => z, { head });
+      const pl = Inverse.planChain(M.steps, [Inverse.homBuilt(bm, { ok: true, ops: [op] })], 0, 1), pp = Inverse.prepare(pl, { win: WIN, shape: DISC });
+      return pl.ok && pp.ok && pp.rept ? pp.rept.cf : undefined;
+    };
+    check('a monomial copy between two affine maps gets a head (reptHead takes it)', !!hm, hm);
+    if (hm) {
+      check('... and then prepare has no closed form (cf null): the guard, not the head\'s absence, keeps it right', cfOf(hm) === null, cfOf(hm));
+      check('control: the same monomial op with no head has its closed form', !!cfOf(null), cfOf(null));
+    }
+  }
   check('the frame\'s program is the parked plane\'s (one key)', Inverse.inverseKey(N20.steps, [Inverse.homBuilt(b20, Inverse.homOps(b20, 10.5 / 20, { rept: true }))]) === Inverse.inverseKey(N20.steps, N20.built));
 }
 
