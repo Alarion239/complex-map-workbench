@@ -4,6 +4,7 @@
 //   and outside for Both, only inside for Inside and only outside for Outside, whichever plane the thread was parked at before;
 //   with T at another plane the Cauchy tile is disabled with its reason, and a plane z that keeps the style is paper with the same
 //   sentence as its note, the key naming no bands;
+//   past the colour plane (T = z, the thread at plane 1) the key's line names the integral and the plane it is carried from, in at most four lines;
 //   with no closed curve at all plane z is paper and the key says so;
 //   in ru the title and the style row's note set the curve's name in «» («интеграл Коши по контуру «Окружность 1»»), for a
 //   feminine name (the circle, «Окружность 1») and a masculine one (the disc's boundary, «Круг 1»).
@@ -71,7 +72,6 @@ ok('Cauchy: the scope control is disabled with its reason and reads Everywhere',
 const pxs = await read();
 ok('Cauchy with scope Inside: the outside is still coloured', !isGrey(pxs.outside), pxs);
 await ev(`(__cmwSteps({ scope: 'all' }), 1)`);
-
 await park(1);
 const t1 = await tile();
 ok('T at plane 1: the Cauchy tile stays, disabled, with its reason as tip and description', t1 && t1.disabled && t1.tip === REASON && t1.desc === REASON, t1);
@@ -89,6 +89,40 @@ info.none = px2;
 ok('no closed curve: plane z is paper', isGrey(px2.inside) && isGrey(px2.outside), px2);
 const lg2 = await legend();
 ok('no closed curve: the key says so, no bands', lg2.caption === 'No curve selected', lg2);
+// past the colour plane the hue ring's line names the integral and the plane its colour is carried from, whole in the key's
+// room (KEY_LINES lines of the chip beside the wheel), in each language
+const KEY_LINES = 4;
+const READOUT_GAP = 8, NARROW_KEY = 136, READOUT_MARGIN = 28;   // READOUT_MARGIN: the readout's reserve beside the key's width
+const OLD_KEY_ROOM = 50;   // the room right of the wheel in the 136 px legend
+const FILLER_WORDS = 400;  // enough words to fill the readout's room
+const LANGS = [['en', /^Cauchy integral carried from z$/], ['ru', /^интеграл Коши, перенесён из\u00a0z$/], ['it', /^integrale di Cauchy trasportato da z$/]];
+for (const [lang, re] of LANGS) {
+  await open(CIRCLE, lang);
+  await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
+  await settled({ until: '__cmwSteps().i === 1 && !__cmwSteps().moving', max: 15000 });
+  const lgc = await legend();
+  ok(`T = z, thread at plane 1, ${lang}: the key names the Cauchy integral and the plane its colour is carried from`, lgc.kind === 'color' && re.test(lgc.caption || ''), lgc);
+  ok(`T = z, thread at plane 1, ${lang}: the line fits the key (at most ${KEY_LINES} lines)`, lgc.lines >= 1 && lgc.lines <= KEY_LINES, lgc);
+  ok(`T = z, thread at plane 1, ${lang}: the widest word fits the key's room`, lgc.widest > 0 && lgc.widest <= lgc.room, lgc);
+  // controls: the other languages' lines do not match; the caption is wrapped from its layout (fewer lines than words); the
+  // widest ru and it word is wider than the room the 136 px legend left, so the room check would fail there
+  ok(`T = z, thread at plane 1, ${lang}: control: the caption matches no other language's line`, LANGS.filter(([l, r]) => l !== lang && r.test(lgc.caption || '')).length === 0, lgc);
+  ok(`T = z, thread at plane 1, ${lang}: control: the caption is wrapped (fewer lines than words)`, lgc.lines < (lgc.caption || '').split(/\s/).length, lgc);
+  if (lang !== 'en') ok(`T = z, thread at plane 1, ${lang}: control: the widest word is wider than the ${OLD_KEY_ROOM} px the 136 px legend left`, lgc.widest > OLD_KEY_ROOM, lgc);
+  // the readout, made long enough to fill its room, keeps READOUT_GAP clear of the key; with the reserve of the narrower key it
+  // would not (the control)
+  const gaps = JSON.parse(await ev(`(() => {
+    const pl = document.querySelector('.plot:has(> .legend-chip:not([hidden]))'), r = pl.querySelector(':scope > .chip.readout'), k = pl.querySelector(':scope > .legend-chip');
+    r.textContent = 'x '.repeat(${FILLER_WORDS});
+    const gap = () => Math.round(k.getBoundingClientRect().left - r.getBoundingClientRect().right), own = gap();
+    r.style.maxWidth = 'calc(100% - ${NARROW_KEY + READOUT_MARGIN}px)';
+    const narrow = gap();
+    r.style.maxWidth = '';
+    return JSON.stringify({ own, narrow });
+  })()`));
+  ok(`T = z, thread at plane 1, ${lang}: the readout ends at least ${READOUT_GAP} px short of the key`, gaps.own >= READOUT_GAP, gaps);
+  ok(`T = z, thread at plane 1, ${lang}: control: the reserve of a ${NARROW_KEY} px key leaves the readout under ${READOUT_GAP} px from the key`, gaps.narrow < READOUT_GAP, gaps);
+}
 // ru: the curve's name in «» in the title and in the style row's note (read with the ⋯ pop-up open, then closed)
 for (const [tag, shape] of [['a circle', CIRCLE[0]], ['a disc', { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }]]) {
   await open([shape], 'ru');

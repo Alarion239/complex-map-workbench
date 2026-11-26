@@ -319,7 +319,7 @@
       h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', glide ? $t('Label') : $t('t label'))));
     // (the steps view: where the video goes and how long it is, kept current by posterSoon)
     const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
-    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = $t('{from} → {to} · {secs} s', { from: glide.from, to: glide.to, secs: I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1) }); };
+    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m, glide.stops).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = $t('{from} → {to} · {secs} s', { from: glide.from, to: glide.to, secs: I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1) }); };
     if (vSum) { vSumSet(); vidBox.prepend(vSum); }
     const vidRow = row($t('Video'), vidBox); vidRow.classList.add('wide');
     // Fine-tune

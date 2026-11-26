@@ -1516,14 +1516,15 @@
       u1i(Pc, 'uN', hd.N);
       // (the stencil marks the pixels the box's cells and the pole patches drew (bit 0), so a branch point's patch
       // (polar.hole, svLandPatches) draws only where they left a hole, marking its own (bit 1), and the far patch only
-      // where none of them drew: its coarse cells carry copies of what they cover too, for a periodic map)
+      // where none of them drew: its coarse cells carry copies of what they cover too, for a periodic map; the outer ring
+      // leaves out those in the strip of its copies, uDup, where they would stand out past the surface they copy)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
       gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N);
+        polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N); u4f(Pc, 'uDup', ...(p.polar.dup || [0, 0, 0, 0]));
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
@@ -1548,7 +1549,7 @@
       }
       info.copyAlpha = copies.length ? Math.min(...copies.map(alphaOf)) : null;
       info.refine = null;
-      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null }));
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
