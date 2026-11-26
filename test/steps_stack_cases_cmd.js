@@ -5,6 +5,11 @@
 //    its tube is labelled "covers the disc twice: its critical point 0", at that critical point's strand half way up, and not
 //    by a narrowing (the piece's feature is the critical point, not a narrowing); control: z² with the disc about 1 (the
 //    critical value outside it) keeps its narrowing label and has no such label;
+//  - a preimage that reaches ∞ (1/z with the disc about 0.2, which holds F(∞) = 0): its piece has no bounded tube, so no tube is
+//    drawn (the first picture drew the cone of its hole and a narrowing at 5), and the key says so, in en, ru and it;
+//  - a piece off the window (the Joukowski map, the disc about 0.6 + 0.5i, the view on the other piece): the Stack says "+1 off view"
+//    as the flat plane does, as one upright label over the tilted floor, with the same count as the card and the plane's own
+//    (the flat draw's copy, turned with the floor, is not drawn), inside the pane and clear of the marks, in en, ru and it;
 //  - steps whose pieces are not counted (exp, the disc about -1 on log's cut): no tubes, and the key says why in the card's own
 //    words, on a line of its own, in en, ru and it; straight down (no tubes by design) and where the pieces are counted the key
 //    has no such line.
@@ -19,6 +24,8 @@ const DEG = Math.PI / 180;
 const SCENES = {
   crit: { name: 'z² with 0 inside the disc', steps: [{ type: 'pown', params: { n: 2 }, on: true }], c: [0.2, 0], r: 0.5, view: [0, 0, 160] },
   cut: { name: 'exp with the disc on log\'s cut', steps: [{ type: 'exp', params: {}, on: true }], c: [-1, 0], r: 0.4, view: [0, 0, 90], noTubes: true },
+  off: { name: 'Joukowski with a piece off the view', steps: [{ type: 'joukowski', params: {}, on: true }], c: [0.6, 0.5], r: 0.35, view: [0.4, 1.1, 260] },
+  inf: { name: '1/z with F(∞) = 0 inside the disc', steps: [{ type: 'recip', params: {}, on: true }], c: [0.2, 0], r: 0.5, view: [0, 0, 60], noTubes: true },
   outside: { name: 'z² with 0 outside the disc (control)', steps: [{ type: 'pown', params: { n: 2 }, on: true }], c: [1, 0], r: 0.5, view: [0, 0, 160] },
 };
 const hooked = () => ev('typeof __cmwStack === "function"');
@@ -81,5 +88,21 @@ await until(`(() => { const d = __cmwStack().drawn; return !!d && d.camera.pitch
 {
   const k = await keyWhy();
   ok(`${SCENES.cut.name}: straight down, where no tubes are drawn by design, the key has no line of why`, k.why === null, k);
+}
+// a piece off the window: the count over the tilted floor
+for (const [lang, want] of [['en', '+1 off view'], ['ru', 'ещё 1 за краем'], ['it', 'altri 1 fuori vista']]) {
+  await open('off', { lang });
+  const d = await drawn(), O = d && d.off, plane = await ev('__cmwPullOff()'), card = await ev("(document.querySelector('.ro-off') || {}).textContent || ''"), pane = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.width, r.height]; })()`);
+  info['off ' + lang] = { off: O, plane, card, pane };
+  ok(`${SCENES.off.name} (${lang}): one count over the floor, "${want}", inside the pane, covering no mark`, !!O && O.length === 1 && clean(O[0].text) === want && !!O[0].box && O[0].box[0] >= 0 && O[0].box[1] >= 0 && O[0].box[2] <= pane[0] && O[0].box[3] <= pane[1] && O[0].hits === 0, info['off ' + lang]);
+  ok(`${SCENES.off.name} (${lang}): its count is the plane's and the card's (1 piece)`, !!O && O.length === 1 && O[0].n === 1 && plane.length === 1 && plane[0].n === 1 && /\b1\b/.test(card), info['off ' + lang]);
+}
+// a preimage that reaches infinity (1/z, the disc about 0.2 holding F(∞) = 0): its piece has no bounded tube, so none is drawn and the key says why
+for (const [lang, want] of [['en', 'No tubes: the disc holds F(∞), so a piece of its preimage reaches ∞'], ['ru', 'Трубок нет: круг содержит F(∞), поэтому часть его прообраза уходит в ∞'], ['it', 'Nessun tubo: il disco contiene F(∞), quindi una parte della controimmagine arriva all’∞']]) {
+  await open('inf', { lang });
+  const d = await drawn(), k = await keyWhy();
+  info['inf ' + lang] = { tubes: !!(d && d.tubes), key: k };
+  ok(`${SCENES.inf.name} (${lang}): no tube is drawn (no wrong tube over the exterior)`, !!d && d.tubes === null, info['inf ' + lang]);
+  ok(`${SCENES.inf.name} (${lang}): the key says the preimage reaches ∞`, k.why === want, k);
 }
 return { pass: fails.length === 0, fails, info };

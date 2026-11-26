@@ -856,6 +856,7 @@
  "narrows here: {d}, not a join": "сужается здесь: {d}, это не слияние",
  "covers the disc twice: its critical point {z}": "накрывает круг дважды: его критическая точка {z}",
  "covers the disc {k} times: its critical point {z}": "накрывает круг {k}-кратно: его критическая точка {z}",
+ "No tubes: the disc holds F(∞), so a piece of its preimage reaches ∞": "Трубок нет: круг содержит F(∞), поэтому часть его прообраза уходит в ∞",
  "tube of a piece": "трубка части",
  "critical point to its value": "от критической точки к её значению",
  "A video records a glide along the chain, which only the steps view has": "Видео записывает переход по цепочке, а он есть только в виде шагов",

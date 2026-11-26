@@ -3484,6 +3484,7 @@
  "narrows here: {d}, not a join": "si restringe qui: {d}, non è un’unione",
  "covers the disc twice: its critical point {z}": "copre il disco due volte: il suo punto critico {z}",
  "covers the disc {k} times: its critical point {z}": "copre il disco {k} volte: il suo punto critico {z}",
+ "No tubes: the disc holds F(∞), so a piece of its preimage reaches ∞": "Nessun tubo: il disco contiene F(∞), quindi una parte della controimmagine arriva all’∞",
  "tube of a piece": "tubo di un pezzo",
  "critical point to its value": "dal punto critico al suo valore",
  "A video records a glide along the chain, which only the steps view has": "Un video registra un passaggio lungo la catena, che ha solo la vista a passi",

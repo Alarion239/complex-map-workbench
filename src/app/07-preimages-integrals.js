@@ -651,7 +651,8 @@
       said.push($t('Pieces of {name} pulled back off the view: {n} of {all}', { name: (names || shapeNames()).get(s.id), n, all: e.zs.length }));
     }
     if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
-    if (labels.length) placeLabels(pane.ctx, pane, labels);
+    // (on the Stack the counts are drawn upright over the tilted floor, with the tubes' labels: stackOffLabels)
+    if (labels.length && !stackFlat) placeLabels(pane.ctx, pane, labels);
     // (the readout card follows the count as the window moves)
     if (selected != null && offOf(selected) !== was) readoutRefresh();
   }

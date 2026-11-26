@@ -52,7 +52,8 @@
     if (tubeCache.has(key)) return tubeCache.get(key);
     const pc = readoutData(s).pc;
     let d = null;
-    if (pc.counted) {
+    // (a preimage that reaches ∞, the disc holding F(∞): its piece has no bounded tube, and drawing the others alone would show part of it: none)
+    if (pc.counted && !pc.pieces.some((P) => P.unbounded)) {
       const { L, G, m } = stackLevelMaps(k, T), f = L.slice(1).map((b, n) => rangeF(L[n], b));
       const dF = (g, z) => { const h = 1e-6 * (1 + CX.abs(z)); return CX.scale(CX.sub(g(CX.add(z, C(h, 0))), g(CX.sub(z, C(h, 0)))), 0.5 / h); };
       const pieces = pc.pieces.map((P, i) => ({ ink: TUBE_INKS[i % TUBE_INKS.length], covers: P.covers, loops: P.loops.map((li) => {
@@ -78,11 +79,12 @@
   // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
   // one number) and a true minus sign
   const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
-  // why disc s has no tubes tilted, in the card's words ("The pieces of its preimage are not counted: step 1 (exp) has infinitely
-  // many preimages"), or '' where they are drawn or straight down, where no tubes are drawn
+  // why disc s has no tubes tilted: the card's words ("The pieces of its preimage are not counted: step 1 (exp) has infinitely
+  // many preimages"), or that a piece of the preimage reaches ∞; '' where they are drawn or straight down, where no tubes are drawn
   function tubesWhy(s, camera) {
     if (!s || stackTilt(camera) <= 0) return '';
     const r = readoutData(s);
+    if (r.pc.counted && r.pc.pieces.some((P) => P.unbounded)) return $t('No tubes: the disc holds F(∞), so a piece of its preimage reaches ∞');
     return r.pc.counted ? '' : readoutCounts(r.pc, r.stuck);
   }
   // whether the point z lies inside the closed polygon of points path (C[]): the ray to the right crosses it an odd number of times
@@ -179,7 +181,7 @@
       if (L.leader) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(...L.leader); ctx.stroke(); }
       ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(L.box[0], L.box[1], L.box[2] - L.box[0], L.box[3] - L.box[1]);
       ctx.globalAlpha = fade; ctx.fillStyle = TH.ink;
-      ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill();
+      if (L.dot !== false) { ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill(); }
       L.lines.forEach((t, i) => ctx.fillText(t, L.box[0] + P, L.box[1] + P + TUBE_FONT / 2 + i * lh));
     }
     ctx.restore();
