@@ -1046,6 +1046,12 @@ const InvOps = (() => {
     if (enclCache.size > ENCL_CACHE) enclCache.delete(enclCache.keys().next().value);
     return E;
   }
+  // a monomial step k z^d (P's leading term alone over a constant Q): {k: |k| = |p_d / q_0|, d}, else null
+  function reptMono(P, Q) {
+    const qi0 = Q.findIndex((q) => !isZero(q));
+    if (!(P.slice(1).every(isZero) && qi0 === Q.length - 1)) return null;
+    return { k: abs(div(P[0], Q[qi0])), d: P.length - 1 };
+  }
   function reptEncloseNew(P, Q, n, b, escR, disc) {
     const E = [Object.assign({ esc: 0 }, b)];
     for (let r = 1; r <= n; r++) E.push({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, esc: 0 });
@@ -1060,9 +1066,7 @@ const InvOps = (() => {
     if (![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return E.map(() => null);
     let open = n + 1;                         // levels from here on are the whole plane
     const Pa = Float64Array.from(P.flatMap((c) => [c.re, c.im])), Qa = Float64Array.from(Q.flatMap((c) => [c.re, c.im])), o = new Float64Array(24);
-    // (a monomial step: P's leading term alone over a constant Q, k = p_n / q_0 and its degree d)
-    const qi0 = Q.findIndex((q) => !isZero(q)), mono = P.slice(1).every(isZero) && qi0 === Q.length - 1;
-    const monoD = P.length - 1, monoK = mono ? abs(div(P[0], Q[qi0])) * RAD_UP * RAD_UP : 0;
+    const mn = reptMono(P, Q), mono = !!mn, monoD = mono ? mn.d : 0, monoK = mono ? mn.k * RAD_UP * RAD_UP : 0;
     const size = Math.abs(b.x0) + Math.abs(b.x1) + Math.abs(b.y0) + Math.abs(b.y1);
     const hx = (b.x1 - b.x0) / ENCL_GRID, hy = (b.y1 - b.y0) / ENCL_GRID, queue = [];
     for (let i = 0; i < ENCL_GRID; i++) for (let j = 0; j < ENCL_GRID; j++) queue.push([b.x0 + i * hx, b.y0 + j * hy, hx, hy]);
@@ -1876,7 +1880,7 @@ const InvOps = (() => {
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, cubicRoots, quarticRoots, ratPoly, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtDH, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm, ratCritical,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF, reptForm, reptHead, opRept
+    REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF, reptMono, reptForm, reptHead, opRept
   };
 })();
 import { CX } from './cx.js';
