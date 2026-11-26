@@ -640,7 +640,7 @@ void main() {
   vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
   ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
-  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy; ixRepOwn = false;
   if (ixRepKeep()) discard;
   invWalk(t.xy);
   if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }

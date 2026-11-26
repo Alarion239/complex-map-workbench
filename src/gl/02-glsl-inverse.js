@@ -931,7 +931,7 @@ ${globe ? glsl`  vec3 P = normalize(vP);
   ixEdge = 0.0; ixEdgeC = 0.0; ixFill = 0.0;
 #endif
 #ifdef IX_REPT
-  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w; ixRepOwn = false;
   if (ixRepKeep()) discard;
 #endif
   invWalk(w);

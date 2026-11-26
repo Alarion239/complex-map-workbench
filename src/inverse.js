@@ -1900,7 +1900,7 @@ const Inverse = (() => {
       const rf = b.repeat && asRept ? reptForm(b) : null;
       if (rf && j >= 1) {
         const head = r.ops.length ? reptHead(rf.P, rf.Q, r.ops) : null, levels = j + (head ? 1 : 0);
-        if (levels >= 2 && (head || !r.ops.length)) return { ok: true, ops: [opRept(rf.P, rf.Q, levels, (z) => all.reduce((u, o) => o.fwd(u), z), head)] };
+        if (levels >= 2 && (head || !r.ops.length)) return { ok: true, ops: [opRept(rf.P, rf.Q, levels, (z) => all.reduce((u, o) => o.fwd(u), z), { head })] };
       }
       return { ok: true, ops: all };
     }

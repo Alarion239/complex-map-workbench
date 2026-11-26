@@ -2941,6 +2941,9 @@ const float IX_REP_FIN = ${glf(Inverse.REPT_FIN)};
 bool ixRepOk(vec2 z) { return max(abs(z.x), abs(z.y)) < IX_REP_FIN; }
 vec2 ixRZ[${3 * RS}]; float ixRR[${3 * RS}]; vec2 ixRJ[${RS}]; int ixRI[${RS}];
 bool ixRepFail; bool ixRepCap; bool ixRepUnres; int ixRepFull; float ixRepDel; vec2 ixRepW;
+// ixRepOwn: the active REPT op's map is its step's own (its cell's own), so its member maps to ixRepW through the
+// plan's stages (the carried colour's shortcut, 07-inverse-api.js ixCarryCol); false for a glide frame's op
+bool ixRepOwn;
 uniform vec4 uIxRepE[${RS + 1}]; uniform vec3 uIxRepS[${RS + 1}];
 uniform int uIxRepNodes;   // the node budget, at most REPEAT_NODES_MAX (a test may lower it: GLR.setReptNodes)
 // uIxRepPoison 1: a test's control (GLR.setReptPoison) puts uIxRepBad (a NaN or an infinity) in place of root 1 of every
@@ -2964,7 +2967,7 @@ vec3 ixRepCrude;   // the crude radii of the last node solved (the GLSL page's r
 uniform int uIxRepHatch;
 `;
   };
-  // the op's cells: (n, -, -, -), then P and Q high-first, two coefficients to a cell, then the head's P and Q the same
+  // the op's cells: (n, own (1: the op's map is its step's own, InvOps.opRept), -, -), then P and Q high-first, two coefficients to a cell, then the head's P and Q the same
   // way (the op's own P and Q where it has no head). _eval: Horner's p(z), p'(z); _node(v, dv, l): the certified roots
   // of P - v Q at level l, the head's at level 0 (InvOps.reptNode: reptSolve's closed form and polish, reptCert's
   // certificate), false when it fails; _dudv(z, l): 1 / R'(z) for level l's map; _out: the prune (Inverse.enumerate's,
@@ -3084,6 +3087,7 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
     const ind = '  '.repeat(d), i2 = ind + '  ', i3 = i2 + '  ', i4 = i3 + '  ', P = `ix${j}`, R = `L${j}`, k = o.step;
     const s = (x) => `${x}${j}`, NODES = Inverse.REPEAT_NODES_MAX;
     out.push(`${ind}bool ${s('ra')} = ixAct(${k});`,
+      `${ind}if (${s('ra')}) ixRepOwn = uInv[${o.cell}].y > 0.5;`,
       `${ind}int ${s('rn')} = int(uInv[${o.cell}].x + 0.5), ${s('rsp')} = 0, ${s('rnd')} = 0, ${s('rcap')} = min(uIxRepNodes, ${NODES});`,
       `${ind}bool ${s('rfast')} = uIxRepPass == 1 && uIxRepFast < ${s('rcap')};`,
       `${ind}if (${s('rfast')}) ${s('rcap')} = uIxRepFast;`,
@@ -3242,7 +3246,7 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       }
       case 'QUAD': case 'RAT2': GLSLRoots.closedValues(o, put, c); break;
       case 'REPT': {
-        put(c, p.n, 0, 0, 0);
+        put(c, p.n, p.own ? 1 : 0, 0, 0);
         const hd = p.head || p;
         for (const [at, A, B] of [[c + 1, p.P, p.Q], [c + 5, hd.P, hd.Q]]) {
           for (let i = 0; i < 4; i += 2) { put(at + i / 2, A[i].re, A[i].im, A[i + 1].re, A[i + 1].im); put(at + 2 + i / 2, B[i].re, B[i].im, B[i + 1].re, B[i + 1].im); }

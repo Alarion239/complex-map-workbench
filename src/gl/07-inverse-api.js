@@ -205,10 +205,11 @@
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 #ifdef IX_REPT
-  // a REPT plan's member maps to the pixel's own w through its stages (uIxA, uIxB] (certified, InvOps' REPT section),
-  // so a colour plane at or after them reads w, not z carried forward (the copies' float32 error grows by the chain's
-  // expansion, up to 1 / |dz/dw|)
-  if (uGs <= uIxA && uGt >= uIxB) {
+  // a REPT plan whose map is its step's own (ixRepOwn): its member maps to the pixel's own w through its stages (uIxA,
+  // uIxB] (certified, InvOps' REPT section), so a colour plane at or after them reads w, not z carried forward (the
+  // copies' float32 error grows by the chain's expansion, up to 1 / |dz/dw|). A glide frame's member maps to w by the
+  // copies' homotopy, not by the stages, and is carried forward as any other plan's
+  if (ixRepOwn && uGs <= uIxA && uGt >= uIxB) {
     if (uIxB >= uGt) return dcolorD(ixRepW, ixDwX, ixDwY);
     vec2 v = chainRange(ixRepW, uIxB, uGt), vx = chainRange(ixRepW + ixDwX, uIxB, uGt) - v;
     return dcolorD(v, vx, uGan ? cmul(cdiv(vx, ixDwX), ixDwY) : chainRange(ixRepW + ixDwY, uIxB, uGt) - v);

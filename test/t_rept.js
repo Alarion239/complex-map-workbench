@@ -410,6 +410,7 @@ const brute2 = (o, L, w) => {
 }
 
 // ---- 7. the GLSL
+let vals0own = null;   // (the parked plane's own flag, cell 0's y, read again in section 8)
 {
   const inv = GLChain.buildInverse(N20.steps, N20.built);
   check('the inverse program holds the REPT walker and its stack', inv.ok && /#define IX_REPT 1/.test(inv.lib) && /ix0_node\(/.test(inv.lib) && /ixRI\[/.test(inv.walker), inv.reason);
@@ -419,6 +420,7 @@ const brute2 = (o, L, w) => {
   check('proxy for the Direct3D fault: the REPT walker has no stack index that can be negative (no ?: over the stack, every index under max(.., 0) or a level >= 0)', !/\?[^;]*ix(RI|RZ|RR|RJ)\[/.test(inv.walker) && !/ixRI\[[a-z]+\d* - 1\]/.test(inv.walker), inv.walker.match(/.*(\?|- 1\]).*/g));
   const vals = new Float32Array(4 * inv.slots);
   inv.fill(vals);
+  vals0own = vals[1];
   check('its cells: n, then P and Q, then P and Q again (no head)', vals[0] === 20 && vals[4] === Math.fround(P20[0].re) && vals[11] === Math.fround(P20[3].im) && vals[14] === Math.fround(Q20[1].re) && vals.slice(4, 20).every((x, i) => x === vals[20 + i]), Array.from(vals.slice(0, 36)).join(','));
 }
 
@@ -505,6 +507,8 @@ const brute2 = (o, L, w) => {
   const hp = pl.ops[0].p.head;
   check('the frame\'s cells: n, P and Q, then the head\'s P and Q', inv.ok && hv[0] === 11 && hv[4] === Math.fround(P20[0].re) && hv[20] === Math.fround(hp.P[0].re) && hv[27] === Math.fround(hp.P[3].im) && hv[30] === Math.fround(hp.Q[1].re), Array.from(hv.slice(0, 36)).join(','));
   check('... and the walker reads level 0\'s coefficients from the head\'s cells', /l == 0 \? uInv\[\d+\] : uInv\[\d+\]/.test(inv.lib) && /_dudv\(ixRZ\[ci\d+\], rsp\d+\)/.test(inv.walker));
+  check('the parked plane\'s op is its step\'s own (cell 0\'s y 1), the frame\'s is not (0): the carried colour reads the pixel\'s w only for the own map', vals0own === 1 && hv[1] === 0 && pl.ops[0].p.own === false && op20.p.own === true, { vals0own, frame: hv[1] });
+  check('... and the walker sets ixRepOwn from that cell when the op is active', /if \(ra\d+\) ixRepOwn = uInv\[\d+\]\.y > 0\.5;/.test(inv.walker));
   check('the frame\'s program is the parked plane\'s (one key)', Inverse.inverseKey(N20.steps, [Inverse.homBuilt(b20, Inverse.homOps(b20, 10.5 / 20, { rept: true }))]) === Inverse.inverseKey(N20.steps, N20.built));
 }
 

@@ -1191,12 +1191,14 @@ const InvOps = (() => {
     if (tP.length - 1 !== REPT_DEG || tQ.length - 1 >= REPT_DEG || isZero(tP[0])) return null;
     return { P: padTo(tP, REPT_DEG + 1), Q: padTo(tQ, REPT_DEG + 1) };
   }
-  // the op: p = {P, Q, n, escR (reptEscR), head}; its members come from Inverse.enumerate's search (rept), not from pre();
-  // pre lists the leaves of a point's search, first certified ones in search order, at most REPT_PRE_CAP (the singular
-  // points' pull-backs). head: null, or {P, Q} (reptHead's), the map of the last of the n copies, so the search's first
-  // level solves P_h - v Q_h and the n - 1 after it P - v Q (a glide frame's)
+  // the op: p = {P, Q, n, escR (reptEscR), head, own}; its members come from Inverse.enumerate's search (rept), not from
+  // pre(); pre lists the leaves of a point's search, first certified ones in search order, at most REPT_PRE_CAP (the
+  // singular points' pull-backs). head: null, or {P, Q} (reptHead's), the map of the last of the n copies, so the
+  // search's first level solves P_h - v Q_h and the n - 1 after it P - v Q (a glide frame's). own: the op's map is its
+  // step's own (the plane's REPT op, stepOps'), so a member maps to the pixel's own w through the step's stages; false
+  // for a glide frame's (Inverse.homOps'), whose map is the copies' homotopy
   const REPT_PRE_CAP = 64;
-  function opRept(P, Q, n, fwd, head = null) {
+  function opRept(P, Q, n, fwd, { head = null, own = false } = {}) {
     const pre = (w) => {
       const out = [];
       const go = (v, dv, depth, J) => {
@@ -1211,7 +1213,7 @@ const InvOps = (() => {
       if (isFin(w)) go(w, 0, 0, ONE);
       return out;
     };
-    return op('REPT', { P, Q, n, escR: reptEscR(P, Q), head }, fwd, { fam: { type: 'rept', count: REPT_DEG ** n }, pre });
+    return op('REPT', { P, Q, n, escR: reptEscR(P, Q), head, own }, fwd, { fam: { type: 'rept', count: REPT_DEG ** n }, pre });
   }
 
   // =====================================================================================================
@@ -1294,7 +1296,7 @@ const InvOps = (() => {
       case 'custom': {
         // a Repeat of one step of degree REPT_DEG: one REPT op for every copy, unless opts.rept is false (the copies' ops)
         const rf = b.repeat && opts.rept !== false ? reptForm(b) : null;
-        if (rf) return OK([opRept(rf.P, rf.Q, b.repeat.n, b.f)]);
+        if (rf) return OK([opRept(rf.P, rf.Q, b.repeat.n, b.f, { own: true })]);
         // a formula recognized as catalog steps (Funcs, src/recognize.js): their ops, when every one has them
         if (b.rec) {
           const ops = [];
