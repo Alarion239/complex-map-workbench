@@ -777,7 +777,7 @@
   return {
     attach: (api) => { A = api; },
     captionFor, build, pdf, png, svgBlob, greyProof, latex, captionSVG, copyImage, open, again,
-    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), glide: () => (A && A.svGlide ? A.svGlide() : null), glideArt: (x, o) => A.svGlideArt(x, o), svKey: (x) => (A && A.svKey ? A.svKey(x) : null), shortCaption,
+    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), glide: () => (A && A.svGlide ? A.svGlide() : null), glideArt: (x, o) => A.svGlideArt(x, o), glideText: (x) => A.svGlideText(x), svKey: (x) => (A && A.svKey ? A.svKey(x) : null), shortCaption,
     settings: loadSet, saveSettings: saveSet, sizes: SIZES, presets: PRESET,
     dialog: () => dlg, last: () => lastFig, segsOf, plainOf, XD,
     geom: { senseAt, chevronAt, fitBox, ringKey: ringKeyMarkup },
