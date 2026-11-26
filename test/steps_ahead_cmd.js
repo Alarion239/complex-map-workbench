@@ -24,7 +24,8 @@
 // - (c) an edit drops them: the colour's sectors changed mid-glide, the next frame is drawn live;
 // - palette: the phase palette is in the frames' key (not in the chain's cost key, so no new probe): a change mid-glide drops them and the
 //   next frame is drawn live; a change while the gate waits for them leaves a glide whose frames are the live frames, byte for byte,
-//   in the new palette; a play paused on its frames and a change, then resumed, is drawn live, not from the old frames;
+//   in the new palette; a play paused on its frames and a change, then resumed, shows no frame of the old palette (none drawn ahead, or
+//   frames made again in the new one);
 // - a hold while they are made is never kept: the zeta example, Inside regions, every pole track dropped once frames are
 //   made (a frame's pole search tiny, the idle job held): the hold is met, every frame kept is the inverse pass's and the
 //   live frame, and the glide starts on frames all exact, or plays live.
@@ -239,7 +240,7 @@ await rest(0);
 
     // while the gate waits for the frames: the change comes once some are made and not all (a page timer between two slices of the fill)
     await rest(0);
-    await ev(`(() => { window.__palAt = null; const iv = setInterval(() => { const a = __cmwSteps().ahead; if (a && a.state === 'fill' && a.n >= 2) { window.__palAt = a.n; __cmwPalette(${JSON.stringify(PAL)}); clearInterval(iv); } }, 0); return 1; })()`);
+    await ev(`(() => { window.__palAt = null; window.__palIv = setInterval(() => { const a = __cmwSteps().ahead; if (a && a.state === 'fill' && a.n >= 2) { window.__palAt = a.n; __cmwPalette(${JSON.stringify(PAL)}); clearInterval(window.__palIv); } }, 0); return 1; })()`);
     await ev('__cmwSteps({ clock: 1e-6 }), __cmwSteps({ go: 1 }), 1');
     const up2 = await settled({ only: true, max: WAIT_MS, until: '!!__cmwSteps().anim' });
     const at = await ev('window.__palAt'), s2 = await S();
@@ -275,7 +276,7 @@ await rest(0);
     ok('palette: pressed again after a change, the play shows no frame of the old palette (none drawn ahead, or the new palette\'s, byte for byte)', !!paused.ahead && paused.ahead.shown > 0 && (!again.ahead || (!!c && c.n > 0 && c.diff === 0)), { again: info.palette.paused });
     await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
     await settled({ only: true, max: 60000, until: '!__cmwSteps().moving' });
-  } finally { await restore(); }
+  } finally { await ev('clearInterval(window.__palIv), 1'); await restore(); }
 }
 
 // ---- (c) an edit drops them: the glide 0 -> 1, its clock still, the colour's sectors changed ----
