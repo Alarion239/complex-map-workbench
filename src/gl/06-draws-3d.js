@@ -1905,10 +1905,10 @@
     if (carried) {
       let D = getProg('sphereDepth', cur, true) || P;
       // TEST-HOOK (dropped from the published page by build.py)
-      // (test/steps_sphere_depth_cmd.js) api._depthAgain = {P, skip, depth: 0, colour: 0}: P draws the pass with P, skip
-      // leaves it out (a control: the passes after it are then tested against the carried colour's depth); depth and
-      // colour count the passes drawn by sphereDepth and by P
-      if (api._depthAgain) { if (api._depthAgain.P) D = P; if (api._depthAgain.skip) D = null; else api._depthAgain[D === P ? 'colour' : 'depth']++; }
+      // (test/steps_sphere_depth_cmd.js) api._depthAgain = {P, skip, depth: 0, colour: 0, skipped: 0}: P draws the pass with
+      // P, skip leaves it out (a control: the passes after it are then tested against the carried colour's depth); depth,
+      // colour and skipped count the passes drawn by sphereDepth, drawn by P and left out
+      if (api._depthAgain) { if (api._depthAgain.P) D = P; if (api._depthAgain.skip) D = null; api._depthAgain[!D ? 'skipped' : D === P ? 'colour' : 'depth']++; }
       // TEST-HOOK
       if (D) {
         gl.colorMask(false, false, false, false);
