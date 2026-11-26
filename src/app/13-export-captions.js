@@ -124,7 +124,7 @@
   function toggleBypass(k) {
     const st = S.steps[k - 1];
     if (!st) return;
-    st.on = st.on === false; chainChanged(true); commit(); if (st.on) startTransition(k); sndToggleCue(st.on);
+    st.on = st.on === false; chainChanged(true); commit(); sndToggleCue(st.on);
   }
   function openTemp() {
     const host = $('propsPanel');
@@ -215,13 +215,10 @@
     } finally { CX.setTexExact(false); }
     return `F(z)=${arg.s}` + (notes.length ? `\\quad(${notes.join(',\\ ')})` : '');
   }
-  // the whole figure as an SVG document; opt: {panels: ['L'] | ['R'] | ['L', 'R'], widthIn, caption, morph, upTo}
-  // opt.alive(): false once the figure is no longer wanted (the dialog's token moved on): -> null, nothing drawn after
-  // opt.morph (the deformation open, morph-figure.md 5): the right panel is the deformation, one plane with X, its
-  // image and the paths, for 0 <= t <= end (or up to the current t with opt.upTo), whatever the scrubber shows
+  // the paths figure's last choice of paths (figMorphPaths), kept for the same source, shapes, window and size
   const mfFigCache = { key: '', sel: null };
   // ---- the figure export (src/figure.js; notes/export-design/AS-BUILT.md): the renderer and the state it reads ----
-  // artRender(side, o): one plane drawn off-screen in the art layer (fills only) for the exact world window o.box at
+  // artRender(o): X's plane drawn off-screen in the art layer (fills only) for the exact world window o.box at
   // o.wpt points wide (a globe or the landscape: the pane's picture at o.wpt x o.hpt), in the light theme on white
   // paper, the fills in the print tones o.ink(s), at o.dpi; o.T: the deformation's time (paused). The theme, the
   // tones, the view and t change only inside one synchronous block, so no screen frame ever draws with them.
@@ -230,8 +227,7 @@
   // a video frame's relief window rounding (a function of the screen's window) and the aspect (width / height) the 3D camera is
   // fitted at: the still's, so a frame is the still's camera widened (null: the screen's window, the frame's own aspect)
   let artLandRound = null, artCamAsp = null;
-  // X → Y's figure is X's plane alone, the left panel (Y is not drawn); in the steps view, the shown plane, past the colour
-  // plane too
+  // X → Y's figure is X's plane alone; in the steps view, the shown plane, past the colour plane too
   const svFigView = () => (S.view.main === 'xy' ? 'xyL' : figViewKind());
   // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
   // the shapes to it from z (carried: the caption says "the images of ... under it")
@@ -245,9 +241,8 @@
     const Fname = q.name || q.lvar, formula = q.raw ? inlineFrac(q.raw) : null;
     return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried, hName });
   }
-  // the window of the camera every plane shares (S.srcView) at the left pane's size: the figure's source window, and where a path's start is chosen on the sphere
-  const MIN_PANE_PX = 20; // a pane shorter than this is not laid out (hidden): the other pane's height stands in
-  function srcWindowBox() { const v = S.srcView, w = effW('L'), hh = paneL.h > MIN_PANE_PX ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; }
+  // the window of the camera every plane shares (S.srcView) at X's pane's size: the figure's source window, and where a path's start is chosen on the sphere
+  function srcWindowBox() { const v = S.srcView, w = effW(), hh = paneL.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; }
   // the shown plane's paths figure: the paths of the step that leads to it. {i, m, Fat, z, end} (Fat(t): z -> the thread's
   // place i - 1 + t; surf: the surface the plane is shown on), or {why} when there is none ('first': plane 0; 'deriv': a d/dz
   // step), null on the Landscape
@@ -316,7 +311,7 @@
     svIndex: () => SV.i,
     soundDone: () => sndExportDone(), soundError: () => sndError(),
     art: artRender,
-    state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
+    state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), lGlobe: lGlobe(), lLand: lLand(), main: S.view.main }),
     viewKind: svFigView,
     svOn: () => SV.on,
     // the filmstrip: the thread's planes by name, and plane i's picture as the stage shows it, in o.box when one is
@@ -325,7 +320,7 @@
       const name = (j) => (j === 0 ? 'z' : `w_{${j}}`);
       return { name: name(k), prev: i ? name(P[i - 1]) : null, f: i ? `f_{${k}}` : null };
     }),
-    svArt: (i, o) => svAtPlane(i, () => artRender('L', Object.assign({}, o, SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
+    svArt: (i, o) => svAtPlane(i, () => artRender(Object.assign({}, o, SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
       : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) }))),
     svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
     // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes and the surface
@@ -345,8 +340,7 @@
     },
     svGlideArt: async (x, o) => {
       // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
-      const real = paneL.h > 20 ? paneL : paneR;
-      const draw = () => artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW('L') / Math.max(1, real.h) }, o));
+      const draw = () => artRender(SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW() / Math.max(1, paneL.h) }, o));
       // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's.
       // A plane an All-at-once glide leaves out has no picture at rest in it: its frame is the glide's, drawn a hair off the
       // plane, where the pane draws a glide)
@@ -382,30 +376,30 @@
     svRangeEnds: () => { const R = svRange(); return R ? [R.lo, R.hi] : null; },
     svMapTex: (i, j) => { const P = svPlanes(); return svMapName('tex', P[i], P[j]); },
     shapes: () => S.shapes.filter((s) => s.visible !== false),
-    // a shape's map from its own plane into a panel's plane (side 'L' or 'R'), F the panel's map of the z-plane's shapes:
-    // null where the page does not draw it (a plane after the panel's, a d/dz step between)
-    shapeF: (s, side, F) => shapeF(s, F, side === 'L' ? leftStage() : rightStage()),
+    // a shape's map from its own plane into X's plane, F X's map of the z-plane's shapes: null where the page does not draw
+    // it (a plane after X's, a d/dz step between)
+    shapeF: (s, F) => shapeF(s, F, leftStage()),
     // the plane a shape is drawn on (0 the z-plane), and the window its curves are sampled in there (winOf: X's view of that plane
     // the last time X showed it, else the shape's own box with room around it); null for a shape of the z-plane
     shapeStage: (s) => shapeStage(s),
     shapeWin: (s) => (shapeStage(s) ? winOf(s) : null),
-    // a point's name on a panel, the one the page's figure frames give it (pointLabel in the figure's mode: F(z₀), w₂(z₁)),
+    // a point's name on X's plane, the one the page's figure frames give it (pointLabel in the figure's mode: F(z₀), w₂(z₁)),
     // idx its place among the points the panel draws
-    pointName: (s, idx, side) => {
+    pointName: (s, idx) => {
       const keep = figMode;
       figMode = true;
-      try { return pointLabel(s, idx, primesOf(s, side === 'L' ? leftStage() : rightStage())); } finally { figMode = keep; }
+      try { return pointLabel(s, idx, primesOf(s, leftStage())); } finally { figMode = keep; }
     },
-    F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
+    F: () => stageF(leftStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
-    homF: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.imageF : stageF(rightStage()); } finally { morph.T = keep; } },
     morphLen,
-    // L0: the z-plane's window (the shapes' own plane, also at a focused step)
-    screenBox: (side) => side === 'L0' ? srcWindowBox() : viewBoxOf(side),
-    // a pane's view (centre, px per unit), for the export window of an unbounded set (independent of the pane's size)
-    viewOf: (side) => { const v = side === 'L0' ? S.srcView : side === 'L' ? leftView() : V.right; return { cx: v.cx, cy: v.cy, s: v.s }; },
+    // X's window ('L'), or the z-plane's ('L0': the shapes' own plane, also at a focused step)
+    screenBox: (side) => side === 'L0' ? srcWindowBox() : viewBoxOf(),
+    // X's view ('L') or the z-plane's ('L0'): centre, px per unit, for the export window of an unbounded set (independent
+    // of the pane's size)
+    viewOf: (side) => { const v = side === 'L0' ? S.srcView : leftView(); return { cx: v.cx, cy: v.cy, s: v.s }; },
     landBox: () => landBox(),
-    paneAspect: (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return (real.h > 20 ? real.h : other.h) / effW(side); },
+    paneAspect: () => paneL.h / effW(),
     panelVar,
     fname: () => (morphOn() ? 'H_t' : SV.on ? svCapParts().Fname : fNameTex()),
     // (the map Y shows while ‹ › rest it on a step's plane: F_j, the composite of the first j steps; -1 otherwise)
@@ -417,23 +411,18 @@
     segsTex: (segs) => captionLatex(segs, true),
     sceneName: figSceneName,
     sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (step ids only when a shape refers to them)
-    chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', xyR: $t('Deformation'), phase: $t('Phase'), land: $t('Landscape'), morph: $t('Deformation') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
+    chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', phase: $t('Phase'), land: $t('Landscape') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
     hue: hueBytes,
     // the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
     // time T; the lift of the plane to the Riemann sphere (the globe's vector marks)
-    defo: () => { const rt = morphOn() ? rangeTex() : null; return { on: morphOn(), T: morph.T, m: morphLen(), deriv: morphHasDeriv(), rGlobe: rGlobe(), main: S.view.main, paths: S.morphPaths !== false, range: rt ? rt.range : null, pre: rt ? rt.pre : null, post: rt ? rt.post : null, qp: rt ? rt.qp : null, qpz: rt ? rt.qpz : null, wdef: rt ? rt.wdef : null }; },
+    defo: () => { const rt = morphOn() ? rangeTex() : null; return { on: morphOn(), T: morph.T, m: morphLen(), deriv: morphHasDeriv(), main: S.view.main, range: rt ? rt.range : null, pre: rt ? rt.pre : null, post: rt ? rt.post : null, qp: rt ? rt.qp : null, qpz: rt ? rt.qpz : null, wdef: rt ? rt.wdef : null }; },
     plotFAt: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.F : focusF(); } finally { morph.T = keep; } },
     lift: liftC,
-    // the screen's deformation paths (their points z), for the video's Paths
-    screenPaths: () => (S.view.main === 'xy' && S.morphPaths !== false && mfCache.sel && mfCache.sel.kept ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
-    // the deformation's paths as print vectors (figure.js: the paths figure, plane and globe), and the live globe's
-    // chosen points (the globe's paths figure draws the same ones)
+    // the deformation's paths as print vectors (figure.js: the paths figure, plane and globe)
     pathsSvg: (items, o) => pathsSvg(items, o),
     pathTimesTex: (m) => pathTimesTex(m),
     pathMarkTimes: (m) => pathMarkTimes(m),
     pathMarksTex: (m) => pathMarksTex(m),
-    morphPaths: (o) => figMorphPaths(o),
-    globePaths: () => (rGlobe() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
   });
   // what export and captions (src/export.js) need from the app: its functions and constants, and the state they
   // reassign as getters (and setters for the state they write)
@@ -441,9 +430,9 @@
     return {
       BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
       focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
-      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
-      morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
-      pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, requestRender, rightStage, shapeF, shapeStage, stageF,
+      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence,
+      morphHomSegs, morphLen, morphOn, morphRange, openMenu, pathOf, pathsGen,
+      pickScene, pointLabel, readTheme, refineAllNow, renderLeft, requestRender, shapeF, shapeStage, stageF,
       fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
       smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt,
       get S() { return S; },
@@ -459,15 +448,12 @@
       get artNoLab() { return artNoLab; }, set artNoLab(v) { artNoLab = v; },
       get artSkip() { return artSkip; }, set artSkip(v) { artSkip = v; },
       get built() { return built; },
-      get chainSig() { return chainSig; },
       get currentExample() { return currentExample; },
       get draft() { return draft; }, set draft(v) { draft = v; },
       get figMode() { return figMode; }, set figMode(v) { figMode = v; },
-      get figVec() { return figVec; }, set figVec(v) { figVec = v; },
       get hoverShape() { return hoverShape; }, set hoverShape(v) { hoverShape = v; },
       get offRender() { return offRender; }, set offRender(v) { offRender = v; },
       get paneL() { return paneL; }, set paneL(v) { paneL = v; },
-      get paneR() { return paneR; }, set paneR(v) { paneR = v; },
       get printInk() { return printInk; }, set printInk(v) { printInk = v; },
       get probe() { return probe; }, set probe(v) { probe = v; },
       get selected() { return selected; }, set selected(v) { selected = v; },
@@ -477,17 +463,13 @@
   const EXP = /** @type {any} */ (Export);
   function getDownloads(...args) { return EXP.getDownloads(...args); }
   function saveFile(...args) { return EXP.saveFile(...args); }
-  function prepareExport(...args) { return EXP.prepareExport(...args); }
   function effW(...args) { return EXP.effW(...args); }
   function renderOff(...args) { return EXP.renderOff(...args); }
   function panelVar(...args) { return EXP.panelVar(...args); }
   function capT(...args) { return EXP.capT(...args); }
   function shapePhrase(...args) { return EXP.shapePhrase(...args); }
-  function joinList(...args) { return EXP.joinList(...args); }
-  function cap1(...args) { return EXP.cap1(...args); }
   function pcTidy(...args) { return EXP.pcTidy(...args); }
   function compositeTexShort(...args) { return EXP.compositeTexShort(...args); }
-  function patternSegs(...args) { return EXP.patternSegs(...args); }
   function figureCaption(...args) { return EXP.figureCaption(...args); }
   function captionLatex(...args) { return EXP.captionLatex(...args); }
   function figMorphPaths(...args) { return EXP.figMorphPaths(...args); }
