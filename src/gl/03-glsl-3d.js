@@ -653,12 +653,12 @@ void main() {
 `;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
   // across a tear (a step over uLim on the plane), a height step over uStep or a jump), and the occlusion of the heights
-  // over the grid (LAND_AO, as at rest, its points reached by edges the normals keep: near, and not across a jump,
-  // aoLink). Its jumps: the grid edge a -> b, between the edges p -> a and b -> q along the same line, crosses a jump of
-  // the carry's map when its place step on the plane (stepOf: -1 where a point is not finite or off the grid, Tin) is
-  // over uJumpW and over uJump times the larger of theirs (of those that are finite; none: no jump), uJump 0: none.
-  // tfOut: (the normal, the occlusion (0 to 1) + 2 x the jump bits of the edges out of the point: 1 along +x, 2 along +y,
-  // 4 along the diagonal +(1, 1)), which LAND_CARRY_VS reads both of
+  // over the grid (LAND_AO, as at rest, its points reached by edges within uLim and uStep: near, aoLink). Its jumps: the
+  // grid edge a -> b, between the edges p -> a and b -> q along the same line, crosses a jump of the carry's map when its
+  // place step on the plane (stepOf: -1 where a point is not finite or off the grid, Tin) is over uJumpW and over uJump
+  // times the larger of theirs (of those that are finite; none: no jump), uJump 0: none. tfOut: (the normal, the
+  // occlusion (0 to 1) + 2 x the jump bits of the edges out of the point: 1 along +x, 2 along +y, 4 along the diagonal
+  // +(1, 1)), which LAND_CARRY_VS reads both of
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
 uniform float uPatch; uniform float uJump; uniform float uJumpW;
@@ -674,7 +674,7 @@ bool jumpOf(vec4 p, vec4 a, vec4 b, vec4 q) {
   return m >= 0.0 && s > uJumpW && s > uJump * m;
 }
 bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
-bool aoLink(ivec2 a, vec4 ta, ivec2 b, vec4 tb) { ivec2 d = b - a; return near(ta, tb) && !jumpOf(Tin(a - d), ta, tb, Tin(b + d)); }
+bool aoLink(ivec2 a, vec4 ta, ivec2 b, vec4 tb) { return near(ta, tb); }
 ` + LAND_AO + glsl`
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
