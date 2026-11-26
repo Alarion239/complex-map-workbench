@@ -7,9 +7,9 @@
 // in a channel, which the carried colour leaves to the plots.
 // - R1: at u = .7 the show-through is at most SEAM_MAX pixels (painter's order: about 1,600);
 // - R2: at u = .9 and .97 it is at least SEAM_LESS pixels below painter's;
-// - R3 (where copies overlap, the same one wins as in painter's order): at u = .3, .7 and .9, against painter's frame, no differing pixel has
-//   CLUMP or more differing neighbours of its 8, so no area changes colour, only lines a pixel wide; and at .9 and .97,
-//   outside painter's show-through, the frames are at most NEAR levels apart;
+// - R3 (where copies overlap, the same one wins as in painter's order): at u = .3, .7 and .9, against painter's frame,
+//   no differing pixel has CLUMP or more differing neighbours of its 8, so no area changes colour, only lines a pixel
+//   wide; and at .9 and .97, outside painter's show-through, the frames are at most NEAR levels apart;
 // - R4: at u = .5, where no copies meet, the frame is painter's, byte for byte;
 // - R5: the frames that do not draw copies by the inverse pass are painter's, byte for byte: z⁵ − 5z then √ (the carried
 //   mesh) and the log with its copies left out (glideSheets 1). (No glide frame has a REPT plan to check: a repeated step
@@ -22,7 +22,11 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
-const DIFF = 8, SEAM_MAX = 20, SEAM_LESS = 2000, CLUMP = 7, NEAR = 6, ROUNDS = 3;
+// (the bounds, from frames on lavapipe: DIFF, a channel apart by more than the saturate sum's rounding; SEAM_MAX, R1
+// measures 0 against painter's 1,605; SEAM_LESS, R2 measures about 4,400 and 5,600 fewer; CLUMP, a seam line's pixel
+// has at most 6 differing neighbours, an area's 8; NEAR, DIFF itself: outside painter's show-through no pixel differs,
+// measured 5 and 4 levels at most)
+const DIFF = 8, SEAM_MAX = 20, SEAM_LESS = 2000, CLUMP = 7, NEAR = DIFF, ROUNDS = 3;
 await view(1440, 900, false, false);
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
 const step = (type, params) => ({ type, params: params || {}, on: true });
