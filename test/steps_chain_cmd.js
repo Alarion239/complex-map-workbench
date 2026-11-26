@@ -212,8 +212,8 @@ const fitCase = async (w, lang) => {
   ok(`${w}, ${lang}: the pane stays in its column and the strip fits it, + Add function whole`, r.paneInside && r.strip && r.stripInPane && r.docX && r.add, r);
   ok(`${w}, ${lang}: the strip's and the plane's controls are not covered`, r.hits.length === 0, r.hits);
 };
-// the empty chain's hint is whole: clear of the pane's head, the readout and the view tools (eyes: it was cut by the head's
-// segments at 1440 and in ru at 1024), and a pointer finds it nowhere it is not meant to be
+// the empty chain's hint is whole: clear of the pane's head, the readout and the view tools (the head's segments at
+// 1440 and in ru at 1024 leave it whole), and a pointer finds it nowhere it is not meant to be
 const hintCase = async (w, lang) => {
   await open(w, 800, false, [], `${ns}h${w}${lang}`, lang);
   const r = await ev(`(() => {

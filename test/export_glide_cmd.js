@@ -73,8 +73,15 @@ const FIT_SLACK = 0.01;
 const RING_MARKS = 4;
 // a decoded frame, or a frame of a video, matches its exact render to this mean difference (of 255)
 const DECODED_MAD = 12;
+// a frame drawn at a thread position matches the screen parked there, 96 px wide, to this mean difference (of 255); two
+// pictures this far apart or more are different pictures
+const PARKED_MAD = 14;
 // the Play range the Loop, Bounce and hidden-tab checks record: the thread's second step (planes 1 to 2), one step long
 const PLAY_RANGE = [1, 2];
+// the thread's place of the All-at-once frame: between planes 1 and 2, on the span [0, 2]
+const ALL_AT = 1.57;
+// the All-at-once frame on plane 1 is compared with the frame this far (in planes) before it
+const ALL_NEAR = 0.005;
 // a hidden page's timers wait at least this long (ms), its animation frames do not come and document.hidden is true
 const HIDDEN_TIMER_MS = 1000;
 // a video made in a hidden page may take this many times a visible one's time, or this much longer (ms), whichever is more
@@ -110,7 +117,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   const v = await ev(`await (async () => { try {
     const g = __cmwFig.glide(), at0 = __cmwSteps().x;
     const r = await __cmwFig.makeVideo({ video: ${JSON.stringify(VIDEO_OPT)}, keepForCheck: true });
-    const n = __cmwFig.videoTimes(${JSON.stringify(VIDEO_OPT)}, g.hi - g.lo).length, k = Math.floor(r.frames * 0.4), chk = await __cmwFig.videoCheck(k, 256, 144);
+    const n = __cmwFig.videoTimes(${JSON.stringify(VIDEO_OPT)}, g.hi - g.lo, g.stops).length, k = Math.floor(r.frames * 0.4), chk = await __cmwFig.videoCheck(k, 256, 144);
     return { g, at0, at1: __cmwSteps().x, ext: r.ext, codec: r.codec, frames: r.frames, expect: n, fps: r.fps, W: r.W, H: r.H, mad: chk && chk.mad, t: chk && chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 600000);
   if (!v || v.err) { fails.push({ name: `${tag}: video`, got: v }); continue; }
@@ -244,7 +251,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     })()`, 120000);
     info[tag + ' screen ' + park] = s;
     if (scope) await ev(`(__cmwSteps({ scope: 'in' }), 1)`);
-    ok(`${tag}: a frame at x = ${park} matches the screen parked there`, s && s.mad < 14 && (surf === 'plane' || s.drawn > DRAWN_MIN) && Math.abs(s.x - park) < 1e-6, s);
+    ok(`${tag}: a frame at x = ${park} matches the screen parked there`, s && s.mad < PARKED_MAD && (surf === 'plane' || s.drawn > DRAWN_MIN) && Math.abs(s.x - park) < 1e-6, s);
   }
 }
 // a short, wide pane (a landscape phone) makes a small globe, and its marks come near its outline: the still's marks keep clear of it
@@ -302,7 +309,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     }
     const t0 = performance.now();
     let r; try { r = await __cmwFig.makeVideo({ video: opt, keepForCheck: true }); } finally { window.setTimeout = st; window.requestAnimationFrame = raf; delete document.hidden; delete document.visibilityState; }
-    const ms = Math.round(performance.now() - t0), span = g.hi - g.lo, T = __cmwFig.videoTimes(opt, span);
+    const ms = Math.round(performance.now() - t0), span = g.hi - g.lo, T = __cmwFig.videoTimes(opt, span, g.stops);
     const at = (x) => (typeof x === 'number' ? x : x.a), blend = T.findIndex((x) => typeof x !== 'number');
     // the frame decoded: Loop's first cross-fade, Bounce's first frame inside the range after the far end (the return leg), else the
     // first inside the range
@@ -323,6 +330,76 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   info['glide video in a hidden page'] = { visible: once, hidden: hid };
   ok('a video made in a hidden page has the same frames at a pace close to a visible one', !hid.err && hid.frames === once.frames && hid.ms < Math.max(HIDDEN_RATIO * once.ms, once.ms + HIDDEN_SLACK_MS), { once, hid });
   await ev(`(__cmwSteps({ range: null }), 1)`);
+}
+// All at once: a glide across two planes or more is one homotopy over its span, and the video's frames between planes are
+// that glide's, as the screen plays it. The chain z⁵ + z, then 1z (two steps, colour Everywhere): the screen parked at
+// ALL_AT on the span [0, 2], as a Play paused there leaves it, and the frame drawn at the same place match to PARKED_MAD,
+// and the frame's label is the pane's readout there ("All steps at once · …"). The control: the same frame drawn with the
+// order a step at a time, while the screen still holds the span, is a different picture (the bound tells the two orders
+// apart) and its label is a step's. The video's pace: All at once, no hold strictly inside the span; a step at a time, the
+// hold at plane 1 (#2467)
+{
+  await loadView('steps', 'xgla' + Date.now() % 1e7, { v6: true, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'poly', params: { co: '1, 0, 0, 0, 1, 0' }, on: true }, { type: 'mul', params: { c: '1' }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } }, { lang: 'en' });
+  await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure && __cmwSteps().planes.length === 3', max: 30000 });
+  await ev(`(__cmwSteps({ scope: 'all', go: 0, now: true }), __cmwSet('wKey', false), 1)`);
+  await settled({ until: '!__cmwSteps().moving', max: SETTLE_MAX_MS, floor: 400 });
+  // (in the page) the screen's canvas and the frame at ALL_AT, each copied 96 px wide: their mean difference (of 255), the
+  // frame's label, the pane's readout and its span then and afterwards; with steps, the frame is drawn with the order a step
+  // at a time
+  const cmp = (steps) => ev(`await (async () => { try {
+    __cmwSteps({ order: 'all', park: ${ALL_AT}, span: [0, 2] });
+    for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+    if (GLR.gpuDone) await GLR.gpuDone();
+    const cvs = [...document.querySelectorAll('#plotL canvas')].map((e) => [e, e.getBoundingClientRect()]).sort((p, q) => q[1].width * q[1].height - p[1].width * p[1].height)[0];
+    const w = 96, h = Math.max(8, Math.round(w * cvs[1].height / cvs[1].width));
+    const copy = (src) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(src, 0, 0, w, h); return c.getContext('2d').getImageData(0, 0, w, h).data; };
+    const said = document.querySelector('[role=slider][aria-valuetext]').getAttribute('aria-valuetext'), span = __cmwSteps().span, x = __cmwSteps().x;
+    const da = copy(cvs[0]);
+    if (${!!steps}) __cmwSteps({ order: 'steps' });
+    const r = await __cmwFig.glideArt(${ALL_AT}, { wpt: cvs[1].width * 72 / 96, dpi: 96, raw: true, look: 'light' }), label = __cmwFig.glideText(${ALL_AT});
+    const spanAfter = __cmwSteps().span;
+    if (${!!steps}) __cmwSteps({ order: 'all' });
+    const db = copy(r.cv);
+    let sum = 0;
+    for (let i = 0; i < da.length; i += 4) sum += Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]);
+    return { mad: sum / (w * h * 3), label, said, span, x, spanAfter };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 120000);
+  const all = await cmp(false), steps = await cmp(true);
+  info['all at once'] = { all, steps };
+  ok(`All at once: a frame at x = ${ALL_AT} matches the screen's glide paused there (on the span [0, 2])`, !all.err && !!all.span && all.span.x0 === 0 && all.span.x1 === 2 && Math.abs(all.x - ALL_AT) < POS_TOL && all.mad < PARKED_MAD, all);
+  ok('All at once: the frame\'s label is the pane\'s readout there, and the span is as it was afterwards', !all.err && /^All steps at once/.test(all.said) && all.label === all.said && !!all.spanAfter && all.spanAfter.x0 === 0 && all.spanAfter.x1 === 2, all);
+  ok('All at once: the control, the same frame drawn a step at a time, does not match the screen, and its label is a step\'s', !steps.err && steps.mad > PARKED_MAD && /^Step 2 of 2/.test(steps.label), steps);
+  // plane 1, which the glide across [0, 2] leaves out, is no plane at rest in the video: its frame is the glide's, as the frame
+  // ALL_NEAR before it is, to PARKED_MAD, and plane 1 at rest (the frame there a step at a time) is not
+  const mid = await ev(`await (async () => { try {
+    const w = 96, h = 64, copy = (src) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(src, 0, 0, w, h); return c.getContext('2d').getImageData(0, 0, w, h).data; };
+    const mad = (a, b) => { let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]); return s / (w * h * 3); };
+    const at = async (x) => copy((await __cmwFig.glideArt(x, { wpt: 600, hpt: 400, dpi: 96, raw: true, look: 'light' })).cv);
+    const one = await at(1), near = await at(1 - ${ALL_NEAR}), label = __cmwFig.glideText(1);
+    __cmwSteps({ order: 'steps' });
+    const rest = await at(1);
+    __cmwSteps({ order: 'all' });
+    return { glide: mad(one, near), rest: mad(rest, near), label };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 120000);
+  info['all at once, plane 1'] = mid;
+  ok('All at once: the frame on a plane the glide leaves out is the glide\'s (as the frame just before it), not that plane at rest', !mid.err && mid.glide < PARKED_MAD && mid.rest > PARKED_MAD && /^All steps at once/.test(mid.label), mid);
+  // the video's pace (#2467): All at once, the span [0, 2] is one ease, with no hold strictly inside it, as the screen's Play
+  // runs it straight through; a step at a time holds at plane 1. Each part takes secs a step, so the two differ by that hold
+  const pace = await ev(`(() => { try {
+    const opt = ${JSON.stringify(VIDEO_OPT)}, run = (order) => {
+      __cmwSteps({ order });
+      const g = __cmwFig.glide(), m = g.hi - g.lo, T = __cmwFig.videoTimes(opt, m, g.stops), holds = new Set();
+      for (let i = 1; i < T.length; i++) if (typeof T[i] === 'number' && T[i] === T[i - 1] && T[i] > 0 && T[i] < m) holds.add(T[i]);
+      return { stops: g.stops || null, m, n: T.length, holds: [...holds] };
+    };
+    const all = run('all'), steps = run('steps');
+    __cmwSteps({ order: 'all' });
+    return { all, steps, hold: Math.round(0.6 * opt.fps) };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`);
+  info['all at once, pace'] = pace;
+  ok('All at once: the video runs the span [0, 2] as one ease, with no hold strictly inside it', !pace.err && pace.all.m === 2 && Array.isArray(pace.all.stops) && pace.all.stops.length === 0 && pace.all.holds.length === 0, pace);
+  ok('A step at a time: the video holds at plane 1, one hold longer than All at once', !pace.err && JSON.stringify(pace.steps.stops) === '[1]' && JSON.stringify(pace.steps.holds) === '[1]' && pace.steps.n === pace.all.n + pace.hold, pace);
+  await ev(`(__cmwSteps({ order: 'steps' }), 1)`);
 }
 // the dialog: Video is listed, with where it goes and how long it is
 // the key and the axis title the video draws are the pane's own and follow the thread: the pane is read parked at each plane

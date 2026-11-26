@@ -15,7 +15,9 @@
   // lines are LD_HIT css px wide to a mouse, and to a finger (or a pen) LD_HIT_TOUCH: a press there with the Pick tool
   // drags the target with the pointer (pickDown). A finger's band about the ring is lopsided (ldRingNear): it reaches
   // LD_HIT_TOUCH / 2 out from the ring, and in from it a third of the ring's drawn radius, from LD_HIT / 2 up to
-  // LD_HIT_TOUCH / 2, so that a small ring's inside, where its lit patches are, stays theirs.
+  // LD_HIT_TOUCH / 2, so that a small ring's inside, where its lit patches are, stays theirs. With the Pick tool the
+  // target's square, its radius handle at c + r (ldSquare: the Stack's glass draws it too), resizes it; a press there
+  // comes first.
   const LD_HIT = 16;                     // css px: the ring's and the lines' width to a mouse
   const LD_HIT_TOUCH = 44;               // css px: their width to a finger (the page's touch target)
   const LD_CROSS = 5, LD_DOT = 3.5;      // css px: a critical point's cross arm, a critical value's dot radius
@@ -23,6 +25,7 @@
   const LD_CAP = 24;                     // the most critical points drawn (an infinite set: those in the window)
   let lookDown = true;                   // the readout card's Look down switch
   let lookDrawn = null;                  // the marks as drawn, in the pane's css px (lookHit, __cmwLookDown)
+  let lookSq = null, lookSqLit = false;  // the target's square as drawn on the flat plane (ldSquare's), and whether the hover lights it
   // whether the marks draw for shape s on any surface (the Stack's levels too: there always, as the card hides the switch
   // there), and whether Look down draws them on the flat plane: only where the disc's readout card, with the switch, is
   // built (readoutShown)
@@ -85,14 +88,67 @@
     ctx.restore();
   }
   function drawLookDown(pane) {
-    lookDrawn = null;
+    // (nothing drawn is nothing to press: the square goes with the marks)
+    lookDrawn = null; lookSq = null;
     const s = findShape(selected);
     syncLookKey(lookDownOn(s));
     if (!lookDownOn(s)) return;
     const m = lookMarks(pane, s), lv = { floor: LD_FLAT, glass: LD_FLAT };
     for (const layer of LD_LAYERS) drawLookLayer(pane.octx, m, lv, layer);
-    lookDrawn = { id: m.id, c: m.c, r: m.r, join: m.join, lines: m.zs.map((p) => [...p, ...m.c]), crit: m.crit, vals: m.vals };
+    // (the target's square over the marks, lit under the pointer)
+    lookSq = ldSquare(pane);
+    if (!lookSq) lookSqLit = false;
+    if (lookSq) drawHandleMark(pane.octx, lookSq.p[0], lookSq.p[1], false, lookSqLit ? TH.probe : shapeInk(lookSq.s).edge, lookSqLit ? 2.5 : 1.5);
+    lookDrawn = { id: m.id, c: m.c, r: m.r, join: m.join, lines: m.zs.map((p) => [...p, ...m.c]), crit: m.crit, vals: m.vals, square: lookSq && lookSq.p, squareLit: !!lookSq && lookSqLit };
   }
+  // the identity as a level's map: the flat plane's css px are the canvas's
+  const LD_ID = [1, 0, 0, 1, 0, 0];
+  // the least stretch of the affine map G's linear part (its least singular value): an ellipse drawn through G from a ring
+  // of radius r has its half minor axis r times it
+  function ldLeast(G) {
+    const det = G[0] * G[3] - G[1] * G[2], sq = G[0] ** 2 + G[1] ** 2 + G[2] ** 2 + G[3] ** 2;
+    return Math.sqrt(Math.max(0, (sq - Math.sqrt(Math.max(0, sq * sq - 4 * det * det))) / 2));
+  }
+  // The target's square, its radius handle (Region.handlesOf's 'r', at c + r), drawn on the level G maps the flat plane's
+  // css px to: the flat plane's own (LD_ID) for Look down, the glass's on the Stack. It shows with the Pick tool while
+  // the target's marks show and its radius is free (not bound to a construction, s.at.r, as drawHandles and handleAt read
+  // it): {s, p, o, minor}, p its place and o the centre's in the canvas's css px, minor the ring's drawn half minor axis;
+  // or null
+  function ldSquare(pane, G = LD_ID) {
+    const s = findShape(selected);
+    if (tool !== 'pick' || !s || s.kind !== 'disc' || s.def || s.fixed || !lookMarksOn(s)) return null;
+    const hd = Region.handlesOf(s).find(([k]) => k === 'r');
+    if (!hd || !CX.isFin(hd[1]) || (s.at && s.at[hd[0]])) return null;
+    const at = (z) => { const [u, v] = pane.w2s(z); return [G[0] * u + G[2] * v + G[4], G[1] * u + G[3] * v + G[5]]; };
+    const c = C(s.c[0], s.c[1]), r = Math.hypot(...pane.w2s(hd[1]).map((v, i) => v - pane.w2s(c)[i]));
+    return { s, p: at(hd[1]), o: at(c), minor: r * ldLeast(G) };
+  }
+  // the target when (x, y) is on the square q (ldSquare's, or null): within LD_HIT / 2 css px of it, LD_HIT_TOUCH / 2 for
+  // a finger's or a pen's press (finger); else null. Where the ring is drawn smaller than a finger's reach (its half minor
+  // axis under LD_HIT_TOUCH / 2), a finger reaches the square only from outside, the side away from the centre, so that
+  // the ring stays a finger's to drag
+  function ldSquareHit(q, x, y, finger = false) {
+    if (!q || Math.hypot(x - q.p[0], y - q.p[1]) > (finger ? LD_HIT_TOUCH : LD_HIT) / 2) return null;
+    const out = (x - q.p[0]) * (q.p[0] - q.o[0]) + (y - q.p[1]) * (q.p[1] - q.o[1]) >= 0;
+    return finger && q.minor < LD_HIT_TOUCH / 2 && !out ? null : q.s;
+  }
+  // the resize cursor for the square q (ldSquare's): the one along the line from the centre to it on screen
+  function ldSquareCursor(q) {
+    const a = Math.atan2(q.p[1] - q.o[1], q.p[0] - q.o[0]), k = Math.round((((a % Math.PI) + Math.PI) % Math.PI) / (Math.PI / 4)) % 4;
+    return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][k];
+  }
+  // the target when (x, y) of the flat plane is on Look down's square as drawn, for a finger's press or not; else null
+  const lookSquareAt = (x, y, finger = false) => (lookSq ? ldSquareHit(lookSq, x, y, finger) : null);
+  // the hover at (x, y) of the flat plane lights the square or puts it out: true when that changed
+  function lookSquareHover(x, y) {
+    const on = !!lookSquareAt(x, y);
+    if (on === lookSqLit) return false;
+    lookSqLit = on;
+    requestRender('OL');
+    return true;
+  }
+  // the cursor over Look down's square on the flat plane (ldSquareCursor's) while the hover lights it, else null
+  const lookSquareCursor = () => (lookSq && lookSqLit ? ldSquareCursor(lookSq) : null);
   // whether a press gap css px from a ring of drawn radius r (in: inside it) is on the ring: within LD_HIT / 2 for a
   // mouse; for a finger (finger) within LD_HIT_TOUCH / 2 outside it, and inside it within r / 3 clamped to
   // [LD_HIT / 2, LD_HIT_TOUCH / 2]
