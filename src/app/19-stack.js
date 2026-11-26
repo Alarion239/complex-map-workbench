@@ -22,7 +22,7 @@
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
   const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'levels', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
-  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time), off (the "+n off view" counts: {text, n, at, box, hits}), levels, mids, why, picks}
+  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time, and labelMs: their labels' placement time), off (the "+n off view" counts: {text, n, at, box, hits}), levels, mids, why, picks}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
   // On a phone the box fits the plane's room that is left in sight: above the context bar, and beside Look down's key
   // while it is open (above it, right of it or below it, whichever lets the box be largest), STACK_ROOM_GAP css px clear
@@ -284,11 +284,11 @@
     const bent = ln && up > 0 && (ln.mode === 'curved' || (!!chain && chain.levels.length > 2));
     const lines = bent ? Object.assign({ link: (i) => ln.zs[i] && link(ln.zs[i]) }, lv) : lv;
     // (Look down's marks as points in the canvas's css px, for the labels to keep clear of: the critical points on the
-    // floor, the critical values, the target's ring and centre on the glass, and the lines to the target)
+    // floor, the critical values, the target's ring and centre and the join ring on the glass, and the lines to the target)
     const lookPts = () => {
       if (!mk) return [];
       const out = mk.crit.map((p) => lv.floor.at(...p)).concat(mk.vals.map((p) => lv.glass.at(...p)), [lv.glass.at(...mk.c)]);
-      for (let a = 0; a < 32; a++) out.push(lv.glass.at(mk.c[0] + mk.r * Math.cos((a * TAU) / 32), mk.c[1] + mk.r * Math.sin((a * TAU) / 32)));
+      for (const r of mk.join === null ? [mk.r] : [mk.r, mk.join]) for (let a = 0; a < 32; a++) out.push(lv.glass.at(mk.c[0] + r * Math.cos((a * TAU) / 32), mk.c[1] + r * Math.sin((a * TAU) / 32)));
       mk.zs.forEach((p, i) => {
         const runs = lines.link && lines.link(i);
         if (runs) for (const r of runs) out.push(...r);
@@ -344,9 +344,11 @@
   // floor {p, z}, glass {p, w}, each with on) and the level a hover, a click and a held press there pick; o.same: {yaw, pitch}
   // draws the Stack's frame at that camera for the left pane as it is now, the floor on its main canvas and the rest on
   // a canvas of the overlay's size, and counts the device px where each differs from the pane's own frame before it
-  // ({main, over, px}); the pane is drawn again after
+  // ({main, over, px}); the pane is drawn again after; o.forget: the places the labels kept are cleared (tubeKept), so the next
+  // frame places each from its spots alone
   window.__cmwStack = (o) => {
     const cx = (q) => q && [q.re, q.im];
+    if (o && o.forget) { tubeKept.clear(); return true; }   // (tests) no label keeps a place: the next frame places each from its spots alone
     if (o && o.pick) {
       const [x, y] = o.pick, hit = stackPick(paneL, x, y);
       return { floor: hit.floor && { p: hit.floor.p, z: cx(hit.floor.z), on: hit.floor.on }, glass: hit.glass && { p: hit.glass.p, w: cx(hit.glass.w), on: hit.glass.on }, hover: stackPickLevel(paneL, hit, x, y, 'hover'), click: stackPickLevel(paneL, hit, x, y, 'click'), hold: stackPickLevel(paneL, hit, x, y, 'hold') };

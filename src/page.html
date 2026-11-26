@@ -781,6 +781,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .sv-tile[hidden], :root:not(.sv) .sv-tile { display: none; }
 .sv-tile > .sv-tile-f { grid-area: 1 / 1; justify-self: start; display: inline-block; }   /* (each its own width: the tile measures it) */
 .sv-tile > .sv-tile-f[hidden] { display: none; }
+.sv-tile > .sv-tile-m { grid-area: 1 / 1; justify-self: start; display: inline-block; }   /* (the morph's frame: its width part way between the two formulas') */
+.sv-tile > .sv-tile-m[hidden] { display: none; }
 /* the draft chip takes the place of the plane's empty chip while a polygon is drafted there */
 .plot:has(> .draft-chip:not([hidden])) > .empty-chip:not(.draft-chip) { visibility: hidden; }
 /* below the legend chip (8 + 72 + 8) when it shows, so the two never overlap on a narrow plate */

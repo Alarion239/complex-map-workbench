@@ -122,13 +122,21 @@
   // the tubes' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the place and
   // the words on a halo plate. Each label's plate lies inside the room R the box is fitted in ([x0, y0, x1, y1], css px:
   // stackRoom), clear of the labels placed before it and of the marks drawn ([x, y] css px: the tubes', the strands' and
-  // Look down's), counted on a grid of TUBE_CELL px. It takes the first of TUBE_SPOTS beside its dot (the dot at the
-  // plate's end or corner) that is clear, on one line and then on two (broken at the space nearest the middle); where
-  // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate;
+  // Look down's), counted on a grid of TUBE_CELL px. It first tries the place it had at the last frame (tubeKept), sliding
+  // within TUBE_NUDGE steps of it where that is blocked; failing that it takes the first of TUBE_SPOTS beside its dot (the dot
+  // at the plate's end or corner) that is clear, on one line and then on two (broken at the space nearest the middle); where
+  // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate when
+  // the plate is a plate height or more away (nearer, a leader would read as a dash after the words);
   // where there is none, the spot beside the dot over the fewest marks. Each label's box [x0, y0, x1, y1] (css px, the
   // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it
   const TUBE_SPOTS = ['right', 'left', 'above right', 'above left', 'below right', 'below left'];
   const TUBE_CELL = 4, TUBE_STEP = 6;
+  // A label that was clear at the last frame (covering no mark) keeps that place (an offset of its plate from its dot): where
+  // it is blocked now it slides to the nearest clear place within TUBE_NUDGE steps of it in TUBE_NUDGE_DIRS directions, if that
+  // stays within TUBE_NEAR plate heights of its dot, so that it does not hop across the plane as the camera turns; a label
+  // that was not clear keeps none. tubeKept: the places kept, by the label's kind and words, the TUBE_KEPT_MAX most recent
+  const TUBE_NUDGE = 10, TUBE_NUDGE_DIRS = 8, TUBE_NEAR = 3, TUBE_KEPT_MAX = 8;
+  const tubeKept = new Map();
   function drawStackLabels(ctx, labels, fade, R, marks = []) {
     ctx.save();
     ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle';
@@ -151,7 +159,16 @@
       const two = sp.length ? (() => { const i = sp.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a)); return [L.text.slice(0, i), L.text.slice(i + 1)]; })() : null;
       const options = two ? [[L.text], two] : [[L.text]], size = (lines) => [width(lines) + 2 * P, lines.length * lh - 2 + 2 * P];
       let best = null, near = null;
-      for (const lines of options) {
+      const key = `${L.kind}|${L.text}`, kept = tubeKept.get(key), held = kept && options.find((lines) => lines.length === kept.lines);
+      if (held) {
+        const [w, h] = size(held);
+        for (let k = 0; k <= TUBE_NUDGE && !best; k++) for (let a = 0; a < (k ? TUBE_NUDGE_DIRS : 1) && !best; a++) {
+          const x0 = x + kept.off[0] + k * TUBE_STEP * Math.cos(a * TAU / TUBE_NUDGE_DIRS), y0 = y + kept.off[1] + k * TUBE_STEP * Math.sin(a * TAU / TUBE_NUDGE_DIRS), b = [x0, y0, x0 + w, y0 + h];
+          const cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
+          if (inRoom(b) && dd <= TUBE_NEAR * h && over(b) === 0) best = { b, lines: held, hits: 0, leader: dd >= h ? [cx, cy] : null };
+        }
+      }
+      for (const lines of best ? [] : options) {
         const [w, h] = size(lines);
         for (const spot of TUBE_SPOTS) {
           const x0 = spot === 'right' ? x + g - P : spot === 'left' ? x - g + P - w : spot.endsWith('right') ? x + TUBE_DOT : x - TUBE_DOT - w;
@@ -169,11 +186,13 @@
         const [w, h] = size(lines);
         for (let y0 = R[1]; y0 + h <= R[3]; y0 += TUBE_STEP) for (let x0 = R[0]; x0 + w <= R[2]; x0 += TUBE_STEP) {
           const b = [x0, y0, x0 + w, y0 + h], cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
-          if ((!best || dd < best.dd) && over(b) === 0) best = { b, lines, hits: 0, leader: [cx, cy], dd };
+          if ((!best || dd < best.dd) && over(b) === 0) best = { b, lines, hits: 0, leader: dd >= h ? [cx, cy] : null, dd };
         }
       }
       if (!best) best = near || (() => { const [w, h] = size([L.text]), x0 = Math.max(R[0], Math.min(R[2] - w, x + g - P)), b = [x0, y - h / 2, x0 + w, y + h / 2]; return { b, lines: [L.text], hits: over(b), leader: null }; })();
       L.box = best.b; L.lines = best.lines; L.hits = best.hits; L.leader = best.leader;
+      tubeKept.set(key, best.hits === 0 ? { off: [best.b[0] - x, best.b[1] - y], lines: best.lines.length } : null);
+      if (tubeKept.size > TUBE_KEPT_MAX) tubeKept.delete(tubeKept.keys().next().value);
       // (a plate placed is a mark for the labels after it)
       for (let yy = best.b[1]; yy <= best.b[3]; yy += TUBE_CELL) for (let xx = best.b[0]; xx <= best.b[2]; xx += TUBE_CELL) put(xx, yy, 1);
       sum();
