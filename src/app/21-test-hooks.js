@@ -583,6 +583,8 @@
     }
     return { i: f.i, n: r.kept.length, ims: r.kept.map((k) => k.z[1]).sort((a, b) => a - b), e0, e1, sentence: r.sentenceTex, caption: r.captionTex };
   };
+  // the phase palette as its menu sets it (setPalette: the legend and both panes drawn again), or just read; -> the palette's id
+  /** @type {any} */ (window).__cmwPalette = (id) => { if (id != null) setPalette(id); return GLR.palette(); };
   // the render-ahead frames (#1339) against the screen: frame k drawn ahead, and the left pane drawn live now as the screen
   // draws the motion's frame j (renderLeft in svAheadVisit, with no frame drawn ahead to show, its labels placed at once), its
   // pixels compared -> { n: bytes compared, diff: bytes that differ, first: the first one's index, rec: the live frame's glide

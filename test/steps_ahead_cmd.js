@@ -22,6 +22,9 @@
 // - cancel: Esc while the frames are made drops them, and no glide starts;
 // - resume: Play paused on its frames and pressed again plays on at once with the same frames;
 // - (c) an edit drops them: the colour's sectors changed mid-glide, the next frame is drawn live;
+// - palette: the phase palette is in the frames' key (not in the chain's cost key, so no new probe): a change mid-glide drops them and the
+//   next frame is drawn live; a change while the gate waits for them leaves a glide whose frames are the live frames, byte for byte,
+//   in the new palette; a play paused on its frames and a change, then resumed, is drawn live, not from the old frames;
 // - a hold while they are made is never kept: the zeta example, Inside regions, every pole track dropped once frames are
 //   made (a frame's pole search tiny, the idle job held): the hold is met, every frame kept is the inverse pass's and the
 //   live frame, and the glide starts on frames all exact, or plays live.
@@ -212,6 +215,67 @@ await rest(0);
   ok('resume: pressed again, it plays at once (no wait) on the same frames (none made again)', again.play === 'glide' && !!a1 && a1.state === 'done' && a1.n === a0.n && a1.recs.length === a0.recs.length && a1.shown > a0.shown, info.resume);
   await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
   await settled({ only: true, max: 60000, until: '!__cmwSteps().moving' });
+}
+
+// ---- palette: the phase palette is part of the frames' key: a change drops them wherever it falls ----
+{
+  const PAL = 'arb', cost0 = (await S()).cost;
+  const wheel = await ev('__cmwPalette()');
+  const restore = () => ev(`__cmwPalette(${JSON.stringify(wheel)}), 1`);
+  try {
+    // mid-glide (the glide 0 -> 1, its clock still)
+    await rest(0);
+    const up = await glide(1, 1e-6);
+    const s0 = await S();
+    ok('palette: the glide starts on frames drawn ahead', up.ok && s0.anim && !!s0.ahead && s0.ahead.state === 'done', s0.ahead);
+    await ev(`__cmwPalette(${JSON.stringify(PAL)}), 1`);
+    const t1 = await ev('__cmwTime(1).left'), s1 = await S();
+    info.palette = { mid: { after: s1.ahead, t1 } };
+    ok('palette: a change mid-glide drops the frames, and the frame is drawn live', !s1.ahead && s1.anim && t1 > 0, info.palette.mid);
+    ok('palette: it asks for no new probe: the chain\'s cost is the same', (await S()).cost === cost0, { cost0, cost: (await S()).cost });
+    await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
+    await settled({ only: true, max: 60000, until: '!__cmwSteps().moving' });
+    await restore();
+
+    // while the gate waits for the frames: the change comes once some are made and not all (a page timer between two slices of the fill)
+    await rest(0);
+    await ev(`(() => { window.__palAt = null; const iv = setInterval(() => { const a = __cmwSteps().ahead; if (a && a.state === 'fill' && a.n >= 2) { window.__palAt = a.n; __cmwPalette(${JSON.stringify(PAL)}); clearInterval(iv); } }, 0); return 1; })()`);
+    await ev('__cmwSteps({ clock: 1e-6 }), __cmwSteps({ go: 1 }), 1');
+    const up2 = await settled({ only: true, max: WAIT_MS, until: '!!__cmwSteps().anim' });
+    const at = await ev('window.__palAt'), s2 = await S();
+    info.palette.wait = { at, ahead: s2.ahead && Object.assign({}, s2.ahead, { recs: undefined }) };
+    ok('palette: the palette changed while the fill was under way (some frames made, not all)', at !== null && at >= 2 && !!s2.ahead && at < s2.ahead.N, info.palette.wait);
+    ok('palette: the glide then starts on frames drawn ahead, all of them', up2.ok && !!s2.ahead && s2.ahead.state === 'done' && s2.ahead.n === s2.ahead.N, info.palette.wait);
+    if (s2.ahead && s2.ahead.state === 'done') {
+      for (const k of [...new Set([1, s2.ahead.N >> 1, s2.ahead.N - 1])]) {
+        const c = await ev(`__cmwAhead(${k})`);
+        ok(`palette: k = ${k}: the frame drawn ahead is the live frame in the new palette, byte for byte`, !!c && c.n > 0 && c.diff === 0, c);
+      }
+    }
+    await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
+    await settled({ only: true, max: 60000, until: '!__cmwSteps().moving' });
+    await restore();
+
+    // a play paused on its frames, the palette changed, the play pressed again
+    await rest(0);
+    await ev('__cmwSteps({ clock: 1e-6 }), __cmwSteps({ play: true }), 1');
+    await settled({ only: true, max: WAIT_MS, until: '__cmwSteps().play === "glide"' });
+    await settled({ only: true, max: 30000, until: '!!__cmwSteps().ahead && __cmwSteps().ahead.shown > 0' });
+    await ev('__cmwSteps({ play: false }), 1');
+    const paused = await S();
+    ok('palette: the play paused on its frames keeps them', !!paused.ahead && paused.ahead.state === 'done', paused.ahead);
+    await ev(`__cmwPalette(${JSON.stringify(PAL)}), __cmwSteps({ play: true }), 1`);
+    await settled({ only: true, max: WAIT_MS, until: '__cmwSteps().play === "glide" || !__cmwSteps().moving' });
+    const again = await S();
+    info.palette.paused = { again: again.ahead && Object.assign({}, again.ahead, { recs: undefined }), play: again.play };
+    // (whatever frames the play shows are the live frames in the new palette, byte for byte: not the old record's)
+    const k = again.ahead && again.ahead.state === 'done' ? again.ahead.N >> 1 : null;
+    const c = k === null ? null : await ev(`__cmwAhead(${k})`);
+    info.palette.paused.c = c;
+    ok('palette: pressed again after a change, the play shows no frame of the old palette (none drawn ahead, or the new palette\'s, byte for byte)', !!paused.ahead && paused.ahead.shown > 0 && (!again.ahead || (!!c && c.n > 0 && c.diff === 0)), { again: info.palette.paused });
+    await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
+    await settled({ only: true, max: 60000, until: '!__cmwSteps().moving' });
+  } finally { await restore(); }
 }
 
 // ---- (c) an edit drops them: the glide 0 -> 1, its clock still, the colour's sectors changed ----
