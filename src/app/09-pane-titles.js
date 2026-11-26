@@ -108,9 +108,9 @@
     return { left, right };
   }
   // where a bracket's deformation starts, H_0 = Q applied to w_{a-1} (w_0 = z): 'html', 'text' (Unicode subscripts,
-  // the phone's title chip and the menu's key slot) or 'tex'. One post step f3(w1), two (f4 o f3)(w1), three or more
+  // the menu's key slot) or 'tex'. One post step f3(w1), two (f4 o f3)(w1), three or more
   // (f6 o ... o f4)(w1); the bypassed steps are left out. No words: the same in English and Russian
-  // Unicode subscript digits as <sub> digits: the menu's key slot and the phone row in the label's face
+  // Unicode subscript digits as <sub> digits: the menu's key slot in the label's face
   const subTags = (html) => html.replace(/[\u2080-\u2089]+/g, (m) => `<sub>${[...m].map((c) => c.charCodeAt(0) - 0x2080).join('')}</sub>`);
   function rangeStart(fmt, p = rangeParts()) {
     if (!p) return fmt === 'tex' ? 'z' : fmt === 'html' ? '<i>z</i>' : 'z';
@@ -141,9 +141,6 @@
   }
   function updateFocusUI() {
     const t = paneTitles();
-    // (the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
-    const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 ${parkedAt() >= 0 ? 'w' + String(parkedAt()).split('').map((d) => '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'[+d]).join('') : 'w'}`;
-    if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     nameCanvases(t);
@@ -907,7 +904,8 @@
   // the key as a CSS conic gradient: arg increasing counterclockwise from 1 (the folded legend chip, the header button)
   const keyConic = () => `conic-gradient(from 90deg, ${Array.from({ length: 25 }, (_, i) => keyHex(-i * 15 * DEG)).join(', ')})`;
   // (Hc: the key's height when it is one line of text with no ring)
-  const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8 };
+  const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8,
+    Wk: 144 };   // Wk: the width of the carried-colour key, whose lines hold the widest word of any language (≤ 58 px) right of the wheel
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
@@ -924,10 +922,11 @@
     if (!lPhase()) return null;
     return lGlobe() ? 'sphere' : 'color';
   }
-  // (so that nothing covers the work uninvited) On a desktop each plane's key and its display options
-  // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
-  // after a click, the options behind the Display options button. A phone
-  // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
+  // On a desktop each plane's display options sit in its pane head, behind the Display options button (in the X → Y
+  // view, the Regions button: patternBtn), and so does its key, as a short chip that unfolds under the head while
+  // hovered or after a click, so that nothing covers the work uninvited. The left plane's colour key while it shows
+  // Phase or the Sphere (keyOnPlot) is the exception: it stays on the plot, top right. A phone keeps both on the plane,
+  // where the key is a folded glyph and the options are in the Display sheet.
   const keyOnPlot = () => { const k = legendKind('L'); return k === 'color' || k === 'sphere'; };
   function placeKeys() {
     const ph = document.documentElement.classList.contains('ph');
@@ -1128,9 +1127,9 @@
     const st = legendState[side];
     // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
     const compact = SV.on && kind === 'color' && keyDc() === 'cauchy' && svT() !== 0 && !svCarriedFrom();
-    const { W, dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H;
-    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; st.drawn = ''; }
-    st.h = Hh;
+    const { dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H, W = kind === 'color' && svCarriedKey() ? LEG.Wk : LEG.W;
+    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.closest('.legend-chip').parentElement.style.setProperty('--lg-w', W + 'px'); st.drawn = ''; }
+    st.h = Hh; st.w = W;
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
@@ -1176,7 +1175,7 @@
   const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
   const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
   function paintLegend(ctx, anyCut, kind, st) {
-    const W = LEG.W, Hh = st.h || LEG.H;
+    const W = st.w || LEG.W, Hh = st.h || LEG.H;
     ctx.clearRect(0, 0, W, Hh);
     ctx.textBaseline = 'middle';
     st.strip = false;
@@ -1250,16 +1249,18 @@
       const KEY_PAD = 8;     // room kept at the legend's right edge
       const KEY_TOP = 22;    // baseline of the first line
       const KEY_STEP = 13;   // line step (10.5 px text)
-      const maxW = LEG.W - KEY_PAD - KEY_X, words = $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() }).split(' '), lines = [];
+      const maxW = W - KEY_PAD - KEY_X,
+        words = (svT() === 0 && keyDc() === 'cauchy' && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
-      st.caption = words.join(' '); say.unshift(st.caption);
+      st.caption = words.join(' '); say.unshift(st.caption); st.lines = lines.length;
+      st.room = maxW; st.words = words; st.ui = ui;
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;
-        for (const p of ln.split(/((?<![A-Za-z])w(?![A-Za-z]))/).filter(Boolean)) { ctx.font = p === 'w' ? `italic 500 12px ${TH.math}` : ui; ctx.fillText(p, x, KEY_TOP + i * KEY_STEP, maxW); x += Math.min(maxW, ctx.measureText(p).width); }
+        for (const p of ln.split(/((?<![A-Za-z])[a-z](?![A-Za-z]))/).filter(Boolean)) { ctx.font = /^[a-z]$/.test(p) ? `italic 500 12px ${TH.math}` : ui; ctx.fillText(p, x, KEY_TOP + i * KEY_STEP); x += ctx.measureText(p).width; }
       });
       return;
     }

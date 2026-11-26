@@ -88,7 +88,9 @@ const VIEWS = {
   'steps_land_sheets_prestart_cmd.js': steps(),
   'steps_land_cracks_cmd.js': steps(),
   'steps_glide_tile_cmd.js': steps(),
+  'steps_glide_morph_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
+  'steps_glide_plots_keep_cmd.js': steps({ pin: true }),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_glide_mesh_wait_cmd.js': steps(),
@@ -176,6 +178,7 @@ const VIEWS = {
   'floor_pick_cmd.js': steps({ pin: true }),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
+  'stack_key_whole_cmd.js': steps(),
   'head_press_cmd.js': steps({ pin: true }),
   'steps_land_lscale_cmd.js': steps({ pin: true }),
   'steps_land_caption_cmd.js': steps(),
@@ -234,6 +237,7 @@ const VIEWS = {
   'phone_legend_clear_cmd.js': steps(),
   'phone_legend_keys_cmd.js': steps({ pin: true }),
   'classic_chain_box_cmd.js': classic('the classic view\'s empty chain box under the plane (#2269), which goes with the classic view'),
+  'phone_keys_room_cmd.js': steps(),
   'head_pop_relayout_cmd.js': classic('the classic X → Y view\'s Regions pop-up in a pane head (#2432), which only the classic view has'),
   'head_pop_place_cmd.js': classic('the classic X → Y view\'s Regions pop-up in a pane head, which only the classic view has'),
   'phone_legend_said_cmd.js': steps(),

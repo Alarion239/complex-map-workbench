@@ -242,12 +242,14 @@
       drawCutHandles(paneL, cutHandlesL);
       drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
-      if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      // (no crosshair while the pointer lights Look down's square: the square under it is what a press takes)
+      if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
-      else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
-      // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
-      if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
+      // (not over a zero or pole under the pointer, or one being dragged, nor while the pointer lights Look down's square:
+      // the handle is what the pointer holds)
+      if (probe && !zpHover && !lookSquareCursor() && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
       if (SV.on) drawFloorPick(paneL);
     } else if (!stackDrawOverlay(paneL)) syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
@@ -730,7 +732,7 @@
     const src = carry ? landBox(carry.vs) : null;
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // (the carried grid's patches about the glide map's poles and branch points and the height map's far poles: svLandPatches)
-    const polar = carry ? svLandPatches(carry.map, src, cells, cpuMap(carry.hmap), 'h' + carry.s + ':' + carry.hT, !(carry.copies && carry.copies.length)) : null, far = carry ? svLandFar(src) : null;
+    const polar = carry ? svLandPatches(carry.map, src, cells, cpuMap(carry.hmap), 'h' + carry.s + ':' + carry.hT, !(carry.copies && carry.copies.length)) : null, far = carry ? svLandFar(src, carry) : null;
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
     const mask = SV.on ? (carry ? (carry.plain ? svLandPlainMask() : svLandMask(carry.s, src)) : svLandMask(svStage(), box)) : null;

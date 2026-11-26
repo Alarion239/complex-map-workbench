@@ -14,16 +14,12 @@ const { UNHELD } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames
 // (ARRIVE_EPS: inside the glide's thinned sampling, which starts past SV_REST_U = 3e-7; ARC_TOL px; NEAR_PX: how far
 // a parked point may lie from the glide's polyline and still be read on it; MIN_POINTS: the least points read a bank)
 const ARRIVE_EPS = 1e-6, ARC_TOL = 0.1, NEAR_PX = 0.5, MIN_POINTS = 50;
-const goOk = async (url) => { if (!(await go(url))) throw new Error('no load event for ' + url); };
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
+const D1 = { id: 'd1', kind: 'disc', c: [0.4, 0.2], r: 0.8, ci: 0, visible: true };
 // a page in the steps view on the one-step chain step, Everywhere, the plane surface
 const open = async (step, tag) => {
-  const ns = `${tag}${Date.now()}`;
-  const state = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 },
-    shapes: [{ id: 'd1', kind: 'disc', c: [0.4, 0.2], r: 0.8, ci: 0, visible: true }], steps: [Object.assign({ on: true }, step)] };
-  await goOk(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(state))}); 1`);
-  await goOk(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
-  const r = await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwSvX === "function" && typeof __cmwCutCurves === "function" && !!window.GLR' });
+  const r = await K.openChain({ ns: `${tag}${Date.now()}`, steps: [Object.assign({ on: true }, step)], w: 1200, h: 800, shapes: [D1], max: 60000,
+    until: 'typeof __cmwSteps === "function" && typeof __cmwSvX === "function" && typeof __cmwCutCurves === "function" && !!window.GLR' });
   if (!r.ok) throw new Error('the page hooks are not up after the navigation: ' + JSON.stringify(r));
   await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'all', surf: 'plane', bare: false }), 1`);
 };
@@ -60,7 +56,6 @@ function arcGaps(P, G, box) {
   }
   return { n, worst: +worst.toFixed(3), at };
 }
-await view(1200, 800, false, false);
 for (const type of ['arcosh', 'arccos']) {
   await open({ type }, `cutdash${type}`);
   ok(`${type}: plane w1 at rest settles`, (await rest(1)).ok, null);
