@@ -921,10 +921,11 @@
     if (!lPhase()) return null;
     return lGlobe() ? 'sphere' : 'color';
   }
-  // (so that nothing covers the work uninvited) On a desktop each plane's key and its display options
-  // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
-  // after a click, the options behind the Display options button. A phone
-  // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
+  // On a desktop each plane's display options sit in its pane head, behind the Display options button (in the X → Y
+  // view, the Regions button: patternBtn), and so does its key, as a short chip that unfolds under the head while
+  // hovered or after a click, so that nothing covers the work uninvited. The left plane's colour key while it shows
+  // Phase or the Sphere (keyOnPlot) is the exception: it stays on the plot, top right. A phone keeps both on the plane,
+  // where the key is a folded glyph and the options are in the Display sheet.
   const keyOnPlot = () => { const k = legendKind('L'); return k === 'color' || k === 'sphere'; };
   function placeKeys() {
     const ph = document.documentElement.classList.contains('ph');
