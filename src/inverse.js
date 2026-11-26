@@ -1357,7 +1357,10 @@ const Inverse = (() => {
           if (!empty && ![e.x0, e.x1, e.y0, e.y1].every(Number.isFinite)) return null;
           return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc, rad } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc, rad };
         }),
-        // (the closed form holds where every level is the monomial step: not under a head, a glide frame's gliding copy)
+        // (the closed form holds where every level is the monomial step, so not under a head, a glide frame's gliding
+        // copy: InvOps.reptHead takes a monomial copy between two affine maps as it takes any other, and though the
+        // planner glides a monomial by its power path today, never as a REPT op with a head, this keeps the closed form
+        // off such a head if one is planned)
         cf: shape.kind === 'disc' && !shape.complement && !rp.head ? reptClosedForm(rp.P, rp.Q, rp.n, shape) : null,
       };
     }
