@@ -26,7 +26,9 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 780], [390, 8
   const m = info[tag] = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), p = document.getElementById('plotL').getBoundingClientRect(), b = k.getBoundingClientRect();
     const row = k.querySelector('.ld-links-row') && k.querySelector('.ld-links-row').getBoundingClientRect();
     return { key: [b.left, b.top, b.right, b.bottom].map(Math.round), plot: [p.left, p.top, p.right, p.bottom].map(Math.round), sw: k.scrollWidth, cw: k.clientWidth, sh: k.scrollHeight, ch: k.clientHeight, row: row && [row.left, row.right].map(Math.round), lang: document.documentElement.lang }; })()`);
+  ok(`${tag}: the page is in ${lang} (control)`, (m.lang || 'en') === lang, m);
   ok(`${tag}: the key is open with its connector switch (control)`, !!m.row && m.cw > 0, m);
+  ok(`${tag}: the key lies inside the plane`, m.key[0] >= m.plot[0] - SLACK && m.key[1] >= m.plot[1] - SLACK && m.key[2] <= m.plot[2] + SLACK && m.key[3] <= m.plot[3] + SLACK, m);
   ok(`${tag}: nothing of the key runs past its width (scrollWidth ${m.sw} against ${m.cw})`, m.sw <= m.cw + SLACK, m);
   ok(`${tag}: nothing of the key runs past its height (scrollHeight ${m.sh} against ${m.ch})`, m.sh <= m.ch + SLACK, m);
   ok(`${tag}: the connector switch row lies inside the key`, !!m.row && m.row[1] <= m.key[2] + SLACK, m);
