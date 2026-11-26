@@ -401,6 +401,9 @@
   // whether the plane point (x, y) lies in the strip of a far ring's copies (ring [x, y, ...] with dup [n.x, n.y, half-width],
   // LAND_CARRY_VS uDup); false for a ring without one
   const landInStrip = (ring, x, y) => !!ring.dup && Math.abs((x - ring[0]) * ring.dup[0] + (y - ring[1]) * ring.dup[1]) < ring.dup[2];
+  // whether the plane point (x, y) lies in the disc of one of the carry c's pole patches ([x, y, r0, r1], out to r1), which
+  // that patch covers
+  const inPoleDisc = (c, x, y) => (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(x - qx, y - qy) < q1);
   // The jump bits of an n x n carried grid's vertices with images P (x at 2v, y at 2v + 1; NaN where not finite), as
   // LAND_CARRY_NRM_VS sets them: bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for v -> v + (1, 1), when
   // its step on the plane is over w and over J times the larger of the steps of the edges before it and after it along
@@ -511,7 +514,7 @@
       for (let j = 0; j <= m; j++) for (let i = 0; i <= m; i++) V[j * (m + 1) + i] = L(at(i, j));
       for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
         const zc = at(i + 0.5, j + 0.5), w = F(zc);
-        if (of === 'far' && skipPatches && (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(zc.re - qx, zc.im - qy) < q1)) continue;
+        if (of === 'far' && skipPatches && inPoleDisc(c, zc.re, zc.im)) continue;
         if (!CX.isFin(w) || w.re < b.x0 || w.re > b.x1 || w.im < b.y0 || w.im > b.y1) continue;
         const a0 = V[j * (m + 1) + i], a1 = V[j * (m + 1) + i + 1], a2 = V[(j + 1) * (m + 1) + i], a3 = V[(j + 1) * (m + 1) + i + 1], Lc = L(zc);
         if (!Number.isFinite(a0 + a1 + a2 + a3 + Lc)) continue;
@@ -542,7 +545,7 @@
     return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
   };
   // The chord error of the last carried Landscape frame on the screen, on the CPU, per grid the draw keeps triangles of
-  // (landKeptTris, the heights' step limit included): each kept triangle whose centroid's image lies in the block is sampled
+  // (landKeptTris, with the draw's height step, c.step): each kept triangle whose centroid's image lies in the block is sampled
   // at its centroid and its three edges' midpoints, at the same fractional grid place (i, j); there the chord (its
   // corners' images and drawn heights, interpolated) and the exact surface point (F(z) at the height of h(z), z the
   // grid's point at that place) are each projected onto the pane (landWorldPx, the frame's floor camera). A triangle's
@@ -556,9 +559,10 @@
   window.__cmwLandChordPx = ({ tol = 3, where = null } = {}) => {
     const c = render3D.carried, f = render3D.floor;
     if (!c || !c.map || c.sheets || !f) return null;
-    const F = cpuMap(c.map), h = cpuMap(c.hmap), info = f.info, b = c.box, poles = (c.polar || []).slice(0, c.patches || 0);
+    const F = cpuMap(c.map), h = cpuMap(c.hmap), info = f.info, b = c.box;
     const hgt = (z) => { const v = h(z); return CX.isFin(v) ? info.heightOf(landValue(v)) : NaN; };
-    const step = S.height === 're' || S.height === 'im' ? 0.3 * info.H : Infinity;
+    // (the draw's own height step for the frame, carryStep: none for ln |F| and |F|)
+    const step = c.step != null && c.step < 1e30 ? c.step : Infinity;
     const px = (x, y, ht) => landWorldPx(f, x, y, ht), d = (p, q) => (p && q ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 0);
     const out = {};
     const SAMPLES = [[1 / 3, 1 / 3, 1 / 3], [0.5, 0.5, 0], [0, 0.5, 0.5], [0.5, 0, 0.5]];
@@ -570,7 +574,7 @@
       if (wx < b.x0 || wx > b.x1 || wy < b.y0 || wy > b.y1) return;
       const ij = vs.map((v) => [v % n, Math.floor(v / n)]), zAt = (k) => place(...[0, 1].map((m) => k[0] * ij[0][m] + k[1] * ij[1][m] + k[2] * ij[2][m]));
       const zc = zAt(SAMPLES[0]);
-      if (name.startsWith('far') && poles.some(([qx, qy, , q1]) => Math.hypot(zc[0] - qx, zc[1] - qy) < q1)) { r.inDisc++; return; }
+      if (name.startsWith('far') && inPoleDisc(c, zc[0], zc[1])) { r.inDisc++; return; }
       if (where && !where(zc[0], zc[1])) return;
       let e = 0, ep = 0, eh = 0, atW = null;
       for (const k of SAMPLES) {
