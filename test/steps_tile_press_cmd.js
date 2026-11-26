@@ -1,7 +1,7 @@
 // The glide tile is laid out off the glide's frames (#2458): the tile's layout (its formulas typeset, svTileLay's measures
-// and obstacle search, the morph built) used to run inside the frame that asks for it, the steps view's sync, which on a
-// press is the glide's first frame and draws its picture too: one long task on a slow machine. It is now made in an idle
-// moment (svTileLater). A chain of two steps whose composite is long (steps_glide_tile's TILE_CHAIN), the page at 1200 x
+// and obstacle search, the morph built) is made in an idle moment (svTileLater), not in the frame that asks for it, the
+// steps view's sync, which on a press is the glide's first frame and draws its picture too (the two together are one
+// long task on a slow machine). A chain of two steps whose composite is long (steps_glide_tile's TILE_CHAIN), the page at 1200 x
 // 800, the thread at rest on w₁, with __cmwTile's trace of each layout and typesetting (now: made where a layout may be,
 // svTileLater's job or the hook; else in a frame):
 // - press: a glide from w₁ to w₂ (__cmwSteps go, played live, its frames the steps view's own, each advancing it 1/60 s
