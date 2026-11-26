@@ -76,8 +76,9 @@ const leftOk = (d) => !!d && d.left != null && d.left <= CDMS + 20;
 // time + left, fires at the end of any stall that covers that moment, and the step's own change is a stall that starts there (within
 // STALL_JOIN_MS of the end of the one before): exp is that moment, after the chain of them. judge(left) is the check against a due moment
 // `left` ms after the poll: the advance at least left - tol after it, and at most exp + tol
-// (a stall that starts up to STALL_JOIN_MS after the due moment is the step's own change, which a slowed CPU starts some tens of ms after the timer fires)
-const STALL_JOIN_MS = 120;
+// (a stall that starts up to STALL_JOIN_MS after the due moment is the step's own change. With the CPU slowed 4× it started 0–27 ms after the
+// timer in 83 of 84 measured advances and 35 ms after in one; 60 ms is the next step up from that, not a general allowance)
+const STALL_JOIN_MS = 60;
 const stallEnd = (stalls, p, left) => { let f = p + left; for (const [a, b] of stalls) if (a <= f + STALL_JOIN_MS && f < b) f = b; return f - p; };
 const advanceFrom = async (id, d, tol) => {
   let ch = null;
