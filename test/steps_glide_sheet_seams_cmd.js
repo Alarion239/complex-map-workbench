@@ -1,4 +1,4 @@
-// The steps view's glide onto the logarithm's plane draws the other sheets' copies front to back (#2069 item 2): where two
+// The steps view's glide onto the logarithm's plane draws the other sheets' copies front to back (#2069): where two
 // copies meet along a cut's image, each covers part of the pixels there, and blended by SRC_ALPHA_SATURATE those parts make
 // the whole pixel, where painter's order leaves the planes' plots under them showing through as a line. The log (cut
 // 180), Everywhere, the plane, the colour layer alone (bare), s = 30 px per unit, 1440 x 900 at dpr 2, held with
@@ -7,7 +7,7 @@
 // in a channel, which the carried colour leaves to the plots.
 // - R1: at u = .7 the show-through is at most SEAM_MAX pixels (painter's order: about 1,600);
 // - R2: at u = .9 and .97 it is at least SEAM_LESS pixels below painter's;
-// - R3 (the overlaps' winner, #2069 item 1, kept): at u = .3, .7 and .9, against painter's frame, no differing pixel has
+// - R3 (where copies overlap, the same one wins as in painter's order): at u = .3, .7 and .9, against painter's frame, no differing pixel has
 //   CLUMP or more differing neighbours of its 8, so no area changes colour, only lines a pixel wide; and at .9 and .97,
 //   outside painter's show-through, the frames are at most NEAR levels apart;
 // - R4: at u = .5, where no copies meet, the frame is painter's, byte for byte;
