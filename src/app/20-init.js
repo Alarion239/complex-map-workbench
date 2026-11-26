@@ -219,7 +219,7 @@
     paneL.setView(S.srcView);
     // a saved state without its window (older saves, hand-made states) meshes and samples in
     // the window of its view, as a scene opened from a file does, never in a fixed -4…4 that a deep view lies inside
-    if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; setOpt('clipWin', clipWin); } }
+    if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; clipDefault = true; setOpt('clipWin', clipWin); } }
     buildTools();
     setupFormula();
     setupParams(!!loaded);

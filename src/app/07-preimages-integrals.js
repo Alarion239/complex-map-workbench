@@ -279,7 +279,7 @@
       if (performance.now() - hov.lastFull > (lost ? 60 : 150)) hoverSearch(want, 12);
     }
     publishHover();
-    // when the pointer rests: a longer search of the whole view (a longer one still if it was cut short)
+    // when the pointer rests: a longer search of the whole view (a longer one still if that one stopped short)
     hov.timer = setTimeout(function rest(ms = 70) {
       if (hov.w !== want || (drag && drag.mode !== 'probe')) return;
       hoverSearch(want, ms);
