@@ -338,7 +338,7 @@
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into o when
   // given (another sheet's copy, landCopies), else into landC); jump: the jump rule its normals' pass flags edges by
   // (LAND_CARRY_NRM_VS: the frame's, or CARRY_NO_JUMP)
-  function carryHeights(st, N, mode, H, mu, aspect, polar, o, jump = carryJump) {
+  function carryHeights(st, N, mode, H, mu, aspect, polar, o, jump) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
     if (!o && (!landC || landC.N !== N)) {
@@ -1357,8 +1357,8 @@
     const dbg = {};
     // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px; farN: the carry's far rings
-    // at these points a side, [inner, outer], for a reference frame (test/steps_land_chord_cmd.js); noJump: the carried grids
-    // keep their triangles across a jump, the rule before LAND_CARRY_NRM_VS's jump bits }
+    // at these points a side, [inner, outer], for a reference frame (test/steps_land_chord_cmd.js); noJump: no jump rule
+    // (J 0): the carried grids keep their triangles across a jump }
     Object.assign(dbg, api._lw || {});
     // TEST-HOOK
     // (the carry's far rings' points a side: CARRY_FAR_N, or a test's reference counts)
@@ -1384,7 +1384,7 @@
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
     // its own first would stall the GPU process once for them and once more for the sheets'; with none, the CPU stand-in's)
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    let hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    let hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect, null, null, carryJump) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     // (nothing to draw from yet, the principal surface's programs still linking: the stand-in's relief)
     if (!hd && !st.carry) hd = landStandSurface(st, mode, H, mu, aspect, heightOf);
     else if (hd && !hd.standIn) landStandRelease();
@@ -1393,10 +1393,10 @@
     const farPatches = [];
     if (st.carry && !hs && hd) for (const polar of (st.carry.polar || []).slice(0, CARRY_POLES)) {
       const o = landPP[pp.length] || (landPP[pp.length] = {});
-      pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
+      pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o, carryJump) });
     }
     // (the far patches, the last: their own textures)
-    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: farN(k), o: carryHeights(st, farN(k), mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {})) });
+    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: farN(k), o: carryHeights(st, farN(k), mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {}), carryJump) });
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets would hold both)
     if (!st.card) {

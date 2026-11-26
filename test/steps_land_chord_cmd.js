@@ -1,9 +1,12 @@
 // The steps view's carried Landscape against its exact surface on the screen (#1155): the chord error of each grid the
 // carried draw keeps triangles of, read on the CPU by __cmwLandChordPx (each kept triangle's chord against the exact
 // point (F(z), h(z)) at its centroid and its edges' midpoints, both projected with the frame's camera, in css px), and
-// each frame's pixels against the same frame with the far rings drawn fine (GLR._lw.farN [512, 384]). Two scenes:
+// each frame's pixels against the same frame with the far rings drawn fine (GLR._lw.farN [512, 384]); and the carried
+// grids' jump rule (LAND_CARRY_NRM_VS, mirrored on the CPU) against the carry's map, read by __cmwLandJumps's bisection
+// oracle. Three scenes:
 // - A: the log of an annulus, Im heights, coloured from z, held at u = .05, .1, .25, .5 and .75, and parked on w₁;
-// - B: the default page (z, exp, Möbius), Everywhere, T = w₂, log |F|, held at u = .25, .5 and .75.
+// - B: the default page (z, exp, Möbius), Everywhere, T = w₂, log |F|, held at u = .25, .5 and .75;
+// - C: z³ parked on w₁, coloured from z: a carry whose map has no jump.
 // Checked:
 // (i) on a smooth part of B's box (its points of plane z with 0.4 <= |z| <= 1.5: the slope down to F's zero at 0, short
 //     of its spike and away from F's poles at ±πi) the triangles read, and none is off by more than 0.5 px: where the
@@ -12,10 +15,17 @@
 // (ii) B's outer far ring at u = .5 and .75 has kept triangles and none off by more than 3 px (the ring leaves out the
 //     copies of the box and the inner ring that #1137 measured, landInStrip);
 // (iii) with the far rings drawn at 32 points a side (GLR._lw.farN), B's inner ring at u = .5 reads triangles off by more
-//     than 3 px: the hook reads the rings the frame drew.
-// The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}) and its
-// pixel row: the share of the surface's pixels (a pixel coloured in either frame, its channels more than SAT apart) more
-// than PX_TOL apart in a channel from the fine-ring frame.
+//     than 3 px: the hook reads the rings the frame drew;
+// (iv) A's box at u = .25, .5 and .75 keeps no triangle across a jump of the log's glide (the oracle finds jumps there,
+//     and none is an edge of a kept triangle), and none off by more than 3 px: the jump rule leaves out the slivers that
+//     bridged the slit along the cut;
+// (iv') with the rule off (GLR._lw.noJump), A's box at those u keeps triangles off by more than 3 px: (iv) reads the rule;
+// (v) B at u = .5 and C keep the same triangles, grid by grid, with and without the rule: it leaves out nothing where the
+//     carry's map has no jump.
+// The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
+// jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin), and its pixel row: the share of
+// the surface's pixels (a pixel coloured in either frame, its channels more than SAT apart) more than PX_TOL apart in a
+// channel from the fine-ring frame.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = { A: {}, B: {} };

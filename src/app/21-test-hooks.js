@@ -404,6 +404,14 @@
   // whether the plane point (x, y) lies in the disc of one of the carry c's pole patches ([x, y, r0, r1], out to r1), which
   // that patch covers
   const inPoleDisc = (c, x, y) => (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(x - qx, y - qy) < q1);
+  // the seamed pole patches' discs of the carry c, [x, y, r] each, whose box triangles that patch draws (LAND_CARRY_VS's uDisc)
+  const landSeamDiscs = (c) => (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+  // the place step of an n x n grid with images P (x at 2v, y at 2v + 1; NaN where not finite) along the edge from (i, j) to
+  // (i + di, j + dj), as LAND_CARRY_NRM_VS's stepOf: -1 when either end is off the grid or not finite
+  const landStep = (n, P) => {
+    const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
+    return (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
+  };
   // The jump bits of an n x n carried grid's vertices with images P (x at 2v, y at 2v + 1; NaN where not finite), as
   // LAND_CARRY_NRM_VS sets them: bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for v -> v + (1, 1), when
   // its step on the plane is over w and over J times the larger of the steps of the edges before it and after it along
@@ -411,8 +419,7 @@
   const landJumpBits = (n, P, J, w) => {
     const B = new Uint8Array(n * n);
     if (!(J > 0)) return B;
-    const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
-    const step = (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
+    const step = landStep(n, P);
     const jump = (i, j, di, dj) => { const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj)); return m >= 0 && s > w && s > J * m; };
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) B[j * n + i] = (jump(i, j, 1, 0) ? 1 : 0) | (jump(i, j, 0, 1) ? 2 : 0) | (jump(i, j, 1, 1) ? 4 : 0);
     return B;
@@ -455,7 +462,7 @@
         keep(v, v + n + 1, v + n, (B[v] & 6) | (B[v + n] & 1));
       }
     };
-    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    const s = c.src, n = c.cells, discs = landSeamDiscs(c);
     grid('box', n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
     const ring = (name) => (p, k) => { const m = p[4] || c.patchN || 96; grid(name + k, m, (i, j) => svPatchZ(p, i, j, m), [], p.dup ? p : null); };
     if (patches) (c.polar || []).slice(0, c.patches || 0).forEach(ring('pole'));
@@ -606,7 +613,7 @@
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.jump) return null;
     const F = cpuMap(c.map), w = c.jump.w, out = {}, RATIO_SURE = 1.5, ORACLE_K = 16, ORACLE_HALVE = 24;
-    const discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    const discs = landSeamDiscs(c);
     const at = (x0, y0, x1, y1, t) => F(C(x0 + t * (x1 - x0), y0 + t * (y1 - y0)));
     const jumpy = (Z, a, b) => {
       const [x0, y0, x1, y1] = [Z[2 * a], Z[2 * a + 1], Z[2 * b], Z[2 * b + 1]], d = (p, q) => (CX.isFin(p) && CX.isFin(q) ? CX.abs(CX.sub(p, q)) : Infinity);
@@ -625,8 +632,7 @@
       if (!r) {
         r = out[name] = { edges: 0, jumps: 0, flagged: 0, missed: 0, extra: 0, maxCont: 0, minJump: Infinity, across: 0 };
         const B = landJumpBits(n, P, c.jump.J, w), J = new Set();
-        const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
-        const step = (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
+        const step = landStep(n, P);
         for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) for (const [di, dj, bit] of [[1, 0, 1], [0, 1, 2], [1, 1, 4]]) {
           const s = step(i, j, di, dj);
           if (!(s > w)) continue;
