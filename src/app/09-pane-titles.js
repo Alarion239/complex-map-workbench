@@ -1234,9 +1234,9 @@
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
     // (the caption drawn, its ink box and how much it was narrowed are kept in st.caption, st.capBox and st.capK: tests)
-    // (CAP_GAP: room kept between the caption and the ring's −i label, px. A caption is narrowed to no less than 0.75 of its
-    // width, the most it reads at (the Italian Cauchy caption takes 0.79); one that would need more is wrapped, in a taller
-    // key, not narrowed further. steps_key_caption checks it)
+    // (CAP_GAP: room kept between the caption and the ring's −i label, px. A caption is not to be narrowed below 0.75 of its
+    // width, the most it reads at (the Italian Cauchy caption takes 0.79): steps_key_caption fails below it, and a caption
+    // that needs more is to get a taller key that wraps it, which this key does not have)
     const CAP_GAP = 4;
     const caption = (t) => {
       st.caption = t; say.unshift(t);
