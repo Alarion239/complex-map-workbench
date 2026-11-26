@@ -1552,7 +1552,7 @@
       }
       info.copyAlpha = copies.length ? Math.min(...copies.map(alphaOf)) : null;
       info.refine = null;
-      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null }));
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null })); info.step = carryStep(mode, H);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
