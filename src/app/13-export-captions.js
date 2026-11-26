@@ -392,7 +392,6 @@
     },
     F: () => stageF(leftStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
-    morphLen,
     // X's window ('L'), or the z-plane's ('L0': the shapes' own plane, also at a focused step)
     screenBox: (side) => side === 'L0' ? srcWindowBox() : viewBoxOf(),
     // X's view ('L') or the z-plane's ('L0'): centre, px per unit, for the export window of an unbounded set (independent
@@ -440,7 +439,6 @@
       get artLandRound() { return artLandRound; }, set artLandRound(v) { artLandRound = v; },
       get artCamAsp() { return artCamAsp; }, set artCamAsp(v) { artCamAsp = v; },
       get artMode() { return artMode; }, set artMode(v) { artMode = v; },
-      get artNoLab() { return artNoLab; }, set artNoLab(v) { artNoLab = v; },
       get artSkip() { return artSkip; }, set artSkip(v) { artSkip = v; },
       get built() { return built; },
       get currentExample() { return currentExample; },

@@ -266,7 +266,7 @@
       if (filmRow) filmRow.hidden = vid || svPicOf() !== 'film';
       if (numRow) numRow.hidden = vid || svPicOf() !== 'film' || filmOf() !== 'number';
     }
-    // (round 3) the format: PDF, PNG, SVG, and Video; remembered
+    // the format: PDF, PNG, SVG, and Video; remembered
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save)
     const canVideo = typeof VideoEncoder !== 'undefined';
@@ -291,7 +291,7 @@
     const texNote = h('div', { class: 'xf-texnote', id: 'xfTexNote' });
     const texCopy = h('button', { type: 'button', class: 'btn xf-texcopy', id: 'xfTexCopy', onclick: () => { if (!fig) return; A.copyText(latex(fig, capEdited, fmtOf(), dpiOf())); set.last = set.lastFig = { kind: 'latex', fmt: fmtOf(), dpi: dpiOf() }; saveSet(set); toast($t('LaTeX copied.')); cueDone(); } }, $t('Copy LaTeX'));
     const texRow = row('LaTeX', h('div', { class: 'xf-texwrap' }, texPre), h('div', { class: 'xf-texbar' }, texCopy, texNote)); texRow.classList.add('wide');
-    // the video's options (remembered): size, frame rate, length, ends, look, paths, t label
+    // the video's options (remembered): size, frame rate, length, ends, look, paths, label
     const vset = Object.assign(vdefaults(), set.video || {});
     const saveV = () => { set.video = Object.assign({}, vset); saveSet(set); };
     const vseg = (id, key, options, label, num) => segB(id, String(vset[key]), options, (v) => { vset[key] = num ? +v : v; saveV(); posterSoon(); }, label);
@@ -306,7 +306,7 @@
       vfr($t('Speed'), h('div', { class: 'xf-fmtrow' }, vseg('xfVFps', 'fps', [['30', $t('{n} fps', { n: 30 })], ['60', $t('{n} fps', { n: 60 })]], $t('Frame rate'), true), vLen)),
       vfr($t('Ends'), vseg('xfVEnds', 'ends', [['once', $t('Once')], ['loop', $t('Loop')], ['bounce', $t('Bounce')]], $t('Ends'))),
       vfr($t('Look'), vseg('xfVLook', 'look', [['light', $tx('video look', 'Light')], ['print', $tx('video look', 'Print')]], $t('Look'))),
-      h('div', { class: 'xf-checks' }, vck('tlabel', glide ? $t('Label') : $t('t label'))));
+      h('div', { class: 'xf-checks' }, vck('tlabel', $t('Label'))));
     // (the steps view: where the video goes and how long it is, kept current by posterSoon)
     const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
     const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m, glide.stops).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = $t('{from} → {to} · {secs} s', { from: glide.from, to: glide.to, secs: I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1) }); };

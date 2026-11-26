@@ -50,7 +50,7 @@
     // (the key stands in a column at the right, beside the picture as in the still, so it never covers it)
     const picW = key ? W - keyColumn(H) : W;
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light' }), kind: 'glide', gl, W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m, gl.stops), name, key };
+    return { o, v: Object.assign({}, v, { look: 'light' }), gl, W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m, gl.stops), name, key };
   }
   // the app's hue ring as a canvas of the frame's own scale (0.14 H across), drawn once and kept for every frame
   function ringCanvas(Hpx) {
@@ -381,7 +381,7 @@
     let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
     return { t: typeof e === 'number' ? e : e.a, pic: (L.plan.picW || L.plan.W) / L.plan.W, mad: s / (w * h * 3), decoded: c1.toDataURL('image/png'), exact: c2.toDataURL('image/png'), label: L.plan.label || null };
   }
-  // (tests, export review r3, editor-5) the video's window and the screen's, and the frame at the thread's position on
+  // (tests) the video's window and the screen's, and the frame at the thread's position on
   // screen drawn by the video's code
   async function videoScreenCheck(opts) {
     const plan = await videoPlan(opts);
