@@ -107,6 +107,24 @@
       ready: `(() => { const k = document.querySelector('#plotL .ld-key'); return !!k && !k.classList.contains('folded') && !!k.querySelector('.ld-links'); })()`,
       why: `(() => { const k = document.querySelector('#plotL .ld-key'); return { key: k ? k.className : null, surf: __cmwSteps().surf, tubes: !!(__cmwStack().drawn && __cmwStack().drawn.tubes) }; })()`,
       after: `(() => { __cmwSteps({ surf: 'plane' }); __cmwSelect(null); return 1; })()` },
+    // (a pane head's open pop-ups, in the desk sizes: placed from the head's right edge, under the head, against the Inspector's column: the Regions pop-up of the classic X → Y head,
+    // and the ⋯ Display options pop-up of the head that has one. Each is ready once the pop-up is connected, laid out and its button pressed; the state is closed with its button)
+    { name: 'head regions pop-up', dev: 'desktop', views: ['classic'], page: '&view=classic', sizes: ['1024', '1280', '1440'], wait: 600,
+      run: async () => {
+        await settled({ only: true, max: 20000, until: `!!document.querySelector('#paneL .pane-head .pat-btn')` });
+        await ev(`document.querySelector('#paneL .pane-head .pat-btn').click(), 1`);
+      },
+      ready: `(() => { const b = document.querySelector('#paneL .pane-head .pat-btn'), p = document.querySelector('.pat-pop'); return !!b && b.getAttribute('aria-expanded') === 'true' && !!p && p.getClientRects().length > 0 && document.getAnimations().length === 0; })()`,
+      why: `(() => { const b = document.querySelector('#paneL .pane-head .pat-btn'); return { btn: !!b, pressed: !!b && b.getAttribute('aria-expanded'), pop: !!document.querySelector('.pat-pop') }; })()`,
+      after: `(() => { const b = document.querySelector('#paneL .pane-head .pat-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()` },
+    { name: 'head display options pop-up', dev: 'desktop', sizes: ['1024', '1280', '1440'], wait: 600,
+      run: async () => {
+        await settled({ only: true, max: 20000, until: `!![...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getClientRects().length)` });
+        await ev(`[...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getClientRects().length).click(), 1`);
+      },
+      ready: `(() => { const p = document.querySelector('.disp-pop'), b = [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getAttribute('aria-expanded') === 'true'); return !!b && !!p && p.getClientRects().length > 0 && document.getAnimations().length === 0; })()`,
+      why: `(() => ({ btns: [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].map((e) => e.getClientRects().length > 0), pop: !!document.querySelector('.disp-pop') }))()`,
+      after: `(() => { const b = [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getAttribute('aria-expanded') === 'true'); if (b) b.click(); return 1; })()` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
     { name: 'chain of 4', run: grow, wait: 1500, ready: GROWN, after: SHRINK },
     // (the palette and the phone's sheets are also checked over a four-step chain, the longer chain they must fit)

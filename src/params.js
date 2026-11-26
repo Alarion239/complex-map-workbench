@@ -437,8 +437,8 @@ const Params = (() => {
 .prm { display: flex; flex-direction: column; min-height: 240px; min-width: 0; }
 .prm > h2 { flex: 0 0 auto; min-height: 28px; margin: 0 0 4px; }
 .prm-list { flex: 0 1 auto; overflow-y: auto; min-height: 0; }
-/* ([v16.5 fix user-5] the list takes its own height, so + Number sits right under the last number or the hint, never at
-   the section's foot; a long list still scrolls) */
+/* (the list takes its own height, so + Number sits right under the last number or the hint, never at the section's
+   foot; a long list still scrolls) */
 .prm-row { display: grid; grid-template-rows: 24px 20px; row-gap: 4px; padding: 2px 0 6px; min-height: 56px; box-sizing: border-box; border-bottom: 1px solid var(--line); }
 .prm-row:last-child { border-bottom: 0; }
 .prm-l1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
