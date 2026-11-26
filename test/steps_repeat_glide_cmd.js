@@ -6,6 +6,9 @@
 //   with a gliding copy) reads path 'inverse' and the ops ['REPT'], and on the Plane at u = COPY_U too (a frame on a
 //   copy's end: j copies and no head). On the Sphere the record is the globe's own (__cmwSvGlobe: its carried path,
 //   'inverse' where the inverse pass draws it, and u): __cmwSteps().glide is the flat pane's;
+// - a frame keeps nothing: the Plane's frames at GLIDE_U and COPY_U, Everywhere, are walked as glide frames (the tile
+//   account's glides, __cmwRept({ tileStats })) and leave the REPT accumulation targets as they were (kept), so a glide
+//   pushes no parked plane's walk out and no frame stands in pending over the frames after it;
 // - no unresolved pixel: the Plane's frames at GLIDE_U and END_U, Inside regions, draw none of the grey no-value
 //   hatch (#1444's measure, steps_parked_repeat_cmd.js's);
 // - coverage: Newton's map repeated BITE_N times over the box [0.3, 0.7] × [−0.3, 0.3], the frame at x = BITE_X
@@ -93,10 +96,16 @@ const hatchCount = () => ev(`(() => {
       ok(`the Sphere, ${scope === 'in' ? 'Inside regions' : 'Everywhere'}: the glide at u = ${GLIDE_U} is drawn by the inverse pass`, came && g.path === 'inverse', { came, g });
       continue;
     }
+    const t0 = surf === 'plane' && scope === 'all' ? await ev('__cmwRept({ tileStats: true })') : null;
     for (const u of [GLIDE_U, COPY_U]) {
       const came = await at(u), g = await record();
       info[`${surf}/${scope}/u${u}`] = g;
       ok(`${surf}, ${scope === 'in' ? 'Inside regions' : 'Everywhere'}: the glide at u = ${u} is drawn by the inverse pass as one REPT op`, came && !!g && g.path === 'inverse' && JSON.stringify(g.ops) === '["REPT"]', { came, g });
+    }
+    if (t0) {
+      const t1 = await ev('__cmwRept({ tileStats: true })');
+      info.tiles = { before: t0, after: t1 };
+      ok('the Plane, Everywhere: the two frames are walked as glide frames and keep no accumulation target', t1.glides >= 2 && t1.kept === t0.kept, { t0, t1 });
     }
     if (surf === 'plane' && scope === 'in') {
       for (const u of [GLIDE_U, END_U]) {
@@ -124,8 +133,8 @@ const open = async (rect) => {
   await settled({ max: SETTLE, until: '!__cmwSteps().moving' });
 };
 // the left canvas's colour at plane points ws; on a glide's frame (glide true) each point where the glide's camera
-// (__cmwSteps().glide.view) draws it, which need not be the pane's own view (__cmwW2S's): w is drawn where the pane's
-// view puts c + (w - g.c) g.s / c.s
+// (__cmwSteps().glide.view, S.srcView) draws it: __cmwSteps({ x }) moves the thread alone, so the pane's rulers and
+// __cmwW2S keep the pane's own window (#2321's note), and w is drawn where that window puts c + (w - g.c) g.s / c.s
 const sample = (ws, glide) => ev(`(() => {
   const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], x = c.getContext('2d'), r = c.getBoundingClientRect();
   const m = Math.round(Math.min(c.width, c.height) * ${MARGIN}), out = [];
