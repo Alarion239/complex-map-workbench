@@ -114,8 +114,7 @@
     // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles (a frame between two planes' marks too)
     const marks = r.marks;
     const hard = [];
-    const sel = pane === paneL && lFlat() && leftStage() === 0 ? S.shapes.find((x) => x.id === selected)
-      : pane === paneR && rImage() && targetsEditable() ? (S.targets || []).find((x) => x.id === selected) : null;
+    const sel = pane === paneL && lFlat() && leftStage() === 0 ? S.shapes.find((x) => x.id === selected) : null;
     if (sel) {
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }

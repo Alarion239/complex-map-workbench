@@ -80,16 +80,15 @@ for (const [name, st, want] of CASES) {
   info[name] = got;
   for (const k of Object.keys(want)) ok(`${name}: ${k}`, eq(got[k], want[k]), { k, want: want[k], got });
   await grab(name);
-  // the state the steps view writes back keeps the classic-era fields it has no place for: the right pane's camera (rightView),
-  // the expanded pane (solo), the deformation range (homRange) and the step selected (sel)
+  // the state the steps view writes back drops the right pane's camera (rightView): no view draws Y
   if (name.startsWith('right pane')) {
-    // (the save is written on pagehide: poll for the saved right-pane camera, not a fixed wait)
+    // (the save is written on pagehide: poll for the state the app saved, which has no right-pane camera, not a fixed wait)
     const key = JSON.stringify(storeKey(ns));
     await ev('window.dispatchEvent(new Event("pagehide")); 1');
-    await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && o.rightView); })()` });
-    const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? o.rightView : null; })()`);
+    await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!o && !('rightView' in o); })()` });
+    const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? { has: 'rightView' in o, steps: (o.steps || []).length } : null; })()`);
     info['right pane camera, after a save'] = saved;
-    ok('rightView survives the steps view and a save', eq(saved, { cx: 0.5, cy: -0.25, s: 120 }), saved);
+    ok('a save drops the right pane\'s camera (rightView) and keeps the scene', !!saved && saved.has === false && saved.steps > 0, saved);
   }
 }
 
@@ -289,17 +288,17 @@ n++;
   await grab('open errors');
 }
 
-// a link or a scene carries the figure, not the viewer's panels: no hideLeft or hideRight whichever panels are hidden, and a
-// right plane that is still fitted to its content (auto) has no rightView
+// a link or a scene carries the figure, not the viewer's panels: no hideLeft or hideRight whichever panels are hidden, and no
+// right-pane camera (rightView)
 n++;
 {
   const ns = 'lmig' + n + Date.now();
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
   await ev('__cmwSet("hideLeft", true); __cmwSet("hideRight", true); 1');
-  const fs = await ev('(() => { const o = __cmwFigureState(); return { keys: Object.keys(o).filter((k) => /^hide/.test(k)), rightView: o.rightView, steps: o.steps.length }; })()');
+  const fs = await ev('(() => { const o = __cmwFigureState(); return { keys: Object.keys(o).filter((k) => /^hide/.test(k)), rightView: 'rightView' in o, steps: o.steps.length }; })()');
   info['figureState'] = fs;
   ok('figureState: no hideLeft or hideRight', !!fs && eq(fs.keys, []), fs);
-  ok('figureState: rightView is null while the right plane is fitted (auto)', !!fs && fs.rightView === null, fs);
+  ok('figureState: no rightView', !!fs && fs.rightView === false, fs);
   await grab('figureState');
 }
 
