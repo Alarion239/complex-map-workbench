@@ -1,18 +1,14 @@
   // ---------- (5) The deformation in every view (round 3, ROUND3.md): Phase, Landscape and the globes ----------
-  // the deformation's kind in a view: 'plane' (X -> Y on the plane), 'deriv' (the merged plane over a d/dz step),
-  // 'globe' (X -> Y on the Riemann sphere), 'phase' (the portrait of H_t), 'phaseGlobe' (on the sphere), 'land' (the
-  // relief of H_t); null without the deformation. The paths figure exists where the app draws paths: plane, globe
+  // the deformation's kind in a view: 'phase' (the portrait of H_t), 'phaseGlobe' (on the sphere), 'land' (the relief
+  // of H_t); null without the deformation
   const defoOf = (view) => {
     const d = A && A.defo ? A.defo() : null;
     if (!d || !d.on) return null;
-    if (view === 'morph') return 'plane';
-    if (view === 'xyR') return d.rGlobe ? 'globe' : 'deriv';
     if (view === 'phase') return 'phase';
     if (view === 'xyL' && d.main === 'phase') return 'phaseGlobe';
     if (view === 'land') return 'land';
     return null;
   };
-  const PATHS_OK = new Set(['plane', 'globe']);
   // the frames' times: n frames from 0 to m, and their labels (thirds when m is whole)
   const filmTimes = (m, n = 4) => [...Array(n).keys()].map((i) => i * m / (n - 1));
   const fracTexOf = (m) => (t) => { const q = t / m * 3; if (m === 1) return ['0', '1/3', '2/3', '1'][Math.round(q)] || (I18 && I18.comma(XD.lang) ? I18.texNum(CX.fmtNum(t, 2), XD.lang) : CX.fmtNum(t, 2)); return Math.abs(t - Math.round(t)) < 1e-9 ? String(Math.round(t)) : `${Math.round(t * 3)}/3`; };
@@ -130,45 +126,21 @@
       }
     };
     const tks = (a0, a1) => { const st = niceStep(a1 - a0, 3); return { step: st, list: XD.ticks(a0, a1, st), lo: a0, hi: a1 }; };
-    const v = A.panelVar('L');
+    const v = A.panelVar();
     edge(tks(bx.x0, bx.x1), (t) => [Xw(t), sy * ay, z0], [0, sy], `\\operatorname{Re} ${v}`);
     edge(tks(bx.y0, bx.y1), (t) => [sx * ax, Yw(t), z0], [sx, 0], `\\operatorname{Im} ${v}`);
     return (tk ? `<path d="${tk}" stroke="#000000" stroke-width="0.5" fill="none" stroke-linecap="round"/>` : '') + out;
   }
   // a polyline set in pt as a path
   const ptPath = (segs) => segs.map((sg) => sg.map((p, i) => `${i ? 'L' : 'M'}${f2(p[0])} ${f2(p[1])}`).join('')).join('');
-  // the points whose paths a globe shows: the point shapes and points of the areas' boundaries whose paths show for
-  // the most part (their samples on the front side), kept apart at their ends; Hof(t) -> H_t
-  function globePathPoints(shapes, srcWin, Hof, m, proj, minPt, max = 8) {
-    const cands = shapes.filter((s) => kindType(s) === 'point' && s.p).map((s) => C(s.p[0], s.p[1]));
-    for (const s of shapes) {
-      if (kindType(s) === 'point') continue;
-      let cs = []; try { cs = Region.curvesOf(s, srcWin) || []; } catch (e) { cs = []; }
-      for (const cv of cs.filter((q) => typeof q.f === 'function').slice(0, 4)) for (let i = 1; i < 16; i++) { const z = cv.f(i / 16); if (fin(z)) cands.push(z); }
-    }
-    const kept = [];
-    for (const z of cands) {
-      let vis = 0;
-      for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++;
-      const e = proj(Hof(m)(z));
-      if (vis < 8 || !e) continue;
-      if (kept.every((q) => Math.hypot(q.e[0] - e[0], q.e[1] - e[1]) >= minPt)) kept.push({ z, e });
-      if (kept.length >= max) break;
-    }
-    return kept.map((q) => q.z);
-  }
-  // Globe, Phase on the sphere, Landscape: a filmstrip of the view's own picture at the frames' times, one shared crop
+  // Phase on the sphere, Landscape: a filmstrip of the view's own picture at the frames' times, one shared crop
   async function figFilmPic(o, P, W, T, kind) {
     const [tp, lp] = T;
     const d = A.defo(), m = d.m, ts = filmTimes(m), lab = fracTexOf(m);
-    const side = kind === 'globe' ? 'R' : 'L';
     const st = A.state(), ink = printInkFor(o, st.alpha);
     const cols = W >= 400 || o.for === 'slides' ? 4 : 2, rows = 4 / cols, gap = 8;
     const keyW = kind === 'phaseGlobe' && o.ink !== 'bw' ? Math.min(54, W * 0.16) : 0;
-    // (export review r3, editor-9) Homework dashes an open set's boundary: on the globe the figure draws it (the art
-    // layer leaves its line out)
-    const shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3);
-    const openS = kind === 'globe' && P.dashOpen ? shapes.filter((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s) && globeCurves(s, srcWin).length) : [];
+    const shapes = A.shapes();
     const cell = (W - keyW - gap * (cols - 1)) / cols;
     // the window of the relief: as in figLand (rounded edges), the same for every frame
     let landBox = null;
@@ -178,10 +150,10 @@
     }
     // each frame rendered at 300 ppi of its printed size (the crop is unknown yet: render the pane's picture at the cell
     // width, then crop; the crop rarely loses more than a third, so 1.5 x keeps it above 300 ppi)
-    const asp = Math.min(A.paneAspect(side), kind === 'land' ? 0.8 : 1);
+    const asp = Math.min(A.paneAspect(), kind === 'land' ? 0.8 : 1);
     const wpt = cell * 1.5, hpt = wpt * asp, raws = [];
     for (const t of ts) {
-      const r = await A.art(side, { wpt, hpt, dpi: 300, ink, T: t, alive: o.alive, landBox, skipLines: openS.map((s) => s.id) });
+      const r = await A.art({ wpt, hpt, dpi: 300, ink, T: t, alive: o.alive, landBox });
       if (!r) return null;
       raws.push(r);
     }
@@ -217,19 +189,7 @@
     if (ph > hmax) { ph = hmax; pw = ph * cw / ch; }
     const x0 = (W - keyW - (cols * pw + (cols - 1) * gap)) / 2;
     const k = pw / cw, items = [], lines = [];
-    // the marked points and their paths (the globe): solid up to the frame's t, dotted after
-    const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, A.homF(t)); return Hs.get(key); };
-    let tracked = [];
-    // (export review r3, editor-3) the point shapes are drawn wherever they face the camera; one hidden in every frame
-    // is named in the caption
-    const ptS = kind === 'globe' ? shapes.filter((s) => kindType(s) === 'point' && s.p) : [], ptShapes = ptS.map((s) => C(s.p[0], s.p[1]));
-    const ptLab = ptS.map((s, q) => (P.named ? String.fromCharCode(65 + q) : texLabel(s, q)));
-    const ptSeen = ptShapes.map(() => false), ptIn = ptShapes.map(() => []);
-    const pxPt = 300 / 96 * k; // pt per CSS px of the render
-    // (export review r3, verify-editor-3) a point shape whose path is not drawn is marked with the next marker shape after
-    // the tracked points' (dot, square, ...), never a second kind of dot, and the caption names it by that shape
-    const untracked = () => ptShapes.map((z, q) => q).filter((q) => !tracked.some((y) => y.re === ptShapes[q].re && y.im === ptShapes[q].im));
-    for (const [i, t] of ts.entries()) {
+    for (const i of ts.keys()) {
       const col = i % cols, row = Math.floor(i / cols);
       const x = x0 + col * (pw + gap), y = row * (tH + ph + 6) + tH;
       const a = await XD.art(cropRGB(raws[i], c), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
@@ -237,35 +197,7 @@
       if (kind === 'land') { items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" fill="none" stroke="#000000" stroke-width="0.5"/>`); lines.push({ x0: x, y0: y, x1: x + pw, y1: y + ph, kind: 'frame' }); }
       items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
       const g = raws[i].globe;
-      if (g && (kind === 'globe' || kind === 'phaseGlobe')) {
-        const proj = globeProj(g, raws[i], c, x, y, k);
-        if (kind === 'globe') {
-          if (i === 0) tracked = globePathPoints(shapes, srcWin, Hof, m, proj, 0.18 * pw, 4);
-          let pm = '';
-          for (const s of openS) {
-            const d2 = ptPath(globeEdge(s, Hof(t), proj, srcWin)), col = o.ink === 'bw' ? '#000000' : tonesOf(s, o).edge;
-            if (d2) pm += `<path d="${d2}" fill="none" stroke="#ffffff" stroke-width="${f2(3.5 * pxPt)}" stroke-linecap="round" stroke-opacity="1"/><path d="${d2}" fill="none" stroke="${col}" stroke-width="${f2(Math.max(0.6, 1.5 * pxPt))}" stroke-dasharray="3 2"/>`;
-          }
-          const un = untracked();
-          ptShapes.forEach((z, q) => {
-            const e = proj(Hof(t)(z)), u = un.indexOf(q);
-            if (e) { ptSeen[q] = true; ptIn[q].push(i); }
-            if (u < 0 || !e) return;
-            const mk = PTS[(tracked.length + u) % 4];
-            pm += XD.marker(mk[0], e[0], e[1], 1.9, o.ink === 'bw' ? '#000000' : mk[1], '#ffffff', 0.4);
-          });
-          tracked.forEach((z, q) => {
-            const sample = (a0, b0) => XD.sample((u) => proj(Hof(u)(z)), a0, b0, 48, 0.25);
-            const col2 = o.ink === 'bw' ? '#000000' : PTS[q % 4][1];
-            if (t < m) pm += `<path d="${ptPath(sample(t, m))}" fill="none" stroke="#444444" stroke-width="0.7" stroke-dasharray="0 1.8" stroke-linecap="round"/>`;
-            if (t > 0) { const d2 = ptPath(sample(0, t)); pm += `<path d="${d2}" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/><path d="${d2}" fill="none" stroke="${col2}" stroke-width="0.6" stroke-linecap="round"/>`; }
-            const e = proj(Hof(t)(z));
-            if (e) pm += XD.marker(PTS[q % 4][0], e[0], e[1], 1.9, col2, '#ffffff', 0.4);
-          });
-          items.push(pm);
-        }
-        items.push(globeLabels(g, raws[i], c, x, y, k, tp - 1));
-      }
+      if (g && kind === 'phaseGlobe') items.push(globeLabels(g, raws[i], c, x, y, k, tp - 1));
     }
     if (keyW) {
       // (the key's ring: 12 pt of the column's half width go to its marks and margins; 6 pt is the gap under each row)
@@ -292,24 +224,8 @@
       for (const r of zerosPolesIn(A.plotFAt(t), expandBox(A.screenBox('L0'), 2), 30)) { allZP++; if (!proj(r.z)) hiddenZP++; }
       await breathe();
     }
-    const pts = tracked.map((z) => ({ z, own: ptShapes.some((y) => y.re === z.re && y.im === z.im) }));
-    // the other point shapes: their marker and the frames where they are on the far side
-    const marks = kind === 'globe' ? untracked().map((q, u) => ({ q, z: ptShapes[q], lab: ptLab[q], mk: (tracked.length + u) % 4, hiddenIn: ts.map((t, i) => i).filter((i) => !ptIn[q].includes(i)) })).filter((x) => ptSeen[x.q]) : [];
-    let Hfig = rows * (tH + ph + 6) - 2;
-    // (verify-editor-3) a slide has no caption: a key under the frames says what each marker is (H_t(0.8i), H_t(0))
-    if (o.for === 'slides' && (tracked.length || marks.length)) {
-      const ent = [...tracked.map((z, q) => ({ mk: q % 4, z })), ...marks.map((x) => ({ mk: x.mk, z: x.z }))].map((e) => ({ mk: PTS[e.mk], it: XD.tex(`H_t(${cxTex(e.z)})`, tp) }));
-      const r0m = 1.9, gapE = 10, wE = ent.map((e) => 2 * r0m + 2.5 + e.it.w), tot = wE.reduce((a, b) => a + b, 0) + gapE * (ent.length - 1);
-      let xe = (W - keyW - tot) / 2;
-      const ye = Hfig + 4 + tp * 0.6;
-      for (const [q, e] of ent.entries()) {
-        items.push(XD.marker(e.mk[0], xe + r0m, ye, r0m, o.ink === 'bw' ? '#000000' : e.mk[1], '#ffffff', 0.4));
-        items.push(XD.at(e.it, xe + 2 * r0m + 2.5, ye, 'start', 'mid', 'key'));
-        xe += wE[q] + gapE;
-      }
-      Hfig = ye + tp * 0.9;
-    }
-    return { items, defs: '', lines, H: Hfig, info: { film: kind, ts, m, labs: ts.map(lab), tracked, pts, marks, hidden: ptShapes.map((z, q) => ({ z, lab: ptLab[q] })).filter((x, q) => !ptSeen[q]), open: openS.length > 0, outline: kind === 'phaseGlobe' && shapes.some((s) => kindType(s) !== 'point'), hiddenZP: allZP && hiddenZP / allZP > 0.5 ? hiddenZP : 0, box, land: kind === 'land' } };
+    const Hfig = rows * (tH + ph + 6) - 2;
+    return { items, defs: '', lines, H: Hfig, info: { film: kind, ts, m, labs: ts.map(lab), outline: kind === 'phaseGlobe' && shapes.some((s) => kindType(s) !== 'point'), hiddenZP: allZP && hiddenZP / allZP > 0.5 ? hiddenZP : 0, box, land: kind === 'land' } };
   }
   // the steps view's filmstrip: one frame per plane of the thread, each that plane's picture as its stage shows
   // it (its surface, colouring and Inside regions), titled with the plane and the step into it, w_k = f_k(w_{k-1}).
@@ -330,7 +246,7 @@
     const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
     const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
     let boxes = idx.map((i) => {
-      const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, { pad: SV_FIT_PAD });
+      const c = imageWin(A.svFrameF(i), cam, srcWin, shapes, { pad: SV_FIT_PAD });
       return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null;
     });
     const fellBack = boxes.some((b) => !b);
@@ -569,7 +485,7 @@
       const x = x0 + mL + col * (pw + gap), y = row * rowH + tH;
       let art;
       if (bw) { await breathe(); art = await bandsArt(Fs[i], box, pw, 300); }
-      else { art = await artPanel('L', box, pw, Object.assign({}, o, { ink: 'colour' }), { mode: 'rgb', dpi: 300, T: t, ss: 2 }); if (!art) return null; }
+      else { art = await artPanel(box, pw, Object.assign({}, o, { ink: 'colour' }), { mode: 'rgb', dpi: 300, T: t, ss: 2 }); if (!art) return null; }
       if (o.alive && !o.alive()) return null;
       await breathe();
       const L = await argLevels(Fs[i], box, n, ks), curves = [];
@@ -598,21 +514,20 @@
     if (!Calc.zerosPoles) return [];
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + ms }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
-  // the paths figure on the globe: H_t at t = end on the sphere over X's outline (the app's gray line), and the paths
-  // t -> H_t(z) of a few points (the point shapes, else points of the boundaries) with heads at F(z)
-  // (o.sv, the steps view's A.svPathsFig() on the sphere: the shown plane's globe, the paths those of the step that leads to
-  // it, their starts chosen in the camera's window as on the plane, and the caption the plane's own then the paths' sentence)
+  // the steps view's paths figure on the sphere (o.sv, its A.svPathsFig()): the shown plane's globe and the paths
+  // t -> H_t(z) of the step that leads to it, with heads at F(z), their starts chosen in the camera's window as on the
+  // plane; the caption is the plane's own, then the paths' sentence
   // the width (pt) at which the steps view's paths are picked for the sphere: wide enough that, of the paths picked over the
   // whole source window, several lie wholly on the camera's side
   const SV_PATHS_PICK_W = 600;
   async function figGlobePaths(o, P, W, T) {
     const [tp] = T;
-    const sv = o.sv || null, d = sv ? { m: sv.m } : A.defo(), m = d.m, st = A.state();
-    const asp = sv ? 1 : Math.min(A.paneAspect('R'), 1), wpt = W * 1.2, hpt = wpt * asp;
+    const sv = o.sv, m = sv.m, st = A.state();
+    const wpt = W * 1.2, hpt = wpt;
     const shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3);
     const openS = P.dashOpen ? shapes.filter((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s) && globeCurves(s, srcWin).length) : [];
     const artArgs = { wpt, hpt, dpi: 300, ink: printInkFor(o, st.alpha), alive: o.alive, skipLines: openS.map((s) => s.id) };
-    const r = await (sv ? A.svArt(sv.i, artArgs) : A.art('R', Object.assign({ T: m }, artArgs)));
+    const r = await A.svArt(sv.i, artArgs);
     if (!r) return null;
     let c = (await inkBoundsA(r)) || [0, r.w - 1, 0, r.h - 1];
     const pad = Math.round(0.04 * (c[1] - c[0]));
@@ -625,49 +540,34 @@
     const a = await XD.art(cropRGB(r, c), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: iw });
     const items = [`<image x="${f2(x)}" y="${f2(y)}" width="${f2(iw)}" height="${f2(ih)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`];
     const proj = globeProj(r.globe, r, c, x, y, k);
-    const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, sv ? sv.Fat(t) : A.homF(t)); return Hs.get(key); };
-    // how many of the path's 13 samples (t = 0 to m) the camera sees
-    const nVis = (z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis; };
-    const seen = (z) => nVis(z) >= 8 && proj(Hof(m)(z));
-    // a path drawn from its ring to its end dot: every sampled point of it on the camera's side
-    const whole = (z) => nVis(z) === 13;
-    // (the live globe's own points when it shows them, those mostly on the camera's side; else points of the boundaries; the
-    // steps view's: the points the plane's figure would keep, those mostly on the camera's side)
-    let leg = null, zs;
-    if (sv) {
-      const sb = A.screenBox('L0'), bw = SV_PATHS_PICK_W, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
-      leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang, keep: (z) => whole(C(z.re, z.im)) });
-      if (!leg || (o.alive && !o.alive())) return null;
-      zs = leg.kept.map((q) => C(q.z[0], q.z[1]));
-    } else {
-      const live = A.globePaths ? A.globePaths() : null;
-      zs = live && live.length ? live.map((q) => C(q[0], q[1])).filter(seen) : [];
-      if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
-    }
+    const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, sv.Fat(t)); return Hs.get(key); };
+    // a path drawn from its ring to its end dot: every one of its 13 samples (t = 0 to m) on the camera's side
+    const whole = (z) => { for (let i = 0; i <= 12; i++) if (!proj(Hof(m * i / 12)(z))) return false; return true; };
+    // (the points the plane's figure would keep, those wholly on the camera's side)
+    const sb = A.screenBox('L0'), bw = SV_PATHS_PICK_W, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
+    const leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang, keep: (z) => whole(C(z.re, z.im)) });
+    if (!leg || (o.alive && !o.alive())) return null;
+    const zs = leg.kept.map((q) => C(q.z[0], q.z[1]));
     const pxPt = 300 / 96 * k;
     let g = '';
-    // (export review r3, editor-9) an open set's boundary, dashed (Homework); editor-3: a point shape whose path is not
-    // drawn is marked at F(z) where it faces the camera, else named as hidden
+    // (export review r3, editor-9) an open set's boundary, dashed (Homework)
     for (const s of openS) {
       const d2 = ptPath(globeEdge(s, Hof(m), proj, srcWin)), col = o.ink === 'bw' ? '#000000' : tonesOf(s, o).edge;
       if (d2) g += `<path d="${d2}" fill="none" stroke="#ffffff" stroke-width="${f2(3.5 * pxPt)}" stroke-linecap="round"/><path d="${d2}" fill="none" stroke="${col}" stroke-width="${f2(Math.max(0.6, 1.5 * pxPt))}" stroke-dasharray="3 2"/>`;
     }
-    // (verify-editor-3) a point shape without an arrow: F(z) marked with a square (then a triangle, ...), not a second
-    // kind of dot (the arrows start at dots); the caption names it by that shape
-    const hidden = [], marks = [];
-    let pq = -1;
+    // (verify-editor-3) a point shape without an arrow: F(z) marked with a square (then a triangle, ...) where it faces
+    // the camera, not a second kind of dot (the arrows start at dots)
+    let nMarks = 0;
     for (const s of shapes) {
       if (kindType(s) !== 'point' || !s.p) continue;
-      const z = C(s.p[0], s.p[1]), lab = P.named ? String.fromCharCode(65 + ++pq) : texLabel(s, ++pq);
+      const z = C(s.p[0], s.p[1]);
       if (zs.some((y) => y.re === z.re && y.im === z.im)) continue;
       const e = proj(Hof(m)(z));
-      if (!e) { hidden.push({ z, lab }); continue; }
-      const mk = 1 + marks.length % 3;
-      marks.push({ z, lab, mk });
+      if (!e) continue;
+      const mk = 1 + nMarks++ % 3;
       g += XD.marker(PTS[mk][0], e[0], e[1], 1.9, o.ink === 'bw' ? '#000000' : PTS[mk][1], '#ffffff', 0.4);
     }
     g += A.pathsSvg(pathItems(zs, Hof, m, proj, true), { u: 1 });
     items.push(g, globeLabels(r.globe, r, c, x, y, k, tp - 1));
-    if (sv) return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, svPaths: true, svGlobe: true, m, kept: zs.length, sentence: leg.sentenceTex || '' } };
-    return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, globePaths: true, m, kept: zs.length, pts: zs.map((z) => ({ z })), hidden, marks, open: openS.length > 0 } };
+    return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, svPaths: true, svGlobe: true, m, kept: zs.length, sentence: leg.sentenceTex || '' } };
   }

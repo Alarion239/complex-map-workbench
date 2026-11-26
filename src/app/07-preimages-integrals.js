@@ -10,9 +10,9 @@
   const findShape = (id) => S.shapes.find((x) => x.id === id) || (S.targets || []).find((x) => x.id === id) || null;
   function targetLabel(s, i) { return s.label || (i < 6 ? 'pqrstu'[i] : 'p' + sub(i + 1)); }
   const paneBox = (pane, v) => ({ x0: v.cx - pane.w / 2 / v.s, x1: v.cx + pane.w / 2 / v.s, y0: v.cy - pane.h / 2 / v.s, y1: v.cy + pane.h / 2 / v.s });
-  // the window target curves are clipped and hit-tested in: the right view (lines reach far beyond it)
+  // the window target curves are clipped and hit-tested in: X's view, the one plane on screen (lines reach far beyond it)
   function targetWin() {
-    const b = paneR && paneR.w > 0 ? paneBox(paneR, V.right) : { x0: -4, x1: 4, y0: -4, y1: 4 };
+    const b = paneL && paneL.w > 0 ? paneBox(paneL, leftView()) : { x0: -4, x1: 4, y0: -4, y1: 4 };
     return goodWin(b) ? b : { x0: -4, x1: 4, y0: -4, y1: 4 };
   }
   const IDENT = { mode: 0, a: 0, b: 0 };
@@ -759,33 +759,29 @@
   let holdMenuT = -Infinity;   // when a long press opened the menu: the touch's own contextmenu event opens nothing more
   // ---- the planes' context menu (src/planemenu.js): what it needs from the app ----
   function planeMenuApi() {
-    const paneOf = (side) => (side === 'R' ? paneR : paneL);
-    const viewOf = (side) => (side === 'R' ? V.right : leftView());
-    const flatSide = (side) => (side === 'R' ? rImage() : lFlat());
+    // (X's pane alone: Y's is not drawn, and opens no menu)
+    const paneOf = () => paneL;
+    const viewOf = () => leftView();
+    const flatSide = () => lFlat();
     const zpStepK = (k) => { const st = S.steps[k - 1]; return st && st.type === 'zp' ? st : null; };
     return {
       paneOf,
-      sideOf: (el) => (!el || !paneL ? null : el === paneL.ocanvas ? 'L' : el === paneR.ocanvas ? 'R' : null),
-      // the pane is on screen (X's; Y's pane is not drawn)
-      shown: (side) => side === 'L' && !!paneOf(side) && paneOf(side).ocanvas.getClientRects().length > 0,
+      sideOf: (el) => (el && paneL && el === paneL.ocanvas ? 'L' : null),
+      // the pane is on screen
+      shown: (side) => side === 'L' && !!paneL && paneL.ocanvas.getClientRects().length > 0,
       // what pane pixel (x, y) shows: {z, surface ('flat', 'globe', 'land'), plane ('X', 'Y', or 'D' for the
       // deformation), stage, s (px per unit on a flat pane)}; null off a globe or the relief
       at(side, x, y) {
-        if (side === 'L') {
-          const j = leftStage();
-          if (lLand()) { const z = pickLand(x, y); return z && CX.isFin(z) ? { z, surface: 'land', plane: 'X', stage: j } : null; }
-          if (lGlobe()) { const z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null; return z && CX.isFin(z) ? { z, surface: 'globe', plane: 'X', stage: j } : null; }
-          paneL.setView(leftView());
-          return { z: paneL.s2w(x, y), surface: 'flat', plane: 'X', stage: j, s: paneL.view.s };
-        }
-        const plane = 'Y', st = rightStage();
-        if (rGlobe()) { const w = pickSphere(paneR, camS, x, y); return w && CX.isFin(w) ? { z: w, surface: 'globe', plane, stage: st } : null; }
-        paneR.setView(V.right);
-        return { z: paneR.s2w(x, y), surface: 'flat', plane, stage: st, s: paneR.view.s };
+        if (side !== 'L') return null;
+        const j = leftStage();
+        if (lLand()) { const z = pickLand(x, y); return z && CX.isFin(z) ? { z, surface: 'land', plane: 'X', stage: j } : null; }
+        if (lGlobe()) { const z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null; return z && CX.isFin(z) ? { z, surface: 'globe', plane: 'X', stage: j } : null; }
+        paneL.setView(leftView());
+        return { z: paneL.s2w(x, y), surface: 'flat', plane: 'X', stage: j, s: paneL.view.s };
       },
-      toClient(side, z) { if (!flatSide(side)) return null; const p = paneOf(side); p.setView(viewOf(side)); const [x, y] = p.w2s(z), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; },
-      scale: (side) => (flatSide(side) ? viewOf(side).s : null),
-      round: (side, z) => { const p = paneOf(side); p.setView(viewOf(side)); return zpRound(p, z); },
+      toClient(side, z) { if (!flatSide()) return null; const p = paneOf(); p.setView(viewOf()); const [x, y] = p.w2s(z), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; },
+      scale: (side) => (flatSide() ? viewOf().s : null),
+      round: (side, z) => { const p = paneOf(); p.setView(viewOf()); return zpRound(p, z); },
       yHtml, fnHtml, mapF: () => focusF(),
       // the zeros and poles: the same functions as the card's (and the Inspector's) buttons and fields
       zp: {
@@ -817,20 +813,18 @@
       // step k in the Inspector (a click on its card does the same)
       inspect: (k) => inspectStep(k),
       resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'OL'); },
-      // the shape under the pointer: X's shapes at stage 0, Y's targets where they are edited
+      // the shape under the pointer: X's shapes of the plane it shows
       shapeAt(side, x, y) {
-        const target = side === 'R';
-        if (target ? !(rImage() && targetsEditable()) : !lFlat()) return null;
-        const pane = paneOf(side);
-        pane.setView(viewOf(side));
-        // (X's shapes of the plane it shows)
-        const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = target ? S.targets : planeShapes(), win = target ? targetWin() : leftStage() > 0 ? stageWin(leftStage()) : clipWin;
+        if (side !== 'L' || !lFlat()) return null;
+        const pane = paneOf();
+        pane.setView(viewOf());
+        const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = planeShapes(), win = leftStage() > 0 ? stageWin(leftStage()) : clipWin;
         // (a point first, as a press picks it: a point on a curve is the menu's subject, not the curve; the
         // other shapes there are named as where it lies)
         const rank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
         const cands = list.filter((s) => s.visible !== false).reverse().sort((a, b) => rank(a) - rank(b));
         const names = shapeNames();
-        const nm = (s) => (s.kind === 'point' && Construct.shapeLabel ? Construct.shapeLabel(s) : '') || names.get(s.id) || (target ? targetLabel(s, S.targets.indexOf(s)) : Region.KINDS[s.kind].label);
+        const nm = (s) => (s.kind === 'point' && Construct.shapeLabel ? Construct.shapeLabel(s) : '') || names.get(s.id) || Region.KINDS[s.kind].label;
         const hits = [];
         for (const s of cands) {
           let hit = false;
@@ -843,13 +837,12 @@
         return { id: s.id, name: nm(s), kind: s.kind, selected: selected === s.id, on: s.kind === 'point' ? hits.slice(1).filter((x) => kindType(x) === 'curve').map(nm) : [],
           all: hits.map((x) => ({ id: x.id, name: nm(x), selected: selected === x.id })), canFront: i < list.length - 1, canBack: i > 0 };
       },
-      // the vertex of a polygon under the pointer (for Remove vertex), X's shapes at stage 0, Y's targets where edited
+      // the vertex of a polygon under the pointer (for Remove vertex), X's shapes at stage 0
       vertexAt(side, x, y, touch) {
-        const target = side === 'R';
-        if (target ? !(rImage() && targetsEditable()) : !(lFlat() && leftStage() === 0)) return null;
-        const pane = paneOf(side);
-        pane.setView(viewOf(side));
-        for (const s of (target ? S.targets : S.shapes).filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
+        if (side !== 'L' || !(lFlat() && leftStage() === 0)) return null;
+        const pane = paneOf();
+        pane.setView(viewOf());
+        for (const s of S.shapes.filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
           const i = polyVertexAt(pane, s, x, y, touch ? 22 : 9);
           if (i >= 0) return { id: s.id, i, n: s.pts.length };
         }
@@ -871,7 +864,7 @@
         undoToast($t('Shape hidden.'));
       },
       del: (id) => deleteShape(id),
-      integralItems: (side, x, y, cx, cy, prefer) => integralItems(paneOf(side), side, x, y, cx, cy, prefer),
+      integralItems: (side, x, y, cx, cy, prefer) => integralItems(paneOf(), side, x, y, cx, cy, prefer),
       // the keyboard probe of a focused X plane (sound's arrow-key probe), in pane pixels
       kbPoint(side) { if (side !== 'L' || !snd.kz || !lFlat()) return null; paneL.setView(leftView()); return paneL.w2s(snd.kz); },
       undoToast: (m) => undoToast(m),
@@ -905,11 +898,10 @@
   }
   // a right-click that did not pan: it cancels a drawing, else opens the plane menu there
   const rightClickAt = (pane, side, x, y, touch) => cancelDrawing() || planeMenuAt(pane, side, x, y, touch);
-  // centre a flat plane's view at z (a double-click on the plane)
-  function centerView(side, z) {
-    if (side === 'L' ? !lFlat() : !rImage()) return;
-    if (side === 'L') { const v = leftView(); v.cx = z.re; v.cy = z.im; if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L', 'OL', 'OR'); }
-    else { V.right.cx = z.re; V.right.cy = z.im; rightAuto = false; requestRender('R', 'OR'); }
+  // centre X's flat plane at z (a double-click on the plane)
+  function centerView(z) {
+    if (!lFlat()) return;
+    const v = leftView(); v.cx = z.re; v.cy = z.im; if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L', 'OL', 'OR');
     save();
   }
   // TEST-HOOK (dropped from the published page by build.py)

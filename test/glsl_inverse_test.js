@@ -629,22 +629,22 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   // ---- Repeat chains (#1472): the REPT walker's coverage against its CPU twin's (Inverse.enumerate) on the scenes of
   // test/steps_parked_repeat_cmd.js (Newton's step for z^3 - 1: the gallery square at Repeat x 20, the bite box at x 2 and,
-  // pruned through its forward enclosures, at x 20), on a grid over the plane and over the bite box: at every point the
+  // pruned through its forward enclosures, at x 20) and of a repeated monomial on discs, on a grid over the plane and over the bite box: at every point the
   // verdict is the same (covered, empty, unresolved; a coverage below the leaves' 0.03 counts as either side of the edge)
   // and U is within the leaves' 0.03 ----
   if (opts.rept !== false) {
-    const RP = R.rept = { points: 0, compared: 0, failCount: 0, byScene: {}, fails: [], verdicts: { covered: 0, empty: 0, unresolved: 0 } };
+    const RP = R.rept = { points: 0, compared: 0, failCount: 0, byScene: {}, fails: [], verdicts: { covered: 0, empty: 0, unresolved: 0 }, rim: 0 };
     const MAIN_REPT = `
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
   vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
   ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
-  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepRim = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
   if (ixRepKeep()) discard;
   invWalk(t.xy);
   if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
-  o = vec4(U, nCov > 0 ? 1.0 : 0.0, ixRepFail || ixRepCap || ixRepUnres ? 1.0 : 0.0, ixRepFull > 0 ? 1.0 : 0.0);
+  o = vec4(U, nCov > 0 ? 1.0 : 0.0, ixRepFail || ixRepCap || ixRepUnres ? (ixRepRim ? 2.0 : 1.0) : 0.0, ixRepFull > 0 ? 1.0 : 0.0);
 }
 `;
     const EXTRA_REPT = { pre: 'uniform highp sampler2D uW;\n', main: MAIN_REPT };
@@ -661,7 +661,12 @@ void main() {
       // options, GLChain.buildInverse(steps, built, plan.opts), beside the chain's)
       ['bite x 20, then x 2, on plane 1', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { after: [St('mul', { c: '2' })] }],
       // (the repeat second: x 2, then the repeat, on the stages (1, 2], the walker's ops active from the second step)
-      ['x 2, then bite x 20, on (1, 2]', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { before: [St('mul', { c: '2' })] }]];
+      ['x 2, then bite x 20, on (1, 2]', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { before: [St('mul', { c: '2' })] }],
+      // (the closed form of a monomial step on a disc: tangent to 2 z^3's circle |z| = 2^-1/2, across |z| = 1, and
+      // tangent at Repeat x 3, where the closed form decides most points and the search the rest)
+      ['tangent disc 2 z^3 x 20', 20, { id: 'tk', kind: 'disc', c: [0, Math.SQRT1_2 - 0.05], r: 0.05 }, grid(VIEW, 32), '2*z^3'],
+      ['across disc z^3 x 20', 20, { id: 'ac', kind: 'disc', c: [1, 0], r: 0.12 }, grid(VIEW, 32), 'z^3'],
+      ['tangent disc z^3 x 3', 3, { id: 't3', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3']];
     // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
     for (const fastN of [0, PASS_B_FAST]) {
       GLR.setReptFastNodes(fastN);
@@ -692,11 +697,15 @@ void main() {
           const bad = [];
           if (vg !== vc && !(vg >= 0 && vc >= 0 && Math.max(q[0], cpu.U) <= EDGE_U)) bad.push(`verdict gpu ${vg} cpu ${vc} (U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)})`);
           if (Math.abs(q[0] - cpu.U) > EDGE_U) bad.push(`U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)}`);
+          // (an unresolved pixel on the image's rim, Inverse.REPT_RIM: the GPU's mark is the CPU twin's)
+          if (vg === -1 && vc === -1) { RP.rim += cpu.rept.rim ? 1 : 0; if ((q[2] > 1.5) !== !!cpu.rept.rim) bad.push(`rim gpu ${q[2] > 1.5} cpu ${!!cpu.rept.rim}`); }
           if (bad.length) { RP.failCount++; RP.byScene[name] = (RP.byScene[name] || 0) + 1; if (RP.fails.length < 30) RP.fails.push({ chain: name, w: [w.re, w.im], bad }); }
         });
       }
     }
     GLR.setReptFastNodes(0);
+    // (the rim's comparison saw some: the tangent scenes leave unresolved pixels on it)
+    if (!RP.rim) R.errors.push('rept: no unresolved pixel on the image\'s rim was compared');
     // control: a non-finite root (NaN, then an infinity) forced into every first node (GLR.setReptPoison) reads
     // unresolved at every point of the gallery scene, never covered or empty
     {

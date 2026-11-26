@@ -301,7 +301,7 @@ for (const [name, steps, shapes, , view, pattern] of [
 await setExact(false);
 const stE0 = await settle();
 // (ev does not await a promise: the figure's result is polled)
-await ev('window.__p5fig = null; __cmwBuildFigure({ panels: ["L"], widthIn: 7 }).then((f) => { window.__p5fig = { ok: !!f, partial: f ? f.partial : null }; }, (e) => { window.__p5fig = { ok: false, err: String(e) }; }); 1');
+await ev('window.__p5fig = null; __cmwBuildFigure({ widthIn: 7 }).then((f) => { window.__p5fig = { ok: !!f, partial: f ? f.partial : null }; }, (e) => { window.__p5fig = { ok: false, err: String(e) }; }); 1');
 let fig = null;
 for (let i = 0; i < 400 && !fig; i++) { await sleep(300); fig = await ev('window.__p5fig'); }
 const figOk = !!(fig && fig.ok);
