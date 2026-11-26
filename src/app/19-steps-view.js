@@ -2408,15 +2408,17 @@
   // The plots under a glide's carried colour (plane b's picture at rest, plane a's no-value colour over it) read nothing
   // of u: every frame of a glide draws the same picture there. Drawn into a fresh frame once, it is kept (GLR.layerKeep)
   // under the key of what the plots read, and drawn back from there while the key holds; at rest it is dropped. A frame
-  // already open (the regions' mask under the colour) draws the plots itself. svPlotsUse: the frames that drew them and
+  // already open (the regions' mask under the colour) draws the plots itself, and so does a frame of another device
+  // size than the left pane's (an export's: the layer serves the screen and the frames drawn ahead for it, through a
+  // proxy of the pane). svPlotsUse: the frames that drew them and
   // that drew them back (the tests read it); SV.plotsKeep 0 (a test hook's) draws them every frame
   const SV_PLOTS = 'svPlots';
   let svPlotsKey = null;
   const svPlotsUse = { drawn: 0, kept: 0 };
   function svPlotsUnder(pane, frame, a, b, draw) {
-    if (frame.open || SV.plotsKeep === 0) { draw(); return; }
+    if (frame.open || SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) { draw(); return; }
     const key = [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
-      TH.planeRGB, TH.inkRGB, TH.dark, SV.restPaint, svColoured(a), svColoured(b)].join('|');
+      GLR.palette(), TH.planeRGB, TH.inkRGB, TH.dark, SV.restPaint, svColoured(a), svColoured(b)].join('|');
     GLR.begin(pane.pw, pane.ph);
     frame.open = true;
     if (key === svPlotsKey && GLR.layerDraw(SV_PLOTS)) { svPlotsUse.kept++; return; }

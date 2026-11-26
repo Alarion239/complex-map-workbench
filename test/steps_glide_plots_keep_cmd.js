@@ -8,9 +8,10 @@
 // - the frame held at u = MID drawn from the kept layer is the one drawn with the plots fresh (SV.plotsKeep 0), not a
 //   pixel more than SAME_TOL apart, and so is the frame at u = OTHER, drawn back with no fresh draw;
 // - each change the plots read draws them fresh, and the frame then drawn back from the layer is the fresh frame: the
-//   theme, SV.restPaint (a test hook's), the pane's size, the device pixel ratio (with the window a pixel wider: a ratio
-//   alone resizes no pane), and the DH step's N edited mid-glide (its programs relink and the view draws a still frame,
-//   which drops the layer). The size and ratio rows hold by GLR.layerDraw's own size check as well as by the key;
+//   theme, the phase palette, SV.restPaint (a test hook's), the pane's size, the device pixel ratio (with the window a
+//   pixel wider: a ratio alone resizes no pane), and the DH step's N edited mid-glide (its programs relink and the view
+//   draws a still frame, which drops the layer). The size and ratio rows hold by GLR.layerDraw's own size check as well
+//   as by the key;
 // - only the chain's signature changed: the DH step then Möbius, coloured by w₂ (T, the last plane), held between z and
 //   w₁, Möbius's a edited mid-glide: the plots (plane w₁'s picture is w₂'s colour through Möbius) and the frame change,
 //   nothing relinks and no still frame is drawn, and the plots are drawn fresh by the key alone;
@@ -69,6 +70,7 @@ const same = (c) => !!c && c.max <= SAME_TOL;
 const changes = [
   ['the theme', `document.documentElement.setAttribute('data-theme', 'dark'), 1`, `document.documentElement.setAttribute('data-theme', 'light'), 1`],
   ['SV.restPaint', '__cmwSteps({ restPaint: 0 }), 1', '__cmwSteps({ restPaint: 1 }), 1'],
+  ['the palette', `window.__palWas = GLR.palette(), GLR.setPalette(GLR.palette() === 'warm' ? 'cold' : 'warm'), 1`, 'GLR.setPalette(window.__palWas), 1'],
   ['the pane\'s size', null, null],
   ['the device pixel ratio', null, null],
   ['the DH step\'s N (a relink)', `__cmwStepParam(0, 'N', 12), 1`, `__cmwStepParam(0, 'N', 24), 1`],
