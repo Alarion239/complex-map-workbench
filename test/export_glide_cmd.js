@@ -117,7 +117,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   const v = await ev(`await (async () => { try {
     const g = __cmwFig.glide(), at0 = __cmwSteps().x;
     const r = await __cmwFig.makeVideo({ video: ${JSON.stringify(VIDEO_OPT)}, keepForCheck: true });
-    const n = __cmwFig.videoTimes(${JSON.stringify(VIDEO_OPT)}, g.hi - g.lo).length, k = Math.floor(r.frames * 0.4), chk = await __cmwFig.videoCheck(k, 256, 144);
+    const n = __cmwFig.videoTimes(${JSON.stringify(VIDEO_OPT)}, g.hi - g.lo, g.stops).length, k = Math.floor(r.frames * 0.4), chk = await __cmwFig.videoCheck(k, 256, 144);
     return { g, at0, at1: __cmwSteps().x, ext: r.ext, codec: r.codec, frames: r.frames, expect: n, fps: r.fps, W: r.W, H: r.H, mad: chk && chk.mad, t: chk && chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 600000);
   if (!v || v.err) { fails.push({ name: `${tag}: video`, got: v }); continue; }
@@ -309,7 +309,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     }
     const t0 = performance.now();
     let r; try { r = await __cmwFig.makeVideo({ video: opt, keepForCheck: true }); } finally { window.setTimeout = st; window.requestAnimationFrame = raf; delete document.hidden; delete document.visibilityState; }
-    const ms = Math.round(performance.now() - t0), span = g.hi - g.lo, T = __cmwFig.videoTimes(opt, span);
+    const ms = Math.round(performance.now() - t0), span = g.hi - g.lo, T = __cmwFig.videoTimes(opt, span, g.stops);
     const at = (x) => (typeof x === 'number' ? x : x.a), blend = T.findIndex((x) => typeof x !== 'number');
     // the frame decoded: Loop's first cross-fade, Bounce's first frame inside the range after the far end (the return leg), else the
     // first inside the range
@@ -336,7 +336,8 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
 // ALL_AT on the span [0, 2], as a Play paused there leaves it, and the frame drawn at the same place match to PARKED_MAD,
 // and the frame's label is the pane's readout there ("All steps at once · …"). The control: the same frame drawn with the
 // order a step at a time, while the screen still holds the span, is a different picture (the bound tells the two orders
-// apart) and its label is a step's
+// apart) and its label is a step's. The video's pace: All at once, no hold strictly inside the span; a step at a time, the
+// hold at plane 1 (#2467)
 {
   await loadView('steps', 'xgla' + Date.now() % 1e7, { v6: true, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'poly', params: { co: '1, 0, 0, 0, 1, 0' }, on: true }, { type: 'mul', params: { c: '1' }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } }, { lang: 'en' });
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure && __cmwSteps().planes.length === 3', max: 30000 });
@@ -382,6 +383,22 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 120000);
   info['all at once, plane 1'] = mid;
   ok('All at once: the frame on a plane the glide leaves out is the glide\'s (as the frame just before it), not that plane at rest', !mid.err && mid.glide < PARKED_MAD && mid.rest > PARKED_MAD && /^All steps at once/.test(mid.label), mid);
+  // the video's pace (#2467): All at once, the span [0, 2] is one ease, with no hold strictly inside it, as the screen's Play
+  // runs it straight through; a step at a time holds at plane 1. Each part takes secs a step, so the two differ by that hold
+  const pace = await ev(`(() => { try {
+    const opt = ${JSON.stringify(VIDEO_OPT)}, run = (order) => {
+      __cmwSteps({ order });
+      const g = __cmwFig.glide(), m = g.hi - g.lo, T = __cmwFig.videoTimes(opt, m, g.stops), holds = new Set();
+      for (let i = 1; i < T.length; i++) if (typeof T[i] === 'number' && T[i] === T[i - 1] && T[i] > 0 && T[i] < m) holds.add(T[i]);
+      return { stops: g.stops || null, m, n: T.length, holds: [...holds] };
+    };
+    const all = run('all'), steps = run('steps');
+    __cmwSteps({ order: 'all' });
+    return { all, steps, hold: Math.round(0.6 * opt.fps) };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`);
+  info['all at once, pace'] = pace;
+  ok('All at once: the video runs the span [0, 2] as one ease, with no hold strictly inside it', !pace.err && pace.all.m === 2 && Array.isArray(pace.all.stops) && pace.all.stops.length === 0 && pace.all.holds.length === 0, pace);
+  ok('A step at a time: the video holds at plane 1, one hold longer than All at once', !pace.err && JSON.stringify(pace.steps.stops) === '[1]' && JSON.stringify(pace.steps.holds) === '[1]' && pace.steps.n === pace.all.n + pace.hold, pace);
   await ev(`(__cmwSteps({ order: 'steps' }), 1)`);
 }
 // the dialog: Video is listed, with where it goes and how long it is

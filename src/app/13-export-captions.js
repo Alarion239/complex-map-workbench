@@ -337,8 +337,11 @@
     svGlide: () => {
       const P = svPlanes();
       if (!SV.on || P.length < 2 || (SV.surf === 'sphere' ? !lGlobe() : SV.surf === 'land' ? !lLand() : SV.surf !== 'plane')) return null;
-      const vr = svVideoRange();
-      return { surf: SV.surf, at: SV.g.x, lo: vr.lo, hi: vr.hi, from: svName(P[vr.lo]), to: svName(P[vr.hi]) };
+      // (stops: the planes inside the range a video holds at, counted from lo: each one a step at a time; under All at
+      // once those the span does not cross, as the screen's Play runs the span straight through)
+      const vr = svVideoRange(), sp = vr.span, stops = [];
+      for (let k = vr.lo + 1; k < vr.hi; k++) if (!sp || k <= sp.x0 || k >= sp.x1) stops.push(k - vr.lo);
+      return { surf: SV.surf, at: SV.g.x, lo: vr.lo, hi: vr.hi, stops, from: svName(P[vr.lo]), to: svName(P[vr.hi]) };
     },
     svGlideArt: async (x, o) => {
       // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
