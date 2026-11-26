@@ -71,6 +71,8 @@ const SAMPLER = `(() => { const log = window.__ledLog = []; let t0 = 0, p0 = 0; 
   if (log.length < 4000) requestAnimationFrame(tick);
 }; requestAnimationFrame(tick); })()`;
 const LANGS = { en: 'Compiling…', ru: 'Компиляция…', it: 'Compilazione…' };
+// (the LED's words while no frame has run, in each language: the markup has none, so the page never shows them in English first)
+const STARTING = { en: 'Starting…', ru: 'Запуск…', it: 'Avvio…' };
 for (const [lang, words] of Object.entries(LANGS)) {
   const ns2 = 'cplled' + lang + Date.now();
   await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }, { type: 'mobius', params: { a: '1', b: '1', c: '0', d: '1' }, on: true }], shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1' }], sv: { at: 2, T: 1, scope: 'in', surf: 'plane' } });
@@ -94,6 +96,8 @@ for (const [lang, words] of Object.entries(LANGS)) {
   const log = all.filter((x) => x.c), first = log.length ? log[0].t : 0, early = log.filter((x) => x.t - first < FIRST_MS);
   info['before the first compiling frame ' + lang] = { n: lead.length, led: lead.map((x) => x.led).filter((v, i, a) => a.indexOf(v) === i), label: lead.length ? lead[0].label : null };
   ok(`${lang}: the LED is never "Up to date" from its first paint to the first compiling frame, with links pending`, lead.length > 0 && lead.every((x) => x.led === 'led busy'), lead.slice(0, 3));
+  ok(`${lang}: until the first compiling frame the LED has no label or says "${STARTING[lang]}", never the English words in another language`, lead.every((x) => !x.label || x.label === STARTING[lang]), lead.filter((x) => x.label && x.label !== STARTING[lang]).slice(0, 3));
+  ok(`${lang}: the LED says "${STARTING[lang]}" before the first compiling frame`, lead.some((x) => x.label === STARTING[lang]), lead.slice(0, 3));
   info['first frames ' + lang] = { n: log.length, early: early.length, led: early.map((x) => x.led).filter((v, i, a) => a.indexOf(v) === i), label: early.length ? early[0].label : null };
   ok(`${lang}: frames that stand in for a compiling program were sampled within ${FIRST_MS} ms of the first`, early.length >= 1, info['first frames ' + lang]);
   ok(`${lang}: the LED is busy from the first such frame, with "${words}" as its label`, early.length > 0 && early.every((x) => x.led === 'led busy' && x.label === words), early.slice(0, 3));
