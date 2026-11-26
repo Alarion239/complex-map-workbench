@@ -1,6 +1,6 @@
 // The tour's task lines (ux's approved table): Targets' disc drawn on w₁ (the steps view), Natural domain's click on the whole map
 // (the steps view), the derivative's click on its chip (the steps view) and Cauchy's drag of the circle. Each: nothing ticks without input; real mouse input ticks it
-// within 300 ms; the result line (then) shows; the tour's English line is the approved one. 1440 × 900, English.
+// within 2500 ms (Targets', whose input starts a glide, within 2500 ms of the glide's end); the result line (then) shows; the tour's English line is the approved one. 1440 × 900, English.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const R = [];
@@ -26,11 +26,15 @@ const where = (id) => ev(`(() => { for (const c of Tour._t.CHAPTERS) { const i =
 const l2 = () => ev(`(() => { const e = document.querySelector('.ts-l2'); return e ? { text: e.textContent, done: e.classList.contains('done') } : null; })()`);
 const goStep = async (id) => { const w = await where(id); if (!w) throw new Error('no step ' + id); await startAt(w[0], w[1]); return w; };
 const ticks = async (ms = 2500) => until(`document.querySelector('.ts-l2').classList.contains('done')`, ms, 15);
+// (a task whose input starts a glide ticks when the glide arrives: how long that takes is the renderer's, so the tick's window
+// opens when the glide has ended, and is the same 2500 ms after it)
+const ARRIVE_MAX_MS = 60000;
+const arrived = () => until('!__cmwSteps().moving', ARRIVE_MAX_MS, 50);
 // the pixel of a point z in a plane's plot (the plane's view centre and scale)
 const px = (side, re, im) => ev(`(() => { const v = __cmwPlaneMenu().view(${JSON.stringify(side)}), b = document.getElementById('plot${side}').getBoundingClientRect(); return [b.left + b.width / 2 + (${re} - v.cx) * v.s, b.top + b.height / 2 - (${im} - v.cy) * v.s]; })()`);
 
 await open('tt1', 1440, 900, false, false);
-const task = async (id, text, fn, ready) => {
+const task = async (id, text, fn, ready, glides = false) => {
   try {
     await goStep(id);
     // (a step's scene can take a few seconds to load on a software renderer: the input waits for what it acts on)
@@ -40,6 +44,7 @@ const task = async (id, text, fn, ready) => {
     await sleep(1800);
     check(`${id}: nothing ticks without input`, !(await l2()).done);
     await fn();
+    if (glides) check(`${id}: the glide its input starts ends`, (await arrived()) != null);
     const t = await ticks();
     check(`${id}: real input ticks it`, t != null, [await cur(), await l2()]);
     if (t != null) await sleep(200);
@@ -61,7 +66,7 @@ const task = async (id, text, fn, ready) => {
     await drawDisc();
     check('targets: a disc alone does not tick it', !(await l2()).done, await l2());
     await press('#svStrip .sv-prev');
-  });
+  }, null, true);
   check('targets: the result line says z shows where the disc comes from', /z shows where the disc comes from/.test((await l2()).text), await l2());
   await goStep('targets');
   await press('#svStrip .sv-prev'); await drawDisc(); await press('#svStrip .sv-next'); await press('#svStrip .sv-prev');

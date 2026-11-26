@@ -6,8 +6,12 @@
 // the pixel is compared, not its channels: a sample is wrong when its hue is more than HUE_TOL radians from the hue of
 // all 9 pixels around z's, and bare when the globe shows paper (its channels within 6 of each other) where plane z is
 // coloured. Left out: samples where plane z's colour is within SAT_MIN of grey (a zero's fade, the |g| = 1 stroke) or
-// where its own 9 pixels differ in hue by more than EDGE_HUE (a phase edge), where z is off plane z's picture, and the
-// globe's rim (RIM, the share of the globe's radius).
+// where its own 9 pixels differ in hue by more than EDGE_HUE (a phase edge), where z is off plane z's picture, the
+// globe's rim (RIM, the share of the globe's radius), and samples within LINE_PX of a line the globe draws (a pixel of
+// its ink: within SAT_MIN of grey and darker than LINE_DARK), whose halo is paper: the half plane's edge, the real axis,
+// is the globe's equator |w| = 1, a stroke of a constant width on the globe that near w = 1 covers points of z far from
+// it on plane z (z ≈ −15.5 − 0.28i lies 5.6 px off the axis on plane z and a third of a pixel off the equator, #2448).
+// The window the z-plane is meshed in is the widest the pane gives at this scale (WIN), so that edge reaches w = 1.
 // (the limits: HUE_TOL, the largest hue difference, radians, of the globe's pixel from the nearest of z's 9; SAT_MIN, the
 // spread between a pixel's largest and smallest channel that makes it coloured; EDGE_HUE, the hue difference, radians,
 // among z's 9 pixels from which z is on a phase edge; MAX_BAD, the share of the samples that may be wrong (the flat
@@ -17,6 +21,8 @@
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const HUE_TOL = 0.25, SAT_MIN = 24, EDGE_HUE = 0.15, MAX_BAD = 0.01, MIN_SAMPLES = 300, RIM = 0.9;
+const LINE_PX = 2, LINE_DARK = 80;   // css px: a sample this near a pixel of a line's ink is left out; a line's ink is darker than this (0..255)
+const WIN = { x0: -21.2, x1: 21.2, y0: -15.50144, y1: 15.50144 };   // the settled 1200 × 800 pane's window at s = 20
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { lpx, bare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
@@ -30,10 +36,7 @@ await seed(ns, {
   v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, dc: 'enhanced',
   shapes: [{ id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }],
   steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }],
-  sv: { at: 1, T: 0 }, srcView: { cx: 0, cy: 0, s: 20 },
-  // (the meshing window the globe's samples are read in, saved with the state: with none a thread saved on a later plane is
-  // meshed in the settled pane's window, a much wider one at this scale, where one of the samples then reads bare paper)
-  clipWin: { x0: -7.7, x1: 7.7, y0: -12.5, y1: 12.5 },
+  sv: { at: 1, T: 0 }, srcView: { cx: 0, cy: 0, s: 20 }, clipWin: WIN,
 });
 await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
 await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && typeof __cmwGlobeSnap === 'function'` });
@@ -47,16 +50,24 @@ const geo = await ev(`(() => { const c = document.getElementById('canvasL'), r =
   for (let j = 0; j < 40; j++) for (let i = 0; i < 60; i++) { const x = r.width / 2 + (i / 59 - 0.5) * 2 * R * ${RIM}, y = r.height / 2 + (j / 39 - 0.5) * 2 * R * ${RIM}; if (Math.hypot(x - r.width / 2, y - r.height / 2) > R * ${RIM}) continue; const g = __cmwGlobeSnap('L', x, y); if (g && g.g) out.push([x, y, g.g[0], g.g[1]]); }
   return { R, pts: out, dpr: window.devicePixelRatio }; })()`);
 ok('the globe is found', geo && geo.R > 50 && geo.pts.length > MIN_SAMPLES, geo && { R: geo.R, n: geo.pts && geo.pts.length });
-const got = await ev(`(() => { const c = document.getElementById('canvasL'), x2 = c.getContext('2d'), k = c.width / c.getBoundingClientRect().width, d = x2.getImageData(0, 0, c.width, c.height).data; return ${JSON.stringify(geo.pts)}.map((p) => { const i = Math.floor(p[0] * k), j = Math.floor(p[1] * k), o = 4 * (j * c.width + i); return [d[o], d[o + 1], d[o + 2]]; }); })()`);
+// (each sample's pixel, and whether a line's ink lies within LINE_PX of it)
+const read = await ev(`(() => { const c = document.getElementById('canvasL'), x2 = c.getContext('2d'), k = c.width / c.getBoundingClientRect().width, d = x2.getImageData(0, 0, c.width, c.height).data, r = Math.ceil(${LINE_PX} * k);
+  const px = (i, j) => { const o = 4 * (j * c.width + i); return [d[o], d[o + 1], d[o + 2]]; };
+  const ink = (p) => Math.max(...p) - Math.min(...p) < ${SAT_MIN} && Math.max(...p) < ${LINE_DARK};
+  return ${JSON.stringify(geo.pts)}.map((p) => { const i = Math.floor(p[0] * k), j = Math.floor(p[1] * k); let line = false;
+    for (let b = -r; b <= r && !line; b++) for (let a = -r; a <= r && !line; a++) if (i + a >= 0 && j + b >= 0 && i + a < c.width && j + b < c.height && ink(px(i + a, j + b))) line = true;
+    return { p: px(i, j), line }; }); })()`);
+const got = read.map((q) => q.p);
 // z = i (1 + w) / (1 - w): numerator i (1 + a + i b) = -b + i (1 + a); divided by (1 - a - i b)
 const keep = geo.pts.map(([, , a, b]) => scope === 'all' || Math.hypot(a, b) < 0.95);
 const Zs = geo.pts.map(([, , a, b]) => { const dn = (1 - a) * (1 - a) + b * b, nr = -b, ni = 1 + a; return [(nr * (1 - a) - ni * b) / dn, (ni * (1 - a) + nr * b) / dn]; });
 await ev(`__cmwSteps({ go: 0, now: true, surf: 'plane', scope: 'all', T: 0 }); 1`); await wait();
 await settled({ max: 30000, until: `!__cmwSteps().moving && GLR.pendingLinks === 0` });
 const ref = (await lpx(Zs)).px;
-let n = 0, wrong = 0, paper = 0; const ex = [];
+let n = 0, wrong = 0, paper = 0, lines = 0; const ex = [];
 for (let k = 0; k < Zs.length; k++) {
   const r9 = ref[k]; if (!r9 || !keep[k]) continue;
+  if (read[k].line) { lines++; continue; }
   if (spread(r9[4]) < SAT_MIN) continue;
   const hs = r9.map(hue);
   if (Math.max(...hs.map((h) => hueD(h, hs[4]))) > EDGE_HUE) continue;
@@ -65,7 +76,7 @@ for (let k = 0; k < Zs.length; k++) {
   if (bare(p)) { paper++; if (ex.length < 5) ex.push({ paper: true, w: geo.pts[k].slice(2).map((v) => +v.toFixed(3)), got: p }); }
   else if (Math.min(...hs.map((h) => hueD(h, hue(p)))) > HUE_TOL) { wrong++; if (ex.length < 5) ex.push({ w: geo.pts[k].slice(2).map((v) => +v.toFixed(3)), got: p, want: r9[4].slice(0, 3) }); }
 }
-info[scope] = { n, wrong, paper, ex };
+info[scope] = { n, wrong, paper, lines, ex };
 ok(`${scope}: the w-globe shows the colour carried from z: enough samples judged`, n >= MIN_SAMPLES, info[scope]);
 ok(`${scope}: at most 1 % have the wrong hue or show paper`, wrong + paper <= MAX_BAD * n, info[scope]);
 ok(`${scope}: no bare paper where z is coloured`, paper === 0, info[scope]);
