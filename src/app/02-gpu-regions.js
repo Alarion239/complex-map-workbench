@@ -120,7 +120,7 @@
       // the newest mesh already has its own fix-up for this role: the finished older pair is not needed
       freePair({ meshRes: job.meshRes, fix: job.fixDone });
     } else {
-      // the job's mesh was replaced while it ran: the finished pair becomes the hold until the newest mesh has its own
+      // a newer mesh replaced the job's while it ran: the finished pair is the hold until the newest mesh has its own
       const fix = job.fixDone || {};
       const old = fix[job.role];
       fix[job.role] = make(old && old.meshKey === job.meshKey ? old : null);
