@@ -1901,13 +1901,24 @@
     else copies.forEach(copy);
     const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, st.carried), sph));
     if (meshCut) { gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); copies.forEach(copy); gl.disable(gl.STENCIL_TEST); }
+    // (the globe's depth again by its depth-only program, sphereDepth: the same vertex stage as P and no colour; P with
+    // its colour writes off while that program links, which a frame does not wait for)
     if (carried) {
-      gl.colorMask(false, false, false, false);
-      use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
-      gl.depthFunc(gl.LEQUAL);
-      const g = sphere();
-      gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, g.count, gl.UNSIGNED_INT, 0); gl.bindVertexArray(null);
-      gl.colorMask(cm[0], cm[1], cm[2], cm[3]);
+      let D = getProg('sphereDepth', cur, true) || P;
+      // TEST-HOOK (dropped from the published page by build.py)
+      // (test/steps_sphere_depth_cmd.js) api._depthAgain = {P, skip, depth: 0, colour: 0, skipped: 0}: P draws the pass with
+      // P, skip leaves it out (a control: the passes after it are then tested against the carried colour's depth); depth,
+      // colour and skipped count the passes drawn by sphereDepth, drawn by P and left out
+      if (api._depthAgain) { if (api._depthAgain.P) D = P; if (api._depthAgain.skip) D = null; api._depthAgain[!D ? 'skipped' : D === P ? 'colour' : 'depth']++; }
+      // TEST-HOOK
+      if (D) {
+        gl.colorMask(false, false, false, false);
+        use(D, st.map); uM4(D, 'uMVP', MVP);
+        gl.depthFunc(gl.LEQUAL);
+        const g = sphere();
+        gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, g.count, gl.UNSIGNED_INT, 0); gl.bindVertexArray(null);
+        gl.colorMask(cm[0], cm[1], cm[2], cm[3]);
+      }
     }
     // st.pre: target preimages over the globe (drawPreimage's st without view: {map, targets, halo, haloA, wGrid}), or a
     // list of them, one per map (the shapes of each later plane)

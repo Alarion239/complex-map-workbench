@@ -248,6 +248,8 @@
     sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + SPHERE_FS(true) },
     // (its stand-in while it links: F's values on the app's longitude-latitude grid, coloured and lined the same way, SPHERE_STANDIN_FS)
     sphereStandIn: { chain: false, vs: () => SPHERE_VS, fs: () => FIN + UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + STANDIN_W + SPHERE_STANDIN_FS },
+    // (the globe's depth alone, drawSphere's depth again after the carried colour: SPHERE_VS's geometry, no colour)
+    sphereDepth: { chain: false, vs: () => SPHERE_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
     disc: { chain: false, vs: () => DISC_VS, fs: () => UTIL + 'uniform float uDpr;\n' + TIERS + DISC_FS },
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
     carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
