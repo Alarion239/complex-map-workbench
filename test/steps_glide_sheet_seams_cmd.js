@@ -14,8 +14,8 @@
 //   pixel wide;
 // - R4 (those lines are painter's seams, gone): at the same u, at most SEAM_MAX of the pixels that differ from painter's
 //   frame are more than DIFF off the median of their 8 neighbours, leaving out the picture's own edges, where the colour
-//   two pixels either side is more than EDGE apart (painter's frame on the same pixels: about 240 to 2,950 off, up to
-//   about 130 levels). Painter's order draws a seam at u = .5 too, where the copies meet with the whole pixel covered: a
+//   two pixels either side is more than EDGE apart, and those edges are at most EDGE_SHARE of the pixels that differ
+//   (painter's frame on the same pixels: about 240 to 2,950 off, up to about 130 levels). Painter's order draws a seam at u = .5 too, where the copies meet with the whole pixel covered: a
 //   leaf on its cut takes its colour past the cut there, invLeaf's uCutIn;
 // - R5: the frames that do not draw copies by the inverse pass are painter's, byte for byte: z⁵ − 5z then √ (the carried
 //   mesh) and the log with its copies left out (glideSheets 1). (No glide frame has a REPT plan to check: a repeated step
@@ -35,8 +35,10 @@ const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.j
 // (the bounds, from frames on lavapipe: DIFF, a channel apart by more than the saturate sum's rounding; SEAM_MAX, R1
 // measures 0 against painter's 1,605; SEAM_LESS, R2 measures about 4,400 and 5,600 fewer; CLUMP, a pixel of a seam
 // line one or two pixels wide has at most 6 differing neighbours, one inside a changed area 8; EDGE, the log's smooth
-// colour changes less across 4 pixels at s = 30, and its bands' anti-aliased edges, 17 to 19 off at u = .97, more)
-const DIFF = 8, SEAM_MAX = 20, SEAM_LESS = 2000, CLUMP = 7, EDGE = 32, ROUNDS = 3;
+// colour changes less across 4 pixels at s = 30, and its bands' anti-aliased edges, 17 to 19 off at u = .97, more;
+// EDGE_SHARE, the edges measure at most a quarter of the differing pixels, 373 of 1,470 at u = .3, and with uCutIn
+// off 688 of 749)
+const DIFF = 8, SEAM_MAX = 20, SEAM_LESS = 2000, CLUMP = 7, EDGE = 32, EDGE_SHARE = 1 / 3, ROUNDS = 3;
 await view(1440, 900, false, false);
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
 const step = (type, params) => ({ type, params: params || {}, on: true });
@@ -126,7 +128,7 @@ for (const u of [0.3, 0.5, 0.7, 0.9, 0.97]) {
   ok(`R3: at u = ${u} no area changes against painter's order (no differing pixel with ${CLUMP} or more differing neighbours)`, d.clumps === 0, d);
   const e = info[`u ${u}`].changed = await dots(`f${u}`, `f${u}`, `p${u}`, true);
   info[`u ${u}`].changedPainter = await dots(`p${u}`, `f${u}`, `p${u}`, true);
-  ok(`R4: at u = ${u} the pixels that differ from painter's order leave no line: at most ${SEAM_MAX} more than ${DIFF} levels off their neighbours' median`, e.off <= SEAM_MAX, e);
+  ok(`R4: at u = ${u} the pixels that differ from painter's order leave no line: at most ${SEAM_MAX} more than ${DIFF} levels off their neighbours' median, and at most a third of them left out as the picture's own edges`, e.off <= SEAM_MAX && e.edge <= EDGE_SHARE * e.seam, e);
 }
 // ---- R6: the plots drawn back from the kept layer under the copies ----
 {

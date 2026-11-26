@@ -82,9 +82,11 @@ uniform int uKsat; uniform int uKall;
 // uLastOpaque = 1: the farthest layer of the composite is opaque (alpha 1) and only the layers in front of it show
 // through, so a point covered once keeps its colour at any uAlpha
 uniform int uLastOpaque;
-// uCutIn = 1 (a flat pass blended by saturate, drawInverse's): a leaf that covers part of a pixel on its cut, whose centre
-// lies past the cut, takes its colour a pixel inside the cut (invLeaf), not at the centre, where its branch's
-// colour is not the picture's: the pass across the cut covers the rest of that pixel. Its coverage is unchanged
+// uCutIn = 1 (a flat pass blended by saturate, drawInverse's): a bound leaf within a pixel of its cut (L.lvl < 1) takes
+// its colour a pixel inside the cut (invLeaf), not at the pixel's centre. A centre past the cut reads a colour that
+// is not its branch's picture there, where the pass across the cut covers the rest of the pixel; every leaf within the
+// pixel reads on that one line, so the colour has no step where the coverage turns partial. Its coverage is unchanged,
+// and the twin merge (ixAdmit) compares the leaf's own point, not the shifted one
 uniform int uCutIn;
 // uIxTail = 1: the shape's coverage is monotone along the stop op's member lines (Inverse.prepare's tail flag): with
 // uKall and K > IX_B, a side whose members provably all cover and all lie behind the buffer ends in the tail closure
@@ -779,7 +781,7 @@ ${B >= 8 ? '  if (!fast) {\n' : ''}  for (int i = 0; i < IX_B; i++) if (i < nb &
   if (cv < 1.0 && ga < 50.0) {
     int tw = -1;
     for (int i = 0; i < IX_B; i++) {
-      if (tw < 0 && (i == pos - 1 || i == pos) && i < nb && bC[i] < 1.0 && bG[i] < 50.0 && cos(ga - bG[i]) < -0.5 && cx_abs(z - bZ[i]) <= fp) tw = i;
+      if (tw < 0 && (i == pos - 1 || i == pos) && i < nb && bC[i] < 1.0 && bG[i] < 50.0 && cos(ga - bG[i]) < -0.5 && cx_abs(tz - bZ[i]) <= fp) tw = i;
     }
     if (tw >= 0) {
       for (int i = 0; i < IX_B; i++) if (i == tw) { bC[i] = min(1.0, bC[i] + cv); U = max(U, bC[i]); }
@@ -901,7 +903,8 @@ float invLeaf(Lf L, out bool cov) {
     // line; P2 app review)
     // (only a partial candidate can merge with a twin, and only with a partial entry: a full one keeps no angle)
     float ga = bound && zf && cv < 1.0 ? carg(lgi) : 100.0;
-    // (uCutIn: the colour read a pixel inside the cut, along the level's gradient in the pixel's axes, lgi)
+    // (uCutIn: the colour read a pixel inside the cut, along the level's gradient in the pixel's axes, lgi; tz keeps the
+    // leaf's own point)
     if (uCutIn == 1 && bound && zf && L.lvl < 1.0) {
       vec2 sh = (1.0 - L.lvl) * lgi, dz = sh.x * dX + sh.y * dY;
       z += dz; pv += dz; plam += sh.x * pdLX + sh.y * pdLY;
