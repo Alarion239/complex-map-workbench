@@ -1234,7 +1234,7 @@
       for (const s of S.shapes) {
         if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
         const r = shapeGPU(s), rl = linesOf(r, r);
-        if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}`, cpu: () => cpuMap(bm) } });
+        if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}` } });
       }
     }
     const colorMap = o.colorMap || (hom ? hom.map : focusMap()), colorGlobe = !imageMode && (!o.carryRegions || !!o.carryBase);
