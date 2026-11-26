@@ -1419,7 +1419,7 @@
   // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
   // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
   // (alphaOf, edgeOf: svInvArg's; b, a: the frame's planes, a = b - 1 unless given: svCarryAlpha's glide; gl.sat: each
-  // draw blended front to back, drawInverse's saturate, its cut edges grown by gl.grow px, drawInverse's cutGrow)
+  // draw blended front to back, drawInverse's saturate)
   function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf, b, a = b - 1) {
     const carry = svCarryStyle(T), p0 = paths[0];
     let nr = 0;
@@ -1433,7 +1433,7 @@
     for (let i = 0; i < list.length; i++) {
       let res = 'error';
       try {
-        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { a, b, u: t } : null), { nr, saturate: !!gl.sat, cutGrow: gl.sat ? gl.grow || 0 : 0 }));
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { a, b, u: t } : null), { nr, saturate: !!gl.sat }));
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -2406,11 +2406,6 @@
     svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [], pre: 0 };
     return false;
   }
-  // device px the principal sheet's pass grows its cut edges by in a glide frame drawn front to back (colour()):
-  // the copy's pass on the cut's other side estimates the same edge from its own leaf, so at a pixel on the cut the two
-  // coverages can sum short of one; drawn first, the grown principal fills that pixel and saturate leaves the copy the
-  // rest. Half a pixel: no pixel centre further past the cut takes the principal's colour
-  const SV_SAT_GROW = 0.5;
   // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's svLinkHold), or null; asks: the
   // frames asked for (renderAsks) before that hold asked for its own
   function svRenderMoving(pane, hold = null, asks = renderAsks) {
@@ -2485,7 +2480,7 @@
       if (sheets.length && !frame.open && SV.glideSat !== 0 && svExactGlide(b, u, null) && !svHomPaths(b, u, null).h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'REPT'))) {
         GLR.begin(pane.pw, pane.ph); frame.open = true; frame.sat = true;
         let drew = false;
-        try { frame.grow = SV_SAT_GROW; const p0 = svCarryExactHom(pane, b, u, T, frame, { r: null }, null); frame.grow = 0; drew = p0 && sheets.every((v) => svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }))); } finally { frame.sat = false; }
+        try { drew = svCarryExactHom(pane, b, u, T, frame, { r: null }, null) && sheets.every((v) => svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }))); } finally { frame.sat = false; }
         if (drew) {
           plot(a, 1, true, true);
           if (SV.restPaint !== 0) plot(b, 1, false, true);

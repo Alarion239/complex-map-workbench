@@ -5,12 +5,18 @@
 // __cmwSteps({ x }). The control is painter's order (__cmwSteps({ glideOrder: 'painter' })). Show-through: the pixels
 // where the frame with the plots under it (restPaint 1) and the frame without (restPaint 0) differ by more than DIFF levels
 // in a channel, which the carried colour leaves to the plots.
-// - R1: at u = .7 the show-through is at most SEAM_MAX pixels (painter's order: about 1,600);
+// - R1: at u = .7 the show-through is at most SEAM_MAX pixels (painter's order: about 1,600); and at .7 and .9, on
+//   painter's show-through, at most SEAM_MAX pixels of the frame without the plots are more than DIFF off the median of
+//   their 8 neighbours (the seam's dots, whatever shows through them), and none is less than opaque;
 // - R2: at u = .9 and .97 it is at least SEAM_LESS pixels below painter's;
-// - R3 (where copies overlap, the same one wins as in painter's order): at u = .3, .7 and .9, against painter's frame,
-//   no differing pixel has CLUMP or more differing neighbours of its 8, so no area changes colour, only lines a pixel
-//   wide; and at .9 and .97, outside painter's show-through, the frames are at most NEAR levels apart;
-// - R4: at u = .5, where no copies meet, the frame is painter's, byte for byte;
+// - R3 (where copies overlap, the same one wins as in painter's order): at u = .3, .5, .7, .9 and .97, against painter's
+//   frame, no differing pixel has CLUMP or more differing neighbours of its 8, so no area changes colour, only lines a
+//   pixel wide;
+// - R4 (those lines are painter's seams, gone): at the same u, at most SEAM_MAX of the pixels that differ from painter's
+//   frame are more than DIFF off the median of their 8 neighbours, leaving out the picture's own edges, where the colour
+//   two pixels either side is more than EDGE apart (painter's frame on the same pixels: about 240 to 2,950 off, up to
+//   about 130 levels). Painter's order draws a seam at u = .5 too, where the copies meet with the whole pixel covered: a
+//   leaf on its cut takes its colour past the cut there, invLeaf's uCutIn;
 // - R5: the frames that do not draw copies by the inverse pass are painter's, byte for byte: z⁵ − 5z then √ (the carried
 //   mesh) and the log with its copies left out (glideSheets 1). (No glide frame has a REPT plan to check: a repeated step
 //   inverts exactly only as its plane's one step, and its glide is drawn by the carried mesh);
@@ -24,9 +30,9 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // (the bounds, from frames on lavapipe: DIFF, a channel apart by more than the saturate sum's rounding; SEAM_MAX, R1
 // measures 0 against painter's 1,605; SEAM_LESS, R2 measures about 4,400 and 5,600 fewer; CLUMP, a pixel of a seam
-// line one or two pixels wide has at most 6 differing neighbours, one inside a changed area 8; NEAR, DIFF itself:
-// outside painter's show-through no pixel differs, measured 5 and 4 levels at most)
-const DIFF = 8, SEAM_MAX = 20, SEAM_LESS = 2000, CLUMP = 7, NEAR = DIFF, ROUNDS = 3;
+// line one or two pixels wide has at most 6 differing neighbours, one inside a changed area 8; EDGE, the log's smooth
+// colour changes less across 4 pixels at s = 30, and its bands' anti-aliased edges, 17 to 19 off at u = .97, more)
+const DIFF = 8, SEAM_MAX = 20, SEAM_LESS = 2000, CLUMP = 7, EDGE = 32, ROUNDS = 3;
 await view(1440, 900, false, false);
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
 const step = (type, params) => ({ type, params: params || {}, on: true });
@@ -84,19 +90,39 @@ for (const u of [0.3, 0.5, 0.7, 0.9, 0.97]) {
   }
 }
 ok(`R1: at u = .7 the plots show through at most ${SEAM_MAX} pixels between the copies`, show[0.7].front.n <= SEAM_MAX, show[0.7]);
+// (on the pixels where kept frames seamA and seamB differ by more than DIFF, frame tag's pixels more than DIFF off the
+// median of their 8 neighbours (off, the largest max), and tag's pixels whose alpha is under 255 (thin). With smooth,
+// a pixel on the picture's own edge in tag, two pixels either side of it more than EDGE apart in a channel along a row,
+// a column or a diagonal, is counted as edge, not checked: an anti-aliased edge between two colours is off any median)
+const dots = (tag, seamA, seamB, smooth) => ev(`(() => {
+  const F = window.__heldPx[${JSON.stringify(tag)}], A = window.__heldPx[${JSON.stringify(seamA)}], B = window.__heldPx[${JSON.stringify(seamB)}], W = document.getElementById('canvasL').width, H = F.length / 4 / W;
+  const med = (v) => v.sort((x, y) => x - y)[4];
+  const far = (i, o) => Math.max(Math.abs(F[i + o] - F[i - o]), Math.abs(F[i + o + 1] - F[i - o + 1]), Math.abs(F[i + o + 2] - F[i - o + 2]));
+  let seam = 0, off = 0, thin = 0, max = 0, edge = 0;
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    const i = 4 * (y * W + x);
+    if (F[i + 3] < 255) thin++;
+    if (!(Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${DIFF})) continue;
+    seam++;
+    if (${!!smooth} && [8, 8 * W, 8 * W + 8, 8 * W - 8].some((o) => far(i, o) > ${EDGE})) { edge++; continue; }
+    let d = 0;
+    for (let c = 0; c < 3; c++) { const v = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) v.push(F[i + 4 * (dy * W + dx) + c]); d = Math.max(d, Math.abs(F[i + c] - med(v))); }
+    if (d > ${DIFF}) off++;
+    if (d > max) max = d;
+  }
+  return { seam, off, max, thin, edge };
+})()`);
+for (const u of [0.7, 0.9]) {
+  const d = info[`u ${u}`].dots = { front: await dots(`f${u}r0`, `p${u}`, `p${u}r0`), painter: await dots(`p${u}r0`, `p${u}`, `p${u}r0`) };
+  ok(`R1: at u = ${u}, on painter's seam, no dots: at most ${SEAM_MAX} pixels more than ${DIFF} levels off their neighbours' median, none with alpha under 255`, d.front.off <= SEAM_MAX && d.front.thin === 0, d);
+}
 for (const u of [0.9, 0.97]) ok(`R2: at u = ${u} the plots show through at least ${SEAM_LESS} fewer pixels than in painter's order`, show[u].front.n <= show[u].painter.n - SEAM_LESS, show[u]);
-for (const u of [0.3, 0.7, 0.9]) {
+for (const u of [0.3, 0.5, 0.7, 0.9, 0.97]) {
   const d = info[`u ${u}`].vsPainter = await diff(`f${u}`, `p${u}`);
   ok(`R3: at u = ${u} no area changes against painter's order (no differing pixel with ${CLUMP} or more differing neighbours)`, d.clumps === 0, d);
-}
-for (const u of [0.9, 0.97]) {
-  const d = info[`u ${u}`].outside = await diff(`f${u}`, `p${u}`, `p${u}`, `p${u}r0`);
-  ok(`R3: at u = ${u}, outside painter's show-through, the frames are at most ${NEAR} levels apart`, d.outMax <= NEAR, d);
-}
-{
-  const d = info['u 0.5'].vsPainter = await diff('f0.5', 'p0.5');
-  const same = await ev(`(() => { const A = window.__heldPx['f0.5'], B = window.__heldPx['p0.5']; for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return false; return true; })()`);
-  ok('R4: at u = .5, where no copies meet, the frame is painter\'s byte for byte', same === true, d);
+  const e = info[`u ${u}`].changed = await dots(`f${u}`, `f${u}`, `p${u}`, true);
+  info[`u ${u}`].changedPainter = await dots(`p${u}`, `f${u}`, `p${u}`, true);
+  ok(`R4: at u = ${u} the pixels that differ from painter's order leave no line: at most ${SEAM_MAX} more than ${DIFF} levels off their neighbours' median`, e.off <= SEAM_MAX, e);
 }
 // (R7, info: the frame's time at u = .9, front to back against painter's, alternated)
 {

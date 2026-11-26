@@ -82,9 +82,10 @@ uniform int uKsat; uniform int uKall;
 // uLastOpaque = 1: the farthest layer of the composite is opaque (alpha 1) and only the layers in front of it show
 // through, so a point covered once keeps its colour at any uAlpha
 uniform int uLastOpaque;
-// uCutGrow: device px a leaf's cut edge is grown by (its level distance L.lvl plus it), so a flat pass drawn first
-// covers a pixel on its cut that the pass across the cut would leave short (drawInverse's cutGrow); 0 elsewhere
-uniform float uCutGrow;
+// uCutIn = 1 (a flat pass blended by saturate, drawInverse's): a leaf that covers part of a pixel on its cut, whose centre
+// lies past the cut, takes its colour a pixel inside the cut (invLeaf), not at the centre, where its branch's
+// colour is not the picture's: the pass across the cut covers the rest of that pixel. Its coverage is unchanged
+uniform int uCutIn;
 // uIxTail = 1: the shape's coverage is monotone along the stop op's member lines (Inverse.prepare's tail flag): with
 // uKall and K > IX_B, a side whose members provably all cover and all lie behind the buffer ends in the tail closure
 uniform int uIxTail;
@@ -877,8 +878,7 @@ float invLeaf(Lf L, out bool cov) {
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
   bool facing = bound && dot(n, lgi) < -0.5;
-  float lv = bound ? L.lvl + uCutGrow : L.lvl;
-  float cv = clamp(facing ? min(s, 0.5) + min(lv, 0.5) : min(s, lv) + 0.5, 0.0, 1.0);
+  float cv = clamp(facing ? min(s, 0.5) + min(L.lvl, 0.5) : min(s, L.lvl) + 0.5, 0.0, 1.0);
 #ifdef IX_REPT
   // a REPT leaf (ixRepDel >= 0: its chain error, z within it of a true member; Inverse.enumerate's leaf): within
   // ixRepDel and half a pixel of the region's edge its coverage is known only when ixRepDel is at most REPT_AA_TOL px;
@@ -901,6 +901,11 @@ float invLeaf(Lf L, out bool cov) {
     // line; P2 app review)
     // (only a partial candidate can merge with a twin, and only with a partial entry: a full one keeps no angle)
     float ga = bound && zf && cv < 1.0 ? carg(lgi) : 100.0;
+    // (uCutIn: the colour read a pixel inside the cut, along the level's gradient in the pixel's axes, lgi)
+    if (uCutIn == 1 && bound && zf && L.lvl < 1.0) {
+      vec2 sh = (1.0 - L.lvl) * lgi, dz = sh.x * dX + sh.y * dY;
+      z += dz; pv += dz; plam += sh.x * pdLX + sh.y * pdLY;
+    }
     ixAdmit(D, tz, cv, ga, cx_abs(dX) + cx_abs(dY), z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, pdLX, pdLY);
   }
   IX_RECORD(L, D, cov)
