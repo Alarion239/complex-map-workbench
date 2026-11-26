@@ -2,10 +2,8 @@
 // 1440 × 900 (mouse, English) and 390 × 844 (touch, English), and the Sound chapter at 390 × 844 (touch, Russian) and
 // 1440 (mouse laps round the zero and the pole). Each task: no advance without input; the tick within 300 ms of the
 // event; the advance 1500 ± 150 ms after the event, whatever the pointer or keys do next (doors 700 ± 100); holds and cancels; the sound
-// settings back after the chapter, after Esc and after a reload. It runs in either view (ci/suite_views.js: the steps view here,
-// the classic views in test/tour_auto_classic_cmd.js) and addresses steps by id: the pan task is X's in the classic views and
-// Planes' first in the steps view, the chapter's end with a task a shared number's slider or Edit a step. The doors (the view switch)
-// and the chain step are the classic view's only.
+// settings back after the chapter, after Esc and after a reload. It addresses steps by id: the pan task is Planes' first, the
+// chapter's end with a task Edit a step.
 // Run: test/<you>_cdp/q.sh test/tour_auto_cmd.js
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -134,14 +132,11 @@ const tickAfter = async (t0) => { const w = await until(`document.querySelector(
 
 // ---------------- 1440 × 900, mouse, English
 await open('au1', 1440, 900, false, false);
-const SV = await isSteps();
-// the pan task (X's in the classic view, One plane at a time in the steps view), and the chapter's end with a task (the
-// slider of a shared number, or the chip f₁) with the chapter after it
-const PAN = SV ? 'planes/plane' : 'basics/x';
-const KEYSTEP = SV ? 'planes/step' : 'edit/numbers';
-const AFTERKEY = SV ? 'playing/play' : 'construct/c3';
-// (the classic task: a drag along the slider of a)
-const SLIDER = '#propsPanel .prm-row input[type="range"]';
+// the pan task (One plane at a time), and the chapter's end with a task (the chip f₁) with the chapter after it
+const PAN = 'planes/plane';
+const KEYSTEP = 'planes/step';
+const AFTERKEY = 'playing/play';
+const KEYCHIP = '#svStrip .sv-step[data-k="1"] .sv-fchip';
 // X: no advance without input; a pan of empty space ticks it at once; CD_MS after the release it moves on
 await goStep(PAN);
 check('x: nothing advances in 3.5 s without input', await stays(PAN, 3500));
@@ -183,17 +178,17 @@ await click(disc[0], disc[1]); await settle(200);
 await mdrag(a.l + 220, a.b - 140, a.l + 260, a.b - 110);
 await until(`/^Done\\./.test(document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent)`, 5000, 25);
 let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
-check('live region: "Done.", the result line and "Next step in 1.5 s."', (SV ? /^Done\. The next plane shows its image under F\. Next step in 1\.5 s\.$/ : /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/).test(liveT), liveT);
+check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. The next plane shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
-// the chapter's last task: the slider of a (a drag along it), or the chip f₁; an input at +1 s does not restart the countdown
+// the chapter's last task: the chip f₁; an input at +1 s does not restart the countdown
 await goStep(KEYSTEP);
-// (the step opens the Inspector, which slides in: the slider is read once the tour's strip has stopped moving)
+// (the step opens the Inspector, which slides in: the chip is read once the tour's strip has stopped moving)
 await until('!(Tour.lit() || {}).moving', 3000);
-const kc = await center(SV ? '#svStrip .sv-step[data-k="1"] .sv-fchip' : SLIDER);
-check(SV ? 'key: the chip f₁ is there' : 'key: the slider of a is there', !!kc, kc);
+const kc = await center(KEYCHIP);
+check('key: the chip f₁ is there', !!kc, kc);
 if (kc) {
   await ltInstall();
-  if (SV) await click(kc[0], kc[1]); else await mdrag(kc[0] - 20, kc[1], kc[0] + 20, kc[1]);
+  await click(kc[0], kc[1]);
   t0 = Date.now();
   tk = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
   check('key: ticked within 300 ms', tk != null && tk <= 300, tk);
@@ -217,7 +212,7 @@ check('palette: no advance while it stays open (6 s)', await stays('keys/palette
 const hold = await lit();
 check('palette: the countdown is held by the layer', hold && hold.countdown.state === 'held' && hold.countdown.held.includes('layer'), hold && hold.countdown);
 // (no "Next step in 1.5 s" while held; said when the hold ends. The strip's own live region, not
-// #tourSay, which a chapter's end creates: the shared number's slider is the end of Editing in the classic view)
+// #tourSay, which a chapter's end creates)
 const liveH = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: while held the live region does not promise 1.5 s', !/1\.5 s/.test(liveH), liveH);
 await key('Escape'); t0 = Date.now();
@@ -331,19 +326,19 @@ check('Move on by itself off: tick and ring, no advance in 6 s', await stays(PAN
 await ev('Tour.auto(true)');
 } catch (e) { check("cancels: a press on the strip's text" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// a chapter's end with a task (the shared number's slider in the classic view, the chip f₁ in the steps view): tick and
+// a chapter's end with a task (the chip f₁): tick and
 // result, then 3 s into the next chapter
 await goStep(KEYSTEP);
 const rectOf = (js) => ev(`(() => { const e = ${js}; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-const keySel = SV ? `document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')` : `document.querySelector(${JSON.stringify(SLIDER)})`;
+const keySel = `document.querySelector('${KEYCHIP}')`;
 await until('!(Tour.lit() || {}).moving', 3000);
 const st = await rectOf(keySel);
-if (SV) await click(st[0], st[1]); else await mdrag(st[0] - 20, st[1], st[0] + 20, st[1]);
+await click(st[0], st[1]);
 t0 = Date.now();
 const dP = await doneAt(t0);
-await until(`(() => { const l = Tour.lit(); return !!l && !!l.countdown && l.countdown.state === 'running' && /${SV ? 'Planes done ✓' : 'moved together'}/.test(document.querySelector('#tourLead').textContent); })()`, 5000, 25);
-// (the result line: the step's then, and the chapter done: "Editing the chain done ✓" after the slider's, "Planes done ✓" alone after Edit a step)
-check('the chapter\'s last task: tick and result', (SV ? /Planes done ✓/ : /moved together/).test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', [await ev(`document.querySelector('#tourLead').textContent`), await lit()]);
+await until(`(() => { const l = Tour.lit(); return !!l && !!l.countdown && l.countdown.state === 'running' && /Planes done ✓/.test(document.querySelector('#tourLead').textContent); })()`, 5000, 25);
+// (the result line: the step's then, and the chapter done: "Planes done ✓" after Edit a step)
+check('the chapter\'s last task: tick and result', /Planes done ✓/.test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', [await ev(`document.querySelector('#tourLead').textContent`), await lit()]);
 const aP = await advanceFrom(KEYSTEP, dP, 250);
 check(`the chapter's last task: moves on CD_MS after, into ${AFTERKEY} (late only as far as the page was blocked)`, aP.ok && (await cur()) === AFTERKEY, [aP, dP, await cur()]);
 // once a task is done the spotlight steps aside: the shade fades and lets presses through
@@ -391,7 +386,7 @@ await goStep('sound/song');
 // (the strip shows Listen once the song scene is in, 1.5 to 3 s after the start on a loaded machine)
 await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 await settled({ max: 15000 });   // (the song scene's frames and shader compiles are done before the press, so the playback is timed alone)
-// (and, in the steps view, until the chain is ready to glide (__cmwSteps().ready.ready): its programs linked, its carried colour's
+// (and until the chain is ready to glide (__cmwSteps().ready.ready): its programs linked, its carried colour's
 // warm draw made (SV_WARM_IDLE_MS after the chain changed and after the last input) and its idle jobs done (the pole tracks, the outer ring, the meshes). Without
 // a parallel compile the programs link one at a time in idle time; a link, and the warm draw, takes a second or more on a software
 // renderer, which during the playback holds back the captions' timers until two fire in one task)
@@ -607,7 +602,6 @@ if (pf) {
   const aF = await advanceFrom('basics/formula', dF, 600);
   check('phone formula: Add ticks it and it moves on CD_MS after it is done (late only as far as the page was blocked)', aF.ok, [aF, dF, await lit()]);
 } else check('phone formula: the field is there', false);
-// (standards-ok: the classic Preimages step, and its hint for a hold that panned Y, are gone with Y's pane, not drawn since #994)
 await ev('Tour.stop()'); await settle(400);
 // regress-7: the root has no style attribute after the tour (it had none before)
 check('phone: no style left on the root after the tour', await ev(`document.documentElement.getAttribute('style') == null`), await ev(`document.documentElement.getAttribute('style')`));
@@ -632,9 +626,8 @@ await until(`(() => { const c = Tour.current(); return !c || c.chapter + '/' + c
 const { seen: seenC, cut: cutC } = await ev('window.__capRec');
 check('RU 360: four captions and the result, none cut, the title in place', seenC.length >= 5 && !cutC.length, { seenC, cutC });
 await ev('Tour.isActive() && Tour.stop()'); await settle(300);
-// user-10: landscape Russian, Part of the chain (Playing the chain's, the steps view's only): the strip takes the row under
-// the header, its task not cut
-if (SV) {
+// user-10: landscape Russian, Part of the chain (Playing the chain's): the strip takes the row under the header, its task not cut
+{
 await open('au6', 844, 390, true, true, 'ru');
 await goStep('playing/range');
 const lr = await ev(`(() => { const s = document.querySelector('.tour-strip'), l2 = s.querySelector('.ts-l2'), t = s.querySelector('.ts-text'); return { mode: s.dataset.mode, cut: l2.getBoundingClientRect().bottom > s.getBoundingClientRect().bottom + 0.5 || t.scrollHeight > t.clientHeight + 1, lead: document.querySelector('#tourLead').textContent }; })()`);
