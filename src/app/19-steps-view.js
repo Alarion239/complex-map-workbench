@@ -18,6 +18,7 @@
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
     glideStencil: 0, // (a test hook's) 1: the sphere draws a glide's sheet copies only where the principal sheet is not opaque (drawSphere's sheetCut)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
+    plotsKeep: 1,    // (a test hook's) 0: a glide frame draws the plots under its carried colour itself, never from the kept layer (svPlotsUnder)
     glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
     glideFade: null, // (a test hook's) the alpha of a Landscape glide's copies, fixed over the glide; null: their fade over u
     landBranches: 1, // (a test hook's) 0: the carried Landscape draws no patches about its map's branch points (svLandPatches); any other value draws them
@@ -767,11 +768,41 @@
   // disc about the image of infinity), where no cell of the box's grid reaches. The inner ring is the part the glides
   // of a periodic map (exp) bring into the block, so it has the finer grid. The inner ring runs a little past the outer
   // one's start (LAND_FAR_LAP), so the chords of their polygons, of different sizes, leave no crack.
+  // With carry, the outer ring carries its copies' strip (dup, svLandFarDup).
   const LAND_FAR_NEAR = 4, LAND_FAR_REACH = 1000, LAND_FAR_LAP = 1.002;
-  const svLandFar = (src) => {
+  const svLandFar = (src, carry = null) => {
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
-    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
+    const outer = [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)];
+    const dup = carry && svLandFarDup(carry, src, outer[2]);
+    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], dup ? Object.assign(outer, { dup }) : outer];
   };
+  // The outer ring's copies of the nearer surface (LAND_CARRY_VS uDup): where the carried surface is periodic in plane s's
+  // point z, with a period P whose half is shorter than the outer ring's inner radius R (the places F(z + P) = F(z) and the
+  // heights the same: the glide map's period, invHomPer, or at rest the chain's from s, Inverse.keyPeriod, or the least
+  // multiple of it, up to LAND_DUP_M, that the height has too, checked at LAND_DUP_AT points of the box), each point of the
+  // strip within sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the
+  // inner ring draw with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span
+  // several periods there, and their facets would stand out past the surface they copy. [n.x, n.y, half-width, 1], n the
+  // unit normal to P; null where no such period is found
+  const LAND_DUP_M = 4, LAND_DUP_AT = [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7], [0.35, 0.85], [0.7, 0.15]], LAND_DUP_TOL = 1e-7;
+  function svLandFarDup(carry, src, R) {
+    if (carry.plain) return null;
+    let p0 = null;
+    try {
+      p0 = carry.b != null ? invHomPer(carry.s, carry.b, carry.u) : carry.a > carry.s ? Inverse.keyPeriod(invPlan(carry.s, carry.a)) : null;
+    } catch (e) { p0 = null; }
+    if (!p0 || !(CX.abs(p0) > 0)) return null;
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap), same = (a, b) => (CX.isFin(a) ? CX.isFin(b) && CX.abs(CX.sub(a, b)) <= LAND_DUP_TOL * (1 + CX.abs(a)) : !CX.isFin(b));
+    const ht = (z) => { const v = H(z); return CX.isFin(v) ? C(landValue(v), 0) : v; };
+    const zs = LAND_DUP_AT.map(([fx, fy]) => C(src.x0 + fx * (src.x1 - src.x0), src.y0 + fy * (src.y1 - src.y0)));
+    for (let m = 1; m <= LAND_DUP_M; m++) {
+      const P = CX.scale(p0, m), half = CX.abs(P) / 2;
+      if (half >= R) return null;
+      if (!zs.every((z) => same(F(z), F(CX.add(z, P))) && same(ht(z), ht(CX.add(z, P))))) continue;
+      return [-P.im / (2 * half), P.re / (2 * half), Math.sqrt(R * R - half * half), 1];
+    }
+    return null;
+  }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and near, the nearer
   // plane, whose title and key the pane shows). The regions' fill and stroke do not switch at near: each blends its own
   // look in by its share own(x) (svStagedOf), outlined over colour and filled past the colour plane as each plane at rest
@@ -2188,7 +2219,7 @@
           SV.restHeld = at;
           const key = ['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
           if (svRestFell !== key || !GLR.pendingLinks) {
-            SV.core = 'still';
+            SV.core = 'still'; svPlotsDrop();
             if (svHeldKept(key, asks)) return;
             const n0 = colourAsks;
             svRestAt(at, pane, still);
@@ -2207,7 +2238,7 @@
     svCheck(); svPolesWatch();
     // (a press waits behind the gate on plane z, the colour plane: the plane is drawn as the first frame of the glide it waits to start)
     if (svGateDraws() || (svPaint() === 'push' && svFlatSurf() && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
-    svHeldOn = null;
+    svHeldOn = null; svPlotsDrop();
     SV.core = 'still'; still(pane);
   }
   // Sheets over a glide: a glide frame onto a plane b coloured by its own variable (at or before the colour plane) is
@@ -2404,6 +2435,33 @@
     svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [], pre: 0 };
     return false;
   }
+  // The plots under a glide's carried colour (plane b's picture at rest, plane a's no-value colour over it) read nothing
+  // of u: every frame of a glide draws the same picture there. Drawn into a fresh frame once, it is kept (GLR.layerKeep)
+  // under the key of what the plots read, and drawn back from there while the key holds; at rest it is dropped. A frame
+  // already open (the regions' mask under the colour) draws the plots itself, and so does a frame of another device
+  // size than the left pane's (an export's: the layer serves the screen and the frames drawn ahead for it, through a
+  // proxy of the pane). svPlotsUse: the frames that drew them and
+  // that drew them back (the tests read it); SV.plotsKeep 0 (a test hook's) draws them every frame
+  const SV_PLOTS = 'svPlots';
+  let svPlotsKey = null;
+  const svPlotsUse = { drawn: 0, kept: 0 };
+  function svPlotsUnder(pane, frame, a, b, draw) {
+    if (frame.open || SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) { draw(); return; }
+    const key = [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
+      GLR.palette(), TH.planeRGB, TH.inkRGB, TH.dark, SV.restPaint, svColoured(a), svColoured(b)].join('|');
+    GLR.begin(pane.pw, pane.ph);
+    frame.open = true;
+    if (key === svPlotsKey && GLR.layerDraw(SV_PLOTS)) { svPlotsUse.kept++; return; }
+    draw();
+    svPlotsUse.drawn++;
+    // (a plot whose program still links drew a stand-in or nothing: not a picture to keep)
+    svPlotsKey = !GLR.frameStatus().pending && GLR.layerKeep(SV_PLOTS) ? key : null;
+  }
+  function svPlotsDrop() {
+    if (svPlotsKey === null) return;
+    svPlotsKey = null;
+    GLR.layerDrop(SV_PLOTS);
+  }
   // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's svLinkHold), or null; asks: the
   // frames asked for (renderAsks) before that hold asked for its own
   function svRenderMoving(pane, hold = null, asks = renderAsks) {
@@ -2432,6 +2490,7 @@
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), still = u <= SV_REST_U || b === a;
+    if (still) svPlotsDrop();
     // (in both scopes: the regions of later planes pulled back, a layer of their own over the colour, under the outlines,
     // as a coloured plane draws them (renderColor): at rest on plane a by drawPreimage, between two planes by the inverse
     // pass (svStagedLayer); into the open frame, else a frame of its own; left out with the strokes, hideStrokes)
@@ -2458,7 +2517,7 @@
       // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
       // arrive. Inside regions only under the regions' mask, which keeps them inside the regions. SV.restPaint
       // 0 (a test hook's) leaves plane b's picture out, so that a pixel no point reaches shows the paper)
-      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); }
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) svPlotsUnder(pane, frame, a, b, () => { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); });
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan, or, all at
       // once, each step of the span at its own time (svSpanPaths): the exact picture of the map at u, with nothing
       // blended in; else the carried meshes below, with the planes' plots)

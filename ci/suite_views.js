@@ -91,6 +91,7 @@ const VIEWS = {
   'steps_tile_press_cmd.js': steps(),
   'steps_glide_morph_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
+  'steps_glide_plots_keep_cmd.js': steps({ pin: true }),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_glide_mesh_wait_cmd.js': steps(),
