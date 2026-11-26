@@ -909,7 +909,7 @@
   // the compact key's ring in a card h px tall (h < LEG.H: under the tall bar on a 320 px tall phone, clearContextBar): the ring
   // centred in the height, maxR × 2 across at most (40 px; 38 beside the modulus strip's column) and KEY_MIN_R × 2 at least, its
   // hole and left edge kept in LEG's proportions
-  const KEY_MIN_R = 17, KEY_MIN_H = 2 * KEY_MIN_R + 4;   // (KEY_MIN_H: the least card the compact key is drawn in, px)
+  const KEY_MIN_R = 17, KEY_MIN_H = 2 * KEY_MIN_R + 4;   // (KEY_MIN_H: the least card the compact carried key is drawn in, px)
   // (the least card the compact key with the strip's column is drawn in, px: the factor above the strip and "per band" under
   // it, 28 px apart, with their ink)
   const KEY_MIN_H_STRIP = 44;
