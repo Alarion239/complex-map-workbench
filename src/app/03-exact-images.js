@@ -99,8 +99,8 @@
     return !plan.ok && !!plan.tooLong;
   }
   // whether map (the plain map, mode 0) carries through a live Repeat block of more than one copy in its range,
-  // whatever op its plan draws it with: a REPT op when the repeat is the chain's one live step, the copies' own ops
-  // beside another step (Inverse.chainOpts)
+  // whatever op its plan draws it with: a REPT op when the range holds the repeat alone (Inverse.rangeOpts), the
+  // copies' own ops when it holds another live step too
   function repeatIn(map) {
     const m = normalizeMap(map);
     return (m.mode || 0) === 0 && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
