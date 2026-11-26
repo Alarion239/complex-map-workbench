@@ -1,4 +1,4 @@
-// Figure export, the classic figure of X → Y, X's panel (Y's pane is not drawn since #994): a point drawn on plane w₁ is
+// Figure export, the classic figure of X's plane: a point drawn on plane w₁ is
 // carried from its own plane, as the page draws it. e^z then z², the point z₀ = 0.4 + 0.3i on z and the point 1 + 0.5i on w₁:
 // - focus 0 (z): the panel, the z-plane, has z₀ alone (a point of a later plane is not drawn there);
 // - step 2 focused (w₁): the panel has f₁(z₀) = e^(0.4 + 0.3i) and the w₁ point at 1 + 0.5i itself;
@@ -7,8 +7,6 @@
 // - the caption lists the shapes of the panel's plane and earlier ones, and names the w₁ point w₁,₁ with its own plane (en, ru).
 // (control: the same scene with both points on z keeps both on the panel, at focus 0, at their coordinates)
 // A circle and a disc drawn on w₁ are carried from their own plane the same way (the last blocks).
-// (standards-ok: panel (b), Y's, its points, curves and chevrons, the caption's sentence on it and the F it defines went with
-// Y's pane, not drawn since #994)
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -27,7 +25,7 @@ const build = async (ns, st, lang = 'en', forWhat = 'article') => {
   await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=classic`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwFig && typeof __cmwP === "function"', max: 30000 });
   return ev(`await (async () => { try { const f = await __cmwFig.build({ for: '${forWhat}', cols: 2, capInImage: false }); if (!f) return { none: true };
-    return { view: f.view, panels: f.info && f.info.panels, points: f.info && f.info.points, curves: f.info && f.info.curves, chevrons: !!(f.info && f.info.chevrons), cap: String(f.captionTex || '') }; } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 180000);
+    return { view: f.view, points: f.info && f.info.points, curves: f.info && f.info.curves, chevrons: !!(f.info && f.info.chevrons), cap: String(f.captionTex || '') }; } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 180000);
 };
 // the panel's points near p, and whether a panel has a point near p
 const near = (pts, p) => (pts || []).filter((q) => Math.hypot(q.z[0] - p[0], q.z[1] - p[1]) < NEAR);
@@ -36,9 +34,9 @@ const named = (pts) => (pts || []).every((q) => typeof q.label === 'string' && q
 const F1_Z0 = cexp(Z0);
 // ---- focus 0: z
 for (const lang of ['en', 'ru']) {
-  const f = await build('xsp0' + lang + Date.now(), scene(0), lang), L = f.points && f.points.L;
+  const f = await build('xsp0' + lang + Date.now(), scene(0), lang), L = f.points;
   info['focus 0 ' + lang] = f;
-  ok(`focus 0, ${lang}: the figure is X's panel (control)`, !f.err && !f.none && JSON.stringify(f.panels) === JSON.stringify(['L']), f);
+  ok(`focus 0, ${lang}: the figure is X's panel (control)`, !f.err && !f.none && Array.isArray(f.points), f);
   ok(`focus 0, ${lang}: the panel, the z-plane, has z₀ and not the point of w₁`, has(L, Z0) && !has(L, W11) && (L || []).length === 1, L);
   ok(`focus 0, ${lang}: every point the panel draws is named, each by its own name`, named(L), L);
   ok(`focus 0, ${lang}: the panel names z₀ z_{0}`, (near(L, Z0)[0] || {}).label === 'z_{0}', L);
@@ -48,9 +46,9 @@ for (const lang of ['en', 'ru']) {
 }
 // ---- step 2 focused: w₁
 {
-  const f = await build('xsp2' + Date.now(), scene(2)), L = f.points && f.points.L;
+  const f = await build('xsp2' + Date.now(), scene(2)), L = f.points;
   info['focus 2'] = f;
-  ok('focus 2: the figure is X\'s panel (control)', !f.err && !f.none && JSON.stringify(f.panels) === JSON.stringify(['L']), f);
+  ok('focus 2: the figure is X\'s panel (control)', !f.err && !f.none && Array.isArray(f.points), f);
   ok('focus 2: the panel, the w₁-plane, has f₁(z₀) and the w₁ point at 1 + 0.5i itself', has(L, F1_Z0) && has(L, W11) && (L || []).length === 2, L);
   ok('focus 2: every point the panel draws is named, each by its own name', named(L), L);
   ok('focus 2: the panel names z₀\'s image w_{1}(z_{0}), not by the focused step', (near(L, F1_Z0)[0] || {}).label === 'w_{1}(z_{0})', L);
@@ -63,7 +61,7 @@ for (const lang of ['en', 'ru']) {
 // panel's name
 {
   const st = Object.assign(scene(2), { shapes: [{ id: 'pa', kind: 'point', p: Z0, label: 'A', visible: true }] });
-  const f = await build('xsp2a' + Date.now(), st), L = f.points && f.points.L;
+  const f = await build('xsp2a' + Date.now(), st), L = f.points;
   info['focus 2, labelled'] = { points: f.points, cap: f.cap };
   ok('focus 2, a labelled point A of z: the panel names its image w_{1}(A)', (near(L, F1_Z0)[0] || {}).label === 'w_{1}(A)', L);
   ok('focus 2, a labelled point A of z: the caption gives it by the panel\'s name, w_{1}(A) ≈ 1.425 + 0.441i with A = 0.4 + 0.3i', /^The point \$w_\{1\}\(A\)\\approx 1\.425\+0\.441i\$ \(\$A=0\.4\+0\.3i\$\) in the \$w_\{1\}\$-plane\./.test(f.cap || ''), f.cap);
@@ -76,7 +74,7 @@ for (const lang of ['en', 'ru']) {
 }
 // ---- (control) both points on z: both on the panel at their coordinates
 {
-  const f = await build('xspc' + Date.now(), scene(0, 0)), L = f.points && f.points.L;
+  const f = await build('xspc' + Date.now(), scene(0, 0)), L = f.points;
   info.control = f;
   ok('both points on z (control): the panel has both at their coordinates', has(L, Z0) && has(L, W11), L);
   ok('both points on z (control): the caption has both points in the z-plane', /^The point \$z_\{0\}=0\.4\+0\.3i\$ and the point \$z_\{1\}=1\+0\.5i\$ in the \$z\$-plane\./.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
@@ -95,12 +93,12 @@ const id = (w) => w;
 // for the control's)
 const W1_CIRCLE = '|w_{1}-1|=0.5', W1_DISC = '|w_{1}-1|\\le 0.3', Z_CIRCLE = '|z-1|=0.5', Z_DISC = '|z-1|\\le 0.3';
 for (const [tag, focus, stage] of [['focus 0', 0, 1], ['focus 2', 2, 1], ['control, on z, focus 0', 0, 0]]) {
-  const f = await build('xspcv' + focus + stage + Date.now(), curveScene(focus, stage)), L = f.curves && f.curves.L;
+  const f = await build('xspcv' + focus + stage + Date.now(), curveScene(focus, stage)), L = f.curves;
   info['caption ' + tag] = f.cap;
   if (tag === 'focus 2') ok(`caption, ${tag}: the circle and the disc of w₁ are written in w₁, $${W1_CIRCLE}$ and $${W1_DISC}$, not in z`, (f.cap || '').includes(W1_CIRCLE) && (f.cap || '').includes(W1_DISC) && !/\|z-1\|/.test(f.cap || ''), f.cap);
   else if (!stage) ok(`caption, ${tag}: the circle and the disc of z keep z, $${Z_CIRCLE}$ and $${Z_DISC}$`, (f.cap || '').includes(Z_CIRCLE) && (f.cap || '').includes(Z_DISC) && !/w_\{1\}-1/.test(f.cap || ''), f.cap);
   info['curves ' + tag] = { L: (L || []).map((c) => ({ id: c.id, n: c.pts.length, first: c.pts[0] })), err: f.err };
-  ok(`curves, ${tag}: the figure is X's panel (control)`, !f.err && !f.none && JSON.stringify(f.panels) === JSON.stringify(['L']), f.err || f.panels);
+  ok(`curves, ${tag}: the figure is X's panel (control)`, !f.err && !f.none && Array.isArray(f.points), f.err || f.points);
   for (const [sid, r, what] of [['c1', 0.5, 'circle'], ['d1', 0.3, 'disc']]) {
     if (tag === 'focus 0') ok(`curves, focus 0: the panel, the z-plane, does not draw the ${what} of w₁`, !(L || []).some((c) => c.id === sid), info['curves ' + tag].L);
     else {

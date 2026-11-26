@@ -8,21 +8,22 @@
       // (the planes' labels placed again, in full: they keep off the controls where these have stopped)
       relabel: () => requestRender('L', 'R'),
       // (build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
-      // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)
+      // width, and whether the app fits it itself (X's at a focused step; Y draws nothing, and is left as it is: auto);
+      // setView writes that view)
       // (land: a running tween on that view ends at its target first)
       getView: (side, land) => {
         const v = side === 'L' ? leftView() : V.right, p = side === 'L' ? paneL : paneR;
         if (land) for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; if (tw.view === v) { Object.assign(v, tw.to); tweens.splice(i, 1); if (tw.onDone) tw.onDone(); } }
-        return { cx: v.cx, cy: v.cy, s: v.s, w: p.w, h: p.h, auto: side === 'L' ? leftStage() > 0 && leftAuto : rightAuto };
+        return { cx: v.cx, cy: v.cy, s: v.s, w: p.w, h: p.h, auto: side === 'L' ? leftStage() > 0 && leftAuto : true };
       },
       setView: (side, v) => {
         const t = side === 'L' ? leftView() : V.right;
         for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].view === t) tweens.splice(i, 1);
         t.cx = v.cx; t.cy = v.cy; t.s = v.s;
-        if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); } else rightAuto = false;
+        if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); }
         requestRender('L', 'R', 'OL', 'OR');
       },
-      fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
+      fit: () => $('leftFit').click(),   // (X's: Y's pane is not drawn)
       // (#246) the phone's chain row and sheet: the plane it is at, ‹ › (the step glide), the deformation's programs
       // compiled ahead of the first press, a step's sheet, a step moved by the sheet's drag
       chainState: () => chainState(), glide: (d) => glideStep(d), cardClick: (k) => selectStep(k),

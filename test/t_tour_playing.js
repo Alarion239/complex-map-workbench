@@ -48,7 +48,7 @@ for (const en of strings) {
   ok(`ru: "${en.slice(0, 40)}" keeps its keys`, keys(en) === keys(v), [keys(en), keys(v)]);
   ok(`ru: "${en.slice(0, 40)}" is not the English`, v !== en, v);
 }
-ok('the chapter replaces Views and Deformation when the steps view is on', !T.SV_ON || (!T.CHAPTERS.some((c) => c.id === 'views' || c.id === 'deform') && T.CHAPTERS.some((c) => c.id === 'playing')));
+ok('the tour has Playing the chain, and no Views or Deformation chapter', !T.CHAPTERS.some((c) => c.id === 'views' || c.id === 'deform') && T.CHAPTERS.some((c) => c.id === 'playing'));
 
 if (fails.length) { for (const f of fails.slice(0, 40)) console.log('FAIL', f.name, JSON.stringify(f.got)); console.log(`${n - fails.length}/${n} passed`); process.exit(1); }
 console.log(`${n}/${n} passed`);

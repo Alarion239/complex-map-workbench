@@ -127,7 +127,7 @@ const Tour = (() => {
   // try.ctl names the controls that complete the Try it (a tool's button, a slider, a view's key), lit while the
   // Try it shows, each its own area or a ring inside a lit one, and reachable with Tab; try.work names parts lit on a
   // touch screen only. live: the anchor is looked up again whenever the layout changes (a phone's tool in the More tools
-  // sheet, then on the More key). pictures: the chain shows its cards' pictures during the step (api.chainPictures).
+  // sheet, then on the More key).
   // The panes are named by their role, X and Y, never left and right: on a phone they stack.
   // notes/tour-r3/SPEC.md 3: lead, one sentence the strip shows without a tap (what to look at; required on a
   // step with no task, with tryWide or with try.after); try.then, the result line once the task is done; try.after, an
@@ -139,6 +139,66 @@ const Tour = (() => {
   // (try.off, the task while the sound is off, on a step whose act button turns it on; try.hint { on, test,
   // text, touch }, a line shown in place of the task when that event says the attempt went wrong)
   const orbit = (e) => !e || e.how === 'orbit';
+  // the steps view's chapters, "Planes" and "Playing the chain". Each step puts the view where its task needs it (svPlace)
+  // and is done by one of the events the steps view sends
+  const PLANES = {
+    id: 'planes', title: 'Planes', time: '2 min', rev: 1, scene: 'strip',
+    steps: [
+      { id: 'plane', anchor: 'paneL', title: 'One plane at a time', before: [['svPlace', { i: 0, T: -1, scope: 'all', surf: 'plane' }]],
+        body: 'The view shows one plane of the chain, here $z$. Its colours come from the colour plane, the dot with the wheel on the thread.',
+        try: { text: 'Drag empty space, or scroll to zoom.', touch: 'Drag empty space, or pinch.', on: 'view-moved', test: (e) => !e || e.how !== 'orbit', ctl: ['paneL'] } },
+      { id: 'thread', anchor: 'svStrip', also: ['paneL'], title: 'The thread', before: [['svPlace', { i: 0 }]],
+        body: 'Each dot is a plane, $z$, $w_1$, $w_2$; each chip between two dots is a step. ‹ › or ← → glide to the next plane, and the picture deforms along the step.',
+        try: { text: 'Click ›, or press →.', touch: 'Tap ›, or swipe in from the right edge.', on: 'plane-changed', ctl: ['svNext'] } },
+      { id: 'park', anchor: 'svRing', also: ['svStrip'], title: 'Between two planes', before: [['svPlace', { i: 0 }]],
+        body: 'Drag the ring and let go between two dots: the view stays there and shows the step part way. Shift+← → moves a quarter step.',
+        try: { text: 'Drag the ring halfway to the next dot.', touch: 'Drag the ring halfway to the next dot.', on: 'thread-parked', ctl: ['svRing'] } },
+      { id: 'colour', anchor: 'svCp', also: ['svStrip'], title: 'The colour plane', before: [['svPlace', { i: 1, T: -1 }]],
+        body: 'The colour plane holds the colour wheel. Every plane before it shows the wheel pulled back through the steps. Colour from here, or {C}, makes the shown plane the colour plane.',
+        try: { text: 'Press {C}, or click Colour from here.', touch: 'Tap the wheel button.', on: 'colour-plane-set', ctl: ['svCp'] } },
+      { id: 'carried', anchor: 'paneL', also: ['svStrip'], title: 'Past the colour plane', before: [['svPlace', { i: 1, T: 1 }]],
+        body: 'Planes after it keep its colours: each point carries the colour it had there. The readout names where a point came from.',
+        try: { text: 'Click ›, then hover a point.', touch: 'Tap ›, then hold a point and slide.', on: 'probe', test: (e) => !e || !!e.past, ctl: ['svNext'] } },
+      { id: 'inside', anchor: 'svScope', title: 'Inside regions', before: [['svPlace', { i: 0, T: -1, scope: 'all' }]],
+        body: 'Colour only inside the regions you draw, in every plane: a region and its images keep the same colours through the chain.',
+        try: { text: 'Choose Inside regions.', touch: 'Choose Inside.', on: 'scope-changed', test: (e) => !e || e.s === 'in', ctl: ['svScope'] } },
+      { id: 'surface', anchor: 'svSurf', title: 'Sphere and Landscape', before: [['svPlace', { i: 0, scope: 'all', surf: 'plane' }]],
+        body: 'The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.',
+        try: { text: 'Choose Sphere.', touch: 'Tap the surface button, then Sphere.', on: 'surface-changed', test: (e) => !e || e.s === 'sphere', ctl: ['svSurf'] } },
+      { id: 'step', anchor: 'svChip', title: 'Edit a step', before: [['svPlace', { i: 0, surf: 'plane' }]],
+        body: 'A chip opens its step in the Inspector: change the function, its parameters or its formula, and every plane after it follows.',
+        try: { text: 'Click the chip $f_1$.', touch: 'Tap the chip $f_1$.', on: 'step-selected', test: (e) => !e || e.k === 1, ctl: ['svChip'] } },
+    ],
+  };
+  const PLAYING = {
+    id: 'playing', title: 'Playing the chain', time: '1 min', rev: 1, scene: 'strip',
+    steps: [
+      { id: 'play', anchor: 'svPlay', also: ['svStrip'], title: 'Play', before: [['svPlace', { i: 0, T: -1, scope: 'all', surf: 'plane' }]],
+        body: 'Play glides the picture along the whole chain, plane after plane, and stops at the last. Pause it anywhere: the view stays where it is.',
+        try: { text: 'Click ▶, or press {K}.', touch: 'Tap ▶.', on: 'play-started', ctl: ['svPlay'] } },
+      { id: 'speed', anchor: ['svSpeed', 'svPlay'], also: ['svStrip'], title: 'Speed and loop', before: [['svPlace', { i: 0 }]],
+        body: 'The speed select sets how long each step takes. Click Loop to start over at the end instead of stopping.',
+        deskTouch: 'The speed select sets how long each step takes. Tap Loop to start over at the end instead of stopping.', phoneFine: 'Hold ▶ to open Playback: its speed select sets how long each step takes, and clicking Loop starts over at the end instead of stopping.',
+        touch: 'Hold ▶ to open Playback: its speed select sets how long each step takes, and tapping Loop starts over at the end instead of stopping.',
+        try: { text: 'Click Loop.', deskTouch: 'Tap Loop.', phoneFine: 'Hold ▶, then click Loop.', touch: 'Hold ▶, then tap Loop.', on: 'loop-changed', ctl: ['svLoop'] } },
+      { id: 'range', anchor: 'svRail', also: ['svStrip'], title: 'Part of the chain', before: [['svPlace', { i: 0 }]],
+        body: 'A band over the thread plays only the steps inside it. Esc clears it.',
+        deskTouch: 'A band over the thread plays only the steps inside it. Hold the thread, then drag across two chips.', phoneFine: 'A band over the thread plays only the steps inside it. Shift-drag across two chips; Esc clears it.',
+        touch: 'A band over the thread plays only the steps inside it. Hold the thread, then drag across two chips.',
+        try: { text: 'Shift-drag across two chips.', deskTouch: 'Hold the thread, then drag across two chips.', phoneFine: 'Shift-drag across two chips.', touch: 'Hold the thread, then drag across two chips.', on: 'range-set', ctl: ['svRail'] } },
+    ],
+  };
+  const reorderMenu = 'In the ⋯ menu of $f_2$, choose Move left.';
+  const reorderStep = { id: 'reorder', anchor: 'svMenu2', also: ['svStrip'], title: 'Reorder steps', before: [['svPlace', { i: 0, surf: 'plane' }]],
+    body: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.', deskTouch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu.',
+    touch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one from its menu: hold the chip.', phoneFine: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one from its menu (right-click the chip), or Alt+← and Alt+→ on the selected chip.',
+    try: { text: reorderMenu, deskTouch: reorderMenu, touch: 'Hold the chip $f_2$, then choose Move left.', phoneFine: 'Right-click the chip $f_2$, then choose Move left.', on: 'step-moved', test: (/** @type {any} */ e) => !e || e.from === 2, ctl: ['svMenu2'], then: 'The planes after this step changed with the order.' } };
+  // a shape drawn on a later plane, its preimage on z under Inside regions; ticked by a disc drawn on a later plane, then ‹ to z
+  const drawnLater = (/** @type {any} */ e, /** @type {any} */ m) => {
+    if (!e) return true;
+    if ('stage' in e) { m.drawn = e.stage > 0; return false; }
+    return !!m.drawn && e.i === 0;
+  };
   const CHAPTERS = [
     {
       id: 'basics', title: 'Basics', time: '2 min', rev: 3, scene: 'strip',
@@ -146,15 +206,11 @@ const Tour = (() => {
         { id: 'welcome', anchor: null, title: 'Welcome to the Workbench', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select']],
           lead: 'Practice freely: what you draw here is cleared at the end.',
           body: 'Draw a set in the $z$-plane, send it through a chain of functions and watch its image: about two minutes. What you draw during the tour is cleared when it ends, and your own work comes back exactly as it was.' },
-        { id: 'x', anchor: 'paneL', title: 'X: the domain', before: [['plane', 'L'], ['tool', 'select']],
-          body: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.',
-          touch: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Pinch to zoom and drag empty space to pan.',
-          try: { text: 'Drag empty space in X, or scroll to zoom.', touch: 'Drag empty space in X, or pinch.', on: 'view-moved', test: (e) => !e || (e.pane === 'L' && e.how !== 'orbit'), ctl: ['tool:select'] } },
         // (the Disc tool itself, where it shows: the Draw panel, the rail, a phone's tool row; live: the lit tool is
         // looked up again as the layout changes)
         { id: 'draw', anchor: 'tool:disc', also: ['paneL'], live: true, title: 'Draw a shape', before: [['plane', 'L']],
-          body: 'Pick a tool and drag in X to add a shape. The same tools in Y add a target in $w$ instead.',
-          try: { text: 'Choose Disc, then drag in X.', on: 'shape-added', then: 'Y shows its image under $F$.' } },
+          body: 'Pick a tool and drag in the plane to add a shape. On a later plane the same tools add a shape that belongs to that plane.',
+          try: { text: 'Choose Disc, then drag in the plane.', on: 'shape-added', then: 'The next plane shows its image under $F$.' } },
         // (tryWide: on a phone the list and X are a screen apart, so the drag is not asked for there)
         { id: 'shapes', anchor: 'shapes', also: ['paneL'], title: 'Your shapes', before: [['tool', 'select'], ['panel', 'left', 'tools:shapes']], tryWide: true,
           lead: 'Each shape is listed with its equation.',
@@ -168,49 +224,24 @@ const Tour = (() => {
           // (a phone's words for the places and gestures, here and below)
           touch: 'Type a set and tap Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
           try: { text: 'Type $|z+1|<1$ and click Add.', touch: 'Type $|z+1|<1$ and tap Add.', on: 'shape-added', test: (e) => !e || e.via === 'formula', then: 'A set from a formula is a shape like any other.' } },
-        { id: 'chain', anchor: 'chain', also: ['panes'], title: 'The function chain', before: [['focus', 0]],
-          // (a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
-          body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
-          // (on a phone the steps are rows of the chain sheet, which the steps button under the planes opens)
-          touch: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and tap a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.', deskTouch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card to select it, and the Inspector edits it. Show alone there shows that step alone: X and Y become its input and output.', phoneFine: 'The steps apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Open the chain with the steps button under the planes and click a step: its editor opens, and Show alone there shows that step alone, with X and Y as its input and output.',
-          try: { text: 'Double-click the card $f_1$.', touch: 'Open the chain, tap $f_1$, then Show alone.', deskTouch: 'Tap the card $f_1$, then Show alone.', phoneFine: 'Open the chain, click $f_1$, then Show alone.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
         // (the open catalog holds the countdown: it moves on CD_MS after it closes)
-        { id: 'add', anchor: ['addStep', 'chain'], title: 'Add a function', before: [['focus', 0]],
-          body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
-          touch: 'Open the chain with the steps button under the planes and tap Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.', deskTouch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.', phoneFine: 'Open the chain with the steps button under the planes and click Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.',
-          try: { text: 'Press {+}, or click the add card.', touch: 'Open the chain, then tap Add function.', deskTouch: 'Tap Add function.', phoneFine: 'Open the chain, then click Add function.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
+        { id: 'add', anchor: 'svAdd', also: ['svStrip'], title: 'Add a function', before: [['focus', 0]],
+          body: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Click a chip\'s ⋯ to move it, bypass it or remove it.', deskTouch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Tap a chip\'s ⋯ to move it, bypass it or remove it.',
+          touch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Hold a chip to open its menu, which moves it, bypasses it or removes it.', phoneFine: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Right-click a chip to open its menu, which moves it, bypasses it or removes it.',
+          try: { text: 'Click Add function.', touch: 'Tap Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } },
         { id: 'examples', anchor: ['examples', 'moreBtn'], title: 'Examples',
           lead: 'Worked examples, from Joukowski to a residue.',
           body: 'Worked examples, from the Joukowski airfoil to a residue found by integration. Open one whenever you want a starting point.',
           narrow: 'Worked examples are in this menu, from the Joukowski airfoil to a residue found by integration.' },
       ],
     },
+    PLANES,
+    PLAYING,
     {
-      id: 'views', title: 'Views', time: '1 min', rev: 2, scene: 'rational',
-      steps: [
-        { id: 'phase', anchor: 'panes', title: 'Phase portrait', before: [['view', 'phase'], ['surface', 'L', 'plane']],
-          lead: 'Colour is $\\arg F$; all colours meet at zeros and poles.',
-          body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.',
-          try: { text: 'Zoom in on a zero or a pole.', touch: 'Spread two fingers on a zero or a pole.', on: 'view-moved', test: (e) => !e || e.how === 'zoom', then: 'All the colours still meet there, however far you zoom.' } },
-        { id: 'land', anchor: 'panes', title: 'Landscape', before: [['view', 'land'], ['tool', 'select']], wait: 120,
-          body: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel\'s options set the height and the colouring.',
-          touch: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the Display key sets the height and the colouring.', deskTouch: "The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the panel's options set the height and the colouring.", phoneFine: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, scroll to zoom; the Display key sets the height and the colouring.',
-          try: { text: 'Drag to orbit.', on: 'view-moved', test: orbit, then: 'Zeros are pits and poles are peaks: $\\pm1$ and $\\pm i$.' } },
-        { id: 'sphere', anchor: ['surfaceL', 'sphereKey'], also: ['panes'], title: 'The Riemann sphere', before: [['view', 'phase'], ['surface', 'L', 'sphere'], ['tool', 'select']],
-          body: 'Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.',
-          try: { text: 'Drag the sphere to turn it.', on: 'view-moved', test: orbit, ctl: ['panes'], then: '$\\infty$ is the north pole; here $F(\\infty)=1$.' } },
-      ],
-    },
-    {
-      // notes/ui-redesign-2: the cards' pictures, the Inspector, zeros and poles, the planes' menu, shared numbers
+      // notes/ui-redesign-2: the Inspector, zeros and poles, the planes' menu, shared numbers
       id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 4, scene: 'strip',
       steps: [
-        // (pictures: the chain shows its cards' pictures for this step, Pictures rather than Names and tall enough;
-        // the tour leaves the step by putting the user's setting back, and a note says so when the step had changed it)
-        { id: 'cards', anchor: 'chain', also: ['viewSwitch'], pictures: true, title: 'Cards follow the view', before: [['view', 'phase'], ['surface', 'L', 'plane']],
-          body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
-          touch: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.', deskTouch: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.', phoneFine: 'Each step of the chain shows $F_k$, the map up to it, in the open view: here its phase portrait. So the last step is the main picture, and the chain (the steps button under the planes) shows how $F$ is built.',
-          try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land', ctl: ['viewLand'], then: 'Each card now shows its own landscape.' } },
+        reorderStep,
         // (on a phone the panel action opens the Editor sheet, with X and Y side by side above it)
         // (on a touch screen the step is the editor's: its title and line say so)
         { id: 'inspector', anchor: 'inspector', also: ['chain'], title: 'The Inspector', titleTouch: 'The editor', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 2], ['panel', 'right']], wait: 120,
@@ -221,9 +252,9 @@ const Tour = (() => {
           try: { text: 'In ⋯, choose Replace…, then pick a function.', on: 'step-replaced', test: (e) => !e || e.k === 2, ctl: ['invBtn'], then: 'Only $f_2$ changed; Undo brings the old one back.' } },
         // (the Inspector shows how a typed formula is built from catalog steps; split: the offer shows in the tour)
         { id: 'split', anchor: 'splitOffer', also: ['chain'], title: 'A formula in steps', split: true, before: [['scene', 'splitFormula'], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 1], ['panel', 'right']], wait: 120,
-          body: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
-          touch: 'This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.', deskTouch: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.', phoneFine: 'This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
-          try: { text: 'Click Split into 3 steps.', touch: 'Tap Split into 3 steps.', on: 'formula-split', ctl: ['splitBtn'], then: 'One card for each transform; undo brings the formula back.' } },
+          body: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own chip and plane: the glide then plays through them. Undo brings the formula back.',
+          touch: 'This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own chip and plane: the glide then plays through them. Undo brings the formula back.', deskTouch: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own chip and plane: the glide then plays through them. Undo brings the formula back.', phoneFine: 'This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own chip and plane: the glide then plays through them. Undo brings the formula back.',
+          try: { text: 'Click Split into 3 steps.', touch: 'Tap Split into 3 steps.', on: 'formula-split', ctl: ['splitBtn'], then: 'A chip and a plane for each transform; undo brings it back.' } },
         { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', before: [['scene', 'zp'], ['view', 'xy'], ['tool', 'select'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This step is built from its zeros and poles. Drag one in X, or click Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.',
           touch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.', deskTouch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.', phoneFine: 'This step is built from its zeros and poles. Drag one in X, or click Add zero or Add pole for a new one: the map and its image follow.',
@@ -256,10 +287,10 @@ const Tour = (() => {
     {
       id: 'analysis', title: 'Analysis', time: '1½ min', rev: 2, scene: 'roots',
       steps: [
-        { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R']],
-          lead: 'The target $0$ marks the three cube roots of unity.',
-          body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.',
-          try: { text: 'Choose Disc, then drag in Y.', on: 'shape-added', test: (e) => !e || e.plane === 'w', ctl: ['tool:disc'], then: 'X shades its preimage under $F$.' } },
+        { id: 'targets', anchor: 'paneL', also: ['svStrip'], title: 'Shapes on a later plane',
+          before: [['svPlace', { i: 1, T: -1, scope: 'in', surf: 'plane' }]],
+          body: 'A shape drawn on a later plane belongs to that plane. Under Inside regions every plane is coloured only inside its regions, and a later plane\'s regions are pulled back: on $z$, the colour marks every point the map sends into them, all of their preimages at once.',
+          try: { text: 'On $w_1$, draw a disc, then click ‹ (or press ←).', touch: 'On $w_1$, draw a disc, then tap ‹.', on: ['shape-added', 'plane-changed'], test: drawnLater, ctl: ['tool:disc', 'svPrev'], then: 'Plane $z$ shows where the disc comes from.' } },
         // (on a desktop the style control is in X's pane head, or behind its ⋯ button, lit then)
         { id: 'cauchy', anchor: ['phaseStyle', 'leftOpts', 'panes'], also: ['panes'], title: 'Cauchy integral', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }], ['tool', 'select']],
           lead: 'Cauchy\'s integral is $F$ inside $\\gamma$ and $0$ outside.',
@@ -271,12 +302,12 @@ const Tour = (() => {
           touch: 'Hold the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
           try: { text: 'Right-click the circle, then choose $\\oint$.', touch: 'Hold the circle, then choose $\\oint$.', on: 'integral-opened', then: '$\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.' } },
         // (api.anchor selects the F tile for these names, so the Inspector shows F; on a phone, in the Editor sheet)
-        { id: 'domain', anchor: 'domain', also: ['fTile', 'svF'], title: 'Natural domain', before: [['panel', 'right']],
+        { id: 'domain', anchor: 'domain', also: ['fTile', 'svF'], title: 'Natural domain', before: [['scene', ['residueZp2', 'residue2']], ['panel', 'right']],
           lead: 'Here $F$ is defined for every $z$ except $\\pm i$.',
           body: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
           touch: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.', deskTouch: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.', phoneFine: 'Click the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
-          byScene: { residueZp: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
-          touchByScene: { residueZp: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, deskTouchByScene: { residueZp: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, phoneFineByScene: { residueZp: 'Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
+          byScene: { residueZp2: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.', residueZp: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
+          touchByScene: { residueZp2: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.', residueZp: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, deskTouchByScene: { residueZp2: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.', residueZp: 'Tap the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' }, phoneFineByScene: { residueZp: 'Click the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
           try: { text: 'Click the F tile.', touch: 'Tap the F tile.', on: 'step-selected', test: (e) => !e || e.k === 'F', ctl: ['fTile', 'svF'], then: 'The Inspector lists where every step is defined.' } },
         { id: 'guarantees', anchor: 'guarantees', also: ['fTile', 'svF'], title: 'Guarantees', before: [['panel', 'right']],
           lead: 'What the chain guarantees: always true when listed.',
@@ -294,10 +325,11 @@ const Tour = (() => {
           body: 'Replace with the inverse, in the step\'s ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
           touch: 'Replace with the inverse, in the ⋯ menu of the step\'s editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.', deskTouch: "Replace with the inverse, in the step's ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.", phoneFine: "Replace with the inverse, in the ⋯ menu of the step's editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.",
           try: { text: 'In ⋯, choose Replace with the inverse.', on: 'step-replaced', test: (e) => !e || (e.k === 1 && e.type === 'exp'), ctl: ['invBtn'], then: '$e^z$ undoes $\\log z$ on this sheet.' } },
-        { id: 'deriv', anchor: 'paneL', also: ['chain'], title: 'The derivative as a step', before: [['scene', 'deriv'], ['view', 'xy'], ['plane', 'L']],
+        // (the rail is placed on the second plane, so the chip, whose pill is a chip and a ⋯ wide, is in the rail's view on a phone)
+        { id: 'deriv', anchor: 'paneL', also: ['svStrip'], title: 'The derivative as a step', before: [['scene', 'deriv'], ['view', 'xy'], ['plane', 'L'], ['svPlace', { i: 1 }]],
           lead: 'Here $F=3z^2-3$; the target $0$ marks its zeros $\\pm1$.',
           body: 'A $d/dz$ step differentiates the chain so far: here $F=3z^2-3$, the derivative of $z^3-3z$. The target $0$ marks its zeros $\\pm1$, the critical points of $z^3-3z$.',
-          try: { text: 'Double-click the card $d/dz$.', touch: 'Open the chain, tap $d/dz$, then Show alone.', deskTouch: 'Tap the card $d/dz$, then Show alone.', phoneFine: 'Open the chain, click $d/dz$, then Show alone.', on: 'step-focused', test: (e) => !e || e.k === 2, work: ['lens'], ctl: ['card2'], then: 'X and Y are now the derivative\'s input and output.' } },
+          try: { text: 'Click the chip $d/dz$.', touch: 'Tap the chip $d/dz$.', on: 'step-selected', test: (/** @type {any} */ e) => !e || e.k === 2, ctl: ['svChip2'], then: 'The Inspector shows the step that differentiates the chain so far.' } },
         // (on a phone the All sheets check is in the Display sheet, which opens)
         { id: 'sheets', anchor: ['sheets', 'panes'], also: ['panes'], title: 'All sheets', before: [['scene', 'logSheets'], ['view', 'land'], ['tool', 'select'], ['panel', 'sheet', 'display']], wait: 120,
           body: 'In Landscape, All sheets draws the sheets of a multivalued map instead of its cut principal branch: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$. $\\log z$ has infinitely many sheets, so a window of them is drawn; sheets ± sets its width.',
@@ -362,107 +394,6 @@ const Tour = (() => {
       ],
     },
   ];
-  // the steps view's chapter, "Planes". Not under ?view=classic (a property of the page, fixed at its load): there
-  // it takes the place of Basics' X and Y steps (x, y, preimages, chain). Each step puts the
-  // view where its task needs it (svPlace) and is done by one of the events the steps view sends
-  const SV_ON = (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })();
-  const PLANES = {
-    id: 'planes', title: 'Planes', time: '2 min', rev: 1, scene: 'strip',
-    steps: [
-      { id: 'plane', anchor: 'paneL', title: 'One plane at a time', before: [['svPlace', { i: 0, T: -1, scope: 'all', surf: 'plane' }]],
-        body: 'The view shows one plane of the chain, here $z$. Its colours come from the colour plane, the dot with the wheel on the thread.',
-        try: { text: 'Drag empty space, or scroll to zoom.', touch: 'Drag empty space, or pinch.', on: 'view-moved', test: (e) => !e || e.how !== 'orbit', ctl: ['paneL'] } },
-      { id: 'thread', anchor: 'svStrip', also: ['paneL'], title: 'The thread', before: [['svPlace', { i: 0 }]],
-        body: 'Each dot is a plane, $z$, $w_1$, $w_2$; each chip between two dots is a step. ‹ › or ← → glide to the next plane, and the picture deforms along the step.',
-        try: { text: 'Click ›, or press →.', touch: 'Tap ›, or swipe in from the right edge.', on: 'plane-changed', ctl: ['svNext'] } },
-      { id: 'park', anchor: 'svRing', also: ['svStrip'], title: 'Between two planes', before: [['svPlace', { i: 0 }]],
-        body: 'Drag the ring and let go between two dots: the view stays there and shows the step part way. Shift+← → moves a quarter step.',
-        try: { text: 'Drag the ring halfway to the next dot.', touch: 'Drag the ring halfway to the next dot.', on: 'thread-parked', ctl: ['svRing'] } },
-      { id: 'colour', anchor: 'svCp', also: ['svStrip'], title: 'The colour plane', before: [['svPlace', { i: 1, T: -1 }]],
-        body: 'The colour plane holds the colour wheel. Every plane before it shows the wheel pulled back through the steps. Colour from here, or {C}, makes the shown plane the colour plane.',
-        try: { text: 'Press {C}, or click Colour from here.', touch: 'Tap the wheel button.', on: 'colour-plane-set', ctl: ['svCp'] } },
-      { id: 'carried', anchor: 'paneL', also: ['svStrip'], title: 'Past the colour plane', before: [['svPlace', { i: 1, T: 1 }]],
-        body: 'Planes after it keep its colours: each point carries the colour it had there. The readout names where a point came from.',
-        try: { text: 'Click ›, then hover a point.', touch: 'Tap ›, then hold a point and slide.', on: 'probe', test: (e) => !e || !!e.past, ctl: ['svNext'] } },
-      { id: 'inside', anchor: 'svScope', title: 'Inside regions', before: [['svPlace', { i: 0, T: -1, scope: 'all' }]],
-        body: 'Colour only inside the regions you draw, in every plane: a region and its images keep the same colours through the chain.',
-        try: { text: 'Choose Inside regions.', touch: 'Choose Inside.', on: 'scope-changed', test: (e) => !e || e.s === 'in', ctl: ['svScope'] } },
-      { id: 'surface', anchor: 'svSurf', title: 'Sphere and Landscape', before: [['svPlace', { i: 0, scope: 'all', surf: 'plane' }]],
-        body: 'The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.',
-        try: { text: 'Choose Sphere.', touch: 'Tap the surface button, then Sphere.', on: 'surface-changed', test: (e) => !e || e.s === 'sphere', ctl: ['svSurf'] } },
-      { id: 'step', anchor: 'svChip', title: 'Edit a step', before: [['svPlace', { i: 0, surf: 'plane' }]],
-        body: 'A chip opens its step in the Inspector: change the function, its parameters or its formula, and every plane after it follows.',
-        try: { text: 'Click the chip $f_1$.', touch: 'Tap the chip $f_1$.', on: 'step-selected', test: (e) => !e || e.k === 1, ctl: ['svChip'] } },
-    ],
-  };
-  const PLAYING = {
-    id: 'playing', title: 'Playing the chain', time: '1 min', rev: 1, scene: 'strip',
-    steps: [
-      { id: 'play', anchor: 'svPlay', also: ['svStrip'], title: 'Play', before: [['svPlace', { i: 0, T: -1, scope: 'all', surf: 'plane' }]],
-        body: 'Play glides the picture along the whole chain, plane after plane, and stops at the last. Pause it anywhere: the view stays where it is.',
-        try: { text: 'Click ▶, or press {K}.', touch: 'Tap ▶.', on: 'play-started', ctl: ['svPlay'] } },
-      { id: 'speed', anchor: ['svSpeed', 'svPlay'], also: ['svStrip'], title: 'Speed and loop', before: [['svPlace', { i: 0 }]],
-        body: 'The speed select sets how long each step takes. Click Loop to start over at the end instead of stopping.',
-        deskTouch: 'The speed select sets how long each step takes. Tap Loop to start over at the end instead of stopping.', phoneFine: 'Hold ▶ to open Playback: its speed select sets how long each step takes, and clicking Loop starts over at the end instead of stopping.',
-        touch: 'Hold ▶ to open Playback: its speed select sets how long each step takes, and tapping Loop starts over at the end instead of stopping.',
-        try: { text: 'Click Loop.', deskTouch: 'Tap Loop.', phoneFine: 'Hold ▶, then click Loop.', touch: 'Hold ▶, then tap Loop.', on: 'loop-changed', ctl: ['svLoop'] } },
-      { id: 'range', anchor: 'svRail', also: ['svStrip'], title: 'Part of the chain', before: [['svPlace', { i: 0 }]],
-        body: 'A band over the thread plays only the steps inside it. Esc clears it.',
-        deskTouch: 'A band over the thread plays only the steps inside it. Hold the thread, then drag across two chips.', phoneFine: 'A band over the thread plays only the steps inside it. Shift-drag across two chips; Esc clears it.',
-        touch: 'A band over the thread plays only the steps inside it. Hold the thread, then drag across two chips.',
-        try: { text: 'Shift-drag across two chips.', deskTouch: 'Hold the thread, then drag across two chips.', phoneFine: 'Shift-drag across two chips.', touch: 'Hold the thread, then drag across two chips.', on: 'range-set', ctl: ['svRail'] } },
-    ],
-  };
-  if (SV_ON) {
-    const chs = /** @type {any[]} */ (CHAPTERS);
-    // the thread's Add function button and a reorder step, in place of the classic chain's add card and "Cards follow the view"
-    const svStep = (/** @type {string} */ ch, /** @type {string} */ id) => chs.find((/** @type {any} */ c) => c.id === ch).steps.find((/** @type {any} */ st) => st.id === id);
-    Object.assign(svStep('basics', 'add'), { anchor: 'svAdd', also: ['svStrip'],
-      body: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Click a chip\'s ⋯ to move it, bypass it or remove it.', deskTouch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Tap a chip\'s ⋯ to move it, bypass it or remove it.',
-      touch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Hold a chip to open its menu, which moves it, bypasses it or removes it.', phoneFine: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Right-click a chip to open its menu, which moves it, bypasses it or removes it.',
-      try: { text: 'Click Add function.', touch: 'Tap Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } });
-    // (the steps view has one plane, named in its head: no X or Y)
-    Object.assign(svStep('basics', 'draw'), { body: 'Pick a tool and drag in the plane to add a shape. On a later plane the same tools add a shape that belongs to that plane.',
-      try: { text: 'Choose Disc, then drag in the plane.', on: 'shape-added', then: 'The next plane shows its image under $F$.' } });
-    const reorderMenu = 'In the ⋯ menu of $f_2$, choose Move left.';
-    const reorderStep = { id: 'reorder', anchor: 'svMenu2', also: ['svStrip'], title: 'Reorder steps', before: [['svPlace', { i: 0, surf: 'plane' }]],
-      body: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.', deskTouch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu.',
-      touch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one from its menu: hold the chip.', phoneFine: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one from its menu (right-click the chip), or Alt+← and Alt+→ on the selected chip.',
-      try: { text: reorderMenu, deskTouch: reorderMenu, touch: 'Hold the chip $f_2$, then choose Move left.', phoneFine: 'Right-click the chip $f_2$, then choose Move left.', on: 'step-moved', test: (/** @type {any} */ e) => !e || e.from === 2, ctl: ['svMenu2'], then: 'The planes after this step changed with the order.' } };
-    // a shape drawn on a later plane, its preimage on z under Inside regions; ticked by a disc drawn on a later plane, then ‹ to z
-    const drawnLater = (/** @type {any} */ e, /** @type {any} */ m) => {
-      if (!e) return true;
-      if ('stage' in e) { m.drawn = e.stage > 0; return false; }
-      return !!m.drawn && e.i === 0;
-    };
-    Object.assign(svStep('analysis', 'targets'), { anchor: 'paneL', also: ['svStrip'], title: 'Shapes on a later plane',
-      before: [['svPlace', { i: 1, T: -1, scope: 'in', surf: 'plane' }]], lead: undefined,
-      body: 'A shape drawn on a later plane belongs to that plane. Under Inside regions every plane is coloured only inside its regions, and a later plane\'s regions are pulled back: on $z$, the colour marks every point the map sends into them, all of their preimages at once.',
-      try: { text: 'On $w_1$, draw a disc, then click ‹ (or press ←).', touch: 'On $w_1$, draw a disc, then tap ‹.', on: ['shape-added', 'plane-changed'], test: drawnLater, ctl: ['tool:disc', 'svPrev'], then: 'Plane $z$ shows where the disc comes from.' } });
-    // (F tour steps: the F chip comes with the second step, so these run on a two-step scene)
-    const anaSteps = chs.find((/** @type {any} */ c) => c.id === 'analysis').steps;
-    const domainStep = anaSteps.find((/** @type {any} */ st) => st.id === 'domain');
-    domainStep.before = [['scene', ['residueZp2', 'residue2']], ...domainStep.before];
-    for (const k of ['byScene', 'touchByScene', 'deskTouchByScene']) if (domainStep[k] && domainStep[k].residueZp) domainStep[k] = Object.assign({ residueZp2: domainStep[k].residueZp }, domainStep[k]);
-    const edit = chs.find((/** @type {any} */ c) => c.id === 'edit').steps;
-    const cardsAt = edit.findIndex((/** @type {any} */ st) => st.id === 'cards');
-    if (cardsAt < 0) throw new Error('the tour has no cards step to replace');
-    edit[cardsAt] = reorderStep;
-    const bi = CHAPTERS.findIndex((c) => c.id === 'basics');
-    if (bi >= 0) chs[bi].steps = chs[bi].steps.filter((/** @type {any} */ st) => !['x', 'y', 'preimages', 'chain'].includes(st.id));
-    const vwi = chs.findIndex((/** @type {any} */ c) => c.id === 'views');
-    if (vwi >= 0) chs.splice(vwi, 1, PLAYING);
-    chs.splice(bi + 1, 0, PLANES);
-    // (the derivative step's chip, in place of the card the classic chain shows)
-    // (the rail is placed on the second plane, so the chip, whose pill is a chip and a ⋯ wide, is in the rail's view on a phone)
-    const derivStep = chs.find((/** @type {any} */ c) => c.id === 'branches').steps.find((/** @type {any} */ st) => st.id === 'deriv');
-    Object.assign(derivStep, { also: ['svStrip'], before: [...derivStep.before, ['svPlace', { i: 1 }]],
-      try: { text: 'Click the chip $d/dz$.', touch: 'Tap the chip $d/dz$.', on: 'step-selected', test: (/** @type {any} */ e) => !e || e.k === 2, ctl: ['svChip2'], then: 'The Inspector shows the step that differentiates the chain so far.' } });
-  } else {
-    // the classic view draws X alone: Analysis' targets step, which draws targets in Y, is left out
-    const ana = /** @type {any} */ (CHAPTERS.find((c) => c.id === 'analysis'));
-    ana.steps = ana.steps.filter((/** @type {any} */ st) => st.id !== 'targets');
-  }
   // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
   // point gave which
   function harpUpDown(e, m) {
@@ -490,7 +421,7 @@ const Tour = (() => {
     svSpeed: () => vis1('#svStrip .sv-speed'), svLoop: () => vis1('#svStrip .sv-loop'),
     // (the thread's Add function button, in either form; the second chip's ⋯ menu, or on a phone, where chips have none, the chip)
     svPrev: () => vis1('#svStrip .sv-prev'), svAdd: () => vis1('#svStrip .sv-add'), svMenu2: () => vis1(SV_K2 + ' .sv-more') || ANCHORS.svChip2(),
-    viewSwitch: '#viewSwitch', tools: '#secDraw', toolsRail: '#railTools',
+    viewSwitch: '#viewSwitch', tools: '#secDraw',
     // (the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = /** @type {HTMLElement | null} */ (document.querySelector('#constructTools')); return e && e.offsetParent ? e : null; },
     formula: '#secFormula', shapes: '#secShapes',
@@ -501,11 +432,10 @@ const Tour = (() => {
     display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.pat-pop') || document.querySelector('#rightFoot .pat-btn')),
     // (on a phone the chain, its Add tile and F are rows of the chain sheet; while it is closed, its "N steps ▾"
     // button in the chain bar, which opens it)
-    chain: '.pipe-wrap', addStep: () => inChainSheet('#addStepBtn'), panes: '#panes', paneL: '#paneL', paneR: '#paneR',
-    surfaceL: '#leftTabs', surfaceR: '#rightTabs',
-    // (the right panel is the Inspector; F's formula, guarantees and domain show there with the F tile selected,
-    // which the app's api.anchor does for these names)
-    rightPanel: '#rightPanel', composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
+    chain: '.pipe-wrap', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
+    // (F's formula, guarantees and domain show in the Inspector with the F tile selected, which the app's api.anchor
+    // does for these names)
+    composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
     domain: '#propsPanel .insp-F .idom', matrix: '#propsPanel .insp-F details.steps',
     // the editor of the selected zeros-and-poles step (its parameter block is .params.zp)
     zpCard: () => document.querySelector('#propsPanel .insp-step .params.zp'),
@@ -522,22 +452,14 @@ const Tour = (() => {
     // the head); INTEGRATION.md: the fallback of phaseStyle
     leftOpts: '#leftFoot .opts-btn:not(.pat-btn)',
     // the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
-    // closes the chain; on a phone, the Sphere key in the plane's right column
-    // the selected step's Show alone button in the Inspector's head: in a phone's sheet
-    lens: '#propsPanel .insp-step .ihead .alone-btn',
+    // closes the chain
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
-    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => { const b = document.getElementById('leftSph'); return b && b.offsetParent && b.getAttribute('aria-disabled') !== 'true' ? b : null; },
+    fTile: () => inChainSheet('#pipeline .ftile'),
     // notes/v16-user5/AS-BUILT-tour.md: the control a step's task needs, exactly. A tool is its own button where  standards-ok: a spec path in notes/
     // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
     // outside the row is the More key, which then carries the tool's icon and name
     'tool:disc': toolBtn('disc'), 'tool:select': toolBtn('select'), 'tool:line': toolBtn('line'), 'tool:circle3': toolBtn('circle3'),
-    viewPhase: '#viewSwitch > [data-mode="phase"]', viewLand: '#viewSwitch > [data-mode="land"]',
     splitBtn: '#propsPanel .insp-step .split-offer:not([hidden]) .so-btn',
-    // the card f₁; the card f₂, whose ⋯ shows on it (on a phone, where a card has none, f₂'s ⋯ in the Editor sheet that
-    // a tap on the card opens)
-    card1: () => inChainSheet('#pipeline .card[data-k="1"]'),
-    card2: () => inChainSheet('#pipeline .card[data-k="2"]'),
-    card2Menu: () => (phoneLayout() && vis1('.ph-sheet:not([hidden]) .insp-step[data-k="2"] .ihead .more')) || vis1('#pipeline .card[data-k="2"]'),
     // the slider of the first shared number
     paramSlider: () => vis1('#propsPanel .prm-row input[type="range"]'),
     // F's Copy LaTeX button, in the head of the Inspector with the F tile selected
@@ -2194,9 +2116,6 @@ const Tour = (() => {
     rec.last = { ch: ch.id, i: si }; rec.open = true; save();
     // (the Inspector's split offer shows during the tour only at a step that asks for it)
     call('splitOffer', !!step.split);
-    // (a step about the cards' pictures shows them, Pictures rather than Names; any other step, and the end of the
-    // tour, gives the user's setting back. picNote: the tour changed it, and the step says so)
-    r.picNote = call('chainPictures', !!step.pictures) === true && !!step.pictures;
     for (const off of r.tryOffs.splice(0)) off();
     // (a new showing: no countdown, no caption, no Listen along from the step before; the Sound chapter's sound)
     clearTimeout(r.cdT);
@@ -2498,15 +2417,14 @@ const Tour = (() => {
     ui.l2.classList.toggle('caption', cap);
     paintNext(ui);
   }
-  // The polite live region (SPEC 1.3): "Basics, step 5 of 10. Draw a shape. Choose Disc, then drag in X." (the lead on a
+  // The polite live region (SPEC 1.3): "Basics, step 2 of 6. Draw a shape. Choose Disc, then drag in the plane." (the lead on a
   // read step)
   function announce(r, ch, step) {
     const tr = tryOf(step);
     const end = (t) => (/[.!?…]\s*$/.test(t) ? t.trim() : t.trim() + '.');
     const line = tr ? plainCopy(tryFor(tr), modKey()) : step.lead ? plainCopy($t(leadFor(step)), modKey()) : '';
     // (what the tour changed in the user's settings for this step, and that they come back, is said to a screen reader)
-    const notes = (r.picNote && step.pictures ? ' ' + $t('The tour turns the cards\' pictures on for this step; your setting comes back after it.') : '')
-      + (r.sndNote && step.hear ? ' ' + $t('The tour turns Hear the function on for this step; your setting comes back after it.') : '');
+    const notes = r.sndNote && step.hear ? ' ' + $t('The tour turns Hear the function on for this step; your setting comes back after it.') : '';
     r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k: r.countText, title: stepTitle(step) }) + (line ? end(line) : '') + notes;
   }
   // a lit control smaller than 48 x 48 px pulses its ring once when the step appears (none with reduced motion)
@@ -2977,8 +2895,6 @@ const Tour = (() => {
     for (const off of r.tryOffs.splice(0)) off();
     for (const off of r.offs.splice(0)) off();
     cancelAnimationFrame(r.ui.raf);
-    // (the chain's Pictures | Names setting as the user left it, before their work comes back)
-    call('chainPictures', false);
     if (opt.finished) {
       rec.done[CHAPTERS[r.ci].id] = CHAPTERS[r.ci].rev;
       // "Continue the tour" picks up at the next chapter, or nowhere after the last
@@ -3354,7 +3270,7 @@ const Tour = (() => {
     // the steps the running (else the last) tour skipped: [{ id: 'chapter/step', why: 'missing' | 'clipped' | 'scene' }]
     skipped: skippedList,
     // internals for the tests and the design tables
-    _t: { cutShort: () => cutShort, CHAPTERS, PLANES, PLAYING, SV_ON, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
+    _t: { cutShort: () => cutShort, CHAPTERS, PLANES, PLAYING, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
       // (the lines the running chapter's strip line needs here, for the browser checks)
       needLines: (dbg) => (run ? needLines(run, dbg) : null) },
   };

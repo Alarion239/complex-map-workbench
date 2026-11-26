@@ -19,6 +19,11 @@
 //  4c. the radius bound (a monomial step on a disc region): z^3 x 20 on a disc tangent to |z| = 1 from inside is empty
 //     with no root solved past |w| = 1, never empty inside it, E_r bounded by |z| <= ~1; a disc strictly inside and one
 //     across |z| = 1 as before; at Repeat x 2 every pixel's verdict equals the brute force;
+//  4d. the closed form (a monomial step on a disc region): z^3 x 20 on discs tangent to, across, holding 0 and holding
+//     the whole of |z| = 1, and 2 z^3 x 20 tangent to its circle |z| = 2^-1/2: every pixel off the circle (past the
+//     pixel's reach) has its verdict with no root solved, the unresolved ones lie in the reach band about the circle,
+//     and the search alone agrees wherever it resolves; at Repeat x 2 and x 3 every pixel's verdict equals the brute
+//     force over its chains, and the search's within half a pixel of each boundary circle;
 //  5. the search against brute force: at Repeat x 2 every pixel's verdict equals the one from all 9 chains, unpruned;
 //     at Repeat x 20 a box in the basin of 1 is empty outside E_20 with no root solved;
 //  6. the budget: REPEAT_NODES_MAX is at least NODES_MARGIN times the most solves a gallery pixel needs, and a starved
@@ -359,6 +364,142 @@ const brute2 = (o, L, w) => {
     if (e.verdict === b) same++;
   }
   check('z^3 x 2 on the tangent disc: E_2 has a radius bound, and every pixel\'s verdict equals the brute force over its 9 chains', same === scored && scored > 500 && pr2.rept.E[2].rad > 0, `${same}/${scored}, pruned ${pruned}`);
+}
+
+// ---- 4d. the closed form (a monomial step on a disc region, #2375)
+// a pixel's verdict from every chain of n backward roots (3^n), no prune, each leaf scored at its own point; null when a
+// leaf lies within a pixel's ramp of the edge
+const bruteN = (o, L, w, n) => {
+  let brute = 0;
+  const rec = (z, rho, d, r) => {
+    if (r === n) { const lv = L(z) / (d * PIX); if (Math.abs(lv) <= 1) return false; if (lv > 0) brute = 1; return true; }
+    const nd = InvOps.reptNode(o.p.P, o.p.Q, z, rho);
+    if (!nd) return false;
+    for (let i = 0; i < 3; i++) if (!rec(nd.z[i], nd.rho[i], d * CX.abs(nd.d[i]), r + 1)) return false;
+    return true;
+  };
+  return rec(w, 0, 1, 0) ? brute : null;
+};
+{
+  const RW = { x0: -1.6, x1: 1.6, y0: -1.2, y1: 1.2 }, RG = 25;            // the view and its grid, as in 4c
+  const NEAR = 0.02;                                                         // |w| within this of the invariant circle is left out
+  const BAND = 2;                                                            // px: the reach band about the circle, with a margin
+  const EDGE_ANGLES = 64, EDGE_PX = [-0.45, -0.2, 0.2, 0.45];               // the boundary circles' samples: angles, px off the circle
+  const EDGE_U = 0.03;                                                       // coverage: the leaves' ramp tolerance
+  const ARC_SWEEP = 150, ARC_STEP = 2e-5;                                    // the radii about r0: r0 (1 + j ARC_STEP), |j| <= ARC_SWEEP
+  let edgeRows = 0;
+  const pts = gridOf(RW, RG);
+  // (z^3: the invariant circle |z| = 1; 2 z^3: |z| = 2^-1/2)
+  const S = Math.SQRT1_2;
+  const CASES = [
+    { name: 'z^3 x 20 on the disc tangent to |z| = 1 from inside', expr: 'z^3', R: 1, shape: { id: 'c1', kind: 'disc', c: [0, 0.95], r: 0.05 } },
+    { name: 'z^3 x 20 on a disc across |z| = 1', expr: 'z^3', R: 1, shape: { id: 'c2', kind: 'disc', c: [1, 0], r: 0.12 } },
+    { name: 'z^3 x 20 on a disc across |z| = 1 that holds 0', expr: 'z^3', R: 1, shape: { id: 'c3', kind: 'disc', c: [0.2, 0], r: 1 } },
+    { name: 'z^3 x 20 on a disc that holds |z| = 1 whole', expr: 'z^3', R: 1, shape: { id: 'c4', kind: 'disc', c: [0.1, -0.1], r: 1.5 } },
+    { name: '2 z^3 x 20 on the disc tangent to |z| = 2^-1/2 from inside', expr: '2*z^3', R: S, shape: { id: 'c5', kind: 'disc', c: [0, S - 0.05], r: 0.05 } },
+  ];
+  for (const cs of CASES) {
+    const p = planOf(repOf(cs.expr, 20)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape });
+    // (a circle |z| = rho near R meets the disc from inside R when |c| - r < R, from outside when |c| + r > R)
+    const cl = Math.hypot(cs.shape.c[0], cs.shape.c[1]), vIn = cl - cs.shape.r < cs.R ? 1 : 0, vOut = cl + cs.shape.r > cs.R ? 1 : 0;
+    const t = { inn: 0, inRight0: 0, out: 0, outRight0: 0, ring: 0, unres: 0, solves: 0, wide: 0, searched: 0, agree: 0, offRim: 0 };
+    for (const w of pts) {
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, a = CX.abs(w);
+      t.solves += e.nodes;
+      if (e.verdict === -1 && !e.rim) t.offRim++;
+      if (a < PIX) continue;   // (the pixel at the critical value 0, whose one preimage is 0: its verdict is its ramp's)
+      if (e.verdict === -1 && Math.abs(a - cs.R) > BAND * PIX) t.wide++;
+      // (the search alone, where it resolves the pixel)
+      const s0 = Inverse.enumerate(p, pr, w, PIX, { leaves: false, reptClosed: false }).rept;
+      if (s0.verdict !== -1) { t.searched++; if (s0.verdict === e.verdict) t.agree++; }
+      if (a < cs.R * (1 - NEAR)) { t.inn++; if (e.verdict === vIn && e.nodes === 0) t.inRight0++; }
+      else if (a > cs.R * (1 + NEAR)) { t.out++; if (e.verdict === vOut && e.nodes === 0) t.outRight0++; }
+      else { t.ring++; if (e.verdict === -1) t.unres++; }
+    }
+    check(`${cs.name}: every pixel inside the circle (past the pixel's reach) is ${vIn ? 'covered' : 'empty'}, with no root solved`, t.inn > 100 && t.inRight0 === t.inn, JSON.stringify(t));
+    check(`... every pixel outside it is ${vOut ? 'covered' : 'empty'}, with no root solved`, t.out > 100 && t.outRight0 === t.out, JSON.stringify(t));
+    check(`... every unresolved pixel lies within ${BAND} px of the circle (the reach band)`, t.wide === 0, JSON.stringify(t));
+    check('... and every one, the critical value 0\'s too, is on the image\'s rim (rim: a hairline, which the pane says nothing of)', t.offRim === 0, JSON.stringify(t));
+    check('... wherever the search alone resolves a pixel, its verdict is the closed form\'s', t.searched > 300 && t.agree === t.searched, JSON.stringify(t));
+  }
+  // (control: a search starved to one root solve on z^3 x 3, where the closed form leaves most pixels to the search, reads
+  // unresolved away from the boundary circles too, and there off the rim: the rim is the edge, not every unresolved pixel)
+  {
+    const cs = CASES[1], p = planOf(repOf(cs.expr, 3)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape });
+    let unres = 0, offRim = 0;
+    for (const w of pts) {
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false, reptNodes: 1 }).rept;
+      if (e.verdict === -1) { unres++; if (!e.rim) offRim++; }
+    }
+    check(`control: z^3 x 3 on a disc across |z| = 1, starved to one root solve: unresolved pixels off the rim`, offRim > 0 && offRim < unres, `${offRim} of ${unres} unresolved off the rim`);
+  }
+  // (within half a pixel of each boundary circle |w| = R ((|c| +- r) / R)^M, where a preimage meets the disc's edge, at
+  // x 2 and x 3: wherever the search alone resolves a point, its verdict and its coverage U (a partial cover there) are
+  // the closed form's, which leaves the pixel's reach to the search)
+  for (const cs of CASES) for (const copies of [2, 3]) {
+    const p = planOf(repOf(cs.expr, copies)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape }), M = 3 ** copies;
+    const cl = Math.hypot(cs.shape.c[0], cs.shape.c[1]);
+    let searched = 0, agree = 0;
+    const wrong = [];
+    for (const edge of [cl + cs.shape.r, cl - cs.shape.r]) {
+      if (!(edge > 0)) continue;
+      const Rb = cs.R * Math.pow(edge / cs.R, M);
+      if (!(Rb > 4 * PIX && Rb < 4)) continue;
+      for (let k = 0; k < EDGE_ANGLES; k++) for (const t of EDGE_PX) {
+        const th = 2 * Math.PI * (k + 0.5) / EDGE_ANGLES, a = Rb + t * PIX, w = C(a * Math.cos(th), a * Math.sin(th));
+        const s0 = Inverse.enumerate(p, pr, w, PIX, { leaves: false, reptClosed: false });
+        if (s0.rept.verdict === -1) continue;
+        searched++;
+        const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false });
+        if (e.rept.verdict === s0.rept.verdict && Math.abs(e.U - s0.U) <= EDGE_U) agree++;
+        else if (wrong.length < 3) wrong.push({ w: [+w.re.toFixed(4), +w.im.toFixed(4)], t, got: [e.rept.verdict, +e.U.toFixed(3)], search: [s0.rept.verdict, +s0.U.toFixed(3)] });
+      }
+    }
+    if (searched) check(`${cs.name.replace(' x 20', ` x ${copies}`)}: within half a pixel of each boundary circle, the closed form's verdict and coverage are the search's`, agree === searched && searched > 100, `${agree}/${searched} ${JSON.stringify(wrong)}`);
+    edgeRows += searched ? 1 : 0;
+  }
+  check('the boundary circles were sampled for at least 6 of the cases at x 2 and x 3', edgeRows >= 6, edgeRows);
+  // (the arc just wide enough: z^3 x 4 at w = -1 has its 81 preimages at angles pi / 81 + 2 pi j / 81 on |z| = 1, and
+  // the disc c (1, 0) of radius r0 = 2 sin(pi / 162) meets that circle along the arc |arg z| <= pi / 81, so near r0 the
+  // covering preimages lie at the arc's two ends, within a pixel's reach of the disc's edge (at x 4 the arc test's margin,
+  // (pi / 2M)^2 against sin^2(pi / 2M), is below the reach): at each radius of a sweep about r0, and at points half a
+  // pixel about w = -1, the closed form's verdict and coverage are the search's)
+  {
+    const p = planOf(repOf('z^3', 4)), r0 = 2 * Math.sin(Math.PI / 162);
+    let searched = 0, agree = 0, closedCov = 0;
+    const wrong = [];
+    for (let j = -ARC_SWEEP; j <= ARC_SWEEP; j++) {
+      const shape = { id: 'aw', kind: 'disc', c: [1, 0], r: r0 * (1 + j * ARC_STEP) }, pr = Inverse.prepare(p, { win: RW, shape });
+      for (const [dx, dy] of [[0, 0], [0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) {
+        const w = C(-1 + dx * PIX, dy * PIX);
+        const s0 = Inverse.enumerate(p, pr, w, PIX, { leaves: false, reptClosed: false });
+        if (s0.rept.verdict === -1) continue;
+        searched++;
+        const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false });
+        if (e.rept.nodes === 0 && e.rept.verdict === 1) closedCov++;
+        if (e.rept.verdict === s0.rept.verdict && Math.abs(e.U - s0.U) <= EDGE_U) agree++;
+        else if (wrong.length < 3) wrong.push({ j, w: [w.re, w.im], got: [e.rept.verdict, +e.U.toFixed(3)], search: [s0.rept.verdict, +s0.U.toFixed(3)] });
+      }
+    }
+    check('z^3 x 4 at w = -1 on discs about r0 = 2 sin(pi / 162): the closed form\'s verdict and coverage are the search\'s, where the arc just holds two preimages', agree === searched && searched > 100 && closedCov > 0, `${agree}/${searched}, closed form covered ${closedCov}, ${JSON.stringify(wrong)}`);
+  }
+  // (at x 2 and x 3, where the preimages' spacing is wide, every pixel's verdict equals the brute force over its chains,
+  // the closed form deciding over a quarter of them)
+  for (const cs of CASES) for (const copies of [2, 3]) {
+    const p = planOf(repOf(cs.expr, copies)), pr = Inverse.prepare(p, { win: RW, shape: cs.shape }), L = Region.levelOf(cs.shape);
+    let same = 0, scored = 0, unres = 0, closed = 0;
+    const wrong = [];
+    for (const w of pts) {
+      const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, b = bruteN(p.ops[0], L, w, copies);
+      if (b === null) continue;
+      scored++;
+      if (e.nodes === 0 && CX.abs(w) >= PIX) closed++;
+      if (e.verdict === b) same++;
+      else if (e.verdict === -1) unres++;
+      else if (wrong.length < 3) wrong.push({ w: [w.re, w.im], got: e.verdict, brute: b });
+    }
+    check(`${cs.name.replace(' x 20', ` x ${copies}`)}: every pixel's verdict equals the brute force over its ${3 ** copies} chains`, same === scored && scored > 400 && closed * 4 > scored, `${same}/${scored}, closed form ${closed}, unresolved ${unres}, ${JSON.stringify(wrong)}`);
+  }
 }
 
 // ---- 5. the search against brute force

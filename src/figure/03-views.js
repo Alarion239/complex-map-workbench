@@ -6,9 +6,8 @@
   const tickW = (b, step, tp) => { const sy = XD.axisSteps(b, step)[1], ts = XD.ticks(b.y0, b.y1, sy), d = XD.tickDec(ts, sy); return maxW(ts.map((v) => XD.tickTex(v, d)), tp); };
   // the room the last x tick label needs right of the frame (when the frame ends on that tick)
   const overR = (b, step, tp) => { const sx = XD.axisSteps(b, step)[0], ts = XD.ticks(b.x0, b.x1, sx), t = ts[ts.length - 1]; return t != null && Math.abs(b.x1 - t) < 1e-9 * Math.max(1, Math.abs(t)) ? XD.tex(XD.tickTex(t, XD.tickDec(ts, sx)), tp).w / 2 + 1 : 0; };
-  const head = (x0, x1, y, letter, tag, pt) => (letter ? XD.at(XD.tex(XD.lang === 'ru' ? `\\textit{${letter}}` : `\\text{${letter}}`, pt), x0, y, 'start', 'base', 'panel-letter') : '') + (tag ? XD.at(XD.tex(tag, pt), x1, y, 'end', 'base', 'panel-letter') : '');
-  // the i-th panel letter in the figure's language: (a) (b) ... ; а б ... (set in italic by head)
-  const panelLetter = (i) => (XD.lang === 'ru' ? RU_LETTERS[i] : `(${String.fromCharCode(97 + i)})`);
+  // a panel's head: its plane's name, ending at x1 on the baseline y
+  const head = (x1, y, tag, pt) => (tag ? XD.at(XD.tex(tag, pt), x1, y, 'end', 'base', 'panel-letter') : '');
   const expandBox = (b, f) => { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, w = (b.x1 - b.x0) * f / 2, h = (b.y1 - b.y0) * f / 2; return { x0: cx - w, x1: cx + w, y0: cy - h, y1: cy + h }; };
   // a box widened about its centre to the aspect a (width / height), so all of it shows in a frame of that shape
   const widenTo = (b, a) => {
@@ -181,11 +180,11 @@
   }
   const snapScreen = (b, wpt) => { const st = stepFor(b, wpt) / 2; const r = { x0: Math.ceil(b.x0 / st - 1e-9) * st, x1: Math.floor(b.x1 / st + 1e-9) * st, y0: Math.ceil(b.y0 / st - 1e-9) * st, y1: Math.floor(b.y1 / st + 1e-9) * st }; return r.x1 > r.x0 && r.y1 > r.y0 ? r : b; };
   // the art of a panel: the app's renderer in art mode (fills only) for an exact window, then flattened and encoded
-  async function artPanel(side, box, wpt, o, extra = {}) {
+  async function artPanel(box, wpt, o, extra = {}) {
     const flat = o.ink === 'bw' ? 'grey' : extra.mode || 'indexed';
     const dpi = extra.dpi || (flat === 'rgb' ? 300 : 600);
     const ao = { box, wpt, dpi: dpi * (extra.ss || 1), ink: printInkFor(o, A.state().alpha), T: extra.T, alive: o.alive };
-    let r = await (extra.svI != null ? A.svArt(extra.svI, ao) : A.art(side, ao));
+    let r = await (extra.svI != null ? A.svArt(extra.svI, ao) : A.art(ao));
     if (!r) return null;
     if (extra.ss === 2) r = await down2(r);
     const a = await XD.art(r, box, { mode: flat, wpt, fade: extra.fade });
@@ -216,7 +215,7 @@
   };
   // a shape's map from its own plane into the panel's (A.shapeF), F the panel's map of the z-plane's shapes; null where the
   // page does not draw it there
-  const shapeMapF = (s, side, F) => (A.shapeF ? A.shapeF(s, side, F) : F);
+  const shapeMapF = (s, F) => (A.shapeF ? A.shapeF(s, F) : F);
   // the plane a shape is drawn on (0 the z-plane), and the window its curves are sampled in: srcWin, the figure's z-plane window,
   // or for a shape drawn on a later plane that plane's (A.shapeWin), as much wider
   const stageOf = (s) => (A.shapeStage ? A.shapeStage(s) || 0 : 0);
@@ -224,7 +223,7 @@
   const winTol = (w) => 2e-4 * Math.hypot(w.x1 - w.x0, w.y1 - w.y0);
   const cxTex = (z) => (CX.tex ? CX.tex(z, 3) : `${+z.re.toFixed(3)}${z.im >= 0 ? '+' : '-'}${Math.abs(+z.im.toFixed(3))}i`);
   // the vector layers of one plane panel: boundaries and curves (mapped by F), points (and their names)
-  function planeLayers(o, P, side, F, box, wpt, shapes, srcWin, primeName) {
+  function planeLayers(o, P, F, box, wpt, shapes, srcWin) {
     const curves = [], points = [], chev = [];
     let bwI = 0, dashed = 0;
     // the drawn curves of each plane (in that plane, the source of its shapes), for the open boundaries of the same plane they cover
@@ -238,7 +237,7 @@
     shapes.forEach((s, si) => {
       const t = kindType(s);
       if (t === 'point') return;
-      const Fs = shapeMapF(s, side, F);
+      const Fs = shapeMapF(s, F);
       if (!Fs) return;
       const win = shapeWinOf(s, srcWin);
       const tn = tonesOf(s, o);
@@ -256,7 +255,7 @@
       const color = o.ink === 'bw' ? (grid ? '#666666' : '#000000') : (o.for === 'article' || grid ? tn.edge : t === 'area' ? tn.edge : tn.edge);
       if (dash === '3 2' && pts.some((q) => q.some((p) => p[0] >= box.x0 && p[0] <= box.x1 && p[1] >= box.y0 && p[1] <= box.y1))) dashed++;
       curves.push({ pts, w: grid ? P.lw.grid : t === 'area' ? P.lw.edge : P.lw.curve, color, dash, cap: dash && dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2' ? 'round' : 'butt', open, sid: s.id });
-      // orientation chevrons (Homework): one on each piece of an area's boundary, at a point that shows in both panels
+      // orientation chevrons (Homework): one on each piece of an area's boundary, at a point that shows in the panel
       if (P.chevrons && t === 'area') for (const c of cs.slice(0, 6)) if (c && typeof c.f === 'function') chev.push({ c, color, s });
     });
     let pi = 0;
@@ -268,7 +267,7 @@
     // panel draws is named as the page's figure frames name it)
     shapes.forEach((s) => {
       if (kindType(s) !== 'point' || !s.p) return;
-      const Fp = shapeMapF(s, side, F);
+      const Fp = shapeMapF(s, F);
       if (!Fp) return;
       const mk = markOf(s);
       const z = C(s.p[0], s.p[1]), w = Fp(z);
@@ -276,24 +275,24 @@
       if (!fin(w) || s._atInf) return;
       if (mk === 'helper') { points.push({ z: [w.re, w.im], r: 1.1, kind: 'ring', label: null, at: 'auto', sw: 0.5 }); return; }
       let label = null;
-      if (P.named) label = String.fromCharCode(65 + (k % 26)) + (primeName ? "'" : '');
+      if (P.named) label = String.fromCharCode(65 + (k % 26));
       else {
         // (every point by the plane it is shown on, a label of its own too: A, w₁(A), F(A); a label in words, which has no name in
         // symbols, set as text after the panel's map, as before)
-        const n = A.pointName ? A.pointName(s, k, side) : null, t = n && Construct.nameTex(n);
+        const n = A.pointName ? A.pointName(s, k) : null, t = n && Construct.nameTex(n);
         if (t) label = t;
-        else { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null) || (n ? texLabel({ label: n }, k) : null); label = l ? (primeName && s.label ? `${primeName}(${l})` : l) : null; }
+        else { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null) || (n ? texLabel({ label: n }, k) : null); label = l || null; }
       }
       if (P.named || o.ink === 'bw') points.push({ z: [w.re, w.im], r: P.named ? 2.0 : 1.6, kind: P.named ? PTS[k % 4][0] : mk === 'ring' ? 'ring' : 'dot', fill: o.ink === 'bw' ? '#000000' : P.named ? PTS[k % 4][1] : '#000000', label, at: 'auto' });
       else points.push({ z: [w.re, w.im], r: mk === 'ring' ? 1.7 : 1.5, kind: mk === 'ring' ? 'ring' : 'dot', fill: '#000000', label, at: 'auto', sw: mk === 'ring' ? 0.6 : undefined });
     });
     return { curves, points, chev, dashed };
   }
-  // where a boundary's orientation is shown: the parameter whose point and image both sit well inside their panels,
-  // clear of the cross axes, of their crossing and of their tick labels in both panels (a piece that lies on an axis,
-  // the real axis of a half-plane or the rays of a quarter plane, gets its mark between two ticks, away from 0); then
-  // the middle of the piece's visible part. A long piece (a line or a ray, clipped far outside the window) is also
-  // sampled densely where it crosses the source window. pn = {L: {box, st: [sx, sy]}, R: ...}
+  // where a boundary's orientation is shown: the parameter whose image F(z) sits well inside the panel p ({box, st: [sx,
+  // sy]}), clear of the cross axes, of their crossing and of their tick labels (a piece that lies on an axis, the real
+  // axis of a half-plane or the rays of a quarter plane, gets its mark between two ticks, away from 0); then the middle
+  // of the piece's visible part. A long piece (a line or a ray, clipped far outside the window) is also sampled densely
+  // where it crosses the source window
   function clipSeg(a, b, w) {
     let t0 = 0, t1 = 1;
     const dx = b.re - a.re, dy = b.im - a.im;
@@ -304,11 +303,11 @@
     }
     return t1 > t0 ? [t0, t1] : null;
   }
-  function chevronAt(c, FL, FR, pL, pR, srcWin) {
+  function chevronAt(c, F, p, srcWin) {
     const inside = (w, b, m) => fin(w) && w.re > b.x0 + m * (b.x1 - b.x0) && w.re < b.x1 - m * (b.x1 - b.x0) && w.im > b.y0 + m * (b.y1 - b.y0) && w.im < b.y1 - m * (b.y1 - b.y0);
     // the clearance of a mark at w in a panel (fractions of the panel): from the nearer axis (enough at 12 %), from
     // the axes' crossing (enough at 24 %), and, on an axis, from its labelled ticks (best half way between two)
-    const clear = (w, p) => {
+    const clear = (w) => {
       const b = p.box, W = b.x1 - b.x0, H = b.y1 - b.y0;
       const hasX = b.y0 < 0 && b.y1 > 0, hasY = b.x0 < 0 && b.x1 > 0;
       const dX = hasX ? Math.abs(w.im) / H : 1, dY = hasY ? Math.abs(w.re) / W : 1;
@@ -323,9 +322,9 @@
     if (c.long && c.a && c.b && srcWin) { const iv = clipSeg(c.a, c.b, srcWin); if (iv) for (let i = 1; i < 240; i++) ss.push(iv[0] + (iv[1] - iv[0]) * i / 240); }
     const ok = [];
     for (const s of ss) {
-      const z = c.f(s), a = FL(z), b = FR ? FR(z) : a;
-      if (!inside(a, pL.box, 0.05) || (FR && !inside(b, pR.box, 0.05))) continue;
-      ok.push({ s, cl: Math.min(clear(a, pL), FR ? clear(b, pR) : 1) });
+      const a = F(c.f(s));
+      if (!inside(a, p.box, 0.05)) continue;
+      ok.push({ s, cl: clear(a) });
     }
     if (!ok.length) return null;
     const s0 = Math.min(...ok.map((q) => q.s)), s1 = Math.max(...ok.map((q) => q.s)), mid = (s0 + s1) / 2, span = s1 - s0 || 1;
@@ -371,35 +370,24 @@
   // the export window of a view without its pane: a reference pane of 480 x 360 CSS px at the view's centre and scale
   const REF_PANE = [480, 360];
   const sceneWin = (v) => ({ x0: v.cx - REF_PANE[0] / 2 / v.s, x1: v.cx + REF_PANE[0] / 2 / v.s, y0: v.cy - REF_PANE[1] / 2 / v.s, y1: v.cy + REF_PANE[1] / 2 / v.s });
-  // Y's window: the box of the image under FR of what X's panel shows (the areas, curves and points whose FL lies in
-  // boxL), 0.5 % trimmed at each end (a pole), plus pad (8 %) of each side; null when nothing shows
-  // (FL null: no X panel, X's window is boxL in the z-plane. carry: FL and FR are the panels' maps, and each shape is carried from
-  // its own plane as the panels draw it, sampled in its own plane's window; one that X's panel does not draw (a later plane's) is
-  // kept whole. Without it every shape is a z-plane shape, mapped by FL and FR)
-  function imageWin(FL, FR, boxL, srcWin, shapes, { pad = 0.08, carry = false } = {}) {
+  // the window of an image: the box of the image under F of the z-plane's shapes (the areas, curves and points) in boxL,
+  // 0.5 % trimmed at each end (a pole), plus pad (8 %) of each side; null when nothing shows
+  function imageWin(F, boxL, srcWin, shapes, { pad = 0.08 } = {}) {
     const xs = [], ys = [];
-    const mapOf = carry ? shapeMapF : (s, side, F) => F, stg = carry ? stageOf : () => 0, winS = carry ? shapeWinOf : (s, w) => w;
-    const inL = (a) => fin(a) && a.re >= boxL.x0 && a.re <= boxL.x1 && a.im >= boxL.y0 && a.im <= boxL.y1;
-    const keepBy = (fl, fr) => (z) => { let a, b; try { if (fl) { a = fl(z); if (!inL(a)) return; } b = fr(z); } catch (e) { return; } if (fin(b)) { xs.push(b.re); ys.push(b.im); } };
-    // (an area's points: a grid over its window where its level is >= 0)
-    const fill = (lv, win, keep) => {
-      const n = 160, dx = (win.x1 - win.x0) / n, dy = (win.y1 - win.y0) / n;
-      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-        const z = C(win.x0 + (i + 0.5) * dx, win.y0 + (j + 0.5) * dy);
-        if (lv.some((L) => { try { return L(z) >= 0; } catch (e) { return false; } })) keep(z);
-      }
-    };
+    const keep = (z) => { if (!(fin(z) && z.re >= boxL.x0 && z.re <= boxL.x1 && z.im >= boxL.y0 && z.im <= boxL.y1)) return; let b; try { b = F(z); } catch (e) { return; } if (fin(b)) { xs.push(b.re); ys.push(b.im); } };
     const lv = [];
     for (const s of shapes) {
-      const t = kindType(s), fr = mapOf(s, 'R', FR);
-      if (!fr) continue;
-      const fl = FL ? mapOf(s, 'L', FL) : stg(s) ? null : (z) => z, keep = keepBy(fl, fr);
-      if (t === 'area') { try { if (stg(s)) fill([Region.levelOf(s)], winS(s, srcWin), keep); else lv.push(Region.levelOf(s)); } catch (e) { /* */ } }
+      const t = kindType(s);
+      if (t === 'area') { try { lv.push(Region.levelOf(s)); } catch (e) { /* */ } }
       else if (t === 'point') { if (s.p) keep(C(s.p[0], s.p[1])); }
-      else { try { for (const c of Region.curvesOf(s, winS(s, srcWin)) || []) for (const p of srcPoly(c, 720)) keep(C(p[0], p[1])); } catch (e) { /* */ } }
+      else { try { for (const c of Region.curvesOf(s, srcWin) || []) for (const p of srcPoly(c, 720)) keep(C(p[0], p[1])); } catch (e) { /* */ } }
     }
-    // (the z-plane's areas share one grid over srcWin)
-    if (lv.length) fill(lv, srcWin, keepBy(FL || ((z) => z), FR));
+    // (the areas' points: one grid over srcWin where a level is >= 0)
+    const n = 160, dx = (srcWin.x1 - srcWin.x0) / n, dy = (srcWin.y1 - srcWin.y0) / n;
+    if (lv.length) for (let jj = 0; jj < n; jj++) for (let ii = 0; ii < n; ii++) {
+      const z = C(srcWin.x0 + (ii + 0.5) * dx, srcWin.y0 + (jj + 0.5) * dy);
+      if (lv.some((L) => { try { return L(z) >= 0; } catch (e) { return false; } })) keep(z);
+    }
     if (xs.length < 8) return null;
     xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
     const k = Math.floor(0.005 * xs.length), b = { x0: xs[k], x1: xs[xs.length - 1 - k], y0: ys[k], y1: ys[ys.length - 1 - k] };
@@ -434,43 +422,31 @@
     return at(hs[0] != null ? hs[0] : o.y + o.h / 2);
   }
 
-  // ---------- (1) X -> Y: two plane panels and the F arrow (or one of them) ----------
+  // ---------- (1) X's plane: one plane panel (or its globe) ----------
   async function figXY(o, P, W, T, view0) {
     const st = A.state();
-    const panels = o.panels === 'L' ? ['L'] : o.panels === 'R' ? ['R'] : ['L', 'R'];
     const [tp, lp] = T;
     const shapes = A.shapes();
-    const planeOf = (side) => (side === 'L' ? st.lFlat : st.rImage);
-    const Fs = { L: A.F('L'), R: A.F('R') };
-    const vars = { L: A.panelVar('L'), R: A.panelVar('R') };
-    // windows: Fit (content, from a quick render and the curves) or As on screen. Fit does not depend on the panes'
-    // sizes (a phone, a tablet, a wide window give one figure): X's window comes from its view (centre, scale) and a
-    // fixed reference pane (sceneWin); Y's from the image of what X's panel shows (imageWin). A set that runs off a
-    // side keeps that window's edge there.
+    const F = A.F(), v = A.panelVar();
+    // the window: Fit (content, from a quick render and the curves) or As on screen. Fit does not depend on the pane's
+    // size (a phone, a tablet, a wide window give one figure): it comes from X's view (centre, scale) and a fixed
+    // reference pane (sceneWin). A set that runs off a side keeps that window's edge there.
     const scene = o.crop !== 'screen' && A.viewOf;
     const srcWin = scene ? expandBox(sceneWin(A.viewOf('L0')), 3) : expandBox(A.screenBox('L0'), 3);
-    const boxes = {}, touches = {};
-    const roughW = W / panels.length;
-    for (const side of panels) {
-      if (!planeOf(side)) continue;
-      if (!scene) { boxes[side] = snapScreen(A.screenBox(side), roughW); continue; }
-      let ref = null;
-      if (side === 'R') {
-        // (only Y shown: the image of X's reference window, in the source plane)
-        const bL = boxes.L || (st.lFlat ? null : sceneWin(A.viewOf('L0')));
-        ref = imageWin(boxes.L ? Fs.L : null, Fs.R, bL || sceneWin(A.viewOf('L0')), srcWin, shapes, { carry: true });
-      }
-      if (!ref) ref = sceneWin(A.viewOf(side));
+    let bx = null, tch = null;
+    if (st.lFlat && !scene) bx = snapScreen(A.screenBox('L'), W);
+    else if (st.lFlat) {
+      const ref = sceneWin(A.viewOf('L'));
       // the quick render looks twice as far as the window, so a bounded set is framed whole and an unbounded one is
       // told by touching this larger window's edges
       const big = expandBox(ref, 2);
-      const q = await A.art(side, { box: big, wpt: 300, dpi: 72, ink: printInkFor(o, st.alpha), alive: o.alive });
+      const q = await A.art({ box: big, wpt: 300, dpi: 72, ink: printInkFor(o, st.alpha), alive: o.alive });
       if (!q) return null;
       let cb = contentBox(q, big), must = null;
       for (const s of shapes) {
         if (kindType(s) === 'area') continue;
-        if (kindType(s) === 'point') { const Fp = shapeMapF(s, side, Fs[side]); if (!Fp) continue; const w = Fp(C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) { cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); must = unionBox(must, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); } continue; }
-        const Fc = shapeMapF(s, side, Fs[side]);
+        if (kindType(s) === 'point') { const Fp = shapeMapF(s, F); if (!Fp) continue; const w = Fp(C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) { cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); must = unionBox(must, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); } continue; }
+        const Fc = shapeMapF(s, F);
         if (!Fc) continue;
         const b = ptsBox(shapeCurves(s, Fc, big, 300, shapeWinOf(s, srcWin)).pts, big);
         if (b) {
@@ -480,100 +456,61 @@
         }
       }
       if (cb && must && shapes.some((x) => x.def || x.at)) cb = Object.assign({}, cb, { must });   // (constructions: picture-9)
-      boxes[side] = fitBox(cb, ref, roughW);
-      touches[side] = cb && cb.touch;
+      bx = fitBox(cb, ref, W);
+      tch = cb && cb.touch;
     }
     const axes = o.axes || P.axes;
-    const two = panels.length === 2;
-    const mirror = two && axes === 'box' && W < 300;
-    const steps = {};
-    for (const side of panels) if (boxes[side]) steps[side] = stepFor(boxes[side], two ? W / 2 : W);
-    // the F arrow's label: F (Article), w = formula (Homework, when it is short)
-    const Fname = A.fTex();
-    let arrowTex = two ? Fname : null;
-    if (two && o.for !== 'article') {
-      // w = \dfrac{..}{..} when the formula is one fraction (narrow), else the inline formula when it is short
-      const raw = A.formulaRaw ? A.formulaRaw() : null, f = A.formulaTex();
-      const cands = [];
-      // (named by the image panel's variable, w or w_k, as its axes are)
-      if (raw && /^\\frac\{/.test(raw) && raw.length < 90) cands.push(`${vars.R}=${raw.replace(/^\\frac/, '\\dfrac')}`);
-      if (f && f.length < 60) cands.push(`${vars.R}=${f}`);
-      for (const c of cands) if (XD.tex(c, lp).w < W * 0.2) { arrowTex = c; break; }
-    }
-    const arrowLab = arrowTex ? XD.tex(arrowTex, lp) : null;
-    const arrowSpan = two ? Math.max(axes === 'box' ? 22 : 26, arrowLab ? arrowLab.w + 12 : 0) : 0;
-    const titles = (side) => [`\\operatorname{Re} ${vars[side]}`, `\\operatorname{Im} ${vars[side]}`];
+    const step = bx ? stepFor(bx, W) : null;
+    const titles = [`\\operatorname{Re} ${v}`, `\\operatorname{Im} ${v}`];
     const ah = 4.6;
     // (a plane's window has its own shape; a globe is the pane's picture, whose paneAspect is height over width)
-    const asp = (side) => (boxes[side] ? aspect(boxes[side]) : 1 / A.paneAspect(side));
+    const asp = bx ? aspect(bx) : 1 / A.paneAspect();
     // the steps view's plain still of a plane past the colour plane carries the pane's key: the hue ring and the line
     // saying where the colour is carried from, in a column right of the picture
-    const sk = view0 === 'xyL' && panels.length === 1 && A.svOn() && A.svKey ? A.svKey() : null;
+    const sk = view0 === 'xyL' && A.svOn() && A.svKey ? A.svKey() : null;
     const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
-    let mL, gut, mR, top, bottom;
+    let mL, mR, top, bottom;
     if (axes === 'box') {
-      mL = boxes[panels[0]] ? tickW(boxes[panels[0]], steps[panels[0]], tp) + 3 : 2;
-      const bL = two && !mirror && boxes.R ? tickW(boxes.R, steps.R, tp) + 3 : 0;
-      gut = two ? arrowSpan + 10 + bL : 0;
-      const last = panels[panels.length - 1];
-      mR = mirror && boxes.R ? tickW(boxes.R, steps.R, tp) + 3 : Math.max(2, boxes[last] ? overR(boxes[last], steps[last], tp) : 0);
+      mL = bx ? tickW(bx, step, tp) + 3 : 2;
+      mR = Math.max(2, bx ? overR(bx, step, tp) : 0);
       top = lp * 1.15 + 3; bottom = tp * 1.05 + 4.2;
     } else {
-      const nA = XD.tex(titles(panels[0])[0], lp).w, nB = two ? XD.tex(titles('R')[0], lp).w : 0;
-      mL = 3; gut = two ? ah * 0.3 + 2 + nA + 8 + arrowSpan + 8 : 0; mR = ah * 0.3 + 2 + (two ? nB : nA) + 2;
-      const t1 = XD.tex(titles(panels[0])[1], lp);
+      mL = 3; mR = ah * 0.3 + 2 + XD.tex(titles[0], lp).w + 2;
+      const t1 = XD.tex(titles[1], lp);
       top = t1.a + t1.d + ah + 5; bottom = 3;
     }
     // (the key's column starts after the room kept right of the picture, the axis title's or the ticks', so a title that
     // reaches past the picture, "Re w₂", stays clear of the key)
     const keyAt = mR;
     mR += keyW ? keyW + KEY_GAP : 0;
-    let h = (W - mL - gut - mR) / panels.reduce((a, s) => a + asp(s), 0);
-    h = Math.min(h, W * (two ? 0.62 : 0.8), P.maxH - top - bottom);
-    const used = mL + gut + mR + h * panels.reduce((a, s) => a + asp(s), 0);
-    const x0 = (W - used) / 2;
+    const h = Math.min((W - mL - mR) / asp, W * 0.8, P.maxH - top - bottom), wpt = h * asp;
+    const x = (W - mL - mR - wpt) / 2 + mL, y = top;
     const items = [], lines = [];
-    let defs = '';
-    const xs = {}; let xc = x0 + mL;
-    for (const side of panels) { xs[side] = xc; xc += h * asp(side) + gut; }
-    const y = top;
-    const panelOut = {};
-    let chevDrawn = 0;
-    for (const [i, side] of panels.entries()) {
-      const wpt = h * asp(side), x = xs[side];
-      if (!boxes[side]) {
-        // a globe: the picture as on screen, no axes
-        const r = await A.art(side, { wpt, hpt: h, dpi: 300, ink: printInkFor(o, st.alpha), alive: o.alive });
-        if (!r) return null;
-        const bx = { x0: 0, x1: 1, y0: 0, y1: h / wpt };
-        const a = await XD.art(r, bx, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt });
-        items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(wpt)}" height="${f2(h)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
-        // (round 3: the art layer leaves the globe's marks out; its labels and the points' images are vectors)
-        if (r.globe) {
-          const c = [0, r.w, 0, r.h], k = wpt / r.w, proj = globeProj(r.globe, r, c, x, y, k);
-          const Fp = side === 'R' && A.defo && A.defo().on ? A.homF(A.defo().T) : Fs[side];
-          if (!(view0 === 'xyL' && st.main === 'phase')) items.push(shapes.filter((s) => kindType(s) === 'point' && s.p && shapeMapF(s, side, Fp)).map((s, q) => { const e = proj(shapeMapF(s, side, Fp)(C(s.p[0], s.p[1]))); return e ? XD.marker('dot', e[0], e[1], 1.6, o.ink === 'bw' ? '#000000' : PTS[q % 4][1], '#ffffff', 0.4) : ''; }).join(''));
-          items.push(globeLabels(r.globe, r, c, x, y, k, tp - 1));
-        }
-        if (two && axes === 'box') items.push(head(x, x + wpt, y - 3, panelLetter(i), vars[side], lp));
-        continue;
+    let defs = '', lay = null, ticks = null, chevDrawn = 0;
+    if (!bx) {
+      // a globe: the picture as on screen, no axes
+      const r = await A.art({ wpt, hpt: h, dpi: 300, ink: printInkFor(o, st.alpha), alive: o.alive });
+      if (!r) return null;
+      const a = await XD.art(r, { x0: 0, x1: 1, y0: 0, y1: h / wpt }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt });
+      items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(wpt)}" height="${f2(h)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
+      // (round 3: the art layer leaves the globe's marks out; its labels and the points' images are vectors)
+      if (r.globe) {
+        const c = [0, r.w, 0, r.h], k = wpt / r.w, proj = globeProj(r.globe, r, c, x, y, k);
+        if (!(view0 === 'xyL' && st.main === 'phase')) items.push(shapes.filter((s) => kindType(s) === 'point' && s.p && shapeMapF(s, F)).map((s, q) => { const e = proj(shapeMapF(s, F)(C(s.p[0], s.p[1]))); return e ? XD.marker('dot', e[0], e[1], 1.6, o.ink === 'bw' ? '#000000' : PTS[q % 4][1], '#ffffff', 0.4) : ''; }).join(''));
+        items.push(globeLabels(r.globe, r, c, x, y, k, tp - 1));
       }
-      const bx = boxes[side];
-      const tch = touches[side] || {};
+    } else {
       const fade = P.fade && axes !== 'box' && tch ? { l: tch.l ? 8 : 0, r: tch.r ? 8 : 0, t: tch.t ? 8 : 0, b: tch.b ? 8 : 0 } : null;
-      const art = await artPanel(side, bx, wpt, o, { fade: fade && (fade.l || fade.r || fade.t || fade.b) ? fade : null });
+      const art = await artPanel(bx, wpt, o, { fade: fade && (fade.l || fade.r || fade.t || fade.b) ? fade : null });
       if (!art) return null;
-      const lay = planeLayers(o, P, side, Fs[side], bx, wpt, shapes, srcWin, side === 'R' && two ? (P.named ? "'" : Fname) : null);
-      panelOut[side] = { lay, art };
+      lay = planeLayers(o, P, F, bx, wpt, shapes, srcWin);
+      const pn = { box: bx, st: XD.axisSteps(bx, step) };
       const over = (X, Y) => {
         let m = '';
         if (P.chevrons) for (const c of lay.chev) {
-          const pn = (sd) => ({ box: boxes[sd] || bx, st: XD.axisSteps(boxes[sd] || bx, steps[sd] || steps[side]) });
-          // (the piece is carried from its shape's own plane, sampled in that plane's window; a shape that X's panel does not draw, a
-          // later plane's, gets its chevron where it shows in this panel alone)
-          const mS = shapeMapF(c.s, side, Fs[side]), mL = two ? shapeMapF(c.s, 'L', Fs.L) : null, mR = two ? shapeMapF(c.s, 'R', Fs.R) : null;
-          const both = !!(mL && mR), win = shapeWinOf(c.s, srcWin);
-          const s0 = mS ? chevronAt(c.c, both ? mL : mS, both ? mR : null, both ? pn('L') : pn(side), pn('R'), win) : null;
+          // (the piece is carried from its shape's own plane, sampled in that plane's window)
+          const mS = shapeMapF(c.s, F), win = shapeWinOf(c.s, srcWin);
+          const s0 = mS ? chevronAt(c.c, mS, pn, win) : null;
           let L = null;
           try { L = Region.levelOf(c.s); } catch (e) { L = null; }
           const cm = s0 != null ? chevMark(X, Y, c.c, mS, s0, c.color, 0.8, senseAt(c.c, L, s0, win)) : '';
@@ -581,30 +518,24 @@
         }
         return m;
       };
-      const p = XD.panel({ x, y, w: wpt, h, box: bx, step: steps[side], art: [art], curves: lay.curves, points: lay.points, axes, minimal: P.minimal, ylab: side === 'R' && mirror ? 'right' : 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: titles(side), over });
+      const p = XD.panel({ x, y, w: wpt, h, box: bx, step, art: [art], curves: lay.curves, points: lay.points, axes, minimal: P.minimal, ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: titles, over });
       items.push(p.markup); defs += p.defs; lines.push(...p.lines);
-      panelOut[side].ticks = { box: bx, step: steps[side], x: p.xt, y: p.yt, labels: p.labels };
-      if (axes === 'box') items.push(head(x, x + wpt, y - 3, two ? panelLetter(i) : '', vars[side], lp));
-      else if (axes === 'none') items.push(head(x, x + wpt, y - 3, '', vars[side], lp));
-    }
-    if (two) {
-      // (cross axes: the arrow keeps clear of both real axes, so it never reads as their continuation)
-      const oys = axes === 'box' ? [] : panels.filter((sd) => boxes[sd]).map((sd) => { const b = boxes[sd]; return Math.min(y + h, Math.max(y, y + (b.y1 / (b.y1 - b.y0)) * h)); });
-      const { a0, a1, ay } = arrowPlace({ box: axes === 'box', xr: xs.L + h * asp('L'), xn: xs.R, y, h, oys, label: arrowLab, span: arrowSpan, off: ah * 0.3 + 2 + XD.tex(titles('L')[0], lp).w + 8 });
-      items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
+      ticks = { box: bx, step, x: p.xt, y: p.yt, labels: p.labels };
+      if (axes === 'box' || axes === 'none') items.push(head(x + wpt, y - 3, v, lp));
     }
     // (the key stands at the picture's top: the ring, then the line saying where the colour is carried from, wrapped to the
     // column's width, the plane's name in math; the figure is as tall as its picture or its key, the taller)
     let keyBottom = 0;
     if (keyW) {
-      const kx = xs.L + h * asp('L') + keyAt + KEY_GAP + keyW / 2, k = await carriedKey(sk.carried, kx, y, keyW, tp, P.lw.frame);
+      const kx = x + wpt + keyAt + KEY_GAP + keyW / 2, k = await carriedKey(sk.carried, kx, y, keyW, tp, P.lw.frame);
       items.push(...k.items);
       keyBottom = k.bottom;
     }
     const H = Math.max(y + h + bottom, keyBottom);
     // the caption's "Dashed" note: only when a dashed (open) boundary is actually drawn
-    const open = Object.values(panelOut).some((q) => q.lay.dashed > 0);
-    return { items, defs, lines, H, info: { boxes, curves: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.lay.curves.filter((c) => c.sid).map((c) => ({ id: c.sid, pts: c.pts.flatMap((run) => run.filter((p, n) => n % Math.max(1, Math.ceil(run.length / 24)) === 0)) }))])), points: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.lay.points.map((p) => ({ z: p.z, label: p.label }))])), ticks: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.ticks])), open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
+    const open = !!lay && lay.dashed > 0;
+    const curves = lay ? lay.curves.filter((c) => c.sid).map((c) => ({ id: c.sid, pts: c.pts.flatMap((run) => run.filter((p, n) => n % Math.max(1, Math.ceil(run.length / 24)) === 0)) })) : [];
+    return { items, defs, lines, H, info: { box: bx, curves, points: lay ? lay.points.map((p) => ({ z: p.z, label: p.label })) : [], ticks, open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0 } };
   }
 
   // ---------- (2) Phase: colour (hue wheel, level lines, a ring key) and black and white (a contour portrait) ----------
@@ -776,7 +707,7 @@
     const x = (W - (keyW ? KEY_GAP + keyW : 4) - w - mL) / 2 + mL;
     let art;
     if (bw) art = await bandsArt(F, box, w, 300);
-    else { art = await artPanel('L', box, w, Object.assign({}, o, { ink: 'colour' }), { mode: 'rgb', dpi: 300 }); if (!art) return null; }
+    else { art = await artPanel(box, w, Object.assign({}, o, { ink: 'colour' }), { mode: 'rgb', dpi: 300 }); if (!art) return null; }
     // the level lines, on a grid fine enough for 0.5 pt cells (bounded by the cost of F)
     const t0 = performance.now(); for (let i = 0; i < 50; i++) F(C(box.x0 + i * 0.013, box.y0 + i * 0.017)); const per = (performance.now() - t0) / 50;
     const n = Math.max(60, Math.min(240, Math.floor(Math.sqrt(400 / Math.max(per, 1e-4)))));
@@ -793,9 +724,9 @@
     // the steps view's stage draws the shapes on its plane, so its figure does too. The shapes are traced in the z-plane's
     // window on screen grown 3 times each way, as the other views trace them, so a shape running off the screen keeps
     // its part in the figure; its labels take no prime (null), since the figure has one panel and no image beside it
-    if (A.svOn()) { const srcWin = expandBox(A.screenBox('L0'), 3), lay = planeLayers(o, P, 'L', A.F('L'), box, w, A.shapes(), srcWin, null); curves.push(...lay.curves); points.push(...lay.points); }
-    const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points, axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${A.panelVar('L')}`, `\\operatorname{Im} ${A.panelVar('L')}`] });
-    const items = [p.markup, head(x, x + w, top - 3, '', A.panelVar('L'), lp)];
+    if (A.svOn()) { const srcWin = expandBox(A.screenBox('L0'), 3), lay = planeLayers(o, P, A.F(), box, w, A.shapes(), srcWin); curves.push(...lay.curves); points.push(...lay.points); }
+    const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points, axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${A.panelVar()}`, `\\operatorname{Im} ${A.panelVar()}`] });
+    const items = [p.markup, head(x + w, top - 3, A.panelVar(), lp)];
     let kdefs = '', keyBottom = 0;
     if (keyW) {
       const kx = x + w + KEY_GAP + keyW / 2, R = keyW / 2 - KEY_RING_ROOM, kid = `${XD.ns}-key`;
@@ -858,7 +789,7 @@
   };
   async function figLand(o, P, W, T) {
     const [tp, lp] = T;
-    const asp = A.paneAspect('L');
+    const asp = A.paneAspect();
     const wpt = W - 8, hpt = wpt * Math.min(asp, 0.8);
     // the window: the screen's, with its edges rounded (to a step of about an eighth of each side), so the caption and
     // the floor labels read [-8, 8] x [-5, 5], not [-8.33, 8.33] x [-5.13, 5.13]
@@ -871,14 +802,14 @@
       return [i0, i1, j0, j1];
     };
     let dpi = 300;
-    let r = await A.art('L', { wpt, hpt, dpi, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox });
+    let r = await A.art({ wpt, hpt, dpi, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox });
     if (!r) return null;
     {
       // the crop is enlarged to the panel (up to 1.6 x): rendered again at 300 dpi times that, so the printed image
       // stays at 300 ppi or more
       const [a0, a1] = look(r), kk = wpt / r.w, cwpt = a1 >= a0 ? (a1 - a0 + 36 / kk) * kk : wpt;
       const up = Math.min((W - 8) / cwpt, 1.6);
-      if (up > 1.02) { dpi = Math.ceil(300 * up); const r2 = await A.art('L', { wpt, hpt, dpi, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox }); if (!r2) return null; r = r2; }
+      if (up > 1.02) { dpi = Math.ceil(300 * up); const r2 = await A.art({ wpt, hpt, dpi, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox }); if (!r2) return null; r = r2; }
     }
     // crop to what is drawn, with a margin for the floor labels
     const unit = { x0: 0, x1: r.w, y0: 0, y1: r.h };
@@ -910,7 +841,7 @@
     items.push(`<rect x="${f2(x)}" y="${f2(top)}" width="${f2(iw)}" height="${f2(ih)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
     const lines = [{ x0: x, y0: top, x1: x + iw, y1: top + ih, kind: 'frame' }];
     // the relief's coverage, at the art layer's pixels, for the Inside regions' footprint (rendered only when it is drawn)
-    const cov = A.svOn() && A.svMaskOn() ? await A.art('L', { wpt, hpt, dpi, alive: o.alive, landBox, reliefOnly: true }) : null;
+    const cov = A.svOn() && A.svMaskOn() ? await A.art({ wpt, hpt, dpi, alive: o.alive, landBox, reliefOnly: true }) : null;
     // floor labels: Re along the front edge, Im along the side edge, projected from the camera of the render
     const L = r.land;
     if (L && L.MVP && GLR.M4) {
@@ -945,13 +876,13 @@
         }
       };
       const tks = (a0, a1) => { const s = niceStep(a1 - a0, 4); return { step: s, list: XD.ticks(a0, a1, s), lo: a0, hi: a1 }; };
-      const v = A.panelVar('L');
+      const v = A.panelVar();
       edge(tks(bx.x0, bx.x1), (t) => [Xw(t), sy * ay, z0], [0, sy], `\\operatorname{Re} ${v}`);
       edge(tks(bx.y0, bx.y1), (t) => [sx * ax, Yw(t), z0], [sx, 0], `\\operatorname{Im} ${v}`);
       if (tk) items.push(`<path d="${tk}" stroke="#000000" stroke-width="0.5" fill="none" stroke-linecap="round"/>`);
       // the steps view's Inside regions: the outline of each region on the floor, thin and grey, where the surface is cut
       if (A.svOn() && A.svMaskOn()) {
-        const F = A.F('L'), srcWin = expandBox(A.screenBox('L0'), 3), inBox = (p) => p[0] >= bx.x0 && p[0] <= bx.x1 && p[1] >= bx.y0 && p[1] <= bx.y1;
+        const F = A.F(), srcWin = expandBox(A.screenBox('L0'), 3), inBox = (p) => p[0] >= bx.x0 && p[0] <= bx.x1 && p[1] >= bx.y0 && p[1] <= bx.y1;
         // a floor point is hidden where the rendered relief covers its pixel (the coverage render: the relief alone; its alpha is
         // 255 on the relief and 0 elsewhere, so a pixel counts as covered above half)
         const ALPHA_HALF = 127;
@@ -964,7 +895,7 @@
         let fp = '';
         for (const s of A.shapes()) {
           if (kindType(s) !== 'area') continue;
-          const Fs = shapeMapF(s, 'L', F);
+          const Fs = shapeMapF(s, F);
           if (!Fs) continue;
           for (const run of shapeCurves(s, Fs, bx, wpt, shapeWinOf(s, srcWin)).pts) {
             let cur = [];
@@ -982,92 +913,6 @@
     return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art, crop: { x0: c0 / r.w, x1: c1 / r.w, y0: d0 / r.h, y1: d1 / r.h, asp: r.w / r.h } } };
   }
 
-  // ---------- (4) The deformation: a filmstrip of H_t, or the one-plane paths figure ----------
-  async function figFilm(o, P, W, T) {
-    const st = A.state();
-    const [tp, lp] = T;
-    const m = A.morphLen(), n = 4;
-    const ts = [...Array(n).keys()].map((i) => i * m / (n - 1));
-    const fracTex = (t) => { const q = t / m * 3; if (m === 1) return ['0', '1/3', '2/3', '1'][Math.round(q)] || (I18 && I18.comma(XD.lang) ? I18.texNum(CX.fmtNum(t, 2), XD.lang) : CX.fmtNum(t, 2)); return Math.abs(t - Math.round(t)) < 1e-9 ? String(Math.round(t)) : `${Math.round(t * 3)}/3`; };
-    const shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3);
-    const scr = A.screenBox('R');
-    const cols = W >= 400 || o.for === 'slides' ? 4 : 2, rows = n / cols;
-    const roughW = (W - 30) / cols;
-    // the shared window: the union of the frames' content, inside the screen window
-    let cb = null;
-    if (o.crop !== 'screen') for (const t of ts) {
-      const q = await A.art('R', { box: scr, wpt: 120, dpi: 72, ink: printInkFor(o, st.alpha), T: t, alive: o.alive });
-      if (!q) return null;
-      cb = unionBox(cb, contentBox(q, scr));
-    }
-    const box = o.crop === 'screen' || !cb ? snapScreen(scr, roughW) : fitBox(cb, scr, roughW);
-    const step = stepFor(box, roughW);
-    const mL = tickW(box, step, tp) + 3, gap = 8, xts = XD.ticks(box.x0, box.x1, step), mR = Math.max(2, XD.tex(XD.tickTex(xts[xts.length - 1] || 0, XD.tickDec(xts, step)), tp).w / 2 + 1);
-    let pw = (W - mL - gap * (cols - 1) - mR) / cols, ph = pw / aspect(box);
-    const hmax = Math.min((W * 0.5) / rows, (P.maxH - rows * (lp * 1.4 + tp * 1.05 + 9)) / rows);
-    if (ph > hmax) { ph = hmax; pw = ph * aspect(box); }
-    const x0 = (W - (mL + cols * pw + (cols - 1) * gap + mR)) / 2;
-    const titles = ts.map((t, i) => XD.tex(XD.lang === 'ru' ? `\\textit{${RU_LETTERS[i]}}\\enspace t=${fracTex(t)}` : `\\text{(${String.fromCharCode(97 + i)})}\\enspace t=${fracTex(t)}`, lp));
-    const dmax = Math.max(...titles.map((it) => it.d)), amax = Math.max(...titles.map((it) => it.a));
-    const rowH = amax + dmax + 4 + ph + tp * 1.05 + 4.2;
-    const items = [], lines = []; let defs = '';
-    // tracked points: the point shapes, else three points of the first boundary
-    let tracked = shapes.filter((s) => kindType(s) === 'point' && s.p).slice(0, 4).map((s) => C(s.p[0], s.p[1]));
-    if (!tracked.length) {
-      const a = shapes.find((s) => kindType(s) !== 'point');
-      if (a) { let cs = []; try { cs = Region.curvesOf(a, srcWin) || []; } catch (e) { cs = []; } const c = cs.find((q) => typeof q.f === 'function'); if (c) tracked = [0.3, 0.5, 0.7].map((s) => c.f(s)).filter((z) => fin(z) && z.re > box.x0 && z.re < box.x1 && z.im > box.y0 && z.im < box.y1); }
-    }
-    const Hs = new Map();
-    const Hof = (t) => { const k = t.toFixed(6); if (!Hs.has(k)) Hs.set(k, A.homF(t)); return Hs.get(k); };
-    const path = (z, a, b) => XD.sample((u) => { const w = Hof(u)(z); return fin(w) ? [w.re, w.im] : null; }, a, b, 48, 0.002 * (box.x1 - box.x0));
-    let anyOpen = false;
-    for (const [i, t] of ts.entries()) {
-      const col = i % cols, row = Math.floor(i / cols);
-      const x = x0 + mL + col * (pw + gap), yT = row * rowH + amax + dmax + 4;
-      const art = await artPanel('R', box, pw, o, { T: t });
-      if (!art) return null;
-      const Ht = Hof(t);
-      const curves = [];
-      // (X's boundary at t = 0 is a thin gray line; a dash means "not included", as in every
-      // Homework figure)
-      const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
-      if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, H0f, box, pw, srcWin).pts, w: OUTLINE_W, color: OUTLINE_GRAY, cap: 'butt' });
-      shapes.forEach((s, si) => {
-        if (kindType(s) === 'point') return;
-        const tn = tonesOf(s, o), open = P.dashOpen && kindType(s) === 'area' && Region.isOpen && Region.isOpen(s);
-        if (open) anyOpen = true;
-        curves.push({ pts: shapeCurves(s, Ht, box, pw, srcWin).pts, w: P.lw.edge, color: o.ink === 'bw' ? '#000000' : tn.edge, dash: open ? '3 2' : null, cap: 'butt' });
-      });
-      const tolW = 1.4 * (box.x1 - box.x0) / pw;
-      tracked.forEach((z, k) => {
-        // (the dotted rest leaves out what is already drawn: where a path doubles back, its two dotted runs would
-        // overlap out of phase and read as clustered dots)
-        if (t < m) curves.push({ pts: unclutter(path(z, t, m), t > 0 ? path(z, 0, t) : [], tolW), w: 0.7, color: '#444444', dash: '0 1.8', cap: 'round' });
-        if (t > 0) curves.push({ pts: path(z, 0, t), w: 0.6, color: o.ink === 'bw' ? '#000000' : PTS[k % 4][1], casing: 0.4, cap: 'round' });
-      });
-      const points = tracked.map((z, k) => { const w = Ht(z); return fin(w) ? { z: [w.re, w.im], r: 1.9, kind: PTS[k % 4][0], fill: o.ink === 'bw' ? '#000000' : PTS[k % 4][1], label: null } : null; }).filter(Boolean);
-      const p = XD.panel({ x, y: yT, w: pw, h: ph, box, step, art: [art], curves, points, axes: 'box', ylab: col === 0 ? 'left' : 'none', xtrim: { l: col > 0, r: col < cols - 1 }, tickPt: tp, labelPt: lp, ink: '#000000', lw: { frame: 0.5, tick: 0.5 } });
-      items.push(p.markup); defs += p.defs; lines.push(...p.lines);
-      items.push(XD.at(titles[i], x, yT - 3 - dmax, 'start', 'base', 'title'));
-    }
-    return { items, defs, lines, H: rows * rowH, info: { box, ts, tracked, m, labs: ts.map(fracTex), open: anyOpen } };
-  }
-  // polylines (world units) without the stretches within tol of the prior polylines or of their own earlier course
-  function unclutter(segs, prior, tol) {
-    const dense = (sg) => { const o = []; for (let i = 1; i < sg.length; i++) { const a = sg[i - 1], b = sg[i], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / (tol / 3))); for (let k = i === 1 ? 0 : 1; k <= n; k++) o.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); } return o; };
-    const P = prior.flatMap((sg) => dense(sg)), own = [], out = [], t2 = tol * tol, lag = 12;
-    const near = (p, list, upto) => { for (let i = 0; i < upto; i++) { const q = list[i]; const dx = q[0] - p[0], dy = q[1] - p[1]; if (dx * dx + dy * dy < t2) return true; } return false; };
-    for (const sg of segs) {
-      let cur = [];
-      for (const p of dense(sg)) {
-        if (near(p, P, P.length) || near(p, own, Math.max(0, own.length - lag))) { if (cur.length > 1) out.push(cur); cur = []; }
-        else cur.push(p);
-        own.push(p);
-      }
-      if (cur.length > 1) out.push(cur);
-    }
-    return out;
-  }
   // ---------- the deformation's paths as vectors (notes/paths-aesthetics/AS-BUILT.md; app.js pathsSvg draws them) ----------
   // t -> f(t) for t in [a, b] as runs of [x, y, t] (figure pt): n uniform times, each gap refined while its chord is
   // over 1.2 pt or its midpoint strays over 0.03 pt from it; a new run where f is null (the far side, a pole) or jumps
@@ -1107,24 +952,22 @@
       return { runs, z: runs.length && runs[0][0][2] <= 0 ? at(z, 0) : null, e: lr && lr[lr.length - 1][2] >= m - 1e-9 ? at(z, m) : null, arrows: mt.arrows.map(dirAt), nodes: mt.nodes.map(dirAt), dots: mt.dots.map((t) => at(z, t)), limbOut, limbIn };
     });
   }
-  // the paths figure: one plane at t = end, the region's image over X's outline (dashed gray), and the paths
-  // t -> H_t(z) of the points the app's morph figure keeps (its selection and its caption: buildFigure), drawn here
-  // by app.js pathsSvg: 0.5 pt lines, a ring at z, dots at t = m/4, 3m/4, an arrowhead at m/2, a filled dot at F(z)
-  // (o.sv, the steps view's A.svPathsFig(): the shown plane is the picture at t = end, the previous plane's image of X the
-  // gray outline, and the paths those of the last step)
+  // the steps view's paths figure (o.sv, its A.svPathsFig()): the shown plane, the picture at t = end, over the previous
+  // plane's image of X (the gray outline), and the paths t -> H_t(z) of the last step's points, drawn by app.js
+  // pathsSvg: 0.5 pt lines, a ring at z, dots at t = m/4, 3m/4, an arrowhead at m/2, a filled dot at F(z)
   async function figPaths(o, P, W, T) {
-    if (o.sv && o.sv.surf === 'sphere') return figGlobePaths(o, P, W, T);
-    const st = A.state(), sv = o.sv || null;
+    const sv = o.sv;
+    if (sv.surf === 'sphere') return figGlobePaths(o, P, W, T);
+    const st = A.state();
     const [tp, lp] = T;
-    const m = sv ? sv.m : A.morphLen(), shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3), scr = sv ? A.svBox() : A.screenBox('R');
+    const m = sv.m, shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3), scr = A.svBox();
     const Hs = new Map();
-    const Hof = (t) => { const k = t.toFixed(6); if (!Hs.has(k)) Hs.set(k, sv ? sv.Fat(t) : A.homF(t)); return Hs.get(k); };
-    const artOf = (ao) => (sv ? A.svArt(sv.i, ao) : A.art('R', Object.assign({ T: m }, ao)));
+    const Hof = (t) => { const k = t.toFixed(6); if (!Hs.has(k)) Hs.set(k, sv.Fat(t)); return Hs.get(k); };
     // the window: what is drawn at t = end and X's outline, inside the screen window (the paths are chosen in it, so
     // every start lies inside the frame; a path that leaves it ends in a chevron)
     let cb = null;
     if (o.crop !== 'screen') {
-      const q = await artOf({ box: scr, wpt: 150, dpi: 72, ink: printInkFor(o, st.alpha), alive: o.alive });
+      const q = await A.svArt(sv.i, { box: scr, wpt: 150, dpi: 72, ink: printInkFor(o, st.alpha), alive: o.alive });
       if (!q) return null;
       cb = contentBox(q, scr);
       for (const s of shapes) if (kindType(s) !== 'point') { const b = ptsBox(shapeCurves(s, (z) => z, scr, 150, srcWin).pts, scr); if (b) cb = unionBox(cb, b); }
@@ -1136,14 +979,14 @@
     const hmax = Math.min(W * 0.75, P.maxH - top - bottom);
     if (h > hmax) { h = hmax; w = h * aspect(box); }
     const x = (W - w - mL - 4) / 2 + mL;
-    // the paths and the caption that names them (app.js: the screen's rule at the figure's size)
-    const leg = await (sv ? A.svPathsMorph({ box, w, h, alive: o.alive, lang: XD.lang }) : A.morphPaths({ box, w, h, alive: o.alive, lang: XD.lang, paths: A.defo().paths }));
+    // the paths and the sentence that names them (app.js: the screen's rule at the figure's size)
+    const leg = await A.svPathsMorph({ box, w, h, alive: o.alive, lang: XD.lang });
     if (!leg || (o.alive && !o.alive())) return null;
     const kept = leg.kept.map((k) => C(k.z[0], k.z[1]));
-    const art = await artPanel('R', box, w, o, sv ? { svI: sv.i } : { T: m });
+    const art = await artPanel(box, w, o, { svI: sv.i });
     if (!art) return null;
     const Hm = Hof(m), curves = [];
-    const H0f = sv || A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
+    const H0f = Hof(0);
     for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, H0f, box, w, srcWin).pts, w: OUTLINE_W, color: OUTLINE_GRAY, cap: 'butt' });
     let bwI = 0;
     for (const s of shapes) {
@@ -1155,15 +998,7 @@
       curves.push({ pts: shapeCurves(s, Hm, box, w, srcWin).pts, w: t === 'area' ? P.lw.edge : P.lw.curve, color: o.ink === 'bw' ? '#000000' : tn.edge, dash, cap: dash && (dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2') ? 'round' : 'butt' });
     }
     const over = (X, Y) => A.pathsSvg(pathItems(kept, Hof, m, (q) => [X(q.re), Y(q.im)]), { u: 1, clip: { x, y: top, w, h }, id: `${XD.ns}-mp` });
-    const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points: [], axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${sv ? sv.end : A.panelVar('R')}`, `\\operatorname{Im} ${sv ? sv.end : A.panelVar('R')}`], over });
-    const items = [p.markup, head(x, x + w, top - 3, '', sv ? sv.end : `${A.panelVar('L')},\\ ${A.panelVar('R')}`, lp)];
-    let cap = leg.captionTex || '';
-    // (X's outline is gray and solid here, so a dash means only "not included")
-    for (const [a, b] of [[' (dashed outline)', ' (gray outline)'], [', with dashed outlines,', ', with gray outlines,'], [', with a dashed outline,', ', with a gray outline,']]) {
-      const a2 = using(XD.lang, () => $t(a)), b2 = using(XD.lang, () => $t(b));
-      cap = cap.split(a2).join(b2);
-    }
-    if (!P.dashOpen) cap = cap.replace(/\s*Dashed boundaries do not belong to the sets\./, '');
-    if (!P.dashOpen && XD.lang !== 'en') { const d = using(XD.lang, () => $t('Dashed boundaries do not belong to the sets.')); cap = cap.split(' ' + d).join('').split(d).join(''); }
-    return { items, defs: p.defs, lines: p.lines, H: top + h + bottom, info: { box, kept: kept.length, m, svPaths: !!sv, sentence: leg.sentenceTex || '' }, captionTex: cap };
+    const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points: [], axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${sv.end}`, `\\operatorname{Im} ${sv.end}`], over });
+    const items = [p.markup, head(x + w, top - 3, sv.end, lp)];
+    return { items, defs: p.defs, lines: p.lines, H: top + h + bottom, info: { box, kept: kept.length, m, svPaths: true, sentence: leg.sentenceTex || '' } };
   }

@@ -87,6 +87,12 @@ let m = await menu();
 info.x = m;
 ok('a right-click on a shape opens the plane menu (role=menu, named by its point)', !!m && m.role === 'menu' && /z = /.test(m.label || '') && /F\(z\) = /.test(m.label || ''), m);
 ok('the head shows z and F(z)', !!m && /^z = /.test(m.head) && /F\(z\) = /.test(m.head), m && m.head);
+// F(z) keeps as many decimals as one pixel of X moves w: at 110 px per unit, |F′(0.5)| ≈ 0.39 for this chain, so a pixel
+// is about 0.0036 of w: 3 decimals (z itself, at 0.009 a pixel, has 2)
+{
+  const fm = m && /F\(z\) = [−-]?\d+\.(\d+)/.exec(m.head);
+  ok('the head\'s F(z) has the decimals a pixel of X resolves in w (3 here)', !!fm && fm[1].length === 3, m && m.head);
+}
 ok('on the circle: one integral, Hide and Delete, in that order', !!m && ids(m).filter((i) => i === 'integral').length === 1 && JSON.stringify(ids(m).filter((i) => /^(integral|shape-hide|shape-delete)$/.test(i))) === JSON.stringify(['integral', 'shape-hide', 'shape-delete']), ids(m));
 ok('no Select, Add zero / pole, Add point, Copy coordinates or Center view here', !!m && !ids(m).some((i) => NONE.test(i)), ids(m));
 ok('no construction tool launchers', !!m && !m.items.some((i) => /…$/.test(i.text.trim())), m && m.items.map((i) => i.text));
