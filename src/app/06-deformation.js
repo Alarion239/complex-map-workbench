@@ -346,8 +346,8 @@
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
     return {
-      C, PATHS, SegGrid, activeSteps, allAtOnce, capT, classicSource, isDeriv, kindType, lenPx, mDist, mfCache, morph,
-      morphOutline, morphRange, morphState, morphX, rangeParts, requestRender, resamplePx, segD, sheetsShown,
+      C, PATHS, SegGrid, allAtOnce, capT, classicSource, kindType, lenPx, mDist, mfCache, morph,
+      morphOutline, morphRange, morphState, morphX, requestRender, resamplePx, segD,
       get S() { return S; },
       get TH() { return TH; },
       get artMode() { return artMode; },
@@ -372,11 +372,6 @@
   function pathsSvg(...args) { return MP.pathsSvg(...args); }
   function texSegs(...args) { return MP.texSegs(...args); }
   function inlineFrac(...args) { return MP.inlineFrac(...args); }
-  function rangeTex(...args) { return MP.rangeTex(...args); }
-  function wDefSegs(...args) { return MP.wDefSegs(...args); }
-  function morphHomSegs(...args) { return MP.morphHomSegs(...args); }
-  function pathTimesTex(...args) { return MP.pathTimesTex(...args); }
-  function pathMarksTex(...args) { return MP.pathMarksTex(...args); }
   function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
 
