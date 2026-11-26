@@ -170,6 +170,7 @@
  "Only $f_2$ changed; Undo brings the old one back.": "Изменился только $f_2$; отмена вернёт прежний.",
  "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)",
  "Compiling…": "Компиляция…",
+ "Starting…": "Запуск…",
  "The formula is long; the field below holds it in full.": "Формула длинная; поле ниже содержит её целиком.",
  "in short": "кратко",
  "Written in short; each step's own field holds its full formula.": "Записано кратко; поле каждого шага содержит его формулу целиком.",

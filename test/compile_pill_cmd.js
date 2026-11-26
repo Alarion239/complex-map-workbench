@@ -62,9 +62,12 @@ for (const scope of ['in', 'all']) {
 // note is drawn while the LED said "Up to date". The LED's label is the note's words, busy, and #ledLive says them, in each language.
 const SAY_MS = 4000;
 const FIRST_MS = 250, SILENT_MS = 350;
-const SAMPLER = `(() => { const log = window.__ledLog = []; let t0 = 0; const tick = () => {
+const SAMPLER = `(() => { const log = window.__ledLog = []; let t0 = 0, p0 = 0; const tick = () => {
   const l = document.getElementById('leftLed'), s = typeof __cmwPaneStatus === 'function' ? __cmwPaneStatus('L') : null, z = document.getElementById('ledLive');
-  if (l && s && s.compiling) { if (!t0) t0 = performance.now(); log.push({ t: performance.now() - t0, led: l.className, label: l.getAttribute('aria-label'), live: z ? z.textContent : '' }); }
+  const c = !!(s && s.compiling), now = performance.now();
+  if (l && !p0) p0 = now;
+  if (l && c && !t0) t0 = now;
+  if (l) log.push({ t: t0 ? now - t0 : 0, p: now - p0, c, led: l.className, label: l.getAttribute('aria-label') || l.getAttribute('title') || l.getAttribute('data-tip'), live: z ? z.textContent : '' });
   if (log.length < 4000) requestAnimationFrame(tick);
 }; requestAnimationFrame(tick); })()`;
 const LANGS = { en: 'Compiling…', ru: 'Компиляция…', it: 'Compilazione…' };
@@ -85,11 +88,31 @@ for (const [lang, words] of Object.entries(LANGS)) {
   ok(`${lang}: the left LED is busy and its label says "${words}"`, got.led === 'led busy' && got.label === words, got);
   ok(`${lang}: the polite region says "${words}"`, got.live.indexOf(words) >= 0, got);
   await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: rec.identifier });
-  const log = await ev('window.__ledLog || []');
-  const first = log.length ? log[0].t : 0, early = log.filter((x) => x.t - first < FIRST_MS);
+  const all = await ev('window.__ledLog || []');
+  // (the LED's states from its first paint: while the links are pending, none of them is "Up to date")
+  const lead = all.filter((x) => !all.some((y) => y.c && y.p <= x.p));
+  const log = all.filter((x) => x.c), first = log.length ? log[0].t : 0, early = log.filter((x) => x.t - first < FIRST_MS);
+  info['before the first compiling frame ' + lang] = { n: lead.length, led: lead.map((x) => x.led).filter((v, i, a) => a.indexOf(v) === i), label: lead.length ? lead[0].label : null };
+  ok(`${lang}: the LED is never "Up to date" from its first paint to the first compiling frame, with links pending`, lead.length > 0 && lead.every((x) => x.led === 'led busy'), lead.slice(0, 3));
   info['first frames ' + lang] = { n: log.length, early: early.length, led: early.map((x) => x.led).filter((v, i, a) => a.indexOf(v) === i), label: early.length ? early[0].label : null };
   ok(`${lang}: frames that stand in for a compiling program were sampled within ${FIRST_MS} ms of the first`, early.length >= 1, info['first frames ' + lang]);
   ok(`${lang}: the LED is busy from the first such frame, with "${words}" as its label`, early.length > 0 && early.every((x) => x.led === 'led busy' && x.label === words), early.slice(0, 3));
   ok(`${lang}: the polite region is still silent within ${SILENT_MS} ms of the first`, early.filter((x) => x.t - first < SILENT_MS).every((x) => x.live.indexOf(words) < 0), early.filter((x) => x.live).slice(0, 2));
+}
+// A page whose programs link at once starts "Up to date" and says nothing: the starting state is gone with the first frame, well
+// inside the polite region's wait.
+{
+  const ns3 = 'cplclean' + Date.now();
+  const rec = await send('Page.addScriptToEvaluateOnNewDocument', { source: SAMPLER });
+  await seed(ns3, { steps: [{ type: 'pown', params: { n: 2 }, on: true }], shapes: [], sv: { at: 0, T: 1, scope: 'in', surf: 'plane' } });
+  await go(`${base}/test.html?ns=${ns3}&view=steps&lang=en`);
+  await settled({ max: 30000, panes: false, until: loaded });
+  const w = await settled({ max: 8000, only: true, panes: false, until: "document.getElementById('leftLed').className === 'led ok'" });
+  await sleep(900);   // (a control: the polite region's wait is 500 ms, and a state said late would show here)
+  const fin = await ev(`({ led: document.getElementById('leftLed').className, label: document.getElementById('leftLed').getAttribute('aria-label'), live: document.getElementById('ledLive').textContent })`);
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: rec.identifier });
+  info['clean load'] = fin;
+  ok('a page that links at once: its LED settles to "Up to date"', w.ok && fin.led === 'led ok' && fin.label === 'Up to date', fin);
+  ok('a page that links at once: the polite region says nothing', fin.live === '', fin);
 }
 return { pass: fails.length === 0, fails, info };
