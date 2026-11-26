@@ -880,11 +880,12 @@
   const sumDrop = (pane) => { const r = sumRuns.get(pane); if (r && r.timer) clearTimeout(r.timer); sumRuns.delete(pane); };
   // the pane's note for it: '' when the sample found no point that did not converge or took more than the budget
   const sumNote = (pane) => { const r = sumRuns.get(pane); return r && (r.hit || r.spent) ? sumSay(r) : ''; };
-  // whether each screen pane's "Compiling…" note is drawn: its LED says so (updateLeds), where a screen reader hears it
-  const compileShown = { L: false, R: false };
-  function setCompileShown(role, on) {
-    if (compileShown[role] === on) return;
-    compileShown[role] = on;
+  // whether each screen pane's frames stand in for a compiling program: its LED says so (updateLeds) from the first such frame,
+  // where a screen reader hears it, while the "Compiling…" note on the canvas waits for 300 ms
+  const compileBusy = { L: false, R: false };
+  function setCompileBusy(role, on) {
+    if (compileBusy[role] === on) return;
+    compileBusy[role] = on;
     updateLeds();
   }
   const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
@@ -919,12 +920,13 @@
       const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
       if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
     }
-    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileShown(role, false); return; }
+    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileBusy(role, false); return; }
+    setCompileBusy(role, true);
     const t0 = compileT.get(pane);
     if (t0 === undefined) {
       compileT.set(pane, now);
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
-    } else if (now - t0 >= 300) { compileNote(pane); setCompileShown(role, true); }
+    } else if (now - t0 >= 300) compileNote(pane);
   }
   // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
   let compileBox = null;
