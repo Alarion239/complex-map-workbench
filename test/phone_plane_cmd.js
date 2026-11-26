@@ -1,5 +1,5 @@
-// The steps view's one plane keeps its window through the phone's layout changes (the steps view's twin of
-// phone_swap_cmd.js's rotate, urlbar, tablet, sheet and lang legs).
+// The steps view's one plane keeps its window through the phone's layout changes (its rotate, urlbar, tablet, sheet and
+// lang legs).
 // At 390 x 844 with touch emulation, for three maps (3z, z/3, the Möbius map (z - 1)/(z + 1)) and the first example
 // (e^z then that Möbius map) over an unbounded strip and a line: the plane's world window (its centre and its units
 // per pane width) is read after every transition and must come back to its starting value within 0.5 % and never drift.

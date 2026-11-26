@@ -89,7 +89,7 @@
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
-    if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
+    if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
     // the left readout's idle hint names the tool on a globe and on the landscape (panels.md 3, 9.1)
     if (!probe && !hov.w && (lGlobe() || lLand())) { const lr = $('leftReadout'); if (lr && !lr.classList.contains('copied')) lr.innerHTML = idleLeft(); }
     // an editable globe's graticule is the snap net of the tool (P3b): it is redrawn
@@ -99,7 +99,6 @@
   function updateToolHint() {
     updateDraftChips();
     if (paneL) setCursor(paneL, 'L');
-    if (paneR) setCursor(paneR, 'R');
   }
 
   // ---------------- shapes ----------------
@@ -372,8 +371,8 @@
   function nudgeShape(s, dx, dy, big) {
     if (s.def) return false;
     // (the step of the grid of the plane on screen, halves included, Constr.gridStep, as snapping uses: the steps view
-    // has one camera for every plane, S.srcView; else a target is in Y's view and a shape in X's)
-    const sc = (SV.on ? S.srcView : isTarget(s) ? V.right : leftView()).s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
+    // has one camera for every plane, S.srcView; else X's view, the one plane on screen)
+    const sc = (SV.on ? S.srcView : leftView()).s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
     const step = (Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
     try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
     if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
@@ -436,8 +435,8 @@
       cb.setAttribute('aria-disabled', String(none));
       cb.title = none ? $t('Nothing to clear') : $t('Remove all shapes and targets');
     }
-    // two groups, always both shown: the shapes of the z-plane and the targets of the w-plane (wₖ with step k
-    // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
+    // the shapes of the z-plane, with their rows (no shapes: no rows), and the targets of the w-plane (wₖ with step k
+    // focused) when there are any (a saved scene's: Y's pane, where targets are drawn, is not drawn)
     // (the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
     // (the steps view has no X or Y: the shapes are grouped by the plane they are in, "In z", "In w₁", …)
     host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>In {w}</span>', { w: wHtml(0) }) : $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
@@ -450,11 +449,10 @@
       for (const [s, row] of rows) if (shapeStage(s) === k) host.append(row);
     }
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
-    // (the steps view: targets are listed under the last plane, and with none there is no group, nothing to draw "in Y")
-    if (!SV.on || S.targets.length) {
+    // (the steps view lists them under the last plane)
+    if (S.targets.length) {
       const out = SV.on ? svNameHtml(svPlanes()[svPlanes().length - 1]) : yAtF() ? '<i>w</i>' : wHtml(rightStage());
       host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>Targets in {out}</span>', { out }) : $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
-      if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
       const tl = targetRowNames();
       S.targets.forEach((s) => host.append(shapeRow(s, tl.get(s.id), true)));
     }

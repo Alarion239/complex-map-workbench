@@ -87,7 +87,7 @@ const PROBE = `(() => {
   let frac = null;
   if (L && L.anchor && L.holes[0]) { const a = L.anchor, v = { l: Math.max(2, a.l), t: Math.max(2, a.t), r: Math.min(innerWidth - 2, a.r), b: Math.min(innerHeight - 2, a.b) }, h = L.holes[0]; const ar = Math.max(0, v.r - v.l) * Math.max(0, v.b - v.t); frac = ar ? Math.max(0, Math.min(h.r, v.r) - Math.max(h.l, v.l)) * Math.max(0, Math.min(h.b, v.b) - Math.max(h.t, v.t)) / ar : 1; }
   // the app's layers left open (a phone's sheet a step opens is part of the step, and so is the laptop's popover a step
-  // opens, data-tour-layer naming that step: [v17 D4] a step's Regions ▾; still open at a later step, it counts)
+  // opens, data-tour-layer naming that step: a step's Regions ▾; still open at a later step, it counts)
   const layers = [...document.querySelectorAll('#popHost > *, .modal-bg > *, dialog[open]')].filter((e) => e.getClientRects().length && !e.closest('[data-tour]') && !(c && /** @type {HTMLElement} */ (e).dataset.tourLayer === c.chapter + '/' + c.id)).length;
   const pn = rb(document.querySelector('#panes'));
   return { id: c.chapter + '/' + c.id, ch: c.chapter, mode: strip.dataset.mode, strip: S && [S.l, S.t, S.r, S.b].map((v) => Math.round(v)), panes: pn && [pn.l, pn.t, pn.r, pn.b].map(Math.round), hits, cut, titleOk, btns: btns.map((b) => [b.n, Math.round(b.w), Math.round(b.h)]), minW: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.w)), minH: Math.min(...btns.filter((b) => b.n !== 'ts-chap').map((b) => b.h)), chapMin: btns.some((b) => b.n === 'ts-chap') ? Math.min(...btns.filter((b) => b.n === 'ts-chap').map((b) => Math.min(b.w, b.h))) : null, gap: gap === Infinity ? null : +gap.toFixed(1), con, frac, layers, lead: document.querySelector('#tourLead').textContent };
@@ -147,11 +147,9 @@ for (const cfg of runs) {
   }
   // every step this build has must be visited
   const n = [...seen].filter((s) => s.startsWith(tag + ':')).length;
-  // (the classic tour has 45 steps and the steps view's 42; a desk walks all of them, a phone's layout leaves some out. The
-  // floors: classic 43, steps view 42 at a desk and 40 on a phone)
-  const sv = await ev('!!Tour._t.SV_ON');
-  const floor = !sv ? 43 : phoneSize(w, h) ? 40 : 42;
-  check(`${tag}: every step visited (${sv ? 42 : 45}, less what the layout leaves out)`, n >= floor, n);
+  // (the tour has 42 steps: a desk walks all of them, a phone's layout leaves some out; the floors are 42 at a desk and 40 on a phone)
+  const floor = phoneSize(w, h) ? 40 : 42;
+  check(`${tag}: every step visited (42, less what the layout leaves out)`, n >= floor, n);
   await ev('Tour.isActive() && Tour.stop()'); await calm();
   }
   // ---- layers (the pass for the strip): during a step, open each layer of the app
@@ -352,8 +350,7 @@ for (const cfg of runs) {
     })()`));
   }
 }
-// (a step the layout leaves out is reported by the engine and counted by "every step visited", not here;
-// views/key at 844 × 390, notes/tour/POLISH.md)
+// (a step the layout leaves out is reported by the engine and counted by "every step visited", not here; notes/tour/POLISH.md)
 const LALL = logs();
 const SKIPS = LALL.filter((l) => /\[tour\] step skipped/.test(l.m)).map((l) => l.m);
 const L = LALL.filter((l) => /EXC|\[tour\]/i.test(l.t + l.m) && !/\[tour\] step skipped/.test(l.m)).slice(0, 12);

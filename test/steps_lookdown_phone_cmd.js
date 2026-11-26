@@ -161,10 +161,12 @@ await select('d');
   const btn = await box('#plotL .ld-key > button.ld-ttl');
   if (btn) await tap([(btn[0] + btn[2]) / 2, (btn[1] + btn[3]) / 2]);
   await frames(); await frames(); await frames();
-  // (the wheel on the plane right of the open key, left of the button column)
+  // (the wheel on the plane right of the open key, left of the button column: the first point of the plane itself, its overlay, at
+  // least 8 px right of the key and level with its middle; the keys and the folded colour key beside the column take their own wheels)
   const f0 = (await look()).fits, v0 = await ev(`__cmwPlaneMenu().view('L')`), kb = await box('#plotL .ld-key');
-  const p = [kb[2] + 40, (kb[1] + kb[3]) / 2];
-  for (let i = 0; i < 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: p[0], y: p[1], deltaX: 0, deltaY: -40 }); await frames(); }
+  const p = await ev(`(() => { const y = ${(kb[1] + kb[3]) / 2}; for (let x = ${kb[2] + 8}; x < innerWidth; x += 4) { const e = document.elementFromPoint(x, y); if (e && e.id === 'overlayL') return [x, y]; } return null; })()`);
+  ok('a point of the plane right of the open key takes the wheel', !!p, { key: kb });
+  for (let i = 0; p && i < 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: p[0], y: p[1], deltaX: 0, deltaY: -40 }); await frames(); }
   await frames(); await frames();
   const L1 = await look(), v1 = await ev(`__cmwPlaneMenu().view('L')`);
   info.fits = { f0, f1: L1 && L1.fits, v0, v1, over: await ev(`document.querySelector('#plotL .ld-key').classList.contains('over-readout')`) };

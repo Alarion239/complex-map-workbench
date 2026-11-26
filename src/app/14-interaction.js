@@ -19,8 +19,6 @@
   let pinched = null;         // a pinch in progress zoomed ('zoom') or turned a globe ('orbit')
   // a pane that orbits a camera: X Landscape (cam), X Sphere (camL), Y Sphere (camS)
   const is3DSide = (side) => (side === 'L' ? lLand() || lGlobe() : rGlobe());
-  const is3D = () => rGlobe();
-  const cam3 = () => camS;
   const camOf = (side) => (side === 'R' ? camS : lLand() ? cam : stackOn() ? stackCam : leftCam());
   const camBaseOf = (c) => (c === camS ? CAMS : c === cam ? CAM3 : c === stackCam ? STACK_CAM : leftCamBase());
   // the orbit camera of the left plane's sphere view (renderSphereLeft keeps it fitted, like camS)
@@ -38,38 +36,34 @@
     for (const hd of cutHandlesL) { const d = Math.hypot(hd.x - x, hd.y - y); if (d < bd) { best = hd; bd = d; } }
     return best;
   };
-  // nothing to press at (x, y) of a flat plane: no shape or target, no zero or pole, no cut handle
   // (constructions bind to the z-plane's shapes and the targets: in a plane of the chain the tools draw plain shapes)
   const cmHere = (side) => side === 'R' || leftStage() === 0;
-  function emptyAt(pane, side, x, y) {
-    if (side === 'L' ? !lFlat() : !rImage()) return false;
-    pane.setView(side === 'L' ? leftView() : V.right);
-    if (side === 'L' && (cutHandleNear(x, y, ptrTouch) || (zpStep() && zpHit(x, y, zpReach(ptrTouch))))) return false;
-    const target = side === 'R', list = target ? (targetsEditable() ? S.targets : []) : planeShapes();
+  // nothing to press at (x, y) of X's flat plane: no shape, no zero or pole, no cut handle
+  function emptyAt(pane, x, y) {
+    if (!lFlat()) return false;
+    pane.setView(leftView());
+    if (cutHandleNear(x, y, ptrTouch) || (zpStep() && zpHit(x, y, zpReach(ptrTouch)))) return false;
     const z = pane.s2w(x, y), tol = 7 / pane.view.s;
-    for (const s of list) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, target ? targetWin() : winOf(s))) return false; } catch (e) { /* */ } }
+    for (const s of planeShapes()) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, winOf(s))) return false; } catch (e) { /* */ } }
     return true;
   }
   function zoomPane(pane, side, x, y, f) {
     if (is3DSide(side)) { const c = camOf(side); if (c) { const fit = camBaseOf(c).dist; c.dist = Math.min(4 * fit, Math.max(0.4 * fit, c.dist / f)); requestRender(side); } return; }
-    if (side === 'L') {
-      // (on the Stack the zoom is about the floor's point under the pointer, or the floor's centre off the floor)
-      if (stackOn()) { const h = stackPick(pane, x, y).floor; [x, y] = h && h.on ? h.p : [pane.w / 2, pane.h / 2]; }
-      pane.setView(leftView()); pane.zoomAt(x, y, f);
-      if (leftStage() > 0) leftAuto = false;
-      sourceViewChanged();
-      requestRender('L');
-    } else {
-      pane.setView(V.right); pane.zoomAt(x, y, f); rightAuto = false; requestRender('R');
-    }
+    // (on the Stack the zoom is about the floor's point under the pointer, or the floor's centre off the floor)
+    if (stackOn()) { const h = stackPick(pane, x, y).floor; [x, y] = h && h.on ? h.p : [pane.w / 2, pane.h / 2]; }
+    pane.setView(leftView()); pane.zoomAt(x, y, f);
+    if (leftStage() > 0) leftAuto = false;
+    sourceViewChanged();
+    requestRender('L');
   }
   // a two-finger drag moves a flat plane by the way its midpoint went (the pinch zooms about it): every tool, on touch
   function panPane(pane, side, dx, dy) {
     // (two fingers turn the Stack's camera, and do not pan its floor)
-    if (is3DSide(side) || (side === 'L' && stackOn())) return;
-    const v = side === 'L' ? leftView() : V.right;
+    if (is3DSide(side) || stackOn()) return;
+    const v = leftView();
     v.cx -= dx / v.s; v.cy += dy / v.s;
-    if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L'); } else { rightAuto = false; requestRender('R'); }
+    if (leftStage() > 0) leftAuto = false;
+    sourceViewChanged(); requestRender('L');
   }
   // the outer 16 px of a phone's plane only pans (or turns a globe): Android's edge-swipe Back then never cancels half a shape
   const EDGE_PX = 16;
@@ -122,6 +116,7 @@
   window.addEventListener('blur', () => { spaceHeld = false; altHeld = altKeyDown = false; });
   // (a press takes Alt from its own event; when it ends, Alt is what the keyboard says again, so a hover afterwards snaps)
   for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, () => { altHeld = altKeyDown; });
+  // (X's pane: Y's is not drawn, and takes no input)
   function setupPane(pane, side) {
     const cv = pane.ocanvas;
     // a right click: the plane menu of the object there (a right-button pan that moved opens nothing; a touch opens it
@@ -152,12 +147,6 @@
     // 450 ms; then its gesture is undone and becomes a probe (readouts, gauge). Sliding on probes; a release without
     // sliding opens the plane menu at the ring's point. A second finger, or a move before the ring is full, cancels it.
     let hold = null, ring = null;
-    // (a tap on Y while ‹ › have it on a step's plane (select, draw, a menu) ends the glide: Y is F again; a pan or a zoom does not)
-    if (side === 'R') {
-      let tap = null;
-      cv.addEventListener('pointerdown', (e) => { tap = trans.glide ? { x: e.clientX, y: e.clientY, t: performance.now() } : null; }, true);
-      cv.addEventListener('pointerup', (e) => { if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 8 && performance.now() - tap.t < 500) endPeek(); tap = null; }, true);
-    }
     const PM = () => PlaneMenu;
     const endHold = () => { if (hold) { clearTimeout(hold.t); hold = null; } if (PM()) PM().ringStop(); };
     cv.addEventListener('pointerdown', (e) => {
@@ -179,7 +168,7 @@
       // (on the right: the Phase portrait, the image plane and the globe, whose hold probes w like a mouse hover)
       // (the landscape too with the plane menu: its hold probes the relief like a mouse hover; a still finger on a zero
       // or a pole of X gets the menu of that mark)
-      const probeable = side === 'L' ? !lLand() || !!PM() : true;
+      const probeable = !lLand() || !!PM();
       // (with a construction tool, a finger on something it picks (a point, a line, a circle) picks it when
       // it lifts, however long it was held: a slow, careful tap opened the plane's menu and lost the pick. Over empty
       // space the long press still opens the menu)
@@ -198,7 +187,6 @@
           // cancelled, and the release opens no menu
           const cancelled = cancelDrawing();
           if (d0.mode === 'panL') { const v = leftView(); v.cx = d0.cx; v.cy = d0.cy; requestRender('L', 'R'); }
-          if (d0.mode === 'panR') { V.right.cx = d0.cx; V.right.cy = d0.cy; requestRender('R'); }
           if (d0.mode === 'orbit') { const c = d0.cam || camOf(side); c.yaw = d0.yaw; c.pitch = d0.pitch; c.vyaw = c.vpitch = 0; requestRender(side); }
           const r = cv.getBoundingClientRect();
           if (!PM() && !cancelled && openIntegralMenu(pane, side, x0, y0, r.left + x0, r.top + y0)) { drag = null; holdMenuT = performance.now(); setCursor(pane, side); return; }
@@ -231,7 +219,7 @@
           // (two fingers pan as well as pinch: the midpoint's own move)
           { const pmx = (now[0][0] + now[1][0] - prev[0][0] - prev[1][0]) / 2, pmy = (now[0][1] + now[1][1] - prev[0][1] - prev[1][1]) / 2; if (pmx || pmy) { panPane(pane, side, pmx, pmy); pinched = pinched || 'pan'; } }
           // a two-finger drag turns a globe (one finger draws there) and the Stack (one finger picks there)
-          if (side === 'L' ? lGlobe() || stackOn() : rGlobe()) {
+          if (lGlobe() || stackOn()) {
             const c = camOf(side);
             const mx = (now[0][0] + now[1][0] - prev[0][0] - prev[1][0]) / 2, my = (now[0][1] + now[1][1] - prev[0][1] - prev[1][1]) / 2;
             if (c && (mx || my)) { pinched = 'orbit'; c.yaw -= mx * 0.35 * DEG; c.pitch = Math.max(pitchMin(c), Math.min(88 * DEG, c.pitch + my * 0.35 * DEG)); c.vyaw = c.vpitch = 0; requestRender(side); }
@@ -256,14 +244,14 @@
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); if (side === 'L' && stackOn()) stackHoverOff(); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); if (stackOn()) stackHoverOff(); else if (lookSquareHover(-Infinity, -Infinity)) setCursor(pane, side); requestRender('OL', 'OR', lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
-      if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
+      if (draft && draft.kind === 'polygon' && !draft.target) { finishPolygon(); return; }
       // a double-click on an edge of a closed polygon adds a vertex there
-      if (!is3DSide(side) && !Construct.isTool(tool) && (side === 'L' ? lFlat() : rImage() && targetsEditable())) {
+      if (!is3DSide(side) && !Construct.isTool(tool) && lFlat()) {
         const [ex, ey] = evXY(pane, e);
-        pane.setView(side === 'R' ? V.right : leftView());
-        for (const s of (side === 'R' ? S.targets : planeShapes()).filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
+        pane.setView(leftView());
+        for (const s of planeShapes().filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
           const eg = polyEdgeAt(pane, s, ex, ey, 7);
           if (eg && polyAddVertex(s, eg.i, eg.z)) { selected = s.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); undoToast($t('Vertex added.')); return; }
         }
@@ -275,13 +263,13 @@
       // did not move); one that drew, picked, or moved a shape, a mark or a cut handle leaves the view where it is (this
       // is the plane's double-click zoom; the branch cut still moves by its red handle only)
       const lp = lastPress;
-      if (!lp || lp.side !== side || (lp.mode !== 'panL' && lp.mode !== 'panR') || lp.far || lp.pb) return;
+      if (!lp || lp.side !== side || lp.mode !== 'panL' || lp.far || lp.pb) return;
       if (Construct.isTool(tool)) return;
       const [x, y] = evXY(pane, e);
-      if (!emptyAt(pane, side, x, y)) return;
-      pane.setView(side === 'R' ? V.right : leftView());
+      if (!emptyAt(pane, x, y)) return;
+      pane.setView(leftView());
       const z = pane.s2w(x, y);
-      if (CX.isFin(z)) centerView(side, z);
+      if (CX.isFin(z)) centerView(z);
     });
   }
   // The z-window used for meshing unbounded regions follows the left view, with some slack.
@@ -290,7 +278,7 @@
   // without view changes. The meshes rebuilt for the new window keep their old (mesh, fix-up) pair on screen until
   // their own fix-ups land (shapeGPU's hold), so no unfixed intermediate is ever drawn.
   function sourceViewChanged() {
-    if (leftStage() !== 0 || solo() === 'R') return;
+    if (leftStage() !== 0 && !clipDefault) return;
     clearTimeout(sourceViewChanged.t);
     sourceViewChanged.pending = true;
     sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200);
@@ -308,11 +296,18 @@
       recentreClip();
   };
   // clipWin to the left pane's box, as a pan or zoom leaves it (sourceViewChanged.apply, and __cmwSet('srcView', …)):
-  // replaced only when the box moved or resized enough, so a small pan keeps the meshes
+  // replaced only when the box moved or resized enough, so a small pan keeps the meshes. clipDefault: init made the
+  // window from the pane's box before the layout had its final one (a saved state without a window); the first re-centre,
+  // which the settled layout asks for, puts the source view's window at the pane's size in its place, whichever plane
+  // X shows (the source view is the z-plane's, the pane's size is the same), so a mesh's window does not depend on
+  // when the thread left plane 0
+  let clipDefault = false;
   function recentreClip() {
-    if (leftStage() !== 0 || solo() === 'R') return;
+    const staged = leftStage() !== 0;
+    if (staged && !clipDefault) return;
+    clipDefault = false;
     // (while X is a phone's inset, its window at its large size)
-    const b = (Phone.largeBox && Phone.largeBox()) || paneL.box();
+    const b = staged ? viewBox(S.srcView) : (Phone.largeBox && Phone.largeBox()) || paneL.box();
     // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
     // collapsed deep views far from 0 to zero width)
     const q = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 1e-4;
@@ -325,7 +320,6 @@
     if (!goodWin(clipWin) || nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw) || aspect > 0.15) {
       clipWin = nb;
       setOpt('clipWin', clipWin);
-      if (rightAuto && rImage()) fitRight(true);
       requestRender('L', 'R');
     }
     save();
@@ -356,16 +350,14 @@
   }
   function setCursor(pane, side) {
     let c = 'default';
-    const gDraw = (sd) => globeEdit(sd) && tool !== 'select' && !GLOBE_OFF.has(tool) && tool !== 'formula';
+    const gDraw = () => globeEdit('L') && tool !== 'select' && !GLOBE_OFF.has(tool) && tool !== 'formula';
     const gEditDrag = drag && /^g(draw|handle|move)$/.test(drag.mode);
     // the 10 px around ∞ hold no point and no vertex (panels.md 9.7): not-allowed there for the Point and Polygon
     // tools and while a point or a vertex is dragged
-    const gDrawCur = (sd) => (gInf[sd] && (tool === 'point' || tool === 'polygon') ? 'not-allowed' : 'crosshair');
-    const gEditCur = (sd) => (drag.mode === 'gdraw' ? 'crosshair' : gInf[sd] ? 'not-allowed' : 'grabbing');
-    if (side === 'R') c = gEditDrag ? gEditCur('R') : rGlobe() ? (gDraw('R') && !drag ? gDrawCur('R') : drag ? 'grabbing' : 'grab')
-      : targetsEditable() && !drag && tool !== 'select' ? 'crosshair' : (drag ? 'grabbing' : 'grab');
-    else if (lGlobe() && gEditDrag) c = gEditCur('L');
-    else if (lGlobe() && gDraw('L') && !drag) c = gDrawCur('L');
+    const gDrawCur = () => (gInf.L && (tool === 'point' || tool === 'polygon') ? 'not-allowed' : 'crosshair');
+    const gEditCur = () => (drag.mode === 'gdraw' ? 'crosshair' : gInf.L ? 'not-allowed' : 'grabbing');
+    if (lGlobe() && gEditDrag) c = gEditCur();
+    else if (lGlobe() && gDraw() && !drag) c = gDrawCur();
     // the landscape takes no drawing (panels.md 9.1)
     else if (lLand() && tool !== 'select' && tool !== 'formula' && !drag) c = 'not-allowed';
     else if (!lFlat()) c = drag ? 'grabbing' : 'grab';
@@ -373,6 +365,8 @@
     else if (leftStage() > 0 && Construct.isTool(tool) && !drag) c = 'not-allowed';
     else if (drag && (drag.mode === 'panL' || drag.mode === 'zp')) c = 'grabbing';
     else if (hoverCut || zpHover) c = 'pointer';
+    // (over Look down's square with the Pick tool: the resize cursor)
+    else if (side === 'L' && !drag && tool === 'pick' && lookSquareCursor()) c = lookSquareCursor();
     else c = tool === 'select' ? 'default' : 'crosshair';
     pane.ocanvas.style.cursor = c;
   }
@@ -386,34 +380,17 @@
     Construct.pointer(e);   // (touch radii, Alt)
     pane.ocanvas.setPointerCapture(e.pointerId);
     const panBtn = e.button === 1 || e.button === 2 || (e.shiftKey && e.altKey) || edgeTouch(pane, x, y);
-    if (side === 'R') {
-      // a press ends the hover: the preimages come back with the next hover
-      if (hov.w) { setHoverW(null); requestRender('OL'); }
-      // the w-globe takes targets (P3b)
-      if (is3D() && globeEdit('R')) { globeDown(pane, side, e, x, y); gestureProbeOff(); setCursor(pane, side); return; }
-      if (is3D()) {
-        const c = cam3();
-        c.vyaw = 0; c.vpitch = 0;
-        drag = { mode: panBtn || e.shiftKey ? 'pan3' : 'orbit', cam: c, side: 'R', x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty };
-      } else {
-        // Image: the w-plane targets are drawn and edited here with the same tools
-        if (targetsEditable() && !panBtn) {
-          pane.setView(V.right);
-          if (editDown(pane, 'R', pane.s2w(x, y), x, y)) { setCursor(pane, side); return; }
-        }
-        drag = { mode: 'panR', x, y, cx: V.right.cx, cy: V.right.cy, pb: panBtn };
-      }
-      setCursor(pane, side);
-      return;
-    }
-    // left pane: the globe takes the shapes of the plane it shows; the landscape only turns
+    // the globe takes the shapes of the plane it shows; the landscape only turns
     if (lGlobe() && globeEdit('L')) { globeDown(pane, side, e, x, y); gestureProbeOff(); setCursor(pane, side); return; }
     // (the Stack: the Pick tool picks a level's point (19-stack-pick.js); the right or middle button and Shift turn the
     // camera, as any other tool's drag does: the Stack's camera has no pan)
     if (stackOn() && !panBtn && !e.shiftKey && stackPickDown(pane, x, y, ptrTouch)) { setCursor(pane, side); return; }
     if (!lFlat()) {
       const c = camOf('L');
+      if (c && stackOn()) stackMarkOff();
       if (c) { c.vyaw = 0; c.vpitch = 0; drag = { mode: (panBtn || e.shiftKey) && !stackOn() ? 'pan3' : 'orbit', cam: c, side: 'L', x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty }; }
+      // (the Landscape's sheets: a click or a held press of the Pick tool picks on them, 19-land-pick.js)
+      if (drag && drag.mode === 'orbit') landPickArm(drag, pane, x, y, ptrTouch);
       setCursor(pane, side);
       return;
     }
@@ -563,7 +540,7 @@
   // build caps (stored as disc, complement of a disc or half-plane; circle or line); Annulus, Sector and Polar grid
   // are off on the globes (the user's decision, panels.md 9.2).
   const GL3 = Region.Globe;
-  const globeEdit = (side) => (side === 'L' ? lGlobe() && solo() !== 'R' : rGlobe() && solo() !== 'L');
+  const globeEdit = (side) => side === 'L' && lGlobe();
   const GLOBE_OFF = new Set(['annulus', 'sector', 'pgrid']);
   // the snap net of a tool (panels.md 9.5): round kinds snap to the polar net, Cartesian kinds to the lifted lattice;
   // the globe's graticule draws the net of the active tool (the polar net with Select)
@@ -877,9 +854,8 @@
   // moves away; the next hover after release probes again
   function gestureProbeOff() {
     if (!drag || !/^g(draw|handle|move)$/.test(drag.mode)) return;
-    const had = !!probe || !!rHover;
+    const had = !!probe;
     probe = null;
-    if (rHover) { rHover = null; setHoverW(null); }
     if (had) { setReadouts(null); requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null); }
   }
   // a pointer move of a globe gesture (draw, handle, move)
@@ -1028,7 +1004,7 @@
     if ((d.mode === 'ghandle' || d.mode === 'gmove') && d.moved) {
       if (d.boundNum) Params.rest(d.boundNum);
       if (d.target) targetsChanged(true);
-      else { if (rightAuto && autoFit()) fitRight(true); scheduleFix(); shapesChanged(true); }
+      else { scheduleFix(); shapesChanged(true); }
       commit();
     }
     requestRender(side, 'O' + side);
@@ -1103,8 +1079,9 @@
     if (drag && drag.mode !== 'probe') { // a touch probe (long press) moves like a hover
       if (drag.x != null && !drag.far && Math.hypot(x - drag.x, y - drag.y) > 4) drag.far = true;   // (a pan, not a click)
       if (drag.mode === 'gdraw' || drag.mode === 'ghandle' || drag.mode === 'gmove') { drag.gx = x; drag.gy = y; globeMove(pane, drag.side, e, x, y); return; }
+      if (drag.mode === 'orbit' && landPickMove(drag, x, y)) return;
       if (drag.mode === 'orbit') {
-        const c = drag.cam || cam3();
+        const c = drag.cam;
         const dyaw = -(x - drag.lx) * 0.35 * DEG, dpitch = (y - drag.ly) * 0.35 * DEG;
         c.yaw += dyaw;
         c.pitch = Math.max(pitchMin(c), Math.min(88 * DEG, c.pitch + dpitch));
@@ -1117,7 +1094,7 @@
       if (drag.mode === 'pickMove' || drag.mode === 'pickOut') { pickMove(drag, pane, x, y); return; }
       if (drag.mode === 'stackPress') { stackPressMove(drag, pane, x, y); return; }
       if (drag.mode === 'pan3') {
-        const c = drag.cam || cam3();
+        const c = drag.cam;
         const k = c.dist / pane.h * 1.2;
         const dx = (x - drag.x) * k, dy = (y - drag.y) * k;
         c.tx = drag.tx + dx * Math.sin(c.yaw) + dy * Math.cos(c.yaw);
@@ -1127,14 +1104,7 @@
       }
       // a construction tool's last pick on a touch screen: the finger slides to adjust it, the dashed preview follows, and
       // lifting makes the pick (the view stays put)
-      if ((drag.mode === 'panR' || drag.mode === 'panL') && ptrTouch && Construct.isTool(tool) && Construct.finalPick(side)) { drag.cdrag = true; Construct.hover(pane, side, x, y, e); return; }
-      if (drag.mode === 'panR') {
-        V.right.cx = drag.cx - (x - drag.x) / V.right.s;
-        V.right.cy = drag.cy + (y - drag.y) / V.right.s;
-        rightAuto = false;
-        requestRender('R');
-        return;
-      }
+      if (drag.mode === 'panL' && ptrTouch && Construct.isTool(tool) && Construct.finalPick(side)) { drag.cdrag = true; Construct.hover(pane, side, x, y, e); return; }
       if (drag.mode === 'panL') {
         const v = leftView();
         v.cx = drag.cx - (x - drag.x) / v.s;
@@ -1258,9 +1228,9 @@
       cutHover(pane, side, x, y);
       const zh = zpHit(x, y);
       if (!zpSame(zpHover, zh && zh.k, zh && zh.kind, zh && zh.i)) { zpHover = zh ? { k: zh.k, kind: zh.kind, i: zh.i } : null; setCursor(pane, side); }
+      if (lookSquareHover(x, y)) setCursor(pane, side);
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
     }
-    if (side === 'R' && draft && draft.kind === 'polygon' && draft.target) { pane.setView(V.right); draft.hover = snapZ(pane, pane.s2w(x, y)); }
     if (cmHere(side)) Construct.hover(pane, side, x, y, e);   // (the snap ring before the press)
     if (side === 'L') {
       pane.setView(leftView());
@@ -1269,21 +1239,6 @@
       sndMove(x, y, probe, 'pointer');
       // the w-globe's probe ring and projection ray are drawn by GL with the globe
       requestRender('OL', 'OR', rGlobe() ? 'R' : null);
-    } else {
-      // a point w of the image plane (or of the w-globe): its preimages show in X
-      let w;
-      if (rImage()) { pane.setView(V.right); w = pane.s2w(x, y); } else w = pickSphere(pane, camS, x, y);
-      if (probe) { probe = null; setReadouts(null); }
-      rHover = w;
-      const ro = $('rightReadout');
-      const vout = yHtml();
-      if (w && ro && !ro.classList.contains('copied')) ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`|${vout}|`, fmtR(CX.abs(w)));
-      if (!w && ro && !ro.classList.contains('copied')) ro.innerHTML = idleRight();
-      copyValue.R = w ? CX.fmt(w, 6).replace(/\s/g, '') : '';
-      // (not during Y's step transition: its points are no values of F)
-      setHoverW(w && !trans.k ? w : null);
-      if (w && tourL.probe) tourEmit('probe', { pane: 'R', w: [w.re, w.im] });
-      requestRender('OL', 'OR');
     }
   }
   // number formatting for readouts: 4 decimals in [1e-3, 1e4), otherwise a ×10ⁿ form; real minus signs
@@ -1310,7 +1265,6 @@
     return `${fmtR(re, dp)} ${im < 0 ? '−' : '+'} ${fmtR(Math.abs(im), dp)}${unit}`;
   }
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
-  let rHover = null; // a point hovered in the right (image) plane
   const copyValue = { L: '', R: '' };
   // While the steps view's thread moves (a glide, a scrub, a play, held between two planes), the left probe shows
   // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
@@ -1457,7 +1411,7 @@
     const lr = $('leftReadout'), ro = $('rightReadout');
     const a = idleLeft(), b = idleRight();
     if (!hov.w && !stackKeeps() && !lr.classList.contains('copied') && lr.innerHTML !== a) lr.innerHTML = a;
-    if (!rHover && !ro.classList.contains('copied') && ro.innerHTML !== b) ro.innerHTML = b;
+    if (!ro.classList.contains('copied') && ro.innerHTML !== b) ro.innerHTML = b;
   }
   function copyReadout(side) {
     const el = $(side === 'L' ? 'leftReadout' : 'rightReadout');
@@ -1516,19 +1470,18 @@
       globeUp(pane, d.side || side, d);
       return;
     }
-    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; probeHover = null; probeHeld = false; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; probeHover = null; probeHeld = false; setHoverW(null); setReadouts(null); requestRender('OL', 'OR'); return; }
     // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
     // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
-    if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || d.mode === 'panR' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
-    if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (bind a dropped handle; a click picks)
+    if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
+    if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if (d.mode === 'panL' && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
-    if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
+    if (d.mode === 'orbit' && d.side === 'L') { landPickUp(d); requestRender('L'); return; }
     // a zero or a pole: released off the plane it is removed; one undo step per gesture (an added one included)
     if (d.mode === 'zp') {
       if (d.off) { zpRemove(d.k, d.kind, d.i); return; }
       if (d.moved) {
-        if (rightAuto && autoFit()) fitRight(true);
         scheduleFix();
         commit();
       }
@@ -1536,11 +1489,9 @@
       return;
     }
     if (d.mode === 'cut' || d.mode === 'handle' || d.mode === 'move') {
-      if (rightAuto && autoFit()) fitRight(true);
       scheduleFix();
       requestRender('L', 'R');
     }
-    if (d.mode === 'orbit') { requestRender('R'); return; }
     if (d.mode === 'cut') { commit(); return; }
     if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { if (d.boundNum) Params.rest(d.boundNum); shapesChanged(true); commit(); } return; }
     if (d.mode === 'pre') { if (d.moved) { if (d.bn) Params.rest(d.bn); shapesChanged(true); commit(); } return; }
@@ -1606,7 +1557,7 @@
       if (e.key === 'Escape') {
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
-        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (stackUnpin()) { /* unpinned the glass's point, or put out the floor's lit twins */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (stackUnpin()) { /* unpinned the glass's point, or put out the floor's lit twins */ } else if (landPickOff()) { /* put out the lit twins on the Landscape's sheets */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
         else if (tool !== 'select') setTool('select');
         else if (escSound) { /* the sound was this Esc's level */ }
         else if (modeNext()) modeClose(modeNext());
@@ -1634,7 +1585,7 @@
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
       if (e.key === '?') { openGuide(); return; }
       if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
-      if (key === 'z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
+      if (key === 'z') { $('leftFit').click(); return; }
       const tl = TOOLS.find((x) => x[2] && x[2].toLowerCase() === key);
       if (tl) { e.preventDefault(); setTool(tl[0]); }
     });

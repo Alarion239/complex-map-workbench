@@ -16,8 +16,6 @@
     eye: svgI('<path d="M1.75 8s2.3-4.25 6.25-4.25S14.25 8 14.25 8s-2.3 4.25-6.25 4.25S1.75 8 1.75 8z"/><circle cx="8" cy="8" r="2"/>'),
     eyeOff: svgI('<path d="M1.75 8s2.3-4.25 6.25-4.25S14.25 8 14.25 8s-2.3 4.25-6.25 4.25S1.75 8 1.75 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/>'),
     fit: svgI('<path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3"/><circle cx="8" cy="8" r="1.75"/>'),
-    expand: svgI('<path d="M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9"/>'),
-    restore: svgI('<path d="M13 3L9 7M9 3.5V7h3.5M3 13l4-4M7 12.5V9H3.5"/>'),
     undo: svgI('<path d="M5.5 3.5l-3 3 3 3M2.5 6.5h7a3.5 3.5 0 0 1 0 7H6"/>'),
     redo: svgI('<path d="M10.5 3.5l3 3-3 3M13.5 6.5h-7a3.5 3.5 0 0 0 0 7H10"/>'),
     theme: svgI('<circle cx="8" cy="8" r="5.75"/><path d="M8 2.25a5.75 5.75 0 0 1 0 11.5z" fill="currentColor" stroke="none"/>'),
@@ -315,14 +313,14 @@
       cauchyShow: 'both', cauchyPlus: false,
       // the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
       params: [],
-      // (S.sv, the steps view's {at, T, scope, surf, speed}: absent until ?view=steps writes it, so the default
+      // (S.sv, the steps view's {at, T, scope, surf, links, speed, alone}: absent until ?view=steps writes it, so the default
       // view's saves are free of it; sanitizeState repairs it, Views.cleanSv)
     };
   }
   // target colors skip c4 (magenta), the palette ink nearest the pole color: roots must not read as poles
   const TARGET_CI = [5, 2, 6, 0, 4, 7, 1];
   const V = { left: { cx: 0, cy: 0, s: 60 }, right: { cx: 0, cy: 0, s: 60 } };
-  let rightAuto = true, leftAuto = true;
+  let leftAuto = true;
   let selected = null;
   let tool = 'select';
   let draft = null;
@@ -569,13 +567,12 @@
     // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
     // numbers, so the saved work comes back as it was written)
     numberPoints();
-    const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
+    const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: S.rightView || null });
     // (the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
     // build/phone-swap.md)
     if (Phone.largeView) {
-      const lv = Phone.largeView('L'), rv = Phone.largeView('R');
+      const lv = Phone.largeView('L');
       if (lv && leftStage() === 0) out.srcView = Object.assign({}, S.srcView, lv);
-      if (rv && out.rightView) out.rightView = rv;
     }
     // run-time fields of shapes (s._err: a shape's current error) are not state
     // (returns what it wrote, false when storage refused it: the language switch reloads only on a written save)
@@ -899,9 +896,9 @@
   const rGlobe = () => S.view.R.surf === 'sphere';
   // the Sphere's equatorial plane of X's globe (X → Y's z-sphere or the phase sphere)
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
-  // the pane a merged view shows alone ('L': Phase, Landscape; 'R': X → Y with the deformation), else the expanded
-  // pane of the split view (S.solo) or null
-  const solo = () => (SV.on ? 'L' : Views.merged(S.view) || (S.view.main === 'xy' ? S.solo : null));
+  // the one pane shown: X ('L'), in the steps view and the classic view alike; Y's pane is not drawn, and its DOM stays,
+  // hidden
+  const solo = () => 'L';
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)

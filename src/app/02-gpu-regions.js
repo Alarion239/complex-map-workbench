@@ -120,7 +120,7 @@
       // the newest mesh already has its own fix-up for this role: the finished older pair is not needed
       freePair({ meshRes: job.meshRes, fix: job.fixDone });
     } else {
-      // the job's mesh was replaced while it ran: the finished pair becomes the hold until the newest mesh has its own
+      // a newer mesh replaced the job's while it ran: the finished pair is the hold until the newest mesh has its own
       const fix = job.fixDone || {};
       const old = fix[job.role];
       fix[job.role] = make(old && old.meshKey === job.meshKey ? old : null);
@@ -169,7 +169,7 @@
     if (!r) return;
     destroyFix(r);
     dropHold(r); dropLive(r); gcLines(r, true);
-    GLR.destroy(r.meshRes); GLR.destroy(r.lineRes);
+    GLR.destroy(r.meshRes); GLR.destroy(r.lineRes); for (const k in r.rept || {}) if (r.rept[k]) GLR.destroy(r.rept[k].res);
     gpu.delete(id);
   }
   function dropAllGPU() { for (const id of [...gpu.keys()]) dropShapeGPU(id); }
@@ -379,8 +379,6 @@
     const m = R.steps.length, j = allAtOnce() ? (morph.T > 0 ? m : 0) : Math.min(m, Math.ceil(morph.T));
     return j >= m ? R.p1 : j > 0 ? R.steps[j - 1] : R.lo;
   };
-  // (exact ends, as homrange.ts lerpE and gl.js MAP_STAGE)
-  const lerpF = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); });
   // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none: a constant
   // or a formula that is not recognisably a catalog map, funcs.js); the identity at t <= 0 and f at t >= 1 (D3)
   const homF = (k, t) => HR.homF(k, t);
@@ -438,16 +436,7 @@
     const out = [];
     const lk = leftStage();
     const needs = (map, role, kind) => (s) => pathOf(s, map, role, kind, { status: true }).path === 'forward';
-    if (lk > 0 && solo() !== 'R') out.push({ role: 'L', F: stageF(lk), key: 'S' + chainSig[lk], need: needs(stageMap(lk), 'L', lGlobe() ? 'globe' : 'flat') });
-    if (solo() !== 'L') {
-      // (Y always shows the images: in its plane or on its globe)
-      const imgs = true;
-      const kind = rGlobe() ? 'globe' : 'flat';
-      if (imgs && rightStage() > 0) {
-        const k = rightStage();
-        out.push({ role: 'R', F: stageF(k), key: 'S' + chainSig[k], need: needs(stageMap(k), 'R', kind) });
-      }
-    }
+    if (lk > 0) out.push({ role: 'L', F: stageF(lk), key: 'S' + chainSig[lk], need: needs(stageMap(lk), 'L', lGlobe() ? 'globe' : 'flat') });
     if (svFixWant && SV.on) out.push(svFixWant);
     return out;
   }
@@ -463,7 +452,7 @@
   // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag, or the steps view's
   // glide, scrub or play (svGliding: the left pane's plane follows the thread, and a fix-up of the plane it passes
   // would run its slices between the scrub's frames)
-  const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (SV.on && svGliding()));
+  const fixBusy = () => !!(tweens.length || camTweens.length || drag || (SV.on && svGliding()));
   const FIX_SLICE = 5; // ms of work between yields (spec 8.3: idle slices of at most 6 ms)
   // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (fixBusy); null
   // when the job went stale (fixJob.token moved on)
@@ -627,7 +616,7 @@
   // trouble (fixGen: a vertex without a finite image, or a piece still failing the midpoint test at depth 5; the
   // verdict depends on the shape, the map and the window, never on the right view), is drawn from a SphereMesh: the
   // sphere-native NVB mesher of src/sphere.js, refined on the CPU in the image metric, drawn as pre-mapped triangles
-  // (GLR.createPreMesh / drawPreMapped). Playing homotopy frames (morph, transitions) keep the direct GPU path, and so
+  // (GLR.createPreMesh / drawPreMapped). Playing homotopy frames (morph) keep the direct GPU path, and so
   // does a pending inverse compile (it may show an already published mesh of the same content).
   // Jobs: one per key (shape, role, view kind, map, window, K, pattern; view), run one at a time in SM_SLICE ms idle
   // slices that wait out any motion (fixBusy, interacting), with their own keys: scheduleFix's token does not cancel
@@ -682,10 +671,9 @@
     if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L' && role !== 'SV')) return null;
     if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
-      // a homotopy frame: never during Y's step transition (trans.k); otherwise only when the shape is drawn forward at an end of the step
+      // a homotopy frame: only when the shape is drawn forward at an end of the step
       // (a shape drawn exactly at both ends shows the direct GPU image while paused inside the step: the mesh changed
       // 0.00% of its pixels there, at 200 ms of CPU and a mesh per paused T)
-      if (trans.k) return null;
       const ends = homEnds(m);
       // (an identity end draws the region itself: exact)
       if (!ends || ends.every((e) => isIdentMap(e) || pathOf(s, e, role, 'flat').path !== 'forward')) return null;

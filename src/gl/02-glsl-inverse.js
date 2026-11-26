@@ -906,9 +906,12 @@ float invLeaf(Lf L, out bool cov) {
   // a globe program's pixel is anisotropic: the walk's range levels are converted to pixels along the footprint vectors
   // (GLChain's ixFoot under IX_ANISO; set by INV_MAIN(globe))
   const INV_GLOBE_PRE = '#define IX_ANISO 1\nvec2 ixAwX, ixAwY;\n';
-  // B: compile-time buffer size; globe: Sphere view geometry (P3)
+  // B: compile-time buffer size; globe: Sphere view geometry (P3). A globe program's uOpaqueOnly = 1 discards a pixel the
+  // composite does not cover opaquely, so the pass draws (and marks the stencil) only where it hides everything behind it
+  // (sphereRegions' sheet copies under the principal sheet). Opaque: an alpha that rounds to 255 in the 8-bit target
+  // (a >= 1 - 0.5/255), so what a pass under it would add, at most 1 - a of full scale, is under half a level
   const INV_MAIN = (globe) => glsl`
-${globe ? 'in vec3 vP; uniform vec3 uEye;' : ''}
+${globe ? 'in vec3 vP; uniform vec3 uEye; uniform int uOpaqueOnly;' : ''}
 void main() {
 ${globe ? glsl`  vec3 P = normalize(vP);
   // S = 0, N = infinity, the conjugate lift's inverse w = (P.x - i P.y) / (1 - P.z); near the north pole w = 1 / u
@@ -928,7 +931,7 @@ ${globe ? glsl`  vec3 P = normalize(vP);
   ixEdge = 0.0; ixEdgeC = 0.0; ixFill = 0.0;
 #endif
 #ifdef IX_REPT
-  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepRim = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
   if (ixRepKeep()) discard;
 #endif
   invWalk(w);
@@ -936,13 +939,14 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * u
   // a pixel of a REPT search with no cover and no certified answer (a failed certificate, the node budget, a leaf
   // unresolved by its chain error): the grey no-value hatch of the plane's colouring (dcolorAt's NaN), opaque, in the
   // pane's own pixel phase (uIxRepFc: this target's origin in the pane's framebuffer); in a region mask's pass
-  // (uIxRepHatch 1) the mark (1, 0, 0, 0), which no premultiplied colour is: drawInverse's composite turns it into the
-  // stencil mark for the hatch drawn over the masked picture (GLR.reptHatchFill)
+  // (uIxRepHatch 1) the mark (1, 0, 0, 0), or (1, 0, 1, 0) on the image's rim (ixRepRim), which no premultiplied colour
+  // is: drawInverse's composite turns it into the stencil mark for the hatch drawn over the masked picture
+  // (GLR.reptHatchFill)
   // a pixel of a first pass whose search did not end: the continue mark (0, 1, 0, 0), no premultiplied colour either,
   // for the second pass
   if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
   if (nCov == 0 && (ixRepFail || ixRepCap || ixRepUnres)) {
-    if (uIxRepHatch == 1) { o = vec4(1.0, 0.0, 0.0, 0.0); return; }
+    if (uIxRepHatch == 1) { o = vec4(1.0, 0.0, ixRepRim ? 1.0 : 0.0, 0.0); return; }
     o = vec4(nanHatch(gl_FragCoord.xy + uIxRepFc, uDpr), 1.0);
     return;
   }
@@ -967,6 +971,7 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * u
     if (ixTailInf || uLastOpaque == 1) { C += T * mc; T = 0.0; }
   }
 ${globe ? `  float a = U * (1.0 - T);
+  if (uOpaqueOnly == 1 && a < 1.0 - 0.5 / 255.0) discard;
   if (!(a > 0.0)) { o = vec4(0.0); return; }
   vec3 v = normalize(uEye - vP);
   o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}

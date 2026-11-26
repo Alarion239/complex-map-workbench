@@ -829,6 +829,7 @@ const InvOps = (() => {
   const REPT_ESC_GROW = 2;           // the escape set's growth per step: |R(z)| > REPT_ESC_GROW |z| on |z| >= REPT_ESC_R
   const REPT_ESC_BISECT = 60;        // bisection steps of the escape radius (float64 halves its bracket to the last bit)
   const ENCL_R_MAX = 1e15;           // an enclosure wider than this is the whole plane (float32 bounds stay finite)
+  const RAD_UP = 1 + 2 ** -48;       // a radius bound's rounding up per float64 operation, a few ulps (reptEncloseNew's disc)
   const OMEGA = [ONE, C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)];
   // P, Q high-first, padded to REPT_DEG + 1 coefficients
   const padTo = (co, n) => [...Array(Math.max(0, n - co.length)).fill(ZERO), ...co];
@@ -1020,8 +1021,9 @@ const InvOps = (() => {
     for (let i = 0; i < REPT_ESC_BISECT; i++) { const m = (lo + hi) / 2; if (reptEscF(P, Q, m) > 0) hi = m; else lo = m; }
     return hi;
   }
-  // Inverse's prepare: [E_0 .. E_n] for the region's box b {x0, x1, y0, y1}, each {x0, x1, y0, y1, esc} or null (the
-  // whole plane): the points of the box (empty when x0 > x1) and, when esc > 0, of {|z| >= esc}. The box is cut into
+  // Inverse's prepare: [E_0 .. E_n] for the region's box b {x0, x1, y0, y1}, each {x0, x1, y0, y1, esc, rad} or null
+  // (the whole plane): the points of the box (empty when x0 > x1) and, when esc > 0, of {|z| >= esc}; when rad > 0, only
+  // those of them within |z| <= rad (a disc region under a monomial step: disc). The box is cut into
   // ENCL_GRID x ENCL_GRID cells, each pushed through the n steps as its circumscribed disc; a cell whose disc meets a
   // pole (or outgrows ENCL_R_MAX) at some level is cut in four and pushed again, while the cells pushed stay within
   // ENCL_CELLS_MAX. A cell that cannot be cut makes every level from its failure on the whole plane. A cell whose disc
@@ -1029,19 +1031,25 @@ const InvOps = (() => {
   // later level r' it lies in {|z| >= s REPT_ESC_GROW^(r' - r)} (each step rounded down, at most ENCL_R_MAX). E_r's box
   // holds every disc pushed to level r and its esc is the least escape bound at r (each cell's discs and escape sets
   // enclose its points' images, and the cells cover b).
-  // (cached by P, Q, n and the box, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
+  // (cached by P, Q, n, the box, escR and the disc, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
   // prepares the shape again)
   const ENCL_CACHE = 8, enclCache = new Map();
-  function reptEnclose(P, Q, n, b, escR = null) {
-    const key = JSON.stringify([P, Q, n, b.x0, b.x1, b.y0, b.y1, escR]);
+  function reptEnclose(P, Q, n, b, escR = null, disc = null) {
+    const key = JSON.stringify([P, Q, n, b.x0, b.x1, b.y0, b.y1, escR, disc]);
     const hit = enclCache.get(key);
     if (hit) { enclCache.delete(key); enclCache.set(key, hit); return hit.map((e) => e && Object.assign({}, e)); }
-    const E = reptEncloseNew(P, Q, n, b, escR);
+    const E = reptEncloseNew(P, Q, n, b, escR, disc);
     enclCache.set(key, E.map((e) => e && Object.assign({}, e)));
     if (enclCache.size > ENCL_CACHE) enclCache.delete(enclCache.keys().next().value);
     return E;
   }
-  function reptEncloseNew(P, Q, n, b, escR) {
+  // a monomial step k z^d (P's leading term alone over a constant Q): {k: |k| = |p_d / q_0|, d}, else null
+  function reptMono(P, Q) {
+    const qi0 = Q.findIndex((q) => !isZero(q));
+    if (!(P.slice(1).every(isZero) && qi0 === Q.length - 1)) return null;
+    return { k: abs(div(P[0], Q[qi0])), d: P.length - 1 };
+  }
+  function reptEncloseNew(P, Q, n, b, escR, disc) {
     const E = [Object.assign({ esc: 0 }, b)];
     for (let r = 1; r <= n; r++) E.push({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, esc: 0 });
     // the escape bounds of a cell in {|z| >= s} at level r0, at r0 and every later level
@@ -1055,6 +1063,7 @@ const InvOps = (() => {
     if (![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return E.map(() => null);
     let open = n + 1;                         // levels from here on are the whole plane
     const Pa = Float64Array.from(P.flatMap((c) => [c.re, c.im])), Qa = Float64Array.from(Q.flatMap((c) => [c.re, c.im])), o = new Float64Array(24);
+    const mn = reptMono(P, Q), mono = !!mn, monoD = mono ? mn.d : 0, monoK = mono ? mn.k * RAD_UP * RAD_UP : 0;
     const size = Math.abs(b.x0) + Math.abs(b.x1) + Math.abs(b.y0) + Math.abs(b.y1);
     const hx = (b.x1 - b.x0) / ENCL_GRID, hy = (b.y1 - b.y0) / ENCL_GRID, queue = [];
     for (let i = 0; i < ENCL_GRID; i++) for (let j = 0; j < ENCL_GRID; j++) queue.push([b.x0 + i * hx, b.y0 + j * hy, hx, hy]);
@@ -1085,6 +1094,25 @@ const InvOps = (() => {
         e.x0 = Math.min(e.x0, discs[4 * k]); e.x1 = Math.max(e.x1, discs[4 * k + 1]);
         e.y0 = Math.min(e.y0, discs[4 * k + 2]); e.y1 = Math.max(e.y1, discs[4 * k + 3]);
       }
+    }
+    // (a monomial step k z^d and a disc region D(c, rho): its image after r steps lies in |z| <= R_r, R_0 = |c| + rho
+    // and R_{r+1} = |k| R_r^d, each rounded up: E_r's rad, its box clipped to [-R_r, R_r]^2, and a level the box's cells
+    // could not reach is that square alone)
+    if (mono && disc && disc.r >= 0) {
+      // (each float64 product, sum and square root rounded up by RAD_UP, several ulps: R_r's error stays near d^r ulps,
+      // where ENCL_UP's would reach 0.01 at 20 copies)
+      let R = (mag(disc.c[0], disc.c[1]) * RAD_UP + disc.r) * RAD_UP, upto = 0;
+      for (let r = 1; r <= n; r++) {
+        let p = monoK;
+        for (let k = 0; k < monoD; k++) p = p * R * RAD_UP;
+        R = p;
+        if (!(R < ENCL_R_MAX)) break;
+        // (past the cells' failure the level is the disc's bound alone, with no escape bound)
+        if (r >= open) E[r] = { x0: -R, x1: R, y0: -R, y1: R, esc: 0, rad: R };
+        else { const e = E[r]; e.x0 = Math.max(e.x0, -R); e.x1 = Math.min(e.x1, R); e.y0 = Math.max(e.y0, -R); e.y1 = Math.min(e.y1, R); e.rad = R; }
+        upto = r + 1;
+      }
+      if (upto > open) open = upto;
     }
     return E.map((e, r) => (r >= open ? null : e));
   }
@@ -1149,7 +1177,7 @@ const InvOps = (() => {
   const INEL = (reason) => ({ ok: false, reason });
   const OK = (ops) => ({ ok: true, ops });
   // Inverse.stepOps(b) -> {ok: true, ops} | {ok: false, reason}; b: a Funcs.build() result
-  function stepOps(b) {
+  function stepOps(b, opts = {}) {
     if (!b || b.error || !b.def) return INEL(b && b.error ? b.error : 'no step');
     // a step standing for its homotopy at a time t (Inverse.homBuilt): its homotopy's ops
     if (b.__homOps) return b.__homOps();
@@ -1221,8 +1249,8 @@ const InvOps = (() => {
         return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ ${NEWT_POLY_MAX})`);
       }
       case 'custom': {
-        // a Repeat of one step of degree REPT_DEG: one REPT op for every copy
-        const rf = b.repeat ? reptForm(b) : null;
+        // a Repeat of one step of degree REPT_DEG: one REPT op for every copy, unless opts.rept is false (the copies' ops)
+        const rf = b.repeat && opts.rept !== false ? reptForm(b) : null;
         if (rf) return OK([opRept(rf.P, rf.Q, b.repeat.n, b.f)]);
         // a formula recognized as catalog steps (Funcs, src/recognize.js): their ops, when every one has them
         if (b.rec) {
@@ -1803,7 +1831,7 @@ const InvOps = (() => {
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, cubicRoots, quarticRoots, ratPoly, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtDH, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm, ratCritical,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF
+    REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF, reptMono
   };
 })();
 import { CX } from './cx.js';

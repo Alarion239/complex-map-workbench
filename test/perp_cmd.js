@@ -1,4 +1,4 @@
-// v16.3 the Perpendicular circle (notes/orthogonal-circle/SPEC.md 7, "test/perp_cmd.js"). In the real app, with real
+// The Perpendicular circle (notes/orthogonal-circle/SPEC.md 7, "test/perp_cmd.js"). In the real app, with real
 // pointer events (mouse; touch on the phone):
 //   A (desktop 1440, light, English): the fifth Construct tile and its tooltip; the shown unit circle picked as the curve
 //     (Circle 1 appears only with K, one undo step for all); K's colour; the row and the Inspector; |cos| at rest and over
@@ -6,7 +6,7 @@
 //     axis (Line 1, the half-plane model); P on a disc's centre handle (a line); the pencil (the reason, the eye) and
 //     back; C a polygon side and a 3-point circle; refusals (empty space, a freehand curve), Esc; the plane menu;
 //     ⋯ Region, Use complement, the family as C's centre crosses PQ; Delete C with the cascade toast, then Undo.
-//   B reload (bitwise), a link in a fresh namespace, the v16.2 test page on the same link (the cached circle, one toast).
+//   B reload (bitwise), a link in a fresh namespace, the 16.2 page on the same link (the cached circle, one toast).
 //   C Russian: the tiles fit (EN and RU), the chip, the row, the reason, the caption.
 //   D dark at 1440; 1024 × 768 and 768 × 1024 (the rail fits; fitRail drops Grid and Polar grid first); the phone
 //     390 × 844 (Android Chrome, touch): five Construct tiles in More, a tile closes the sheet, a curve pick within
@@ -15,11 +15,12 @@
 //   F BUDGET60: P dragged with 1 and 10 dependent perpendicular circles (curves and regions), 1/z in Y.
 //   G Y: a perpendicular circle in Y through z₀″, C a target circle.
 //   H screenshots (perp-*.png; copied to notes/orthogonal-circle/shots/perp/).
-//   I v16.4 Inside C only (notes/orthogonal-circle/segments/SPEC.md 11): the chip, the disc model, Intersect bitwise, no
-//     pixel outside, the Inspector and ⋯, the half-plane, Y, export captions, links (v16.3 and v16.2 pages: copy their
-//     dist/test.html to dist/v163-test.html and dist/v162-test.html first), layouts, BUDGET60, screenshots (seg-*.png).
+//   I Inside C only (notes/orthogonal-circle/segments/SPEC.md 11): the chip, the disc model, Intersect bitwise, no
+//     pixel outside, the Inspector and ⋯, the half-plane, Y, export captions, links (the 16.3 and 16.2 pages: copy
+//     their dist/test.html to dist/v163-test.html and dist/v162-test.html first), layouts, BUDGET60, screenshots
+//     (seg-*.png).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/perp_cmd.js
-// For B's v16.2 page, copy notes/v16.2-candidate/dist/test.html to dist/v162-test.html first (removed afterwards).
+// For B's 16.2 page, copy notes/v16.2-candidate/dist/test.html to dist/v162-test.html first (removed afterwards).
 // (CMW_ONLY=A,G runs those sections alone)
 const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
@@ -81,9 +82,25 @@ const dragH = async (x0, y0, x1, y1, n, dt) => {
   return drag(x0, y0, x1, y1, n, dt);
 };
 const toastText = () => ev(`(document.querySelector('#toastHost .toast > span') || {}).textContent || ''`);
+// the X → Y figure's caption, read on the classic view's figure: X there is the plain picture, which names its shapes,
+// where the steps view's plane is coloured and its caption a phase portrait's. The same scene is reloaded with
+// view=classic (the page reads its view at its load), and the page it was is loaded again after
+const capClassic = async (o) => {
+  const back = await ev('location.href'), u = new URL(back);
+  u.searchParams.set('view', 'classic');
+  await nav(u.toString());
+  // (the page opens in the view the scene saved, which the steps view may have left as Phase or the Sphere: the caption
+  // is read in X → Y on the plane, and that view put back before the page it was is loaded again)
+  const was = await ev('(() => { const v = __cmwState().view; return { main: v.main, surf: v.L ? v.L.surf : null }; })()');
+  await ev(`__cmwSetMain('xy'); __cmwSetView('L', 'plane'); 1`); await settled({ floor: 400 });
+  const c = await ev(`await (async () => { const f = await __cmwFig.build(${JSON.stringify(Object.assign({ view: 'xyL' }, o || { for: 'article', cols: 1 }))}); return f ? f.captionTex : null; })()`, 60000);
+  await ev(`__cmwSetMain(${JSON.stringify(was.main)}); ${was.surf ? `__cmwSetView('L', ${JSON.stringify(was.surf)});` : ''} 1`);
+  await nav(back);
+  return c;
+};
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim())`);
-// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
-// full names become the tile labels, so each suite states the label once)
+// (the chip names its tool in full on the wide plane, X's, in both views; the full names become the tile labels, so each
+// suite states the label once)
 const CHIP_NAMES = [
   ['Circle through 3 points', '3-pt circle'],
   ['Perpendicular circle', 'Perpendicular'],
@@ -93,7 +110,7 @@ const CHIP_NAMES = [
   ['Касающаяся окружность', 'Касание']
 ];
 const chipLabel = async (c) => {
-  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  if (!c) return c;
   const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
   return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
 };
@@ -182,7 +199,7 @@ await section('A', async () => {
   const nA = (await ST()).list.length;
   const em = await W(-0.5, -1.2);
   await click(em[0], em[1]); await settle(150);
-  const chipWarn = () => ev(`(document.querySelector('#draftChipL .cm-warn') || {}).textContent || ''`);   // (v16.5 UX52: a refusal is said in the chip)
+  const chipWarn = () => ev(`(document.querySelector('#draftChipL .cm-warn') || {}).textContent || ''`);   // (a refusal is said in the chip)
   const t1s = await chipWarn();
   const fz = await W(-0.5, -1.9);
   await click(fz[0], fz[1] + 1); await settle(150);
@@ -199,7 +216,7 @@ await section('A', async () => {
   await click(u[0] + 3, u[1] - 2); await settle(150);
   let d = (await CI()).draft;
   st = await ST();
-  // (v16.5 fix user-6: after the curve the chip says a point on it will do, "Pick a point (on {c} or anywhere)")
+  // (after the curve the chip says a point on it will do, "Pick a point (on {c} or anywhere)")
   const chipA2 = await chipT();
   ok('A2 the unit circle is picked; no shape yet', d && d.tool === 'perp' && d.curve1 === null && st.list.length === n0 && chipA2.startsWith('Pick a point (on the unit circle or anywhere) · 1 of 2'), { d, n: st.list.length, chip: chipA2 });
   // 3. z₀ (snapped 0.3 + 0.2i), then an empty spot: K
@@ -219,7 +236,7 @@ await section('A', async () => {
   const nm = (id) => (names.find((x) => x.id === id) || {}).name;
   info.rowK1 = await rowD(K1.id);
   info.namesK1 = [nm(P1.id), nm(Q1.id), nm(C1.id)];
-  // (v16.5 fix rail-4: the unit circle made a shape is "the unit circle" and takes no number; the state's own circle
+  // (the unit circle made a shape is "the unit circle" and takes no number; the state's own circle
   // stays Circle 1)
   ok('A3 the row: through z₃ and z₄, perpendicular to the unit circle (v16.5 rail-4; the state has z₀–z₂ and Circle 1)', info.rowK1 === `perpendicular to ${nm(C1.id)}, through ${nm(P1.id)} and ${nm(Q1.id)}` && nm(C1.id) === 'the unit circle', [info.rowK1, info.namesK1]);
   info.inspK1 = await ev(`(document.querySelector('.cm-idef') || {}).textContent`);
@@ -512,7 +529,7 @@ await section('C', async () => {
   await move(u[0] + 3, u[1] - 2); await settle(120);
   ok('C RU ring chip: привязка: единичная окружность', ((await CI()).ring || {}).chip === 'привязка: единичная окружность', (await CI()).ring);
   await click(u[0] + 3, u[1] - 2); await settle(100);
-  // (v16.5 fix user-6: «Выберите точку (на кривой: … или в любом месте)»; v16.3.1/v16.5: a chip that would wrap with its
+  // (the chip says «Выберите точку (на кривой: … или в любом месте)»; a chip that would wrap with its
   // keyboard tail drops it when it then fits one line, as touch_cmd A5 accepts)
   const ruChip2 = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t');
     if (!t) return null;
@@ -521,7 +538,7 @@ await section('C', async () => {
     return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size };
     })()`));
   const ruBase2 = 'Выберите точку (на кривой: единичная окружность или в любом месте) · 1 из 2 · Ортогональная';
-  // (construct.js syncChip, v16.3.1: without the tail when that is one line, or when the whole text would be cut at
+  // (construct.js syncChip: without the tail when that is one line, or when the whole text would be cut at
   // the lines its place allows: then the shorter text, on two lines)
   ok(
     'C RU chip after the curve',
@@ -539,7 +556,7 @@ await section('C', async () => {
   let st = await ST();
   const K = last(st);
   info.ruRow = await rowD(K.id);
-  // (v16.5 fix rail-4: the unit circle made a shape is «единичная окружность», no number)
+  // (the unit circle made a shape is «единичная окружность», no number)
   ok('C RU row: через z₃ и z₄, ортогонально кривой: единичная окружность', info.ruRow === 'ортогональна кривой: единичная окружность; через z₃ и z₄', info.ruRow);
   // the pencil's reason
   const m1 = await W(0.5, 0.5), m2 = await W(1, 1);
@@ -550,9 +567,7 @@ await section('C', async () => {
   await shot('perp-d1440-ru-made');
   // the caption (the pencil circle removed first: an undefined shape has no phrase)
   await key('z', 4); await settle(250);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
-    return f ? f.captionTex : null;
-    })()`);
+  const capRu = await capClassic();
   info.capRuC = capRu;
   ok('C RU caption: «окружность, проходящая через … и ортогональная окружности …»', /окружност[ьи], проходящ(ая|ей) через .* и[ ~]ортогональн(ая|ой) окружности/.test(capRu || ''), capRu);
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
@@ -610,7 +625,7 @@ await section('D', async () => {
   let d = (await CI()).draft;
   ok('D phone: a tap 8 px off the circle picks it', d && d.curve1 && d.curve1.s === 'pc', d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
-  // (v16.5 fix user-6: "Pick a point (on Circle 1 or anywhere)"; pc is the scene's only circle)
+  // (the chip says "Pick a point (on Circle 1 or anywhere)"; pc is the scene's only circle)
   ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point \(on Circle 1 or anywhere\) · 1 of 2 · Perpendicular/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   const pp = await W(0.4, 0.3);
   await touch(pp[0] + 12, pp[1] - 9); await settle(200);
@@ -661,9 +676,7 @@ await section('E', async () => {
     ],
     steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 120 }, nextId: 50,
   };
-  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
-    return f ? f.captionTex : null;
-    })()`);
+  const cap = () => capClassic();
   await load(NS + 'e1', SE); await settle(900);
   info.capC = await cap();
   ok('E EN caption, circle C: "the circle through z₀ = … and z₁ = … perpendicular to the circle |z| = 1"', /the circle through .+ and .+ perpendicular to the circle/.test(info.capC || ''), info.capC);
@@ -734,17 +747,14 @@ await section('G', async () => {
   );
   await settle(600);
   const SV = await ev(`document.documentElement.classList.contains('sv')`);
+  // (the steps view's last plane holds the circle; standards-ok: the classic view's case drew a target circle in Y's pane,
+  // not drawn since #994)
+  if (!SV) return;
   const SG = {
-    shapes: [{ id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true }],
-    // (the classic Y pane holds the target circle; the steps view's last plane holds a circle of its own)
-    ...(SV ?
-      {
-        shapes: [
-          { id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true },
-          { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }
-        ]
-      } :
-      { targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }] }),
+    shapes: [
+      { id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true },
+      { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }
+    ],
     steps: [{ type: 'zp', params: { a: '1', zeros: '1.5-1i', poles: '' }, on: true }],
     srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50,
   };
@@ -757,7 +767,7 @@ await section('G', async () => {
   let d = (await CI()).draft;
   ok(
     'G Y: the target circle is picked as the curve',
-    d && d.side === (SV ? 'L' : 'R') && d.curve1 && d.curve1.s === 'tc',
+    d && d.side === 'L' && d.curve1 && d.curve1.s === 'tc',
     d
   );
   const w0 = [-1 - 1.5, -1.5 + 1];   // f₁(z) = z − 1.5 + i
@@ -774,11 +784,11 @@ await section('G', async () => {
 });
 
 await section('I', async () => {
-  // v16.4 Inside C only (notes/orthogonal-circle/segments/SPEC.md 11 I): the disc model made with the chip, the hooks' ends
+  // Inside C only (notes/orthogonal-circle/segments/SPEC.md 11 I): the disc model made with the chip, the hooks' ends
   // and Intersect bitwise, no K pixel outside the disc, the rows, a drag through the diameter; the Inspector and ⋯ (one
-  // undo step each), Region, a glider stopped at an end, a crossing that goes undefined; the half-plane (a semicircle, the
-  // vertical ray); Y under 1/z (an open arc); export captions EN and RU; reload, v16.3 and v16.2 pages; layouts (dark,
-  // Russian, phone, tablet); BUDGET60 with 10 seg dependents; screenshots (seg-*.png)
+  // undo step each), Region, a glider stopped at an end, a crossing that goes undefined; the half-plane (a semicircle,
+  // the vertical ray); Y under 1/z (an open arc); export captions EN and RU; reload, the 16.3 and 16.2 pages; layouts
+  // (dark, Russian, phone, tablet); BUDGET60 with 10 seg dependents; screenshots (seg-*.png)
   const PNG = process.mainModule.require(path.join(DIR, 'png.js'));   // (the daemon's own require)
   const img = async (name) => PNG(fs.readFileSync(await shot(name)));
   const near3 = (a, b, t = 18) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) <= t;
@@ -839,7 +849,7 @@ await section('I', async () => {
   let st = await ST();
   const Ks = st.list.filter((s) => s.def && s.def.op === 'perp'), C1 = byId(st, Ks[0].def.args[0].s);
   const names = await CI({ names: true }), nm = (id) => (names.find((x) => x.id === id) || {}).name;
-  // (v16.5 fix rail-4: the shown unit circle made the shape C is "the unit circle", no number)
+  // (the shown unit circle made the shape C is "the unit circle", no number)
   ok('I1 three geodesics, each an arc with seg 1 and nk hyper, named Hyperbolic line 1–3 (v16.5 UX55); C is the unit circle (v16.5 rail-4)', Ks.length === 3 && Ks.every((k, i) => k.kind === 'arc' && k.def.seg === 1 && k.def.nk === 'hyper' && nm(k.id) === `Hyperbolic line ${i + 1}`) && nm(C1.id) === 'the unit circle', Ks.map((k) => [k.kind, k.def.seg, k.def.nk, nm(k.id)]).concat([['C', nm(C1.id)]]));
   const rows = [];
   for (const k of Ks) rows.push(await rowD(k.id));
@@ -936,7 +946,7 @@ await section('I', async () => {
   // a glider on the arc stops at the ends
   await ev(`__cmwC({ call: 'create', args: [[{ id: 'ig', kind: 'point', p: [0, 0], t: 0.5, visible: true, def: { op: 'glider', args: [{ s: '${K1}', part: 0 }] } }]] })`); await settle(300);
   st = await ST();
-  // ([v16.5 rail SPEC 2.3] 30 px past the end: the stretch zone, so it stays on its arc; a pull of 40 px held frees it)
+  // (the rail's SPEC 2.3: 30 px past the end: the stretch zone, so it stays on its arc; a pull of 40 px held frees it)
   const sI = (await W(1, 0))[0] - (await W(0, 0))[0];
   const kk = byId(st, K1), g0 = byId(st, 'ig').p, kEnd = 1 + 30 / (sI * Math.hypot(kk.a[0], kk.a[1])), gEnd = await W(kk.a[0] * kEnd, kk.a[1] * kEnd);
   const gs = await W(g0[0], g0[1]);
@@ -1014,9 +1024,7 @@ await section('I', async () => {
   info.yOpen = { n: ypts.length, drawn: yDiff, kind: kY.kind, ink };
   ok('I4 Y under 1/z: the image is the open arc only (nothing on the image of K outside the disc)', kY.kind === 'arc' && ypts.length > 20 && yDiff === 0, info.yOpen);
   // ---- I5 export captions, EN and RU (through z₀ and z₁; and on K when z₁ is outside the disc)
-  const capF = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
-    return f ? f.captionTex : null;
-    })()`);
+  const capF = () => capClassic();
   info.segCap = await capF();
   ok('I5 EN caption: "the hyperbolic line through z₀ … and z₁ … in the domain |z|<1"', /the hyperbolic line through .+ and .+ in the domain \$\|z\|<1\$/.test(info.segCap || ''), info.segCap);
   await ev(`__cmwC({ call: 'moved', args: [{ all: true }] }) && 1`);
@@ -1033,7 +1041,7 @@ await section('I', async () => {
   ok('I5 RU caption, z₁ outside: «… лежащая на окружности, проходящей через …»', /гиперболическая прямая в[ ~]области \$\|z\|<1\$, лежащая на[ ~]окружности, проходящей через/.test(info.segCapOnRu || ''), info.segCapOnRu);
   // the SVG: K's path from e_start to e_end, butt caps
   await nav(`${U}?ns=${NS}i4`);
-  info.segSvg = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+  info.segSvg = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
     const svg = f && (f.svg || (f.panels && f.panels[0] && f.panels[0].svg)) || '';
     const caps = (svg.match(/stroke-linecap="[a-z]+"/g) || []).slice(0, 8);
     return { has: !!svg, len: svg.length, caps, keys: f ? Object.keys(f).slice(0, 20) : null };
@@ -1130,13 +1138,11 @@ await section('I', async () => {
 });
 
 await section('J', async () => {
-  // v16.4 review fixes (notes/orthogonal-circle/segments/ledger.json): captions close their phrase (user-2, user-3), the
-  // outside's domain on the sphere (math-3), through only for points of the domain (math-7), the row off the arc
-  // (user-6), the ⋯ item's words (math-6), the chip's words by its free width (user-4), the phone's hit area (user-5)
-  const capF = (o) => ev(`await (async () => {
-    const f = await __cmwFig.build(${JSON.stringify(Object.assign({ view: 'xy' }, o || { for: 'article', cols: 1 }))});
-    return f ? f.captionTex : null;
-    })()`);
+  // the segments' review findings (notes/orthogonal-circle/segments/ledger.json): captions close their phrase (user-2,
+  // user-3), the outside's domain on the sphere (math-3), through only for points of the domain (math-7), the row off
+  // the arc (user-6), the ⋯ item's words (math-6), the chip's words by its free width (user-4), the phone's hit area
+  // (user-5)
+  const capF = (o) => capClassic(o);
   const Kd = (id, a, b, seg, c = 'c') => ({ id, kind: 'arc', a: [1, 0], m: [0, 1], b: [-1, 0], visible: true, def: Object.assign({ op: 'perp', args: [{ s: c, part: 0 }, { s: a }, { s: b }], fill: 'none', nk: 'arc' }, seg ? { seg } : {}) });
   const pt = (id, p) => ({ id, kind: 'point', p, visible: true });
   const scene = (shapes) => ({ shapes, steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 150 }, nextId: 50 });
@@ -1148,7 +1154,7 @@ await section('J', async () => {
   const tri = scene([UC, pt('p0', [0.1, 0.6]), pt('p1', [-0.5, -0.3]), pt('p2', [0.55, -0.25]), Kd('k1', 'p0', 'p1', 1), Kd('k2', 'p1', 'p2', 1), Kd('k3', 'p2', 'p0', 1)]);
   await load(NS + 'j1', tri); await settle(900);
   info.jEn = await capF();
-  info.jScreen = await ev(`__cmwCapText(['L', 'R'])`);
+  info.jScreen = await ev(`__cmwCapText()`);
   info.jHw = await capF({ for: 'homework', cols: 1 });
   ok('J1 EN caption (user-3): "…in the domain |z|<1, in the z-plane", no stray comma', /in the domain \$\|z\|<1\$, in the \$z\$-plane/.test(info.jEn || '') && !stray(info.jEn) && !stray(info.jScreen) && !stray(info.jHw), [info.jEn, info.jHw]);
   await nav(`${U}?ns=${NS}j1&lang=ru`);
@@ -1210,11 +1216,11 @@ await section('J', async () => {
   ok('J7 phone: the Orthogonal choices (in the context bar) take taps 18 px above and below their centre, 44 px tall; the 3-point chip keeps its 40 px buttons (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 4 && info.jPhone.perp.every((b) => b.up && b.down && b.h >= 44) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
   await view(1440, 900, false, false); await settle(300);
   // J8 (review-verify verify-1) a meet of two hyperbolic lines, English drops the closing comma before "and" (it read as a
-  // list break), keeps it before "in the z-plane"; Russian keeps it before «и». The on-screen caption of the coloured
-  // steps view also says ", and the shading steps": the list's own ", and" is the one before "the intersection"
+  // list break), keeps it before "in the z-plane"; Russian keeps it before «и». The shapes' list in the genitive (the
+  // images of …, which a plane past the colour plane names) has its one list-final ", and", before "the intersection"
   const mt = { id: 'm', kind: 'point', p: [-0.5, -0.3], visible: true, def: { op: 'meet', args: [{ s: 'k1', part: 0 }, { s: 'k2', part: 0 }], index: 0 } };
   await load(NS + 'j8', scene([UC, pt('p0', [0.1, 0.6]), pt('p1', [-0.5, -0.3]), pt('p2', [0.55, -0.25]), Kd('k1', 'p0', 'p1', 1), Kd('k2', 'p1', 'p2', 1), mt])); await settle(900);
-  info.jMeet = await capF(); info.jMeetScreen = await ev(`__cmwCapText(['L', 'R'])`);
+  info.jMeet = await capF(); info.jMeetScreen = await ev(`__cmwCapText('listGen')`);
   await nav(`${U}?ns=${NS}j8&lang=ru`);
   info.jMeetRu = await capF();
   await nav(`${U}?ns=${NS}j8`);

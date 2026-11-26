@@ -325,8 +325,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
   const INV_NOT_STARTED = 'not started';
   function invProgram(B, globe, start, extra, invOv) {
-    // (invOv: an inverse op list other than the chain's, GLChain.buildInverse of the chain with a step's homotopy at t
-    // standing for the step: its own program, the chain's forward data beside it)
+    // (invOv: an inverse op list other than the chain's: GLChain.buildInverse of the chain with a step's homotopy at t
+    // standing for the step, or with a plan's own options (marked rest: a parked plane's, warmed as the chain's own):
+    // its own program, the chain's forward data beside it)
     const info = invOv && cur.info ? Object.assign({}, cur.info, { inverse: invOv }) : cur.info, inv = info && info.inverse;
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
@@ -339,7 +340,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!e) {
       if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : INV_NOT_STARTED };
       for (const q of progs.values()) if (q.key === cur.key && q.state === 'pending' && !q.inv && !q.offView) return { state: 'pending', reason: 'forward programs first' };
-      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now() };
+      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now(),
+        rest: !!(invOv && invOv.rest), chainKey: cur.key };
       progs.set(id, e);
       try {
         const [vs, fs] = invSources(info, B, globe, pack ? pack.forms : [], extra);
@@ -425,14 +427,19 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       d.stopT.set([T[0].re, T[0].im, T[1].re, T[1].im, T[2].re, T[2].im, T[3].re, T[3].im]);
     }
     // a REPT plan's forward enclosures E_r (already rounded to float32 by Inverse.prepare): the box (x0, y0, x1, y1) and
-    // (the escape bound or -1, 1 when there is no box); the whole plane as x0 > x1 with no escape bound
+    // (the escape bound or -1, 1 when there is no box, the radius bound or -1); the whole plane as x0 > x1 with no
+    // escape bound
     const nE = GLChain.reptLevels();
-    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(2 * nE);
+    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(3 * nE);
     for (let r = 0; r < nE; r++) {
       const e = prep.rept && prep.rept.E[r];
       d.repE.set(e && !e.empty ? [e.x0, e.y0, e.x1, e.y1] : [1, 0, -1, 0], 4 * r);
-      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0] : [-1, 0], 2 * r);
+      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0, e.rad > 0 ? e.rad : -1] : [-1, 0, -1], 3 * r);
     }
+    // the closed form of a monomial step on a disc (already rounded to float32 by Inverse.prepare): (log R, M, |c| / R,
+    // dI), (dP down, dP up, dM down, dM up), (the disc's centre, 1 on); (0, 0, 0) off
+    const cf = prep.rept && prep.rept.cf;
+    d.repCf = cf ? [cf.lR, cf.M, cf.cn, cf.dI] : [0, 1, 0, 0]; d.repCg = cf ? [cf.dPdn, cf.dPup, cf.dMdn, cf.dMup] : [0, 0, 0, 0]; d.repCc = cf ? [cf.c.re, cf.c.im, 1] : [0, 0, 0];
     const sing = (prep.sing || []).slice(0, 4);
     // (each point's re, im and weight w, 1 when it has none, as Inverse.keyW reads it: uSing's vec3)
     sing.forEach((p, i) => { d.sing[3 * i] = p.re; d.sing[3 * i + 1] = p.im; d.sing[3 * i + 2] = p.w === undefined ? 1 : p.w; });
@@ -537,6 +544,61 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     return halfFbo;
+  }
+  // Kept layers: a frame's picture copied out under a slot's name and drawn back into a later frame of the same size,
+  // texel for texel (the steps view's plots under a glide's carried colour, which are the same in every frame of the
+  // glide). slot -> { tex, fbo, w, h }; a lost context forgets them
+  const layers = new Map();
+  // the frame drawn so far (its fw x fh pixels at the viewport) into slot's texture -> true; false when it cannot be kept
+  function layerKeep(slot) {
+    if (!ok || lost || preActive) return false;
+    let L = layers.get(slot);
+    if (!L || L.w !== fw || L.h !== fh) {
+      if (L) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
+      L = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w: fw, h: fh };
+      gl.activeTexture(gl.TEXTURE5);
+      gl.bindTexture(gl.TEXTURE_2D, L.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fw, fh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST);
+      for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D, p, gl.CLAMP_TO_EDGE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.tex, 0);
+      layers.set(slot, L);
+    }
+    // (a multisampled drawing buffer is resolved by the blit; the scissor would clip it)
+    const sc = gl.isEnabled(gl.SCISSOR_TEST);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
+    gl.blitFramebuffer(vpX, vpY, vpX + fw, vpY + fh, 0, 0, fw, fh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (sc) gl.enable(gl.SCISSOR_TEST);
+    return true;
+  }
+  // slot's picture drawn into the frame in place of what is there (invUp at the frame's own size: each pixel its texel)
+  // -> true; false when there is none of the frame's size or the program cannot draw
+  function layerDraw(slot) {
+    const L = layers.get(slot);
+    if (!ok || lost || preActive || !L || L.w !== fw || L.h !== fh) return false;
+    const Q = program('invUp');
+    if (!Q) return false;
+    use(Q);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, L.tex);
+    u1i(Q, 'uHalf', 5);
+    u4f(Q, 'uVp', vpX, vpY, fw, fh);
+    u2f(Q, 'uHalfSz', 1, 1);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.enable(gl.BLEND);
+    return true;
+  }
+  function layerDrop(slot) {
+    const L = layers.get(slot);
+    if (L && gl && !lost) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
+    layers.delete(slot);
   }
   // K (SPEC 4.2): the front count for the early stop and admission: 1 when alpha >= 0.999, else
   // ceil(ln(1/255) / ln(1 - alpha))
@@ -762,7 +824,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxAB) gl.uniform4fv(P.loc.uIxAB, d.AB);
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
     if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
-    if (P.loc.uIxRepS) gl.uniform2fv(P.loc.uIxRepS, d.repS);
+    if (P.loc.uIxRepS) gl.uniform3fv(P.loc.uIxRepS, d.repS);
+    if (P.loc.uIxRepCf) { gl.uniform4fv(P.loc.uIxRepCf, d.repCf); gl.uniform4fv(P.loc.uIxRepCg, d.repCg); gl.uniform3fv(P.loc.uIxRepCc, d.repCc); }
     u1i(P, 'uIxRepNodes', reptNodes);
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
@@ -871,6 +934,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         invGlobeSc++; invGlobeScPx += (x1 - x0) * (y1 - y0);
       }
       uM4(P, 'uMVP', st.sphere.MVP); u3(P, 'uEye', st.sphere.eye);
+      // (st.opaqueOnly: only the pixels the composite covers opaquely; the stencil the caller set marks them)
+      u1i(P, 'uOpaqueOnly', st.opaqueOnly ? 1 : 0);
       globeLight(P, st.sphere);
       const g = sphere();
       const dt = gl.isEnabled(gl.DEPTH_TEST);
@@ -1035,6 +1100,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function reptAccFree(E) {
     for (const T of [E.A, E.B]) if (T) { gl.deleteTexture(T.tex); gl.deleteFramebuffer(T.fbo); }
     for (const q of E.q || []) gl.deleteQuery(q);
+    if (E.hq) gl.deleteQuery(E.hq);
   }
   // the tiles of a w x h rect of at most px pixels each: [x, y, w, h]
   function reptTiles(w, h, px) {
@@ -1184,10 +1250,15 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(Q, 'uAccMode', mark ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (mark) {
+      reptMarked = sig === null ? null : E;
       if (repMarkFrame !== invFrame) { repMarkFrame = invFrame; gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); }
+      // (the marks: 1, then 2 over those on the image's rim)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       gl.colorMask(false, false, false, false);
       u1i(Q, 'uAccMode', 2);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.stencilFunc(gl.ALWAYS, 2, 0xff);
+      u1i(Q, 'uAccMode', 4);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
       gl.disable(gl.STENCIL_TEST);
@@ -1199,15 +1270,15 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     reptStat.composites++;
     return 'drawn';
   }
-  // the frame (invFrame) whose stencil holds REPT marks, and the hatch over the marked pixels: the grey no-value hatch,
-  // opaque, then the marks cleared. False when its program is not ready
+  // the frame (invFrame) whose stencil holds REPT marks: 1, or 2 on the image's rim
   let repMarkFrame = -1;
-  // the grey no-value hatch of program Q over the frame open, opaque: where the stencil holds the marks (marked), else everywhere
+  // the grey no-value hatch of program Q over the frame open, opaque: where the stencil holds the mark `marked` (1 or 2),
+  // else (0) everywhere
   function hatchPass(Q, dpr, marked) {
     use(Q);
     u1f(Q, 'uDpr', dpr || 1);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    if (marked) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); }
+    if (marked) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, marked, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); }
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
@@ -1217,21 +1288,38 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function hatchAll(dpr) {
     const Q = ok && program('reptHatch');
     if (!Q) return false;
-    hatchPass(Q, dpr, false);
+    hatchPass(Q, dpr, 0);
     return true;
   }
+  // the accumulation entry whose picture the frame's mark pass composited (a cacheable draw's), for reptHatchFill
+  let reptMarked = null;
+  // The hatch over the marked pixels, then the marks cleared. -> whether the picture's hatch covers any pixel off the image's
+  // rim (stencil 1: a hairline along the rim, stencil 2, is hatched but not counted): an occlusion query over that hatch's
+  // draw, asked once for a picture (its accumulation entry) and answered, as WebGL answers, by a later frame, which is asked
+  // for (reptKick) until it finds the entry's answer; true or false once it is known, else undefined, as for an uncacheable
+  // picture. null when the frame has no mark pass to hatch or the program is not ready
   function reptHatchFill(dpr) {
     const Q = ok && program('reptHatch');
-    if (!Q || repMarkFrame !== invFrame) return false;
-    hatchPass(Q, dpr, true);
+    if (!Q || repMarkFrame !== invFrame) return null;
+    const E = reptMarked;
+    reptMarked = null;
+    const q = E && E.hatched === undefined && !E.hq ? gl.createQuery() : null;
+    if (q) gl.beginQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE, q);
+    hatchPass(Q, dpr, 1);
+    if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); E.hq = q; reptKick(); }
+    hatchPass(Q, dpr, 2);
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     repMarkFrame = -1;
-    return true;
+    if (E && E.hq) {
+      // (a result not there yet asks for another frame, until it is)
+      if (gl.getQueryParameter(E.hq, gl.QUERY_RESULT_AVAILABLE)) { E.hatched = !!gl.getQueryParameter(E.hq, gl.QUERY_RESULT); gl.deleteQuery(E.hq); E.hq = null; } else reptKick();
+    }
+    return E ? E.hatched : undefined;
   }
-  // the pixels the frame's stencil marks unresolved (a REPT plan's region-mask pass, drawInverse), counted by a read-back
-  // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks. cc: a
-  // 2D context the frame's size (row 0 at its top), where each marked pixel is also drawn opaque black, over what it
-  // holds (the Landscape's region mask: its no-value mark, svLandMask)
+  // the pixels the frame's stencil marks unresolved off the image's rim (a REPT plan's region-mask pass, drawInverse),
+  // counted by a read-back of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0
+  // without such marks. cc: a 2D context the frame's size (row 0 at its top), where each marked pixel, on the rim too, is
+  // also drawn opaque black, over what it holds (the Landscape's region mask: its no-value mark, svLandMask)
   function reptMarkCount(cc) {
     const Q = ok && program('keepA');
     if (!Q || repMarkFrame !== invFrame) return 0;
@@ -1239,19 +1327,23 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true);
     gl.clearColor(1, 1, 1, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.clearColor(0, 0, 0, 0);
     gl.disable(gl.BLEND);
+    // (the marks off the rim read (0, 0, 0, 0), those on it (0, 1, 1, 1), the rest (1, 1, 1, 1))
     gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.stencilFunc(gl.EQUAL, 2, 0xff); gl.colorMask(true, false, false, false);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.colorMask(true, true, true, true);
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     const px = new Uint8Array(4 * fw * fh);
     gl.readPixels(vpX, vpY, fw, fh, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    let n = 0;
-    for (let i = 3; i < px.length; i += 4) if (px[i] === 0) n++;
-    if (cc && n) {
+    let n = 0, rim = 0;
+    for (let i = 0; i < px.length; i += 4) { if (px[i + 3] === 0) n++; else if (px[i] === 0) rim++; }
+    if (cc && n + rim) {
       // (the read-back's rows run bottom up: each one goes to the canvas's row fh - 1 - y)
       const im = new ImageData(fw, fh), d = im.data;
-      for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (px[4 * (y * fw + x) + 3] === 0) d[4 * ((fh - 1 - y) * fw + x) + 3] = 255;
+      for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) if (px[4 * (y * fw + x)] === 0) d[4 * ((fh - 1 - y) * fw + x) + 3] = 255;
       const cv = document.createElement('canvas');
       cv.width = fw; cv.height = fh;
       cv.getContext('2d').putImageData(im, 0, 0);
@@ -1303,8 +1395,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return true;
   }
   // a ready inverse program waits for warmInverse (a variant drawn in its place, or half resolution refused)
-  // (only the current chain's programs: an older structure's program that was never drawn is not worth a stall)
-  const invWarmable = (e) => e.inv && (e.name === 'inv' || e.name === 'invS') && e.state === 'ready' && !sideMode && !!cur.info && !!cur.info.inverse && e.ikey === cur.info.inverse.key;
+  // (only the current chain's programs: its own, and a parked plane's own (a plan's inv marked rest, the app's invPlan);
+  // an older structure's program that was never drawn is not worth a stall)
+  const invWarmable = (e) => e.inv && (e.name === 'inv' || e.name === 'invS') && e.state === 'ready' && !sideMode && !!cur.info && !!cur.info.inverse
+    && (e.ikey === cur.info.inverse.key || (e.rest && e.chainKey === cur.key));
   // 2: a program waits for its first (full-resolution) draw; 1: only half-resolution pipelines are wanted; 0: none
   const inverseColdState = () => {
     let s = 0;
@@ -1453,7 +1547,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
+    init, begin, viewport, blit, layerKeep, layerDraw, layerDrop, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     // whether a REPT draw answered 'pending' since the last call, reset by it (the pane's status, glStatusNote)
     reptPendingTake: () => { const r = reptPendFlag; reptPendFlag = false; return r; },
@@ -1469,7 +1563,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // the current chain's inverse program for shapes of own (undimmed) alpha alphaOwn and a view kind, with the
     // frame's formula bundle (packShapes), without starting a compile: 'ready' | 'pending' | 'error' | 'none' (no
     // program for this chain, or its compile not started). pathOf's GLR.inverseReady(...) is status === 'ready'.
-    inverseStatus(alphaOwn = 1, viewKind = 'flat') { return ok ? invProgram(invB(alphaOwn), viewKind === 'globe', false).state : 'none'; },
+    // (inv: a plan's own inverse op list, path.inv, in place of the chain's)
+    inverseStatus(alphaOwn = 1, viewKind = 'flat', inv = null) { return ok ? invProgram(invB(alphaOwn), viewKind === 'globe', false, undefined, inv).state : 'none'; },
     // the same, starting the compile when allowed (not in side mode, after the chain's forward programs landed)
     inverseRequest(alphaOwn = 1, viewKind = 'flat') { if (!ok) return 'none'; const r = invProgram(invB(alphaOwn), viewKind === 'globe', true); if (r.state === 'pending') schedulePoll(); return r.state; },
     // the compile-time buffer size and the front count K of SPEC 4.2 for an alpha

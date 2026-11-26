@@ -13,14 +13,14 @@
   const WHOLEMAP_UP = "typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')";
   // The app opened on `steps` over `shapes` (the half-plane h1) with the source plane's view `srcView` ({ cx: 0, cy: 0, s: 90 }), under the namespace `ns` (a new one per page), at w x h (mobile: a touch
   // phone), in `lang` and `view`; it waits until the steps view is up, or in another view until `until` holds, for `max` ms at most
-  // (settled's default when it is not given).
-  const openChain = async ({ ns, steps, w, h, mobile = false, lang = 'en', view: vw = 'steps', until = null, max = null, shapes = [H1], srcView = { cx: 0, cy: 0, s: 90 } }) => {
-    const st = { v3: true, v4: true, v5: true, v6: true, shapes, steps, nextId: 50, focus: 0, srcView };
+  // (settled's default when it is not given); it answers that wait's answer ({ ok, ms, ... }, as settled's). `extra`: more fields of the saved state (sv: { at: 2 }, a thread saved on plane w₂).
+  const openChain = async ({ ns, steps, w, h, mobile = false, lang = 'en', view: vw = 'steps', until = null, max = null, shapes = [H1], srcView = { cx: 0, cy: 0, s: 90 }, extra = {} }) => {
+    const st = Object.assign({ v3: true, v4: true, v5: true, v6: true, shapes, steps, nextId: 50, focus: 0, srcView }, extra);
     await view(w, h, false, mobile);
     await go(`http://localhost:${PORT}/gl-helpers.html`);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
     await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=${vw}`);
-    await still(max ? { until: until || STEPS_UP, max } : { until: until || STEPS_UP });
+    return still(max ? { until: until || STEPS_UP, max } : { until: until || STEPS_UP });
   };
   return { MOB, CUBE, SIN, EXP, H1, S2, WHOLEMAP_UP, still, openChain };
 }

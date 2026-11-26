@@ -155,6 +155,9 @@ const SC = [
     } })),
 ];
 const runScene = async (sc) => {
+  // (a scene on the image plane, side 'R', is read on the chain's last plane in the steps view; the classic view draws X
+  // alone, so it has none to read there. standards-ok: the classic pass of an image-plane scene went with Y's pane, #994)
+  if ((sc.side || 'R') === 'R' && !(await ev(`document.documentElement.classList.contains('sv')`))) return;
   const st = Object.assign({}, BASE, { steps: sc.steps.map((s) => Object.assign({ on: true }, s)), srcView: sc.srcView || { cx: 0, cy: 0, s: 60 }, rightView: sc.rv, targets: [], shapes: [] });
   // the shapes come from the formula box as a user adds them (exact shapes or a curve formula)
   await load('curves-' + sc.name, st);

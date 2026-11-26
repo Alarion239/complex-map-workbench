@@ -5,7 +5,6 @@
   let tourSplit = false;   // the tour's stop shows the Inspector's split offer (its scene sets split: true)
   let tourHold = false;   // the autosave is paused while a tour borrows the canvas: writeState writes nothing
   let tourDrawer = false; // the tour opened the left drawer for a step (a narrow desktop): the next step closes it
-  let tourPics = null;    // the chain's Pictures | Names and height before a tour step turned its pictures on
   let tourPhGeo = null;   // (r3) the phone sheet geometry on the root before the tour: [--ph-hp, --ph-ride]
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
   const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
@@ -24,7 +23,7 @@
     if (!tourL['view-moved']) return;
     tourEmit('view-moved', { pane: S.view && S.view.main !== 'xy' ? 'P' : side === 'R' ? 'R' : 'L', how });
   }
-  // (v16.4, notes/tour-r3/SPEC.md 4.3) the sound settings the tour holds for its Sound chapter: the user's own values
+  // (notes/tour-r3/SPEC.md 4.3) the sound settings the tour holds for its Sound chapter: the user's own values
   // are remembered at the first hold (and written to cmw-tour-sound, so a crash gives them back at the next start) and
   // come back at the release, each unless the user changed it meanwhile
   const TOUR_SND = 'cmw-tour-sound';
@@ -97,7 +96,7 @@
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }
   // the persisted state, as writeState saves it
-  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
+  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: S.rightView || null }), noRuntime));
   function tourSnapshot() {
     phHold();
     if (typeof svStore === 'function') svStore();   // (S.sv holds the steps view's place: the tour moves it, and the restore puts it back)
@@ -109,7 +108,7 @@
       mem: {
         hist: hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })), hi, hideLeft: S.hideLeft, hideRight: S.hideRight,
         tool, selected, currentExample, exLabel: xl ? xl.textContent : null,
-        V: JSON.parse(JSON.stringify(V)), leftAuto, rightAuto, clipWin: Object.assign({}, clipWin),
+        V: JSON.parse(JSON.stringify(V)), leftAuto, clipWin: Object.assign({}, clipWin),
         viewMem: JSON.parse(JSON.stringify(viewMem)), cams: [cam, camL, camS].map(camKeys), cell: [cellBase, cellKey],
         phBig: tourPhone() ? Phone.big() : null,
       },
@@ -128,11 +127,11 @@
     if (!st) return false;
     cancelTweens(); closePad(); closePalette();
     draft = null; drag = null; probe = null; zpSel = null; zpHover = null; selected = null; hoverShape = null;
-    rHover = null; setHoverW(null);
+    setHoverW(null);
     morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     setState(st);
-    if (typeof svRestored === 'function') svRestored();   // (the steps view takes its place, scope and surface from S.sv again)
+    if (typeof svRestored === 'function') svRestored();   // (the steps view takes its place, scope, surface, connectors and speed from S.sv again; a step shown alone goes back into the chain)
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
     if (m) { setHidden('L', !!m.hideLeft); setHidden('R', !!m.hideRight); } else { if (isDrawer('R')) setHidden('R', true); if (isDrawer('L')) setHidden('L', true); }
     if (m && m.viewMem) Object.assign(viewMem, m.viewMem);
@@ -148,7 +147,7 @@
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
     if (m) {
       setTool(TOOLS.some((t) => t[0] === m.tool) ? m.tool : 'select');
-      Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto; rightAuto = m.rightAuto;
+      Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto;
       [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
       hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
       currentExample = m.currentExample;
@@ -158,7 +157,6 @@
       if (m.phBig && tourPhone() && Phone.big() !== m.phBig) Phone.setBig(m.phBig);
     } else {
       setTool('select');
-      if (S.rightView && autoFit()) { Object.assign(V.right, S.rightView); rightAuto = false; }
       hist = [snap()]; hi = 0;
     }
     updateUndo();
@@ -186,8 +184,7 @@
     if ('phaseStyle' in lk) { setOpt('dc', DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc); setOpt('landPlain', false); cauchyCache.key = ''; }
     if ('paths' in lk) { setOpt('morphPaths', lk.paths !== false); const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
-    // the Phase key of Y, and the phase sectors (Tiles' 30° lines)
-    if ('phaseKey' in lk) setOpt('wKey', !!lk.phaseKey);
+    // the phase sectors (Tiles' 30° lines)
     if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
     requestRender('L', 'R');
@@ -210,35 +207,9 @@
     sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; tourSplit = false; save(); } return true; },
     // the current stop shows the Inspector's split offer (its split: true); every other stop hides it
     splitOffer: (on) => { if (tourSplit !== !!on) { tourSplit = !!on; requestRender('P'); } return true; },
-    // v16.1 (user 5): a step about the cards' pictures shows them: Pictures rather than Names, and a chain shorter than
-    // Pictures needs (140 px, the gutter's own rule) at Pictures' 188 px; off, the user's setting comes back (unless they
-    // changed it meanwhile). True while the tour holds the pictures on. A phone's chain bar always shows its pictures
-    chainPictures: (on) => {
-      const root = document.documentElement;
-      if (on) {
-        if (tourPics) return true;
-        if (tourPhone()) return false;
-        const hNow = root.style.getPropertyValue('--chain-h'), short = (parseFloat(getComputedStyle($('stage')).getPropertyValue('--chain-h')) || 188) < 140;
-        if (!S.compact && !short) return false;
-        tourPics = { compact: !!S.compact, h: hNow };
-        setOpt('compact', false);
-        if (short) root.style.setProperty('--chain-h', '188px');
-        applyLayout();
-        return true;
-      }
-      if (!tourPics) return false;
-      const p = tourPics;
-      tourPics = null;
-      if (!S.compact) {
-        setOpt('compact', p.compact);
-        if (p.h) root.style.setProperty('--chain-h', p.h); else root.style.removeProperty('--chain-h');
-        applyLayout();
-      }
-      return false;
-    },
     loadScene: tourLoadScene,
     setLook: tourSetLook,
-    // v16.4 (notes/tour/INTEGRATION.md 9): where the tour's strip goes ('stage': the first row of the stage, or on a
+    // (notes/tour/INTEGRATION.md 9) where the tour's strip goes ('stage': the first row of the stage, or on a
     // phone the row under the header; 'head': a landscape phone's header), the Grieg example as a scene, the sound
     // the Sound chapter needs
     slot: (where) => {
@@ -355,7 +326,7 @@
   };
   function tourWire() {
     tourSoundRecover();       // and the sound settings its Sound chapter held
-    Tour.init(tourApi);       // also puts the user's work back if a tour was cut short by a reload or a crash
+    Tour.init(tourApi);       // also puts the user's work back after a tour cut short by a reload or a crash
     if (!NS) Tour.suggest();  // the first-run card; never under ?ns= (tests and golden images stay as they are)
   }
 

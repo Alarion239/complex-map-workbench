@@ -30,6 +30,7 @@ import { Commands } from './commands.js';
 import { SoundHooks } from './soundhooks.js';
 import { Export } from './export.js';
 import { MorphPaths } from './morphpaths.js';
+import { GlyphMatch } from './glyphmatch.js';
 import { Integrals } from './integrals.js';
 import { Examples } from './examples.js';
-Object.assign(globalThis, { $, DEG, TAU, h, CX, Expr, Funcs, HomRange, Inverse, Recognize, Calc, GLChain, Lines, Region, Constr, Curves, SphereMesh, Palette, GLR, Axes, Pane, Views, Figure, HT_LIB, SND_LIB, Sound, Tour, Inspector, PlaneMenu, Construct, Params, Phone, SEASONG, Commands, SoundHooks, Export, MorphPaths, Integrals, Examples });
+Object.assign(globalThis, { $, DEG, TAU, h, CX, Expr, Funcs, HomRange, Inverse, Recognize, Calc, GLChain, Lines, Region, Constr, Curves, SphereMesh, Palette, GLR, Axes, Pane, Views, Figure, HT_LIB, SND_LIB, Sound, Tour, Inspector, PlaneMenu, Construct, Params, Phone, SEASONG, Commands, SoundHooks, Export, MorphPaths, GlyphMatch, Integrals, Examples });
