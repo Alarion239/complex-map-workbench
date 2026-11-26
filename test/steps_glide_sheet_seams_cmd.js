@@ -23,9 +23,9 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return c
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // (the bounds, from frames on lavapipe: DIFF, a channel apart by more than the saturate sum's rounding; SEAM_MAX, R1
-// measures 0 against painter's 1,605; SEAM_LESS, R2 measures about 4,400 and 5,600 fewer; CLUMP, a seam line's pixel
-// has at most 6 differing neighbours, an area's 8; NEAR, DIFF itself: outside painter's show-through no pixel differs,
-// measured 5 and 4 levels at most)
+// measures 0 against painter's 1,605; SEAM_LESS, R2 measures about 4,400 and 5,600 fewer; CLUMP, a pixel of a seam
+// line one or two pixels wide has at most 6 differing neighbours, one inside a changed area 8; NEAR, DIFF itself:
+// outside painter's show-through no pixel differs, measured 5 and 4 levels at most)
 const DIFF = 8, SEAM_MAX = 20, SEAM_LESS = 2000, CLUMP = 7, NEAR = DIFF, ROUNDS = 3;
 await view(1440, 900, false, false);
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });

@@ -82,6 +82,9 @@ uniform int uKsat; uniform int uKall;
 // uLastOpaque = 1: the farthest layer of the composite is opaque (alpha 1) and only the layers in front of it show
 // through, so a point covered once keeps its colour at any uAlpha
 uniform int uLastOpaque;
+// uCutGrow: device px a leaf's cut edge is grown by (its level distance L.lvl plus it), so a flat pass drawn first
+// covers a pixel on its cut that the pass across the cut would leave short (drawInverse's cutGrow); 0 elsewhere
+uniform float uCutGrow;
 // uIxTail = 1: the shape's coverage is monotone along the stop op's member lines (Inverse.prepare's tail flag): with
 // uKall and K > IX_B, a side whose members provably all cover and all lie behind the buffer ends in the tail closure
 uniform int uIxTail;
@@ -874,7 +877,8 @@ float invLeaf(Lf L, out bool cov) {
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
   bool facing = bound && dot(n, lgi) < -0.5;
-  float cv = clamp(facing ? min(s, 0.5) + min(L.lvl, 0.5) : min(s, L.lvl) + 0.5, 0.0, 1.0);
+  float lv = bound ? L.lvl + uCutGrow : L.lvl;
+  float cv = clamp(facing ? min(s, 0.5) + min(lv, 0.5) : min(s, lv) + 0.5, 0.0, 1.0);
 #ifdef IX_REPT
   // a REPT leaf (ixRepDel >= 0: its chain error, z within it of a true member; Inverse.enumerate's leaf): within
   // ixRepDel and half a pixel of the region's edge its coverage is known only when ixRepDel is at most REPT_AA_TOL px;
