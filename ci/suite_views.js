@@ -262,6 +262,7 @@ const VIEWS = {
   'sv_globe_draw_cmd.js': steps(),
   'steps_stage_handles_cmd.js': steps(),
   'steps_sphere_glide_cmd.js': steps(),
+  'steps_sphere_depth_cmd.js': steps(),
   'steps_sphere_carry_cmd.js': steps(),
   'steps_sphere_look_cmd.js': steps(),
   'steps_sphere_rest_cmd.js': steps(),
