@@ -350,6 +350,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     polarUniforms(P1, polar, true);
+    u4f(P1, 'uDup', ...((polar && polar.dup) || [0, 0, 0, 0]));
     heightUniforms(P1, mode, mu, H);
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1);
@@ -359,6 +360,7 @@
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
     u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
+    u1i(P2, 'uGap', polar && polar.dup ? Math.floor((N - 1) / 2) : -1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);

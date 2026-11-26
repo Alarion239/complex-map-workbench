@@ -701,16 +701,26 @@
     }
     return Object.assign(out, { end });
   }
-  // the point of a pole's patch p ([x, y, r0, r1], p.seam) at grid place (i, j) of an n x n grid, as CARRY_ZIN places it
-  // (SEAM_EPS inside the cut on rings out to its end, p.seam.end)
+  // the point of a pole's patch p ([x, y, r0, r1], p.seam, p.dup) at grid place (i, j) of an n x n grid, as CARRY_ZIN
+  // places it (SEAM_EPS inside the cut on rings out to its end, p.seam.end; an outer far ring with its copies' strip on
+  // the arcs outside it, svDupTheta)
   function svPatchZ(p, i, j, n) {
     const f = 1 / (n - 1), r = p[2] * Math.pow(p[3] / p[2], j * f);
     let th = -2 * Math.PI * i * f;
     if (p.seam) {
       const K = GLR.SEAM_RINGS, t = Math.min(Math.max(j * f, 0), 1) * (K - 1), k = Math.min(Math.floor(t), K - 2), E = j * f <= p.seam.end ? GLR.SEAM_EPS : 0;
       th = p.seam[k] + (p.seam[k + 1] - p.seam[k]) * (t - k) - E - (2 * Math.PI - 2 * E) * i * f;
-    }
+    } else if (p.dup) th = svDupTheta(p.dup, i, r, n);
     return [p[0] + r * Math.cos(th), p[1] + r * Math.sin(th)];
+  }
+  // the angle at grid column i of n, radius r, of an outer far ring with its copies' strip dup ([n.x, n.y, half-width, 1],
+  // svLandFarDup): the strip's edges cross the circle at ±b from its normal n and from -n, b = acos(half-width / r); the
+  // columns up to the gap h = floor((n - 1) / 2) run from +b to -b about n, the rest from +b to -b about -n. So the
+  // grid's outermost columns lie on the strip's edges and its cells cover the ring outside the strip; the cells between
+  // columns h and h + 1 span the strip and are left out (LAND_CARRY_VS), its points drawn by their copies
+  function svDupTheta(d, i, r, n) {
+    const h = Math.floor((n - 1) / 2), b = Math.acos(Math.min(1, d[2] / r)), tn = Math.atan2(d[1], d[0]);
+    return i <= h ? tn + b - (2 * b * i) / h : tn + Math.PI + b - (2 * b * (i - h - 1)) / (n - 2 - h);
   }
   // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
   // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
@@ -751,9 +761,10 @@
   // heights the same: the glide map's period, invHomPer, or at rest the chain's from s, Inverse.keyPeriod, or the least
   // multiple of it, up to LAND_DUP_M, that the height has too, checked at LAND_DUP_AT points of the box), each point of the
   // strip within sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the
-  // inner ring draw with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span
-  // several periods there, and their facets would stand out past the surface they copy. [n.x, n.y, half-width, 1], n the
-  // unit normal to P; null where no such period is found
+  // inner ring draw with their finer cells. The outer ring covers only the ring outside that strip (svDupTheta): its coarse
+  // cells span several periods there, and their facets would stand out past the surface they copy, as would a cell
+  // reaching into the strip across its edge. [n.x, n.y, half-width, 1], n the unit normal to P; null where no such period
+  // is found
   const LAND_DUP_M = 4, LAND_DUP_AT = [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7], [0.35, 0.85], [0.7, 0.15]], LAND_DUP_TOL = 1e-7;
   function svLandFarDup(carry, src, R) {
     if (carry.plain) return null;
