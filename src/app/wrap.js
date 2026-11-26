@@ -32,5 +32,6 @@ import { Commands } from './commands.js';
 import { SoundHooks } from './soundhooks.js';
 import { Export } from './export.js';
 import { MorphPaths } from './morphpaths.js';
+import { GlyphMatch } from './glyphmatch.js';
 import { Integrals } from './integrals.js';
 import { Examples } from './examples.js';
