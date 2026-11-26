@@ -549,6 +549,7 @@
  "Go to {p}": "Перейти к %{p}",
  "key line\u0004colour carried from {p}": "цвет перенесён из\u00a0%{p}",
  "key line\u0004Cauchy integral carried from {p}": "интеграл Коши, перенесён из\u00a0%{p}",
+ "key line\u0004from {p}": "из\u00a0%{p}",
  "Planes": "Плоскости",
  "Two planes": "Две плоскости",
  "Paths is for the Plane and Sphere surfaces": "Пути — только для поверхностей «Плоскость» и «Сфера»",
