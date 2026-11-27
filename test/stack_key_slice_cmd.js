@@ -1,4 +1,4 @@
-// The Stack's open key at 320 px tall (568 x 320 and 600 x 320, in en, ru and it), a disc of a cubic's plane selected: part of the Stack
+// The Stack's open key at 320 px tall (568 x 320 in en, ru and it; 600 x 320 in en and ru), a disc of a cubic's plane selected: part of the Stack
 // picture shows beside the key (the plane's points whose topmost element is the picture's canvas); where the key reaches the readout, the
 // readout gives way whole and is back once the key folds; and the key's marks take no more rows than in en (the Russian strand mark is short
 // enough to stand in its row's room). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
