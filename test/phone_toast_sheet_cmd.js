@@ -34,7 +34,7 @@ const SAMPLE = `(() => {
   const groups = {
     strip: [...document.querySelectorAll('#svStrip button')].filter(vis).map((e) => clip(e.getBoundingClientRect(), clip(document.getElementById('svStrip').getBoundingClientRect(), win))),
     fit: [document.getElementById('leftFit')].filter((e) => e && vis(e)).map((e) => clip(e.getBoundingClientRect(), win)),
-    keys: [...document.querySelectorAll('.pane:not(.ph-inset) .ph-col button, .pane:not(.ph-inset) .viewstack button')].filter(vis).map((e) => clip(e.getBoundingClientRect(), win)),
+    keys: [...document.querySelectorAll('.pane:not(.ph-inset) .viewstack button')].filter(vis).map((e) => clip(e.getBoundingClientRect(), win)),
     sheet: sheet ? [...sheet.querySelectorAll('button, [role="radio"], select, input')].filter(vis).map((e) => clip(e.getBoundingClientRect(), clip(sb, win))) : [],
     rail: [...document.querySelectorAll('#secDraw button, #secDraw summary')].filter(vis).map((e) => clip(e.getBoundingClientRect(), win)),
   };

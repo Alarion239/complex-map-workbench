@@ -105,7 +105,7 @@
     for (let k = 0; k < 8; k++) samples.push([MARKER_R * Math.cos(k * Math.PI / 4), MARKER_R * Math.sin(k * Math.PI / 4)]);
     return samples.every(([dx, dy]) => {
       const e = document.elementFromPoint(pr.left + x + dx, pr.top + y + dy);
-      return !!e && e !== plot && e.tagName !== 'CANVAS' && !e.classList.contains('ph-col') && plot.contains(e);   // (the column's own box spans the gaps between its keys)
+      return !!e && e !== plot && e.tagName !== 'CANVAS' && plot.contains(e);
     });
   }
   function flushLabelsIn(pane, r) {

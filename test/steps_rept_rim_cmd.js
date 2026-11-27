@@ -4,9 +4,10 @@
 // drawn in the grey no-value hatch, and the pane says nothing of them.
 // - z³ ×20 on the disc tangent to |z| = 1 from inside, at 1440 × 900: its image is the unit disc, exact, with a ring of the
 //   hatch about a pixel wide at |w| = 1. The ring is drawn (some of the plane's pixels are the hatch's grey, at most
-//   RIM_PERIMETERS of the plane canvas's perimeters' worth: a line, not an area); the pane has no note, the LED is not red, and the sentence of the hatch is neither its tip nor
-//   the pane's description. Its Landscape's region mask marks the ring no-value (__cmwRept({ land: true })'s marked) and
-//   counts no unresolved pixel off the rim, and the pane says nothing there either.
+//   RIM_PERIMETERS of the plane canvas's perimeters' worth: a line, not an area); the pane has no note, the LED is not
+//   red, and the sentence of the hatch is neither its tip nor the pane's description. Its Landscape's region mask marks
+//   the ring no-value (__cmwRept({ land: true })'s marked) and counts no unresolved pixel off the rim, and the pane says
+//   nothing there either.
 // - control: Newton's step for z³ − 1 twenty times on the gallery's square [−2, 2]² (no closed form), its search starved
 //   to STARVED_NODES root solves once parked (__cmwRept({ nodes })): the hatch is an area (at least AREA_MIN_SHARE of the
 //   plane), and the pane has the note, the red LED with the sentence as its tip, and the sentence as its description.
