@@ -9,7 +9,11 @@
 // - in tiles of TILE_SOLVES root solves with the first pass at FAST_NODES, the cue names the tiles done, "k of n", with
 //   0 <= k < n, on some frame while they draw, the count joined by no-break spaces (a tip never wraps inside it);
 // - on a phone (PHONE_W x PHONE_H), where the LED is not laid out: the pane's corner note says the cue's words while the
-//   second pass is held, and is gone once the picture is drawn.
+//   second pass is held, and is gone once the picture is drawn;
+// - on a phone, the plane turned to its Landscape with the second pass held and the chain's programs held linking
+//   (GLR.holdLinks): the frames are both REPT-pending and compiling (control), and the corner holds one note, "Compiling…"
+//   (__cmwCompileBox): the cue is not drawn there (__cmwPaneStatus(role).cue) while the frame compiles, and is drawn once
+//   the programs have linked and the second pass is still held.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -91,5 +95,24 @@ await settled({ max: 120000, until: DRAWN });
 await frames(2);
 phone.done = (await ev("__cmwPaneStatus('L')") || {}).cue || null;
 ok('a phone: released, once the picture is drawn the note is gone', !phone.done, phone);
+// (the Landscape's programs are first asked for once the plane's inverse program has linked: held, they stand in while the
+// REPT draw's second pass is held too)
+const corner = `(() => { const s = __cmwPaneStatus('L') || {}; return { rept: !!s.rept, compiling: !!s.compiling, cue: s.cue || null, box: __cmwCompileBox() }; })()`;
+await ev(`__cmwRept({ fast: ${FAST_NODES}, holdB: true, tiles: ${HELD_TILES} }); 1`);
+await poll("!!(__cmwPaneStatus('L') || {}).rept", LIVE_WAIT_MS);
+await ev("GLR.holdLinks(true); __cmwSteps({ surf: 'land' }); 1");
+const both = await poll(`(() => { const c = ${corner}; return c.rept && c.compiling && !!c.box; })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
+const watched = [];
+for (let i = 0; i < CUE_FRAMES; i++) { await frames(2); watched.push(await ev(corner)); }
+const shared = watched.filter((c) => c.rept && c.compiling);
+info.landHeld = { both, watched };
+ok('a phone, Landscape: the frames are both REPT-pending and compiling, and "Compiling…" is drawn (control)', both.ok && shared.length > 0 && shared.every((c) => !!c.box), info.landHeld);
+ok('a phone, Landscape: while the frame compiles the corner holds "Compiling…" alone, the cue not drawn there', shared.length > 0 && shared.every((c) => !c.cue), shared.find((c) => c.cue) || info.landHeld);
+await ev('GLR.holdLinks(false); 1');
+const back = await poll(`(() => { const c = ${corner}; return c.rept && !c.compiling && /^Drawing the exact picture/.test(c.cue || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
+info.landBack = Object.assign({ ok: back.ok }, await ev(corner));
+ok('a phone, Landscape: the programs linked, the second pass still held, the corner note says the cue', back.ok, info.landBack);
+await ev('__cmwRept({ holdB: false }); 1');
+await settled({ max: 120000, until: DRAWN });
 await ev('__cmwRept({ fast: 0, tiles: 0 }); 1');
 return { pass: fails.length === 0, fails, info };

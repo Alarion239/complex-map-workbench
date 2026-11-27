@@ -915,12 +915,15 @@
     // when it starts, moves on a tile or ends)
     if (((was && was.note) || '') !== note || rept !== !!(was && was.rept) || reptTip(reptProg) !== reptTip(was && was.reptProg)) updateLeds();
     if (quiet) return;
+    // (the frame stands in for a compiling program: the "Compiling…" note is the pane's corner note, below)
+    const compiling = !!st && !st.error && !!st.compiling && !offRender && !artMode && !sideDraw;
     // (where the pane's LED is not laid out, a phone's head: the cue's words as the pane's corner note, CUE_DELAY_MS after
-    // it starts, so a sighted user sees the picture is still drawing; a frame is asked for then)
+    // it starts, so a sighted user sees the picture is still drawing; a frame is asked for then. The corner holds one
+    // note: while the frame compiles the cue waits, and is drawn on the first frame that does not)
     if (rept) {
       const led = $(role === 'L' ? 'leftLed' : 'rightLed');
       if (led && !led.offsetWidth) {
-        if (now - reptT >= CUE_DELAY_MS) { const text = reptTip(reptProg); cornerNote(pane, text); paneGl[role].cue = text; }
+        if (now - reptT >= CUE_DELAY_MS) { if (!compiling) { const text = reptTip(reptProg); cornerNote(pane, text); paneGl[role].cue = text; } }
         else if (reptT === now) setTimeout(() => requestRender(role), CUE_DELAY_MS + 20);
       }
     }
@@ -934,7 +937,7 @@
       const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
       if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
     }
-    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileBusy(role, false); return; }
+    if (!compiling) { compileT.delete(pane); setCompileBusy(role, false); return; }
     setCompileBusy(role, true);
     const t0 = compileT.get(pane);
     if (t0 === undefined) {
