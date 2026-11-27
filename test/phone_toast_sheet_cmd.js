@@ -17,7 +17,7 @@ const MSG = {
   ru: ['Фигура по ссылке открыта. Некоторые построения не удалось прочитать, они открыты как простые фигуры.', 'Отменить'],
   it: ['Aggiunto f₃: Esponenziale. Il nuovo passo è in fondo alla catena dei passi.', 'Annulla'],
 };
-const SHORTISH = 'Added f₃: Exponential, and a longer second part';   // (one row over the plot at 740 px, two at the sheet's width)
+const SHORTISH = 'Added f₃: Exponential, and a longer second part that needs three lines beside its buttons';   // (two lines beside its buttons over the plot at 740 px: one row; more than two beside them at the sheet's width: two rows)
 // the controls sampled, and how many points of each (a K × K grid inside its visible box: the part inside the window and inside the strip or the
 // sheet that holds it); fewer than MIN_* of them seen is a failure, so the rows
 // cannot pass with nothing sampled
