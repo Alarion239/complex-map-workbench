@@ -32,8 +32,8 @@
 //     it draws is the exact one's; the fins of (vi) left the wall's surface out;
 // (viii) geoCut's test (__cmwLandCutCell), on the triangle (0, 0), (1, 0), (0, 1) of a two-point grid over the plane: arg z
 //     across its cut on the negative reals is a jump, and atan(10⁴ Re z) across 0, as steep but continuous, is not; a step
-//     of 5 across Re z + Im z = 0.5 (on two edges) explains the cell, and with a wall 2 atan(10⁴ (Re z − Im z − 0.3)) on its
-//     third edge does not.
+//     of 5 across Re z + Im z = 0.5 (on two edges) explains the cell, and with a wall 0.8 atan(10⁴ (Re z − Im z − 0.3)) does
+//     not: under the step, it leaves edge (0, 0)–(1, 0) jumping, and its third edge steps by the wall alone.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc, geo,
 // geoWorst, geoAt, stepped, geoCut}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
@@ -167,7 +167,7 @@ const cuts = {
   arg: await cutCell('(i, j) => [-1, -0.5 + i + j]', '(z) => Math.atan2(z.im, z.re)'),
   wall: await cutCell('(i, j) => [-0.5 + i + j, 0]', '(z) => Math.atan(1e4 * z.re)'),
   step: await cutCell('(i, j) => [i, j]', '(z) => (z.re + z.im > 0.5 ? 5 : 0)'),
-  stepWall: await cutCell('(i, j) => [i, j]', '(z) => (z.re + z.im > 0.5 ? 5 : 0) + 2 * Math.atan(1e4 * (z.re - z.im - 0.3))'),
+  stepWall: await cutCell('(i, j) => [i, j]', '(z) => (z.re + z.im > 0.5 ? 5 : 0) + 0.8 * Math.atan(1e4 * (z.re - z.im - 0.3))'),
 };
 ok('(viii): geoCut\'s test finds a cut (arg z, a step on two edges), and not a steep wall, alone or beside a cut', cuts.arg === true && cuts.wall === false && cuts.step === true && cuts.stepWall === false, cuts);
 return { pass: fails.length === 0, fails, info };
