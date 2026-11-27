@@ -1017,6 +1017,13 @@
     }
     host.toggleAttribute('data-clear-of-dialog', live);
   }
+  // A dialog that opens takes every message already up away at once, an Undo's included: its words were said before
+  // the dialog, and its Undo stays on the bar and ⌘Z. What is said while the dialog is open shows over it
+  // (syncToastLive). The removal moves no focus and says nothing: a message that leaves is not announced
+  function dropToasts() {
+    const host = $('toastHost');
+    if (host) host.replaceChildren();
+  }
   function refreshToasts() { placeToasts(); syncToastLive(); }
   // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.
   const TOAST_OUT_MS = 150;
