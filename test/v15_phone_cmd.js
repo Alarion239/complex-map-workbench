@@ -48,7 +48,7 @@ const screen = () => ev(`(() => {
   const de = document.documentElement, iw = innerWidth, ih = innerHeight;
   const out = [];
   const vis = (e) => { const s = getComputedStyle(e); return e.getClientRects().length && s.visibility !== 'hidden' && s.display !== 'none' && +s.opacity > 0; };
-  for (const e of document.querySelectorAll('.top *, #secDraw *, .pipe-wrap > :not(#pipeline), .ph-col *, .viewstack *, .chip.readout, .ph-sheet .ph-sh *, .ph-sheet .ph-row, .ph-sheet .ph-srow, .tdock *')) {
+  for (const e of document.querySelectorAll('.top *, #secDraw *, .pipe-wrap > :not(#pipeline), .viewstack *, .chip.readout, .ph-sheet .ph-sh *, .ph-sheet .ph-row, .ph-sheet .ph-srow, .tdock *')) {
     if (!vis(e)) continue;
     const r = e.getBoundingClientRect();
     // (a sheet's body scrolls: what lies below the fold in it is reached by scrolling, as the grouped ⋯ menu's later groups)
