@@ -1484,10 +1484,12 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-2); color: var(--ink-2); }
 .xf-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(284px, 340px); gap: 20px; padding: 16px 20px 0; min-height: 0; overflow-y: auto; }
 .xf-left { min-width: 0; }
-.xf-stage { position: relative; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-3); overflow: hidden; }
+.xf-stage { position: relative; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-3); overflow: hidden; container: xf-stage / inline-size; }
 .xf-bar { position: absolute; top: 8px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 2; pointer-events: none; }
 .xf-bar > * { pointer-events: auto; }
-.xf-hint { font: var(--t-label); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* (the page label wraps rather than ending in an ellipsis: beside the buttons its longest text takes two lines at most, which end inside
+   .xf-scroll's 44 px top padding, above the page) */
+.xf-hint { font: var(--t-label); color: var(--muted); min-width: 0; }
 .xf-ico { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: var(--r-2); background: var(--surface); border: 1px solid var(--line); font: var(--t-label); color: var(--ink-2); white-space: nowrap; cursor: pointer; }
 .xf-ico:hover { border-color: var(--line-strong); color: var(--ink); }
 .xf-ico.on { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
@@ -1562,6 +1564,16 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-seg.big { height: 32px; min-height: 0; } .xf-seg.big > button { flex-direction: row; padding: 0 4px; } .xf-seg.big > button small, .xf-seg.big > button svg { display: none; }
   .xf-foot { position: sticky; bottom: 0; z-index: 3; }
 }
+/* (in a preview narrower than 560 px (a phone, a narrow window, the two-column dialog's narrow column at 901 px) the bar is a row of its
+   own above the page, not over it: the buttons on its first line at its right end (a button that does not fit wraps under them, still
+   at the right), the page label on the next line across the bar's width, so a label that wraps grows the bar and never reaches the page;
+   in a wider one the longest label takes two lines at most beside the buttons) */
+@container xf-stage (max-width: 559px) {
+  .xf-bar { position: static; flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; padding: 8px 10px 0; }
+  .xf-bar .xf-hint { order: 1; flex: 1 1 100%; }
+  .xf-bar .xf-sp { display: none; }
+  .xf-scroll { padding-top: 12px; }
+}
 @media (max-width: 560px) {
   .modal.xf { width: calc(100vw - 24px); max-height: calc(100svh - var(--mbg-t, 12px) - var(--mbg-b, 12px)); border-radius: var(--r-3); }
   .xf-head { padding: 12px 16px 0; } .xf-body { padding: 12px 16px 0; } .xf-foot { padding: 10px 16px 12px; }
@@ -1570,14 +1582,10 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-print[data-open="0"] { display: none; }
   .xf-print[data-open="1"] { display: grid; gap: 10px; }
   .xf-chip { display: none; }
-  .xf-scroll { height: 38svh; padding-top: 12px; }
+  .xf-scroll { height: 38svh; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
-  /* (the preview's bar is a row of its own above the page, not over it: the buttons on its first line at its right end (a
-     button that does not fit wraps under them, still at the right), the page label on the next line across the bar's
-     width, so a label that wraps grows the bar and never reaches the page) */
-  .xf-bar { position: static; flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; padding: 8px 10px 0; }
-  .xf-bar .xf-hint { order: 1; flex: 1 1 100%; white-space: normal; font-size: 11px; line-height: 13px; }
-  .xf-bar .xf-sp, .xf-foot .xf-sp { display: none; }
+  .xf-bar .xf-hint { font-size: 11px; line-height: 13px; }
+  .xf-foot .xf-sp { display: none; }
   /* (touch targets of 44 px: the destinations, and Cancel while a video is made; the progress row has the name row's place,
      a row of its own, so its meter is not squeezed beside the destinations) */
   .btn.xf-dest { flex: 1 1 0; padding: 0 8px; height: 44px; }
