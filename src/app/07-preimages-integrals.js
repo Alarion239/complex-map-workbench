@@ -929,7 +929,7 @@
     // the Cauchy style's note names the curve it integrates over: follow the selection
     if (lColor() && S.dc === 'cauchy') {
       const cp = cauchyPlot(), nm = cp ? cp.name : '';
-      if (nm !== calcChipState.cauchy) { calcChipState.cauchy = nm; buildRightFoot(); updateFocusUI(); }
+      if (nm !== calcChipState.cauchy) { calcChipState.cauchy = nm; rebuildFoot(); updateFocusUI(); }
     }
     // the targets' readings, in every view, while there are targets; not over the merged deformation, whose plane is
     // Y's at time t, not X (the z-plane roots would be listed as "in view" over a w-plane picture)

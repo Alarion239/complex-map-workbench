@@ -894,8 +894,7 @@
   const lLand = () => S.view.main === 'land';
   // the Sphere's equatorial plane of X's globe (X → Y's z-sphere or the phase sphere)
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
-  // the one pane shown: X ('L'), in the steps view and the classic view alike; Y's pane is not drawn, and its DOM stays,
-  // hidden
+  // the one pane: X ('L'), in the steps view and the classic view alike
   const solo = () => 'L';
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();

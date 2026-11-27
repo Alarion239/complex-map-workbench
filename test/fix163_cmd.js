@@ -17,8 +17,8 @@ const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got })
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warning') && !/Failed to load resource|favicon/.test(x.m || ''))); };
-// (a world point on a pane: X is the classic left pane, Y the classic right pane; the steps view has one plane, X on its
-// first step and Y on its last)
+// (a world point on the plane: X, the classic view's one pane; the steps view's one plane, X on its first step and Y on
+// its last)
 const W = async (re, im, side = 'L') => {
   if (await ev(`document.documentElement.classList.contains('sv')`)) {
     const to = side === 'R' ? await ev(`Math.max(...__cmwSteps().planes)`) : 0;

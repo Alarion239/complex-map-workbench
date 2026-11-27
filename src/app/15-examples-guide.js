@@ -295,7 +295,7 @@
   const styleName = () => (DC_STYLES.find((p) => p[0] === S.dc) || DC_STYLES[0])[1];
   // the style picked, from the plane head's row or the phone's chip (the other follows)
   function pickPhaseStyle(v) {
-    setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
+    setOpt('dc', v); setOpt('landPlain', false); rebuildFoot(); updateFocusUI(); paintChanged(); save();
     const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
   }
   // {show: the plane is coloured or is the Landscape, land: the Landscape (the styles are not its own), name, id}
@@ -417,7 +417,7 @@
     const a = paneL.resize();
     $('paneL').classList.toggle('narrow', $('paneL').getBoundingClientRect().width < 520);
     syncViewControls();
-    fitRightTitle();
+    fitHead();
     if (a && leftStage() > 0 && leftAuto) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
     if (a) {
       // (the options strip re-flows at the pane's new width)
@@ -460,7 +460,7 @@
   }
 
   // the views (merged-views.md): the top bar's switch X → Y · Phase · Landscape (keys 1-3 by e.code), the panes'
-  // Plane | Sphere switches in their heads (Shift 1, 2: the left or only panel, X or the portrait; Shift 3, 4: Y),
+  // Plane | Sphere switch in X's head (Shift 1, 2: X or the portrait),
   // and the Deformation toggle (M), which modifies the active view. The preimages and the integrals are parts of every
   // view.
   const SURF = [['plane', $t('Plane'), '⇧1'], ['sphere', $t('Sphere'), '⇧2']];
@@ -566,7 +566,7 @@
     // the landscape is its own surface: no Plane | Sphere in its head
     const lt = $('leftTabs'); if (lt && lt.parentElement.hidden !== lLand()) lt.parentElement.hidden = lLand();
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
-    // X's switch (X → Y's left pane, the phase panel) takes Shift 1, 2; Y's takes Shift 3, 4
+    // X's switch (X → Y's pane, the phase panel) takes Shift 1, 2
     for (const b of /** @type {Iterable<HTMLElement>} */ (lt ? lt.children : [])) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
     syncStackKeys();
   }

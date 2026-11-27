@@ -49,7 +49,7 @@
   // (a title that changed width changes the room for the head's controls: they are laid out again first)
   // (a title in a pane head is fitted by its strip's layout, layoutFoot, only when what it depends on changed;
   // the others, a phone's, are fitted here. force: the fonts settled, which no key can see)
-  function fitRightTitle(force) {
+  function fitHead(force) {
     if (paneL) layoutFoot(force);
     // (whether the strip is in a head now, not as of its last layout: a switch to the phone layout moves it out first)
     const f = $('leftFoot'), headed = !!(f && f.parentElement && f.parentElement.classList.contains('pane-head'));
@@ -123,8 +123,8 @@
     phoneChain();
     if (Views.merged(S.view) !== layoutMg) applyLayout();
     syncViewControls();
-    fitRightTitle();
-    buildRightFoot();
+    fitHead();
+    rebuildFoot();
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
     updateToolHint();
@@ -318,7 +318,7 @@
   }
   const headRO = new WeakSet();   // (the pane heads observed for their width)
   // (a strip is laid out once per task, after the handler that asked for it and before the frame: opening the
-  // Deformation asked for it five times (buildFoot, placeKeys, fitRightTitle, each through layoutFoot), and each
+  // Deformation asked for it five times (buildFoot, placeKeys, fitHead, each through layoutFoot), and each
   // pass forced two to four layouts reading the head and fitting its title. The asks are gathered and laid out in one
   // microtask, force if any asked for it; nothing paints in between)
   let footDue = 0, footFlush = false;
@@ -700,11 +700,11 @@
     setOpt('sheets', !!on);
     // the sheets of a root share |F|: they separate in Re F and Im F
     if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: SV.on ? svHeightName('text') : fnText() })); }
-    buildRightFoot(); updateFocusUI(); requestRender('L'); save();
+    rebuildFoot(); updateFocusUI(); requestRender('L'); save();
     if (on) tourEmit('sheets-shown', {});
   }
   // X's options strip
-  function buildRightFoot() { buildFoot(); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
+  function rebuildFoot() { buildFoot(); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
   // X's paint changed (style, sectors, grid step): X redraws
   const paintChanged = () => requestRender('L', 'T');
   function buildFoot() {
@@ -795,7 +795,7 @@
           setViewOpt('D', 'phase', v !== 'plaster');
           if (v === 'phase') setOpt('landPlain', S.dc !== 'phase');
           else if (v === 'tiles') { setOpt('landPlain', false); if (S.dc === 'phase') setOpt('dc', 'enhanced'); }
-          buildRightFoot(); regionsNote(); updateFocusUI(); paintChanged(); save();
+          rebuildFoot(); regionsNote(); updateFocusUI(); paintChanged(); save();
         }, $t('Colouring')));
     }
     // the colour panel: the same controls on every plane of the steps view, before and after the colour plane; one that
@@ -1277,5 +1277,5 @@
   // the faces arriving late: the right title and the labels again
   function setupLateFonts() {
     // fonts may arrive late; redraw labels
-    onFontsSettled(() => { fitRightTitle(true); requestRender('L', 'R'); });
+    onFontsSettled(() => { fitHead(true); requestRender('L', 'R'); });
   }

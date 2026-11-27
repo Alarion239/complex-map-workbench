@@ -160,7 +160,7 @@
       hist = [snap()]; hi = 0;
     }
     updateUndo();
-    buildShapeList(); buildRightFoot(); updateFocusUI(); drawLegend();
+    buildShapeList(); rebuildFoot(); updateFocusUI(); drawLegend();
     scheduleFix(); requestRender('L', 'R', 'OL', 'OR', 'P');
     save();
     return true;
@@ -186,7 +186,7 @@
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
     // the phase sectors (Tiles' 30° lines)
     if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
-    buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
+    buildDisplay(); rebuildFoot(); updateFocusUI(); drawLegend();
     requestRender('L', 'R');
     save();
   }

@@ -149,7 +149,7 @@
   // A deformation source: what the paths draw, whichever view shows the deformation. { Fat(T): H_T as a function of z;
   // T: the time drawn to; Tend: the end of the range; seq: steps one after another (a bar where they meet); startId: H_0
   // is the identity; key: what the selection depends on besides the shapes and the view; alive(): still shown; side: the
-  // pane to redraw; nogo(pane): px rectangles to keep clear; win(pane): the z-window the seeds' outline is taken in }.
+  // pane to redraw; win(pane): the z-window the seeds' outline is taken in }.
   // The classic transport's (the Image plane with the Deformation bar); the steps view builds its own (svPathsSource).
   function classicSource() {
     const m = morphLen();
@@ -157,7 +157,7 @@
       Fat: morphAt, T: morph.T, Tend: m, seq: !allAtOnce() && morphRange().steps.length >= 2,
       startId: !(S.focus > 1 || (S.focus === 0 && !!homRangeOk())),
       key: JSON.stringify(['classic', chainSig[nSteps()], S.focus, !!S.homAll, m]) + rangeKey(),
-      alive: () => morph.open, side: 'R', nogo: () => [], win: (pane) => pane.box(),
+      alive: () => morph.open, side: 'R', win: (pane) => pane.box(),
     };
   }
   function mfScreenKey(pane, src = classicSource()) {
@@ -182,7 +182,7 @@
     // (nothing of it runs in the frame that asked: the first slice, the layout read of the no-go boxes included, is a
     // task of its own)
     const globe = !!pane.globeSel;
-    job.run = nextMacrotask().then(() => (alive() ? runGenSliced(pathsGen(P, { x: 0, y: 0, w: W, h: Hh }, win, m, globe ? { globe, maxN: PATHS.globeMax, src } : { footPx: 8, nogo: src.nogo(pane), src }), alive) : null)).then((sel) => {
+    job.run = nextMacrotask().then(() => (alive() ? runGenSliced(pathsGen(P, { x: 0, y: 0, w: W, h: Hh }, win, m, globe ? { globe, maxN: PATHS.globeMax, src } : { footPx: 8, src }), alive) : null)).then((sel) => {
       if (mfCache.job === job) mfCache.job = null;
       if (!sel || !job.alive) return;
       if (cam) sel.cam = cam;

@@ -1497,7 +1497,7 @@
     });
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
-    if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
+    if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); rebuildFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
     $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R'); drawLegend(); save(); });   // (Y's key chip names the grid's cell only while its lines are drawn)
     $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
     $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R'); save(); });
@@ -1519,9 +1519,8 @@
     });
     // On a touch phone X's legend chip starts folded to its colour wheel and a tap unfolds it (on a 356 px plot the key covers a third of the landscape);
     // a tap on a folded or unfolded chip toggles
-    const legKey = $('leftLegend');
-    if (legKey) {
-      const el = legKey;
+    const el = $('leftLegend');
+    if (el) {
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !/** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
       // (the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));

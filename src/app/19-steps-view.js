@@ -930,7 +930,7 @@
       Fat: (T) => svBetween(lo + T * len).F, T: Math.max(0, Math.min(hi - lo, x - lo)) / len, Tend: (hi - lo) / len, seq: !all && hi - lo > 1,
       startId: start === 0,
       key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all, svStepTKey(all ? SV.span.stepT : null)]),
-      alive: () => SV.on && S.morphPaths !== false, side: 'L', nogo: () => [], win: (pane) => (start === 0 ? pane.box() : clipWin),
+      alive: () => SV.on && S.morphPaths !== false, side: 'L', win: (pane) => (start === 0 ? pane.box() : clipWin),
     };
   }
   const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
@@ -3031,7 +3031,7 @@
     // (the Cauchy parts in the style row read the colour plane and the kind of integral the selected curve has: the row is
     // built again when either changes)
     const footKey = S.dc === 'cauchy' ? T + '|' + (cauchyKind() || {}).kind : T;
-    if (SV.footT !== footKey) { SV.footT = footKey; if (S.dc === 'cauchy') buildRightFoot(); }
+    if (SV.footT !== footKey) { SV.footT = footKey; if (S.dc === 'cauchy') rebuildFoot(); }
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
     const sig = [k, T, SV.scope, svNoRegions() ? 1 : 0, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0,

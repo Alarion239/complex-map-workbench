@@ -261,7 +261,7 @@
       }
       polys.push({ k, ls });
     }
-    const ex = 0.75 * PATHS.sep, d = 0.7 * PATHS.dTest, nogo = src.nogo ? src.nogo(paneL) : [];
+    const ex = 0.75 * PATHS.sep, d = 0.7 * PATHS.dTest;
     let sep = 0;
     // (only a path's own start and end are exempt, within ex: the review's measure; another path's end is not.
     // sepLong: the share within 2 dTest, for paths longer than longK dS)
@@ -271,7 +271,7 @@
       const lr = ls[ls.length - 1], ends = [ls[0][0], lr[lr.length - 1]];
       let n = 0, near = 0, far = 0;
       for (const l of ls) for (const p of resamplePx(l, 3)) {
-        if (p[0] < 0 || p[1] < 0 || p[0] > v0.w || p[1] > v0.h - 8 || nogo.some((R) => p[0] >= R.x0 && p[0] <= R.x1 && p[1] >= R.y0 && p[1] <= R.y1) || ends.some((q) => mDist(p, q) < ex)) continue;
+        if (p[0] < 0 || p[1] < 0 || p[0] > v0.w || p[1] > v0.h - 8 || ends.some((q) => mDist(p, q) < ex)) continue;
         n++; if (g.near(p, d, k) < d) near++; if (g.near(p, PATHS.longD * PATHS.dTest, k) < PATHS.longD * PATHS.dTest) far++;
       }
       if (n) sep = Math.max(sep, near / n);

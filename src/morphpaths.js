@@ -61,7 +61,7 @@ const MorphPaths = (() => {
   }
   // the selection (a generator: it yields between candidates, so it runs in slices off the frame;
   // runGenSliced). P maps the plane to px (null where a point is not shown: the globe's far side and limb), box is the
-  // panel (px), win its world window. opt: scale (the spacings' factor), footPx, nogo (px rectangles to keep clear),
+  // panel (px), win its world window. opt: scale (the spacings' factor), footPx,
   // maxN, globe, fig (the exported figure: stricter about the frame and the picture's lines), src (the deformation
   // source, classicSource or svPathsSource: H_T as Fat(T), whether H_0 is the identity, the marks' order; default
   // classicSource()).
@@ -86,12 +86,10 @@ const MorphPaths = (() => {
     const Fat = (T) => { let f = Fc.get(T); if (!f) { f = src.Fat(T); Fc.set(T, f); } return f; };
     const m0 = 2 * k, foot = opt.footPx || 0;
     const inner = { x0: box.x + m0, x1: box.x + box.w - m0, y0: box.y + m0, y1: box.y + box.h - foot - m0 };
-    const nogo = opt.nogo || [];
-    const inNogo = (p) => nogo.some((R) => p[0] >= R.x0 && p[0] <= R.x1 && p[1] >= R.y0 && p[1] <= R.y1);
-    const inPanel = (p) => p[0] >= inner.x0 && p[0] <= inner.x1 && p[1] >= inner.y0 && p[1] <= inner.y1 && !inNogo(p);
+    const inPanel = (p) => p[0] >= inner.x0 && p[0] <= inner.x1 && p[1] >= inner.y0 && p[1] <= inner.y1;
     // (a start stands dS/2 inside the panel: a ring on the frame with a chevron beside it says nothing)
     const mS = 0.5 * dS;
-    const inStart = (p) => p[0] >= inner.x0 + mS && p[0] <= inner.x1 - mS && p[1] >= inner.y0 + mS && p[1] <= inner.y1 - mS && !inNogo(p);
+    const inStart = (p) => p[0] >= inner.x0 + mS && p[0] <= inner.x1 - mS && p[1] >= inner.y0 + mS && p[1] <= inner.y1 - mS;
     const toW = (px, py) => C(win.x0 + (px - box.x) / box.w * (win.x1 - win.x0), win.y1 - (py - box.y) / box.h * (win.y1 - win.y0));
     // seeds: the point shapes, X's boundary every sep/3 px (its areas' outline; the curves when there is no area; a
     // formula area's boundary found on a grid, where X's inside test changes), and a square grid of step sep inside X
@@ -165,9 +163,9 @@ const MorphPaths = (() => {
     if (X.areas.length && !nEdge && !opt.globe) {
       const st = 4 * k, ins = (px, py) => X.inside(toW(px, py));
       let n = 0;
-      for (let py = inner.y0; py < inner.y1; py += st) for (let px = inner.x0; px < inner.x1; px += st) if (ins(px, py) && (!ins(px + st, py) || !ins(px - st, py) || !ins(px, py + st) || !ins(px, py - st)) && !inNogo([px, py]) && n++ % 2 === 0) seeds.push({ z: toW(px, py), kind: 'edge' });
+      for (let py = inner.y0; py < inner.y1; py += st) for (let px = inner.x0; px < inner.x1; px += st) if (ins(px, py) && (!ins(px + st, py) || !ins(px - st, py) || !ins(px, py + st) || !ins(px, py - st)) && n++ % 2 === 0) seeds.push({ z: toW(px, py), kind: 'edge' });
     }
-    if (X.areas.length) for (let py = inner.y0 + 0.75 * sep; py < inner.y1 - 0.5 * sep; py += sep) for (let px = inner.x0 + 0.75 * sep; px < inner.x1 - 0.5 * sep; px += sep) { const z = toW(px, py); if (X.inside(z) && !inNogo([px, py])) { seeds.push({ z, kind: 'node' }); nNode++; } }
+    if (X.areas.length) for (let py = inner.y0 + 0.75 * sep; py < inner.y1 - 0.5 * sep; py += sep) for (let px = inner.x0 + 0.75 * sep; px < inner.x1 - 0.5 * sep; px += sep) { const z = toW(px, py); if (X.inside(z)) { seeds.push({ z, kind: 'node' }); nNode++; } }
     }
     // (a small X in a wide figure frame: its starts would be packed at print size while the paths run out of the frame)
     if (opt.fig && X.areas.length && nNode * sep * sep < 0.05 * box.w * box.h) cap = Math.min(cap, 5);
