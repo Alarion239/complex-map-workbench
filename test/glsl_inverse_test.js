@@ -640,7 +640,7 @@ void main() {
   vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
   ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
-  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepRim = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepRim = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy; ixRepOwn = false;
   if (ixRepKeep()) discard;
   invWalk(t.xy);
   if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
@@ -666,17 +666,26 @@ void main() {
       // tangent at Repeat x 3, where the closed form decides most points and the search the rest)
       ['tangent disc 2 z^3 x 20', 20, { id: 'tk', kind: 'disc', c: [0, Math.SQRT1_2 - 0.05], r: 0.05 }, grid(VIEW, 32), '2*z^3'],
       ['across disc z^3 x 20', 20, { id: 'ac', kind: 'disc', c: [1, 0], r: 0.12 }, grid(VIEW, 32), 'z^3'],
-      ['tangent disc z^3 x 3', 3, { id: 't3', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3']];
+      ['tangent disc z^3 x 3', 3, { id: 't3', kind: 'disc', c: [0, 0.95], r: 0.05 }, grid(VIEW, 32), 'z^3'],
+      // (a glide frame of the repeat at x copies (#2510): the copies passed and the gliding one as one REPT op whose first
+      // level solves the gliding copy's homotopy, its head; planned and drawn as the app's glide frames are, by
+      // Inverse.homBuilt and the program of that chain)
+      ['glide frame x 3 at 1.75, bite', 3, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32), NEWTON, { glideX: 1.75 }],
+      ['glide frame x 20 at 10.5, gallery square', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32), NEWTON, { glideX: 10.5 }],
+      ['glide frame x 20 at 10.0001, gallery square', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32), NEWTON, { glideX: 10.0001 }]];
     // (and again with the first pass's budget at PASS_B_FAST: the search goes on in the second pass, GLR's reptDraw)
     for (const fastN of [0, PASS_B_FAST]) {
       GLR.setReptFastNodes(fastN);
-      for (const [name0, nRep, shape, pts, expr = NEWTON, { before = [], after = [] } = {}] of SCENES) {
+      for (const [name0, nRep, shape, pts, expr = NEWTON, { before = [], after = [], glideX = null } = {}] of SCENES) {
         const name = name0 + (fastN ? ` (first pass ${fastN} solves)` : '');
         const steps = [...before, Object.assign(St('custom', { expr, cut: 180 }), { repeat: { n: nRep, len: 1 } }), ...after];
         const a = before.length, b = a + 1;
-        const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built, a, b);
+        const built = Funcs.applyRepeats(steps, steps.map(Funcs.build));
+        // (a glide frame: the repeat standing for its homotopy at glideX / nRep, with its own program, as invHomPath's)
+        const bh = glideX == null ? built : built.map((bb, k) => (k === a ? Inverse.homBuilt(bb, Inverse.homOps(bb, glideX / nRep, { rept: true })) : bb));
+        const plan = Inverse.planChain(steps, bh, a, b);
         // (a plan whose options are not the chain's draws by the program of its own, as the app's invPlan pairs them)
-        const own = plan.ok && plan.opts.rept && !Inverse.chainOpts(steps, built).rept ? GLChain.buildInverse(steps, built, plan.opts) : undefined;
+        const own = glideX != null ? GLChain.buildInverse(steps, bh) : plan.ok && plan.opts.rept && !Inverse.chainOpts(steps, built).rept ? GLChain.buildInverse(steps, built, plan.opts) : undefined;
         if (steps.length > 1 && !own) { RP.failCount++; RP.fails.push({ chain: name, bad: ['no program of the plan\'s own options'] }); continue; }
         if (!plan.ok || plan.ops[0].kind !== 'REPT') { RP.failCount++; RP.fails.push({ chain: name, bad: ['plan ' + (plan.reason || plan.ops.map((o) => o.kind).join('>'))] }); continue; }
         GLR.setChain(GLChain.build(steps, built));

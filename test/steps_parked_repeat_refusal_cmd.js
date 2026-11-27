@@ -10,7 +10,7 @@
 // The same holds for a repeated degree-3 step next to another step (#2405), parked on the plane past both: Integer power n = 3
 // and the formula z^3, each followed by ×2, and ×2 followed by Integer power n = 3. Their copies make the plan, as any other
 // repeat's next to a step (one REPT op stands for a repeat only as the plane's one step). The repeat's own plane in such a
-// chain is drawn by its REPT plan.
+// chain is drawn by its REPT plan, and a plane beside the repeat by its own plan.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -100,5 +100,29 @@ for (const lang of ['en', 'ru']) {
   info[sc.name] = Object.assign({ tiles }, a);
   ok(`${sc.name}: drawn by its REPT plan (the regions' path is the inverse pass, a REPT draw walked a tile)`, a.paths.length === 1 && a.paths[0].path === 'inverse' && !!tiles && tiles.tilesA + tiles.tilesB > 0, { paths: a.paths, tiles });
   ok(`${sc.name}: no hatch, no note`, a.share <= HATCH_MAX_SHARE && !a.note && a.tip !== NOTE && a.said !== NOTE, { share: a.share, note: a.note, tip: a.tip });
+}
+// a plane beside a repeat too long for a plan, in a chain whose own inverse program cannot be built: ×2, then Newton's
+// step twenty times, parked on plane 1 (×2 alone). Its plan (one op) is exact and draws by a program of its own, which
+// holds the repeat as one REPT op, there inactive: the regions' path is the inverse pass, with no REPT draw (no tile
+// walked), no hatch and no note, and the plane is the picture of the same scene with the step once (a chain whose own
+// program draws it), at every sample but SAME_MAX_SHARE of them
+{
+  const SAME_GRID = 48, SAME_TOL = 24, SAME_MAX_SHARE = 0.01;
+  const samples = () => ev(`(() => {
+    const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, out = [];
+    for (let i = 0; i < ${SAME_GRID}; i++) for (let j = 0; j < ${SAME_GRID}; j++) { const x = Math.floor((i + 0.5) * c.width / ${SAME_GRID}), y = Math.floor((j + 0.5) * c.height / ${SAME_GRID}), k = 4 * (y * c.width + x); out.push([d[k], d[k + 1], d[k + 2]]); }
+    return out;
+  })()`);
+  const sc = { name: '×2, then Newton’s step ×20, on plane 1', step: { type: 'custom', params: { expr: 'z-(z^3-1)/(3*z^2)', cut: 180 } }, before: [TIMES2], disc: NEAR_DISC, plane: 1 };
+  await open(sc, COPIES, false);
+  const a = await look(), tiles = await ev('typeof __cmwRept === "function" ? __cmwRept({ tileStats: true }) : null'), got = await samples();
+  await open(Object.assign({}, sc, { name: '×2, then Newton’s step once, on plane 1 (the reference)' }), 1, false);
+  const want = await samples(), r = await look();
+  const off = got.filter((p, i) => Math.hypot(p[0] - want[i][0], p[1] - want[i][1], p[2] - want[i][2]) > SAME_TOL).length;
+  info[sc.name] = Object.assign({ tiles, off, of: got.length, reference: r.paths }, a);
+  ok(`${sc.name}: the reference, the step once, is drawn by the inverse pass (control)`, r.paths.length === 1 && r.paths[0].path === 'inverse', r.paths);
+  ok(`${sc.name}: drawn by its plan (the regions' path is the inverse pass), with no REPT draw (no tile walked)`, a.paths.length === 1 && a.paths[0].path === 'inverse' && !!tiles && tiles.tilesA + tiles.tilesB === 0, { paths: a.paths, tiles });
+  ok(`${sc.name}: no hatch, no note`, a.share <= HATCH_MAX_SHARE && !a.note && a.tip !== NOTE && a.said !== NOTE, { share: a.share, note: a.note, tip: a.tip });
+  ok(`${sc.name}: the plane is the reference's picture (at most ${SAME_MAX_SHARE * 100} % of ${SAME_GRID}² samples off by more than ${SAME_TOL})`, off <= SAME_MAX_SHARE * got.length, { off, of: got.length });
 }
 return { pass: fails.length === 0, fails, info };
