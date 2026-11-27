@@ -29,7 +29,11 @@
 //     frame's world space at depth, both ways: a kept triangle against the surface over it, and the surface over a
 //     triangle the height step left out against the kept ones, where no jump of the height explains the gap: geoCut). A
 //     wall narrower than its cell leaves a chord parametrically far from the points of its z (off, info), while the surface
-//     it draws is the exact one's; the fins of (vi) left the wall's surface out.
+//     it draws is the exact one's; the fins of (vi) left the wall's surface out;
+// (viii) geoCut's test (__cmwLandCutCell), on the triangle (0, 0), (1, 0), (0, 1) of a two-point grid over the plane: arg z
+//     across its cut on the negative reals is a jump, and atan(10⁴ Re z) across 0, as steep but continuous, is not; a step
+//     of 5 across Re z + Im z = 0.5 (on two edges) explains the cell, and with a wall 2 atan(10⁴ (Re z − Im z − 0.3)) on its
+//     third edge does not.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc, geo,
 // geoWorst, geoAt, stepped, geoCut}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
@@ -156,4 +160,14 @@ const nC = await chord();
 await redraw(null);
 info.C = { rows: rC, jumps: await jumps() };
 ok('C, z³ parked on w₁ coloured from z (v): a carried frame, and the jump rule leaves out none of its triangles', cC.s === 0 && !!rC && JSON.stringify(counts(nC)) === JSON.stringify(counts(rC)), { carried: cC, rule: counts(rC), noJump: counts(nC) });
+
+// ---- (viii): geoCut's test on four cells
+const cutCell = (place, hgt) => ev(`__cmwLandCutCell({ n: 2, place: ${place} }, [0, 1, 2], ${hgt}, 1)`);
+const cuts = {
+  arg: await cutCell('(i, j) => [-1, -0.5 + i + j]', '(z) => Math.atan2(z.im, z.re)'),
+  wall: await cutCell('(i, j) => [-0.5 + i + j, 0]', '(z) => Math.atan(1e4 * z.re)'),
+  step: await cutCell('(i, j) => [i, j]', '(z) => (z.re + z.im > 0.5 ? 5 : 0)'),
+  stepWall: await cutCell('(i, j) => [i, j]', '(z) => (z.re + z.im > 0.5 ? 5 : 0) + 2 * Math.atan(1e4 * (z.re - z.im - 0.3))'),
+};
+ok('(viii): geoCut\'s test finds a cut (arg z, a step on two edges), and not a steep wall, alone or beside a cut', cuts.arg === true && cuts.wall === false && cuts.step === true && cuts.stepWall === false, cuts);
 return { pass: fails.length === 0, fails, info };

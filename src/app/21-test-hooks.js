@@ -566,6 +566,10 @@
     const w = pk.F(C(x, y));
     return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // The chord error of the last carried Landscape frame on the screen, on the CPU, per grid the draw keeps triangles of
   // (landKeptTris, with the draw's height step, c.step): each kept triangle whose centroid's image lies in the block is sampled
   // at its centroid and its three edges' midpoints, at the same fractional grid place (i, j); there the chord (its
@@ -581,7 +585,7 @@
   // space at each point's depth (landGeo), both ways: a kept triangle's chord and the exact surface over it, and a triangle
   // the height step left out (stepped: their count), the exact surface over it against the grid's kept triangles;
   // geoWorst, geoAt: its centroid's [w.re, w.im, z.re, z.im]; geoCut: the left-out triangles a jump of the height explains
-  // (landHeightJump on an edge that steps), counted apart from geo, their reading being the slit's width}, or null with no
+  // (landCutCell), counted apart from geo, their reading being the slit's width}, or null with no
   // carried frame. A kept triangle's geo is read when the samples above are over tol apart in 3D (the chord's point and the
   // exact one, at the larger of their points' stretches), the nearest point of the surface being no farther than the one of
   // the same z; between the samples the chord is taken to follow the surface. A chord across a wall narrower than its cell
@@ -644,8 +648,7 @@
       if (!pts.length) return;
       const w = F(C(cl.zc[0], cl.zc[1]));
       r.stepped++;
-      const edges = [[0, 1], [1, 2], [2, 0]].filter(([m, k]) => Math.abs(gr.Hv[vs[m]] - gr.Hv[vs[k]]) > step);
-      if (edges.some(([m, k]) => landHeightJump(gr, vs[m], vs[k], hgt, step))) { r.geoCut++; return; }
+      if (landCutCell(gr, vs, hgt, step)) { r.geoCut++; return; }
       geoRow(r, geo.toKept(pts, kept[gr.name] || []), [...(CX.isFin(w) ? [w.re, w.im] : [NaN, NaN]), ...cl.zc]);
     };
     landKeptTris(c, F, visit, { step, hgt, stepped });
@@ -721,7 +724,10 @@
   }
   // whether the height jumps on the grid g's edge between vertices a and e: bisected along the edge (GEO_BISECT halvings,
   // keeping the half whose ends' heights hgt are farther apart), its ends still more than step / 2 apart. A steep wall's
-  // ends come together; a cut's stay apart by the jump
+  // ends come together; a cut's stay apart by the jump. A wrong turn, following a steeper wall past a smaller jump, ends
+  // in no jump, so the cell stays in geo. An edge through a pole or zero of F (the height unbounded there) reads as a jump:
+  // a singular point, not a chord; one passing at a distance well over its length's 2^-48 does not. 48 halvings stay above
+  // the doubles' resolution of the place
   const GEO_BISECT = 48;
   function landHeightJump({ n, place }, a, e, hgt, step) {
     const pa = [a % n, Math.floor(a / n)], pe = [e % n, Math.floor(e / n)];
@@ -734,6 +740,15 @@
     }
     return Math.abs(h1 - h0) > step / 2;
   }
+  // whether a jump of the height explains why the step left out the grid g's triangle (vertices vs): every edge whose ends'
+  // heights hgt are over step apart jumps (landHeightJump). A cut crosses two edges; a cell with a wall on its third reads
+  // in geo
+  function landCutCell(g, vs, hgt, step) {
+    const hv = vs.map((v) => { const z = g.place(v % g.n, Math.floor(v / g.n)); return hgt(C(z[0], z[1])); });
+    const edges = [[0, 1], [1, 2], [2, 0]].filter(([m, k]) => !(Math.abs(hv[m] - hv[k]) <= step));
+    return edges.length > 0 && edges.every(([m, k]) => landHeightJump(g, vs[m], vs[k], hgt, step));
+  }
+  window.__cmwLandCutCell = landCutCell;
   // the distance in 3D from point p to triangle t ([a, b, c], each [x, y, z]): to its nearest point (Ericson's region test)
   function ptTriDist(p, [a, b, c]) {
     const minus = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]], dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
