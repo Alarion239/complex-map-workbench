@@ -15,10 +15,12 @@ const open = async (ns, w, h, dark, mobile, lang) => {
   await nav(U + '?ns=' + ns + (lang ? '&lang=' + lang : ''));
   await ev('Tour.dismissSuggestion()');
 };
+// a wait for the page that fails with its own name when it times out (not a vaguer row after it)
+const quiet = async (what, opts) => { const max = opts.max, r = await settled(opts); if (!r.ok) throw new Error(`${what}: not reached after ${max} ms`); return r; };
 // (the tour is on the step, its shade is drawn and the page is quiet: the planes' frames done, no animation running)
 const startAt = async (chapter, step) => {
   await ev(`Tour.start({ chapter: '${chapter}', step: ${step} })`);
-  await settled({ max: 15000, until: `(() => { const c = Tour.current(), s = document.querySelector('.tour-shade'); return !!c && c.chapter === ${JSON.stringify(chapter)} && c.step === ${step} && !!s && !!s.getAttribute('d'); })()` });
+  await quiet(`the tour on ${chapter}/${step} with its shade drawn and the page quiet`, { max: 15000, until: `(() => { const c = Tour.current(), s = document.querySelector('.tour-shade'); return !!c && c.chapter === ${JSON.stringify(chapter)} && c.step === ${step} && !!s && !!s.getAttribute('d'); })()` });
 };
 const until = async (expr, max = 8000, poll = 40) => { const r = await settled({ until: expr, max, only: true, poll }); return r.at >= 0 ? r.at : null; };
 const mdrag = async (x0, y0, x1, y1) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }); for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 10, y: y0 + (y1 - y0) * i / 10, button: 'left', buttons: 1 }); await sleep(16); } await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }); };
@@ -51,7 +53,7 @@ const task = async (id, text, fn, ready, glides = false) => {
   try {
     await goStep(id);
     // (a step's scene can take a few seconds to load on a software renderer: the input waits for what it acts on)
-    if (ready) { check(`${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settled({ max: 20000 }); }
+    if (ready) { check(`${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await quiet(`${id}: the page quiet after its scene is up`, { max: 20000 }); }
     const a = await l2();
     check(`${id}: the task line is "${text}"`, a && flat(a.text).endsWith(flat(text)) && !a.done, a);
     await sleep(1800);   // (a negative control: the time the task has to tick on its own, and does not)
@@ -75,7 +77,7 @@ const task = async (id, text, fn, ready, glides = false) => {
     const b = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
     await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
   };
-  const press = async (sel) => { const c = await center(sel); await mdrag(c[0], c[1], c[0], c[1]); await settled({ max: 15000 }); };
+  const press = async (sel) => { const c = await center(sel); await mdrag(c[0], c[1], c[0], c[1]); await quiet(`the page quiet after a press on ${sel}`, { max: 15000 }); };
   await task('targets', 'On w₁, draw a disc, then click ‹ (or press ←).', async () => {
     await drawDisc();
     check('targets: a disc alone does not tick it', !(await l2()).done, await l2());
@@ -136,7 +138,7 @@ await open('tt3', 390, 844, false, true);
 const taskT = async (id, text, fn, ready) => {
   try {
     await goStep(id);
-    if (ready) { check(`phone ${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settled({ max: 20000 }); }
+    if (ready) { check(`phone ${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await quiet(`phone ${id}: the page quiet after its scene is up`, { max: 20000 }); }
     const a = await l2();
     check(`phone ${id}: the task line is "${text}"`, a && flat(a.text).endsWith(flat(text)) && !a.done, a);
     await sleep(1500);   // (a negative control, as above)
