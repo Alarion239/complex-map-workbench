@@ -21,7 +21,20 @@
 //     bridged the slit along the cut;
 // (iv') with the rule off (GLR._lw.noJump), A's box at those u keeps triangles off by more than 3 px: (iv) reads the rule;
 // (v) B at u = .5 and C keep the same triangles, grid by grid, with and without the rule: it leaves out nothing where the
-//     carry's map has no jump.
+//     carry's map has no jump;
+// (vi) a still carried frame is refined (#2475): once its refinement has landed (__cmwLandRf, not pending), A parked on w₁
+//     and B held at u = .25, .5 and .75 (the hook reading the refined cells the frame drew) keep no triangle off by more
+//     than TOL px in a cell refined below the level cap (offL.ref), and their triangles off by more than TOL px in all are
+//     at most RF_SHARE of the same frame's drawn unrefined (GLR._lw.noCarryRf), which has some. What stays off is read,
+//     not checked (info): cells at the cap, 16 sub-cells each way, where the surface's curvature outruns them (F's zero
+//     and poles under log |F|: B's box about z = 0, its inner ring about z = 0.5 + 25i), and cells the levels pass leaves
+//     unrefined because the base draw keeps only one of their two triangles (a tear, a disc, a jump);
+// (vi') with the carried refinement off (GLR._lw.noCarryRf), B's inner far ring held at u = .5 keeps triangles off by
+//     more than TOL px: (vi) reads the refinement;
+// (vii) a still frame is refined once: a redraw of B held at u = .5 makes no new levels pass;
+// (viii) a frame that moves is never refined: a glide of A played live (clock) from w₁ back to z makes no levels pass at a
+//     place between the two planes.
+// The controls (iii) and (iv') read the base grids' chords: their frames are drawn with the carried refinement off.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
 // a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
@@ -42,6 +55,28 @@ const PX_TOL = 30, SAT = 24;           // (the pixel rows: a channel more than P
 const LIM = 300000;
 
 const chord = (o = '') => evJson(`JSON.stringify(__cmwLandChordPx(${o}))`, LIM);
+// the carried refinement's record (__cmwLandRf: {passes, pending, trace, grids}), null without the hook; reset: a new trace
+const rfOf = (reset = false) => evJson(`JSON.stringify(window.__cmwLandRf ? __cmwLandRf(${reset}) : null)`);
+// (a still frame's refinement lands a frame or two after rfLater's 180 ms: its levels are read back fenced)
+const RF_WAIT = 30000;
+const RF_SHARE = 0.05;                 // (vi): the share of the unrefined frame's off triangles a refined frame may keep
+const refined = () => settled({ max: RF_WAIT, until: '!!window.__cmwLandRf && !__cmwLandRf().pending && __cmwLandRf().passes > 0' });
+// the grids with triangles off by more than TOL px: {name: {off, offL, worst, at, atL}}; and the triangles off in all
+const offGrids = (rows) => Object.fromEntries(Object.entries(rows || {}).filter(([, r]) => r.off > 0).map(([k, r]) => [k, { off: r.off, offL: r.offL, worst: r.worst, at: r.at, atL: r.atL }]));
+const offAll = (rows) => Object.values(rows || {}).reduce((n, r) => n + r.off, 0);
+// (vi) of the frame now: refined, its rows against the same frame drawn unrefined; then refined again
+const rfRow = async (tag) => {
+  const w = await refined(), rr = await chord(), rf = await rfOf();
+  await redraw({ noCarryRf: true });
+  const nr = await chord();
+  await redraw(null);
+  await refined();
+  const got = { wait: w, off: offGrids(rr), all: offAll(rr), unrefined: offAll(nr), rf };
+  const below = Object.values(rr || {}).every((r) => r.offL && r.offL.ref === 0);
+  ok(`${tag} (vi): refined, no triangle off by more than ${TOL} px in a cell refined below the cap, and at most ${RF_SHARE * 100} % of the unrefined frame's off`,
+    w.ok && !!rr && !!nr && below && got.unrefined > 0 && got.all <= RF_SHARE * got.unrefined, got);
+  return { rows: rr, unrefined: offGrids(nr), rf };
+};
 const jumps = () => evJson('JSON.stringify(__cmwLandJumps())', LIM);
 // the kept triangles per grid (the chord rows' tris)
 const counts = (rows) => Object.fromEntries(Object.entries(rows || {}).map(([k, r]) => [k, r.tris]));
@@ -90,7 +125,7 @@ for (const u of [0.05, 0.1, 0.25, 0.5, 0.75]) {
   if (u === 0.5) info.A['u' + u].px = await pixelRow('A-u0.5');
   if (u >= 0.25) {
     ok(`A, held at u = ${u} (iv): the box keeps no triangle across a jump of the log's glide, and none off by more than ${TOL} px`, !!rows && !!jm && rows.box.off === 0 && jm.box.across === 0 && jm.box.jumps > 0, { box: rows && rows.box, jumps: jm && jm.box });
-    await redraw({ noJump: true });
+    await redraw({ noJump: true, noCarryRf: true });
     const nj = await chord();
     info.A['u' + u].noJump = nj && nj.box;
     ok(`A, held at u = ${u} (iv'): with the jump rule off (GLR._lw.noJump) the box keeps triangles off by more than ${TOL} px`, !!nj && nj.box.off > 0, nj && nj.box);
@@ -102,7 +137,18 @@ await ev(`__cmwSteps({ go: 1, now: true }); 1`);
 await settled({ max: 90000, until: '__cmwSteps().ready.ready && __cmwSteps().i === 1' });
 const cA = await carried();
 ok('A, parked on w₁ coloured from z: a carried frame from plane z', cA.s === 0 && cA.u === 1, cA);
-info.A.parked = { rows: await chord(), px: await pixelRow('A-parked') };
+info.A.parked = await rfRow('A, parked on w₁');
+info.A.parked.px = await pixelRow('A-parked');
+// (viii) a glide played live from w₁ back to z, each frame advancing it 1/60 s however long it takes to draw
+await rfOf(true);
+await ev(`__cmwSteps({ clock: 1000 / 60, go: 0 }); 1`);
+const playedA = await settled({ max: 120000, until: '!__cmwSteps().moving && __cmwSteps().x === 0' });
+await ev(`__cmwSteps({ clock: 0 }); 1`);
+{
+  const rf = await rfOf(), mid = rf ? rf.trace.filter((t) => t.u > 1e-6 && t.u < 1 - 1e-6) : null;
+  info.A.played = { ok: playedA.ok, rf };
+  ok('A, a glide played live from w₁ to z (viii): no levels pass at a place between the planes', playedA.ok && !!rf && mid.length === 0, { played: playedA, mid });
+}
 
 // ---- B: the default page, Everywhere, T = w₂
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=chordB${Date.now()}`);
@@ -115,6 +161,20 @@ for (const u of [0.25, 0.5, 0.75]) {
   ok(`${tag}: a carried frame from plane z, with two far rings`, c.s === 0 && Math.abs(c.u - u) < 0.004 && c.far.length === 2, c);
   const rows = await chord(), smooth = await chord(`{ tol: ${SMOOTH_TOL}, where: (x, y) => Math.hypot(x, y) >= 0.4 && Math.hypot(x, y) <= 1.5 }`);
   info.B['u' + u] = { rows, smooth: smooth && smooth.box, px: await pixelRow(`B-u${u}`) };
+  {
+    const rr = info.B['u' + u].refined = await rfRow(tag), rf = rr.rf;
+    if (u === 0.5) {
+      const p0 = rf ? rf.passes : null;
+      await redraw(null);
+      const p1 = await rfOf();
+      ok(`${tag} (vii): a redraw of the refined frame makes no new levels pass`, p0 != null && !!p1 && p1.passes === p0, { before: p0, after: p1 });
+      await redraw({ noCarryRf: true });
+      const nr = await chord();
+      info.B['u' + u].noCarryRf = nr && nr.far0;
+      ok(`${tag} (vi'): with the carried refinement off (GLR._lw.noCarryRf) the inner far ring keeps triangles off by more than ${TOL} px`, !!nr && !!nr.far0 && nr.far0.off > 0, nr && nr.far0);
+      await redraw(null);
+    }
+  }
   ok(`${tag} (i): on the box's smooth part, triangles and none off by more than ${SMOOTH_TOL} px`, !!smooth && smooth.box.tris > 500 && smooth.box.worst <= SMOOTH_TOL, smooth && smooth.box);
   if (u >= 0.5) ok(`${tag} (ii): the outer far ring keeps triangles, none off by more than ${TOL} px`, !!rows && !!rows.far1 && rows.far1.tris > 0 && rows.far1.off === 0, rows && rows.far1);
   if (u === 0.5) {
@@ -123,7 +183,7 @@ for (const u of [0.25, 0.5, 0.75]) {
     const nj = await chord();
     ok(`${tag} (v): the jump rule leaves out no triangle of the default page's glide (the same kept triangles without it)`, JSON.stringify(counts(nj)) === JSON.stringify(counts(rows)), { rule: counts(rows), noJump: counts(nj) });
     await redraw(null);
-    await redraw({ farN: COARSE });
+    await redraw({ farN: COARSE, noCarryRf: true });
     const cc = await carried(), coarse = await chord();
     info.B.coarse = { far: cc.far, far0: coarse && coarse.far0 };
     ok(`${tag} (iii): with the far rings at ${COARSE.join(' and ')} points a side, the inner ring reads triangles off by more than ${TOL} px`, cc.far[0] === COARSE[0] && !!coarse && !!coarse.far0 && coarse.far0.off > 0, info.B.coarse);

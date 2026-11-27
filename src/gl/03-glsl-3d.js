@@ -601,16 +601,155 @@ vec2 carryZIn(vec4 src, vec2 ij) {
   const CARRY_Z = CARRY_ZIN + `
 vec2 carryZ(vec2 ij) { return carryZIn(uSrc, ij); }
 `;
-  const LAND_CARRY_TF_VS = `
+  // Which triangles of a carried grid the draw keeps (LAND_CARRY_VS), and the refinement's levels pass reads the same rule
+  // (CARRY_RF): triangle hf of cell c (0: c, c + (1, 0), c + (1, 1); 1: c, c + (1, 1), c + (0, 1)) is kept when its
+  // corners in uT1 (LAND_CARRY_TF_VS) are finite, its edges at most uLim on the plane, its heights within uStep (a cut of
+  // G, which the edge passes split at rest), and none of its edges crosses a jump of the carry's map (uT2's bits,
+  // LAND_CARRY_NRM_VS: jumpsAt). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in one of the uDiscN
+  // discs uDisc (x, y, r: a seamed patch's, svPatchSeam), which that patch draws; a patch with uDup (n.x, n.y,
+  // half-width, 1: the outer far ring of a periodic carry, svLandFarDup) one whose corners all lie within the half-width
+  // of its centre across the period. t0, t1, t2: its corners' texels
+  const CARRY_KEEP = `
+uniform highp sampler2D uT1; uniform highp sampler2D uT2;
+uniform vec4 uBox; uniform vec2 uAspect; uniform float uLim; uniform float uStep;
+uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup;
+bool inDisc(vec2 a, vec2 b, vec2 c) {
+  for (int k = 0; k < ${CARRY_DISCS}; k++) {
+    if (k >= uDiscN) break;
+    vec3 d = uDisc[k];
+    if (length(a - d.xy) < d.z && length(b - d.xy) < d.z && length(c - d.xy) < d.z) return true;
+  }
+  return false;
+}
+bool inDup(vec2 z) { return abs(dot(z - uPolar.xy, uDup.xy)) < uDup.z; }
+int jumpsAt(ivec2 v) { return int(floor(0.5 * texelFetch(uT2, v, 0).w)); }
+bool keptTri(ivec2 c, int hf, out vec4 t0, out vec4 t1, out vec4 t2) {
+  ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
+  t0 = texelFetch(uT1, V0, 0); t1 = texelFetch(uT1, V1, 0); t2 = texelFetch(uT1, V2, 0);
+  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return false;
+  if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return false;
+  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return false;
+  if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return false;
+  if (uPolar.w > 0.0 && uDup.w > 0.0 && inDup(carryZ(vec2(V0))) && inDup(carryZ(vec2(V1))) && inDup(carryZ(vec2(V2)))) return false;
+  int j0 = jumpsAt(V0), jE = hf == 0 ? (j0 & 5) | (jumpsAt(V1) & 2) : (j0 & 6) | (jumpsAt(V2) & 1);
+  return jE == 0;
+}
+// (a place on the plane and a height, in the block's world units, as the draw places them)
+vec3 carryWorld(vec2 q, float h) { return vec3(((q - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, h); }
+`;
+  // A carried grid's refinement, for a still frame (carryRefine in 06-draws-3d.js), in the program of its places
+  // (LAND_CARRY_TF_VS's ref variant, landCarryTFr), as the rest grid's (REFINE, REFINE_BUILD), with the carried point in
+  // place of the height alone: a point of the grid moves on the plane as well as up, so the chord error is the
+  // distance in the block's world units between the chord and the carried point (carryWorld), along x, y and the drawn
+  // diagonal. uPass 1, the levels (Lx + 8 Ly), four cells (4q to 4q + 3 of row j) an invocation: the cell's 5 x 5 lattice
+  // at quarter cells (the 4 corners from uT1, the other 21 evaluated), from its largest second differences (levelD), a
+  // direction's level capped so its sub-cells stay over uMinPx px; level 0 for a cell either of whose base triangles the
+  // draw leaves out (keptTri), or with a lattice point that is not finite: the base draw keeps its cells as they are, the
+  // refined draw covers only cells it would draw whole, and the seams, the discs and the jump rule stand. uPass 2, the
+  // vertex records of one group (levels uL, list entries from uGE, uTot vertices, (2^Lx + 1)(2^Ly + 1) an entry, snapV):
+  // two texels a vertex, (place x, y, height, 1 + its x in 16ths of a cell, 0 when not finite) and (its normal, its y in
+  // 16ths); the normal from central differences at its spacing (one-sided where a neighbour is not finite), or a base
+  // corner's next to a base cell (snapV's -1), from uT2, so the refined cells meet the base ones with the same shading
+  const CARRY_RF = glsl`
+uniform int uPass; uniform ivec2 uL; uniform int uGE; uniform int uTot;
+float carryLevels(vec3 lat[25]) {
+  float dx = 0.0, dy = 0.0, dd = 0.0;
+  for (int b = 0; b < 5; b++) for (int a = 1; a < 4; a++) {
+    dx = max(dx, length(lat[b * 5 + a - 1] - 2.0 * lat[b * 5 + a] + lat[b * 5 + a + 1]));
+    dy = max(dy, length(lat[(a - 1) * 5 + b] - 2.0 * lat[a * 5 + b] + lat[(a + 1) * 5 + b]));
+  }
+  for (int b = 1; b < 4; b++) for (int a = 1; a < 4; a++) dd = max(dd, length(lat[(b - 1) * 5 + a - 1] - 2.0 * lat[b * 5 + a] + lat[(b + 1) * 5 + a + 1]));
+  if (dx >= dy) dx = max(dx, dd); else dy = max(dy, dd);
+  float fx = max(length(lat[4] - lat[0]), length(lat[24] - lat[20])) * uPxW, fy = max(length(lat[20] - lat[0]), length(lat[24] - lat[4])) * uPxW;
+  int Lx = fx > uMinPx ? int(ceil(log2(fx / uMinPx))) : 0, Ly = fy > uMinPx ? int(ceil(log2(fy / uMinPx))) : 0;
+  int ax = clamp(min(levelD(dx), Lx), 0, 4), ay = clamp(min(levelD(dy), Ly), 0, 4);
+  // (a direction at the cap: the cell holds curvature 16 sub-cells do not resolve, about a zero or a pole of F under
+  // log |F|, where the lattice's points miss its peak along the other direction too, so both take the cap, as far as
+  // the sub-cells' size allows)
+  if (max(ax, ay) == 4) { ax = clamp(Lx, ax, 4); ay = clamp(Ly, ay, 4); }
+  return float(ax + 8 * ay);
+}
+void carryRefine() {
+  int M = uN - 1, Mq = (M + 3) / 4;
+  tfOut = vec4(0.0);
+  int q = 0, j = 0, n = 0, part = 0;
+  ivec4 sv = ivec4(0);
+  vec2 e = vec2(0.0);
+  vec4 lv = vec4(0.0), a, b, cc;
+  vec3 lat[25];
+  for (int i = 0; i < 25; i++) lat[i] = vec3(0.0);
+  bool bad = false, skip = false;
+  if (uPass == 1) {
+    q = gl_VertexID % Mq; j = gl_VertexID / Mq; n = 4 * 21;
+  } else {
+    int v = gl_VertexID >> 1;
+    part = gl_VertexID & 1;
+    if (v >= uTot) return;
+    ivec2 nn = ivec2(1 << uL.x, 1 << uL.y);
+    int per = (nn.x + 1) * (nn.y + 1), en = v / per, l = v - en * per;
+    sv = snapV(lstCell(uGE + en), uL, ivec2(l % (nn.x + 1), l / (nn.x + 1)));
+    // (a base corner next to a base cell: its normal is the base pass's)
+    if (part == 1 && (sv.z < 0 || sv.w < 0)) { tfOut = vec4(texelFetch(uT2, sv.xy / 16, 0).xyz, float(sv.y)); return; }
+    e = vec2(1.0 / float(1 << max(sv.z, 0)), 1.0 / float(1 << max(sv.w, 0)));
+    n = part == 0 ? 1 : 5;
+  }
+  // one call site of the chain, in a loop whose trip count is not a constant (a constant one is unrolled)
+  vec3 P[5]; bool okP[5];
+  vec2 w0 = vec2(0.0);
+  float h0 = 0.0;
+  for (int k = 0; k < 5; k++) { P[k] = vec3(0.0); okP[k] = false; }
+  for (int it = 0; it < n; it++) {
+    int p = it, kc = 0, li = 0;
+    vec2 g;
+    if (uPass == 1) {
+      kc = it / 21; p = it - 21 * kc;
+      ivec2 c = ivec2(4 * q + kc, j);
+      if (c.x >= M) continue;
+      if (p == 0) {
+        skip = !(keptTri(c, 0, a, b, cc) && keptTri(c, 1, a, b, cc));
+        bad = false;
+        vec4 t00 = texelFetch(uT1, c, 0), t10 = texelFetch(uT1, c + ivec2(1, 0), 0);
+        vec4 t01 = texelFetch(uT1, c + ivec2(0, 1), 0), t11 = texelFetch(uT1, c + ivec2(1, 1), 0);
+        lat[0] = carryWorld(t00.xy, t00.z); lat[4] = carryWorld(t10.xy, t10.z);
+        lat[20] = carryWorld(t01.xy, t01.z); lat[24] = carryWorld(t11.xy, t11.z);
+      }
+      if (skip) continue;
+      li = latIdx(p);
+      g = vec2(c) + vec2(float(li % 5), float(li / 5)) * 0.25;
+    } else {
+      g = vec2(sv.xy) / 16.0 + (p == 0 ? vec2(0.0) : (p == 1 ? vec2(e.x, 0.0) : (p == 2 ? vec2(-e.x, 0.0) : (p == 3 ? vec2(0.0, e.y) : vec2(0.0, -e.y)))));
+    }
+    vec2 z = carryZ(g), w = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
+    bool fin = cfin(w) && hv.y > 0.5;
+    if (uPass == 1) {
+      if (fin) lat[li] = carryWorld(w, hv.x); else bad = true;
+      if (p == 20) {
+        float l2 = bad ? 0.0 : carryLevels(lat);
+        if (kc == 0) lv.x = l2; else if (kc == 1) lv.y = l2; else if (kc == 2) lv.z = l2; else lv.w = l2;
+      }
+      continue;
+    }
+    P[p] = carryWorld(w, hv.x); okP[p] = fin;
+    if (p == 0) { w0 = w; h0 = hv.x; }
+  }
+  if (uPass == 1) { tfOut = lv; return; }
+  if (part == 0) { tfOut = okP[0] ? vec4(w0, h0, 1.0 + float(sv.x)) : vec4(0.0); return; }
+  vec3 dx = (okP[1] ? P[1] : P[0]) - (okP[2] ? P[2] : P[0]), dy = (okP[3] ? P[3] : P[0]) - (okP[4] ? P[4] : P[0]);
+  vec3 nr = cross(dx, dy);
+  nr = length(nr) > 1e-20 ? normalize(nr) : vec3(0.0, 0.0, 1.0);
+  tfOut = vec4(nr, float(sv.y));
+}
+`;
+  const LAND_CARRY_TF_VS = (ref) => (ref ? REFINE + REFINE_BUILD : '') + `
 uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
 out vec4 tfOut;
-` + CARRY_Z + `
+` + CARRY_Z + (ref ? CARRY_KEEP + CARRY_RF : '') + `
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
+${ref ? '  carryRefine();' : `  vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
   vec2 q = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
-  tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
+  tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);`}
 }
 `;
   // the carried All sheets' places: plane s's grid over the box uSrc (uN x uN) moved by the glide's map (mapPoint, uBase =
@@ -712,42 +851,59 @@ void main() {
   // is left out: the slit along a cut whose banks land within uLim, which a kept triangle would bridge. (jumpsAt: a grid
   // point's bits; a triangle's edges are V0 -> V1, +x of V0 (hf 0) or its diagonal, V1 -> V2, +y of V1 (hf 0) or +x of V2,
   // and V0 -> V2, the diagonal of V0 (hf 0) or its +y)
-  const LAND_CARRY_VS = `
-uniform highp sampler2D uT1; uniform highp sampler2D uT2;
-uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup;
-bool inDisc(vec2 a, vec2 b, vec2 c) {
-  for (int k = 0; k < ${CARRY_DISCS}; k++) {
-    if (k >= uDiscN) break;
-    vec3 d = uDisc[k];
-    if (length(a - d.xy) < d.z && length(b - d.xy) < d.z && length(c - d.xy) < d.z) return true;
-  }
-  return false;
-}
+  const LAND_CARRY_VS = REFINE + `
+uniform int uN; uniform vec4 uSrc; uniform float uH; uniform mat4 uMVP;
+uniform int uRef; uniform int uRefOn; uniform highp sampler2D uRf; uniform ivec2 uL; uniform int uRefE; uniform int uRefT;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
-` + CARRY_Z + `
-bool inDup(vec2 z) { return abs(dot(z - uPolar.xy, uDup.xy)) < uDup.z; }
-int jumpsAt(ivec2 v) { return int(floor(0.5 * texelFetch(uT2, v, 0).w)); }
+` + CARRY_Z + CARRY_KEEP + glsl`
+vec4 rfAt(int t) { return texelFetch(uRf, ivec2(t & 2047, t >> 11), 0); }
+float aoAt(ivec2 v) { float w = texelFetch(uT2, v, 0).w; return w - 2.0 * floor(0.5 * w); }
+// uRef 1: one instance per triangle of the sub-cells of one group's cells (levels uL, list entries from uRefE, vertex
+// records from texel uRefT of uRf, CARRY_RF's), 3 vertices each; a sub-triangle with a corner not finite, an edge over
+// uLim or a height step over uStep is left out, as a base one is
+void refined() {
+  ivec2 n = ivec2(1 << uL.x, 1 << uL.y);
+  int per = 2 * n.x * n.y;
+  int e = gl_InstanceID / per, r = gl_InstanceID - e * per;
+  int tri = r & 1, sub = r >> 1, k = gl_VertexID;
+  ivec2 s0 = ivec2(sub % n.x, sub / n.x);
+  ivec2 sA = s0, sB = tri == 0 ? s0 + ivec2(1, 0) : s0 + ivec2(1, 1), sC = tri == 0 ? s0 + ivec2(1, 1) : s0 + ivec2(0, 1);
+  int vb = uRefT + 2 * e * (n.x + 1) * (n.y + 1);
+  int iA = vb + 2 * (sA.y * (n.x + 1) + sA.x), iB = vb + 2 * (sB.y * (n.x + 1) + sB.x), iC = vb + 2 * (sC.y * (n.x + 1) + sC.x);
+  vec4 ta = rfAt(iA), tb = rfAt(iB), tc = rfAt(iC);
+  if (k > 2 || ta.w < 0.5 || tb.w < 0.5 || tc.w < 0.5) return;
+  if (length(ta.xy - tb.xy) > uLim || length(tb.xy - tc.xy) > uLim || length(tc.xy - ta.xy) > uLim) return;
+  if (max(max(ta.z, tb.z), tc.z) - min(min(ta.z, tb.z), tc.z) > uStep) return;
+  int iv = k == 0 ? iA : (k == 1 ? iB : iC);
+  vec4 tv = k == 0 ? ta : (k == 1 ? tb : tc), t2 = rfAt(iv + 1);
+  vec2 G = vec2(tv.w - 1.0, t2.w) / 16.0;
+  ivec2 c = lstCell(uRefE + e);
+  vZ = carryZ(G);
+  vPos = carryWorld(tv.xy, tv.z);
+  vNor = t2.xyz;
+  // (ambient occlusion: the base corners', bilinear across the cell, so two cells agree along their side)
+  vec2 f = G - vec2(c);
+  vAO = mix(mix(aoAt(c), aoAt(c + ivec2(1, 0)), f.x), mix(aoAt(c + ivec2(0, 1)), aoAt(c + ivec2(1, 1)), f.x), f.y);
+  vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
+  gl_Position = uMVP * vec4(vPos, 1.0);
+}
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
+  if (uRef == 1) { refined(); return; }
   int M = uN - 1;
   int tri = gl_VertexID / 3, k = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % M, cell / M);
+  // (uRefOn 1: a cell with levels is left to the refined draw)
+  if (uRefOn == 1 && lvRaw(c) != 0) return;
+  vec4 t0, t1, t2;
+  if (!keptTri(c, hf, t0, t1, t2)) return;
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
-  vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
-  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
-  if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
-  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
-  if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
-  if (uPolar.w > 0.0 && uDup.w > 0.0 && inDup(carryZ(vec2(V0))) && inDup(carryZ(vec2(V1))) && inDup(carryZ(vec2(V2)))) return;
-  int j0 = jumpsAt(V0), jE = hf == 0 ? (j0 & 5) | (jumpsAt(V1) & 2) : (j0 & 6) | (jumpsAt(V2) & 1);
-  if (jE != 0) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
   vZ = carryZ(vec2(V));
-  vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
+  vPos = carryWorld(t.xy, t.z);
   vNor = nv.xyz; vAO = nv.w - 2.0 * floor(0.5 * nv.w);
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);

@@ -220,7 +220,9 @@
     // as a Landscape without walls does)
     land: { chain: true, vs: () => LAND_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true) },
     // (the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
-    landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
+    landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS(false), fs: () => TF_FS, tf: true },
+    // (a still carried frame's refinement, its levels and its refined vertices: CARRY_RF, carryRefine)
+    landCarryTFr: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS(true), fs: () => TF_FS, tf: true },
     landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
     landCarryPlaceS: { chain: true, sheet: true, vs: () => UTIL_V + LAND_CARRY_PLACE_S_TF_VS(), fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
