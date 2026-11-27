@@ -550,9 +550,11 @@
     setStackKey(sph, $('leftSphWhy'), SV.on ? SV.surf === 'land' : lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
     setStackKey($('leftFit'), $('leftFitWhy'), false, '', $t('Fit view') + '  Z');
   }
-  // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
+  // Sphere on a plane's stack, the laptop's and the phone's: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own
+  // tabs do. A key the surface cannot use says why in a message and changes nothing
   function stackSphere(side) {
-    if ($(side === 'L' ? 'leftSph' : 'rightSph').getAttribute('aria-disabled') === 'true') return;
+    const key = $(side === 'L' ? 'leftSph' : 'rightSph');
+    if (key.getAttribute('aria-disabled') === 'true') { toast($(side === 'L' ? 'leftSphWhy' : 'rightSphWhy').textContent); return; }
     if (svSphereKey() != null) return;
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     const sb = tabs && tabs.querySelector('button[data-mode="sphere"]'), pb = tabs && tabs.querySelector('button[data-mode="plane"]');
@@ -949,7 +951,7 @@
       // (and left of any control of the plane that its box would reach, the colour key and the plane's keys: a message is never over a control. Its place is
       // the one it has once its eased move ends: its foot at bottom, its height as it stands)
       st.removeProperty('right');
-      const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
+      const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack .vbtn')].map(box) : [];
       const tb = keys.length ? mt.getBoundingClientRect() : null, foot = sb.top - barH - 8;
       const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
@@ -980,7 +982,7 @@
     if (inset) {
       // a phone with the inset: right of it, left of the large plane's keys at the bottom
       const big = document.querySelector('.panes > .pane:not(.ph-inset):not([hidden])');
-      const keys = big ? [...big.querySelectorAll('.viewstack, .ph-col')].map(box).filter((r) => r && r.width > 0 && r.bottom > inset.top) : [];
+      const keys = big ? [...big.querySelectorAll('.viewstack .vbtn')].map(box).filter((r) => r && r.width > 0 && r.bottom > inset.top) : [];
       lo = inset.right + 8;
       for (const r of keys) hi = Math.min(hi, r.left - 8);
       if (hi - lo < 200) {
