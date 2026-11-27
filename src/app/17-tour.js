@@ -96,7 +96,7 @@
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }
   // the persisted state, as writeState saves it
-  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: S.rightView || null }), noRuntime));
+  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R }), noRuntime));
   function tourSnapshot() {
     phHold();
     if (typeof svStore === 'function') svStore();   // (S.sv holds the steps view's place: the tour moves it, and the restore puts it back)
