@@ -157,6 +157,45 @@ check('Integer power z^3 x 20 alone plans as REPT', planKinds([St('pown', { n: 3
   const [e01, e12, e23] = [[0, 1], [1, 2], [2, 3]].map(([a, b]) => Inverse.planChain(ezx.steps, ezx.built, a, b));
   check('exp, then z^3 x 3, then x 2: planes (0, 1] and (2, 3] keep the chain\'s options, (1, 2] plans REPT', e01.ok && e01.opts.rept === ch.rept && e23.ok && e23.opts.rept === ch.rept && e12.ok && e12.ops[0].kind === 'REPT' && e12.opts.rept && !ch.rept, [e01.opts, e12.ok && e12.ops.map((o) => o.kind).join('>'), e23.opts]);
 }
+// (a chain whose own program cannot be built, its repeat's copies being more ops than a program holds: every plan it has
+// draws by a program that builds and holds the plan's ops. A range that holds none of its repeats plans with the
+// options whose program holds the repeat as one REPT op; a range that holds the repeat beside another step stays too
+// long for a plan)
+{
+  const NEWT20 = St('custom', { expr: NEWTON, cut: 180 }, { n: 20, len: 1 }), PLUS1 = St('add', { c: '1' });
+  const chains = [['x 2, then Newton x 20', [TIMES2, NEWT20]], ['Newton x 20, then x 2', [NEWT20, TIMES2]], ['x 2, then Newton x 20, then + 1', [TIMES2, NEWT20, PLUS1]]];
+  let plans = 0;
+  const wrong = [], own = [];
+  for (const [name, steps] of chains) {
+    const c = chainOf(steps);
+    own.push(GLChain.buildInverse(c.steps, c.built).ok);
+    for (let a = 0; a < steps.length; a++) for (let b = a + 1; b <= steps.length; b++) {
+      const p = Inverse.planChain(c.steps, c.built, a, b);
+      if (!p.ok) continue;
+      plans++;
+      const inv = GLChain.buildInverse(c.steps, c.built, p.opts);
+      if (!inv.ok || !p.ops.every((o) => inv.ops.some((q) => q.step === o.step && q.node === o.node && q.kind === o.kind))) wrong.push(`${name} (${a}, ${b}]: ${inv.ok ? 'ops' : inv.reason}`);
+    }
+  }
+  check('control: the chains\' own programs cannot be built (chain too long)', own.every((o) => !o), own);
+  // (Inverse.programOps counts a program's ops as GLChain.buildInverse does, which builds it exactly when the count is at
+  // most Inverse.OPS_MAX: rangeOpts decides by it)
+  const counts = [];
+  for (const [name, steps] of chains.concat([['x 2, then z^3 x 3', [TIMES2, St('pown', { n: 3 }, { n: 3, len: 1 })]]])) {
+    const c = chainOf(steps);
+    for (const opts of [Inverse.chainOpts(c.steps, c.built), { rept: true }]) {
+      const count = Inverse.programOps(c.steps, c.built, opts).n, inv = GLChain.buildInverse(c.steps, c.built, opts);
+      if (inv.ok !== (count <= Inverse.OPS_MAX) || (inv.ok && inv.ops.filter((o) => o.kind !== 'X').length !== count)) counts.push(`${name} ${JSON.stringify(opts)}: ${count}, ${inv.ok ? inv.ops.length : inv.reason}`);
+    }
+  }
+  check('Inverse.programOps counts a program\'s ops as GLChain.buildInverse does: it builds exactly when the count is at most OPS_MAX', counts.length === 0, counts);
+  check('a chain whose own program cannot be built: each of its plans has a program that builds and holds the plan\'s ops', plans === 7 && wrong.length === 0, `${plans} plans, ${JSON.stringify(wrong)}`);
+  const p01 = Inverse.planChain(AN.steps, AN.built, 0, 1);
+  check('x 2, then Newton x 20: plane 1 (x 2 alone) plans AFF with the REPT options; plane 2 stays too long for a plan', p01.ok && p01.ops.map((o) => o.kind).join('>') === 'AFF' && p01.opts.rept === true && !planAN.ok && planAN.tooLong === true, [p01.ok ? p01.ops.map((o) => o.kind).join('>') : p01.reason, p01.opts]);
+  // (two such repeats: a program holds one REPT search, so the range between them keeps the chain's options)
+  const two = chainOf([NEWT20, TIMES2, NEWT20]), p12 = Inverse.planChain(two.steps, two.built, 1, 2);
+  check('Newton x 20, x 2, Newton x 20: plane (1, 2] keeps the chain\'s options (one REPT op to a program)', p12.ok && p12.opts.rept === Inverse.chainOpts(two.steps, two.built).rept, p12.opts);
+}
 const plan20 = Inverse.planChain(N20.steps, N20.built, 0, 1);
 check('the gallery plane has a plan', plan20.ok && plan20.ops.length === 1);
 check('a REPT plan is not injective, and a point\'s preimages are past the exact cap', !plan20.injective && !Inverse.pointPre(plan20, C(0.3, 0.1)).exact);
@@ -335,8 +374,8 @@ const brute2 = (o, L, w) => {
   const NEAR = 0.02;                                                         // |w| within this of 1 is left out (the pixel's own reach)
   const ACROSS_SOLVES = 20;                                                  // the most root solves an across pixel needs (measured)
   const pts = gridOf(RW, RG);
-  const run = (shape, n) => {
-    const p = planOf(repOf('z^3', n)), pr = Inverse.prepare(p, { win: RW, shape }), t = { out: 0, outEmpty0: 0, inn: 0, innEmpty: 0, inside: { 1: 0, 0: 0, '-1': 0 }, solves: 0, max: 0 };
+  const run = (shape, copies) => {
+    const p = planOf(repOf('z^3', copies)), pr = Inverse.prepare(p, { win: RW, shape }), t = { out: 0, outEmpty0: 0, inn: 0, innEmpty: 0, inside: { 1: 0, 0: 0, '-1': 0 }, solves: 0, max: 0 };
     for (const w of pts) {
       const e = Inverse.enumerate(p, pr, w, PIX, { leaves: false }).rept, a = CX.abs(w);
       t.solves += e.nodes; t.max = Math.max(t.max, e.nodes); t.inside[e.verdict]++;
@@ -367,12 +406,12 @@ const brute2 = (o, L, w) => {
 }
 
 // ---- 4d. the closed form (a monomial step on a disc region, #2375)
-// a pixel's verdict from every chain of n backward roots (3^n), no prune, each leaf scored at its own point; null when a
-// leaf lies within a pixel's ramp of the edge
-const bruteN = (o, L, w, n) => {
+// a pixel's verdict from every chain of copies backward roots (3^copies), no prune, each leaf scored at its own point;
+// null when a leaf lies within a pixel's ramp of the edge
+const bruteN = (o, L, w, copies) => {
   let brute = 0;
   const rec = (z, rho, d, r) => {
-    if (r === n) { const lv = L(z) / (d * PIX); if (Math.abs(lv) <= 1) return false; if (lv > 0) brute = 1; return true; }
+    if (r === copies) { const lv = L(z) / (d * PIX); if (Math.abs(lv) <= 1) return false; if (lv > 0) brute = 1; return true; }
     const nd = InvOps.reptNode(o.p.P, o.p.Q, z, rho);
     if (!nd) return false;
     for (let i = 0; i < 3; i++) if (!rec(nd.z[i], nd.rho[i], d * CX.abs(nd.d[i]), r + 1)) return false;

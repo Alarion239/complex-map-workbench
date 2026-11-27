@@ -63,14 +63,37 @@ const Inverse = (() => {
   // own options (GLChain.buildInverse(steps, built, plan.opts), beside the chain's); false: every plan takes the chain's
   // options (Inverse.chainOpts), so a repeat in a longer chain is planned by its copies on its own plane too
   const REPT_RANGE = true;
-  // Inverse.rangeOpts(steps, built, a, b) -> the stepOps options of the plans for the stages (a, b]: {rept: true} when
-  // the range's one live step is a repeat whose ops are then one REPT op (REPT_RANGE), else the chain's
-  // (Inverse.chainOpts), so that every other plan matches the chain's own program
+  // Inverse.rangeOpts(steps, built, a, b) -> the stepOps options of the plans for the stages (a, b] (REPT_RANGE):
+  // - {rept: true} when the range's one live step is a repeat whose ops are then one REPT op;
+  // - {rept: true} too when the chain's own program cannot be built (its repeats' copies are more ops than a program
+  //   holds) and the program with {rept: true} can, holding one REPT op from a repeat outside the range: the range's
+  //   other steps plan as they would with the chain's options, and its program is one that builds;
+  // - else the chain's (Inverse.chainOpts), so that every other plan matches the chain's own program. A range that holds a
+  //   repeat beside another step keeps them: its copies are too long for a plan (tooLong), as the chain's are
   function rangeOpts(steps, built, a, b) {
     let live = 0, only = 0;
     for (let k = a + 1; k <= b; k++) if (isLive(steps[k - 1], built[k - 1])) { live++; only = k; }
     const own = REPT_RANGE && live === 1 && built[only - 1].repeat ? stepOps(built[only - 1], { rept: true }) : null;
-    return own && own.ok && own.ops.length === 1 && own.ops[0].kind === 'REPT' ? { rept: true } : chainOpts(steps, built);
+    if (own && own.ok && own.ops.length === 1 && own.ops[0].kind === 'REPT') return { rept: true };
+    const ch = chainOpts(steps, built);
+    if (!REPT_RANGE || ch.rept || programOps(steps, built, ch).n <= OPS_MAX) return ch;
+    const r = programOps(steps, built, { rept: true });
+    return r.n <= OPS_MAX && r.rept.length === 1 && !(r.rept[0] > a && r.rept[0] <= b) ? { rept: true } : ch;
+  }
+  // Inverse.programOps(steps, built, opts) -> the ops of a GLSL inverse program of the chain with opts, as
+  // GLChain.buildInverse counts them (every live step's, none for a step it cannot invert), which builds it when n is at
+  // most OPS_MAX: {n, rept: the steps whose op is a REPT op}
+  function programOps(steps, built, opts) {
+    let n = 0;
+    const rept = [];
+    for (let k = 1; k <= steps.length; k++) {
+      if (!isLive(steps[k - 1], built[k - 1])) continue;
+      const r = stepOps(built[k - 1], opts);
+      if (!r.ok) continue;
+      n += r.ops.length;
+      if (r.ops.some((o) => o.kind === 'REPT')) rept.push(k);
+    }
+    return { n, rept };
   }
   // Inverse.inverseKey(steps, built, opts): structure of every step (op kinds, or 'X' when it has no enumerator), each
   // decomposed with opts (default the chain's, Inverse.chainOpts); parameter values are uniforms, so a parameter change
@@ -2170,7 +2193,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH, REPT_CF_TAYLOR, REPT_RIM,
-    stepOps, chainOpts, rangeOpts, REPT_RANGE, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
+    stepOps, chainOpts, rangeOpts, REPT_RANGE, programOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
