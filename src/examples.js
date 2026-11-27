@@ -364,7 +364,8 @@ const Examples = (() => {
     const bg = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === bg) close(); } });
     const m = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'guideTitle' });
     const k = (t) => t.split(' ').map((x) => `<span class="kbd">${x}</span>`).join(' ');
-    // (a phone: the Deformation section names what its thread has, ▶ held for Playback, and no keys)
+    // (a phone: the Deformation section names what its thread has, ▶ held for Playback, and no keys; F6's row names the
+    // areas in the order F6 visits them there, the tools after the chain)
     const ph = document.documentElement.classList.contains('ph');
     const keys = [
       [k('V'), $t('Select and move shapes')], [`${k('P')} ${k('S')} ${k('L')} ${k('R')}`, $t('Point, segment, line, ray')],
@@ -376,7 +377,7 @@ const Examples = (() => {
       ...(exSv() ? [[`${k('K')} ${k('M')}`, $t('Play the chain, or pause it')], [k('P'), $t('Paths t ↦ Hₜ(z) on or off')]] : []), [k('⇧ M'), $t('Sound on or off')],
       [k('Z'), $t('Fit view')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
-      [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, plane, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s chips')],
+      [`${k('F6')} ${k('⇧ F6')}`, ph ? $t('Next or previous area: top bar, plane, chain, tools, Inspector') : $t('Next or previous area: top bar, tools, plane, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s chips')],
       // (the Alt+arrows row is the steps view's: the classic view's keyboard probe moves with the plain arrows)
       [`${k('←')} ${k('→')}`, $t('Previous or next plane')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('With a shape selected: nudge it by one grid step, ⇧ for ten')], ...(exSv() ? [[`${k('Alt')} ${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('On a plane with the sound probe: move the probe')]] : []), [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
       [k('Enter'), $t('Close a polygon')], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, $t('Undo, redo')],
