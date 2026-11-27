@@ -386,11 +386,11 @@ const Phone = (() => {
       return;
     }
     const grid = !k && rootEl.classList.contains('ph-land') && rootEl.classList.contains('sv-stack');
-    const want = [key('ph-both-key'), ...KEYS_READ[k || (grid ? 'grid' : 'column')].map(key)];
+    const want = [key('ph-both-key'), ...KEYS_READ[k || (grid ? 'grid' : 'column')].map(key)].filter((e) => !!e);   // (Tilt is X's stack's, in the steps view)
     const have = [...stack.children].filter((e) => want.includes(/** @type {HTMLElement} */ (e)));
-    if (want.every((e) => !!e) && have.length === want.length && have.every((e, i) => e === want[i])) return;
+    if (have.length === want.length && have.every((e, i) => e === want[i])) return;
     const focused = document.activeElement && stack.contains(document.activeElement) ? /** @type {HTMLElement} */ (document.activeElement) : null;
-    stack.append(...want.filter((e) => !!e));
+    stack.append(...want);
     if (focused) focused.focus({ preventScroll: true });
   }
   function keysRoom() {

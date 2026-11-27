@@ -64,6 +64,27 @@ await ev(`(__cmwExample(1), 1)`);
 await settled({ max: SETTLE_MAX, until: '__cmwSteps().planes.length > 1' });
 await tallBar();
 await check('568x320 example 1, tall bar', 'row');
+// ---- the stack is not rebuilt while the arrangement stays: toggling the root's classes and the bar re-inserts no key (X's stack in the steps view
+// has the Tilt key, Y's and the classic view's do not), and the classic view's keys read in order too
+const quiet = async (tag) => {
+  const n = await ev(`(async () => {
+    const stack = document.querySelector('#plotL > .viewstack'); let n = 0;
+    const mo = new MutationObserver((l) => { n += l.length; }); mo.observe(stack, { childList: true, subtree: true });
+    for (let i = 0; i < 5; i++) { document.documentElement.classList.toggle('tmp-probe'); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); }
+    document.documentElement.classList.remove('tmp-probe'); await new Promise((r) => setTimeout(r, 100)); mo.disconnect(); return n;
+  })()`);
+  ok(`${tag}: toggling a class on the page re-inserts no key`, n === 0, n);
+};
+await quiet('568x320 example 1, tall bar');
+await view(390, 844, false, true);
+{
+  const ns = 'sko' + (Date.now() % 1000000);
+  await load(ns, { shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: M3, srcView: { cx: 1.1, cy: 0, s: 70 } });
+  await go(`${U}?ns=${ns}&view=classic`);
+  await settled({ max: SETTLE_MAX, until: `!!window.Phone && Phone.isOn() && !!document.querySelector('#plotL > .viewstack')` });
+  await check('390x844 classic view', '');
+  await quiet('390x844 classic view');
+}
 await view(1280, 800, false, false);
 await settled({ max: 10000, floor: 400, until: `!document.documentElement.classList.contains('ph')` });
 const lap = await ev(`(() => { const s = document.querySelector('#plotL > .viewstack'); return [...s.querySelectorAll('.vbtn')].filter((e) => e.getClientRects().length > 0).map((e) => e.id); })()`);
