@@ -126,6 +126,7 @@ for (const [lang, words] of Object.entries(LANGS)) {
 // once the frames are released and the page is up.
 {
   const ns4 = 'cplslow' + Date.now();
+  // (SAY_WAIT_MS is LED_SAY_MS of src/app/05-panes-rulers.js, the polite region's wait; no hook exposes it, so the two are kept equal by hand)
   const SAY_WAIT_MS = 500, MARGIN_MS = 250;
   const HOLD = `(() => { let hold = true, id = 0; const pend = [], raf = window.requestAnimationFrame.bind(window);
     window.requestAnimationFrame = (cb) => { if (!hold) return raf(cb); pend.push(cb); return --id; };
