@@ -27,7 +27,7 @@ await ev(`__cmwSetMain('xy')`); await settled({});
 // phone landscape: the key is a folded glyph with none of the head's words (its head is not shown)
 await phone(915, 412);
 await fresh('ux165b'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
-check('UX20 phone: the glyph carries none of the head\'s words', await ev(`!document.querySelector('#leftLegend .lg-sum, #rightLegend .lg-sum')`));
+check('UX20 phone: the glyph carries none of the head\'s words', await ev(`!document.querySelector('#leftLegend .lg-sum')`));
 grab();
 
 // ---------------------------------------------------------------- keys on shapes, right-click menus

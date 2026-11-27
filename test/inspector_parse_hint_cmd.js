@@ -57,7 +57,7 @@ const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToa
 const { relang } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'relang_kit.js'), 'utf8'))({ ev, reloaded, ok });
 // F's plane pictures, without the colour legend and the thread's strip
 const LEGEND_W = 170, STRIP_H = 100;
-const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; out.push({ x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width - ${LEGEND_W}), height: Math.round(r.height - ${STRIP_H}) }); } return out; })()`);
+const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; out.push({ x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width - ${LEGEND_W}), height: Math.round(r.height - ${STRIP_H}) }); } return out; })()`);
 async function planes() { await hideToasts(true); await toF(); await settled(); const rs = await planesRect(); const out = []; for (const r of rs) out.push(await img(r)); await hideToasts(false); return out; }
 function diff(a, b) {
   if (a.length !== b.length) return -1;

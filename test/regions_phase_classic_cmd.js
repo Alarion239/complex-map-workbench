@@ -1,5 +1,5 @@
-// The regions' display in the classic X → Y view (the steps view's is regions_phase_cmd.js): the Regions pop-up in Y's
-// head (grid lines, their step, chevrons, opacity, no pattern swatch) and Y's key chip, the phone's Display sheet, the
+// The regions' display in the classic X → Y view (the steps view's is regions_phase_cmd.js): the Regions pop-up in X's
+// head (grid lines, their step, chevrons, opacity, no pattern swatch), the phone's Display sheet, the
 // tour's Views chapter without a Patterns step, and the pop-up fitting its box in en, ru and it. A command file for a
 // CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -12,10 +12,10 @@ await view(1440, 900, false, false);
 await openSaved(`rgph-new-${Date.now() % 1000000}`, { v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50 });
 // ---- 4. the laptop's Regions button and its pop-up: no pattern swatch anywhere in the page
 await ev(`__cmwSetMain('xy'); 1`); await settle(800);
-const btn = await ev(`(() => { const b = document.querySelector('#rightFoot .pat-btn'); return b && { name: b.getAttribute('aria-label'), tip: b.dataset.tip }; })()`);
-ok("Y's head holds a Regions button", btn && btn.name === 'Regions' && btn.tip === 'Regions', btn);
+const btn = await ev(`(() => { const b = document.querySelector('#leftFoot .pat-btn'); return b && { name: b.getAttribute('aria-label'), tip: b.dataset.tip }; })()`);
+ok("X's head holds a Regions button", btn && btn.name === 'Regions' && btn.tip === 'Regions', btn);
 ok('no pattern swatches in the page', (await ev(`document.querySelectorAll('#patternSeg, .patterns, [data-pat]').length`)) === 0, null);
-await ev(`document.querySelector('#rightFoot .pat-btn').click()`); await settle(500);
+await ev(`document.querySelector('#leftFoot .pat-btn').click()`); await settle(500);
 const pop = await ev(`(() => {
   const p = document.querySelector('#popHost .pat-pop');
   return p && {
@@ -28,15 +28,7 @@ const pop = await ev(`(() => {
 ok('the Regions pop-up: grid lines, their step, chevrons and opacity, no swatch',
   pop && pop.label === 'Regions' && pop.ids.length === 4 && pop.swatches === 0
   && /phase of z/.test(pop.text) && /Grid step/.test(pop.text), pop);
-// the key chip: the grid's cell with the lines on, the phase with them off
-await ev(`(() => { const c = document.getElementById('linesChk'); if (!c.checked) c.click(); return 1; })()`); await settle(600);
-const chipOn = await ev(`(document.querySelector('#rightLegend .lg-sum') || {}).textContent || ''`);
-await ev(`document.getElementById('linesChk').click(); 1`); await settle(600);
-let chipOff = '';
-for (let i = 0; i < 30 && (chipOff = await ev(`(document.querySelector('#rightLegend .lg-sum') || {}).textContent || ''`)) !== 'Phase of z'; i++) await sleep(100);
-info.chip = [chipOn, chipOff];
-ok("Y's key chip: the cell with the grid lines on, the phase of z with them off",
-  /^cell \S/.test(chipOn) && chipOff === 'Phase of z' && (await ev('__cmwRegions().lines')) === false, info.chip);
+// (standards-ok: the page has no Y pane, and X's head shows no key chip in this view: the key-chip row has nothing to check)
 await key('Escape'); await settle(300);
 ok("Escape closes it and the regions' box goes home", (await ev(`document.getElementById('regionsBox').parentElement.id`)) === 'regionsHome', null);
 // ---- 5. the phone's Display sheet: the regions' options, no swatch
@@ -67,7 +59,7 @@ ok('no tour step is Patterns, and Planes has its Sphere and Landscape step', ids
 // ---- 7. the Regions pop-up fits its box in every language: its description wraps, with no sideways scroll cutting the values
 for (const lang of ['en', 'ru', 'it']) {
   await view(1280, 800, false, false);
-  const fit = await popFit(lang, { prep: `__cmwSetMain('xy'); 1`, btn: '#rightFoot .pat-btn', pop: '#popHost .pat-pop' });
+  const fit = await popFit(lang, { prep: `__cmwSetMain('xy'); 1`, btn: '#leftFoot .pat-btn', pop: '#popHost .pat-pop' });
   info['fit ' + lang] = fit;
   ok(`${lang}: the Regions pop-up fits its box (no sideways scroll, nothing cut)`, fit && fit.out.length === 0, fit);
 }

@@ -108,7 +108,7 @@ ok('section 1: no console errors or warnings', lA.length === 0, lA.slice(0, 6));
 {
   const steps = [{ type: 'custom', params: { expr: '\\sqrt{z}', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2+z', cut: 180 }, on: true }];
   const shapes = [{ id: 's1', kind: 'rect', a: [-1.5, -1.2], b: [1.5, 1.2] }];
-  const dock = () => ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); const q = (s) => [...document.querySelectorAll(s)].map((e) => e.textContent.replace(/\\s+/g, ' ').trim()); return { title: (document.getElementById('rightTitle') || {}).textContent, pre: d ? q('.tdock:not([hidden]) .tpre') : [], post: d ? q('.tdock:not([hidden]) .tpost') : [], from: q('.trange .tr-from'), sels: [...document.querySelectorAll('.trange select')].map((s) => s.value), max: +(document.getElementById('morphRange') || { max: -1 }).max, range: (JSON.parse(localStorage.getItem('complex-map-workbench-v1:${NS}') || 'null') || {}).homRange || null }; })()`);
+  const dock = () => ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); const q = (s) => [...document.querySelectorAll(s)].map((e) => e.textContent.replace(/\\s+/g, ' ').trim()); return { pre: d ? q('.tdock:not([hidden]) .tpre') : [], post: d ? q('.tdock:not([hidden]) .tpost') : [], from: q('.trange .tr-from'), sels: [...document.querySelectorAll('.trange select')].map((s) => s.value), max: +(document.getElementById('morphRange') || { max: -1 }).max, range: (JSON.parse(localStorage.getItem('complex-map-workbench-v1:${NS}') || 'null') || {}).homRange || null }; })()`);
   const setSel = async (i, v) => ev(`(() => { const s = [...document.querySelectorAll('.trange select')][${i}]; if (!s) return false; s.value = '${v}'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
   await openNs('smkr' + tag + Date.now(), { shapes, steps, srcView: { cx: 0, cy: 0, s: phone ? 60 : 80 }, pattern: 'checker', homRange: phone ? undefined : { a: 1, b: 1 } });
   await press('#morphBtn'); await sleep(1500); await settle(300);
@@ -121,9 +121,9 @@ ok('section 1: no console errors or warnings', lA.length === 0, lA.slice(0, 6));
   await sleep(1500); await settle(300);
   await shot(`${tag}_4_range_pullback`);
   if (phone) {
-    ok('range (phone): f1 alone deforms from f2(z) = f(z) to f(√z): the title and the row say so', /f₂|f2/.test(pull.title || '') && pull.from.length >= 1 && pull.from.every((t) => /f₂\s*\(\s*z\s*\)|f2\(z\)/.test(t)) && pull.sels.join() === '1,1', pull);
+    ok('range (phone): f1 alone deforms from f2(z) = f(z) to f(√z): the row says so', pull.from.length >= 1 && pull.from.every((t) => /f₂\s*\(\s*z\s*\)|f2\(z\)/.test(t)) && pull.sels.join() === '1,1', pull);
   } else {
-    ok('range: f1 alone deforms from f2(z) = f(z) to f(√z) (→ f2 after the scrubber, the title names the start)', pull && pull.post.length === 1 && /f₂|f2/.test(pull.post[0]) && pull.pre.length === 0 && /f₂|f2/.test(pull.title || '') && pull.max === 1, pull);
+    ok('range: f1 alone deforms from f2(z) = f(z) to f(√z) (→ f2 after the scrubber)', pull && pull.post.length === 1 && /f₂|f2/.test(pull.post[0]) && pull.pre.length === 0 && pull.max === 1, pull);
   }
   // push-forward: f2 alone
   if (phone) {
@@ -138,7 +138,7 @@ ok('section 1: no console errors or warnings', lA.length === 0, lA.slice(0, 6));
   await ev(`(() => { const r = document.getElementById('morphRange'); r.value = 0.5; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
   await sleep(1500); await settle(300);
   await shot(`${tag}_5_range_pushforward`);
-  if (!phone) ok('range: f2 alone, a push-forward of f1\'s image (f1 → before the scrubber, the title starts at w1)', push.pre.length === 1 && /f₁|f1/.test(push.pre[0]) && push.post.length === 0 && /w₁|w1/.test(push.title || ''), push);
+  if (!phone) ok('range: f2 alone, a push-forward of f1\'s image (f1 → before the scrubber)', push.pre.length === 1 && /f₁|f1/.test(push.pre[0]) && push.post.length === 0, push);
   await key('Escape'); await settle(300);
 }
 const lB = errs(logs());

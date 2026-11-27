@@ -8,29 +8,21 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const out = {};
 await view(1440, 900, false);
 const fresh = async () => { await nav('http://localhost:8793/test.html?ns=ubfix' + Date.now()); await sleep(2200); await move(5, 5); };
-// a CSS pixel of a pane's 2D canvas
-const px = (id, x, y) => ev(`(() => { const c = document.getElementById(${JSON.stringify(id)}); const d = Math.min(window.devicePixelRatio || 1, 2); return [...c.getContext('2d').getImageData(Math.round(${x} * d), Math.round(${y} * d), 1, 1).data].slice(0, 3); })()`);
-const near = (a, b, t = 12) => a && b && a.every((v, i) => Math.abs(v - b[i]) <= t);
 const st = () => ev('__cmwState()');
 const vis = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return !e.hidden && r.width > 0 && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden'; })()`);
 const txt = (sel) => ev(`(document.querySelector(${JSON.stringify(sel)}) || {}).textContent || ''`);
 
-// 1. the Key in the w-plane and the Landscape use one predicate: X Landscape hides the switch and the paint together
+// 1. the Key and the Landscape: X Landscape hides the switch and keeps the setting
+// (standards-ok: the page has no Y pane; the rows of Y's paint, its sphere chip, its readout and its title have nothing to check)
 await fresh(); logs();
 await ev('__cmwExample(1); 1'); await sleep(1500);
-const p0 = await px('canvasR', 20, 400);
 await key('4'); await sleep(600);
 await ev(`document.getElementById('wKeyChk').click(); 1`); await sleep(800);
-const p1 = await px('canvasR', 20, 400);
-ok('key on: Y painted', !near(p0, p1, 30), [p0, p1]);
 await key('3'); await sleep(900);
-const p2 = await px('canvasR', 20, 400);
 ok('landscape: switch hidden', (await vis('#wKeyRow')) === false, await vis('#wKeyRow'));
-ok('landscape: the key is not painted', near(p0, p2), [p0, p2]);
 ok('landscape: the setting is kept', (await st()).wKey === true, await st());
 await key('1'); await sleep(900);
-const p3 = await px('canvasR', 20, 400);
-ok('back on Plane: switch and paint return', (await vis('#wKeyRow')) === true && near(p1, p3, 30), [p1, p3]);
+ok('back on Plane: the switch returns', (await vis('#wKeyRow')) === true, null);
 await ev(`document.getElementById('wKeyChk').click(); __cmwSetPhase(false); 1`); await sleep(300);
 
 // 2. migration keeps S.dc (portrait style) and the expanded pane follows its picture
@@ -100,22 +92,10 @@ await raw('+', 'Equal', 8, '+');
 ok('US Shift = (+): the function palette', !!(await vis('#palInput')), null);
 await key('Escape'); await sleep(250);
 
-// 5. drawing on Y Sphere (P3b: the w-globe takes targets): Disc draws there, no chip; Annulus (off on the globes)
-// says where it draws
-await ev('__cmwSetView("R", "sphere"); 1'); await sleep(300);
-await key('d'); await sleep(400);
-ok('Y Sphere + Disc: no chip (it draws on the w-globe, P3b)', (await vis('#sphereChipR')) === false, await txt('#sphereChipR'));
-await key('n'); await sleep(400);
-ok('Y Sphere + Annulus: the chip', (await vis('#sphereChipR')) === true && /Annulus draws in Plane \(⇧1\)/.test(await txt('#sphereChipR')), await txt('#sphereChipR'));
-await key('v'); await sleep(300);
-ok('Y Sphere + Select: no chip', (await vis('#sphereChipR')) === false, await vis('#sphereChipR'));
-await ev('__cmwSetView("R", "plane"); 1'); await sleep(300);
-
-// 6. Y's variable at focus k (P13)
+// 6. the variable at focus k (P13)
 await ev('__cmwExample(1); 1'); await sleep(1500);
 await ev(`document.querySelector('.card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); 1`); await sleep(600);
 await key('d'); await sleep(400);
-ok('focus 2: the Y hint in w₂', /w₂-plane/.test(await txt('#rightReadout')), await txt('#rightReadout'));
 await key('4'); await sleep(500);
 ok('focus 2: the Key in w₂', /w₂-plane/.test(await txt('#wKeyRow')), await txt('#wKeyRow'));
 ok('focus 2: the Phase tip names f₂', /f₂/.test(await ev(`document.getElementById('phaseBtn').dataset.tip`)), await ev(`document.getElementById('phaseBtn').dataset.tip`));
@@ -143,13 +123,7 @@ await key('2'); await sleep(600);
 ok('X Sphere: no View outline', !(await vis('#fovChk')), null);
 await key('1'); await sleep(300);
 
-// 8. titles: Y Sphere keeps its surface under the deformation; the role never cut inside a formula
-await ev('__cmwSetView("R", "sphere"); 1'); await sleep(300);
-await key('m'); await sleep(600);
-const rt = await txt('#rightTitle');
-ok('deformation on Y Sphere: w-sphere title', /sphere/.test(rt) && /deforming/.test(rt), rt);
-await key('m'); await sleep(300);
-await ev('__cmwSetView("R", "plane"); 1'); await sleep(300);
+// 8. titles: the role never cut inside a formula
 for (const w of [1024, 1180, 1440]) {
   await view(w, 900, false); await sleep(400);
   await ev(`document.querySelector('.card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); __cmwSetView("L", "land"); __cmwSetPhase(true); 1`); await sleep(900);

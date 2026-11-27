@@ -8,14 +8,14 @@
 //               cpu = main-thread time in rAF callbacks; gpu = time of the readPixels sync; t1 = end incl. sync
 //   evts        [[type, eventTimeStamp, ms, t]] main-thread time of every listener call for input events
 //   draws, lastDrawT        WebGL draw calls so far / page time of the last one
-//   led         {L, R, lastChangeT} state of #leftLed / #rightLed ('ok' | 'busy' | 'err')
+//   led         {L, lastChangeT} state of #leftLed ('ok' | 'busy' | 'err')
 //   mem()       live bytes in WebGL buffers, textures and renderbuffers (+ drawing buffers)
 //   status()    a compact snapshot for the runner's settle polling
 //   progs       [{t, ready, inv}] one record per linkProgram call: t = page time of the call, ready = when the app
 //               first saw the program complete (COMPLETION_STATUS_KHR true, or a LINK_STATUS query, which waits),
 //               inv = an inverse-rendering program (its fragment shader has the walker of SPEC 4.1: invWalk / uInv)
 //   links, invLinks, invDraws   counters; frames also count their draws with an inverse program (frame field inv)
-//   ledBusy     number of times an LED turned busy (a fix-up / refinement job started)
+//   ledBusy     number of times X's LED turned busy (a fix-up / refinement job started)
 //   status().pending  the app's GLR.frameStatus().pending: the last frame could not draw everything with its own
 //               programs because one is still compiling (a stand-in or nothing is drawn; onReady redraws). A view
 //               is not settled while it is true (the app draws nothing while it waits for a compile)
@@ -24,7 +24,7 @@
   const now = () => performance.now();
   const P = window.__perf = {
     sync: true, frames: [], evts: [], draws: 0, lastDrawT: 0, lastActT: 0, gls: [], glErrors: 0,
-    led: { L: '', R: '', lastChangeT: 0 }, maxFrames: 60000, maxEvts: 60000,
+    led: { L: '', lastChangeT: 0 }, maxFrames: 60000, maxEvts: 60000,
     progs: [], links: 0, invLinks: 0, invDraws: 0, curInv: false, ledBusy: 0,
   };
 
@@ -288,15 +288,14 @@
   // ---------------- LEDs (the app's "up to date" / "refining" signal) ----------------
   const ledState = (el) => (el ? (el.classList.contains('busy') ? 'busy' : el.classList.contains('err') ? 'err' : el.classList.contains('ok') ? 'ok' : '') : '');
   const watchLeds = () => {
-    const l = document.getElementById('leftLed'), r = document.getElementById('rightLed');
-    if (!l || !r) return false;
+    const l = document.getElementById('leftLed');
+    if (!l) return false;
     const upd = () => {
-      const L = ledState(l), R = ledState(r);
-      if (L !== P.led.L || R !== P.led.R) { if ((L === 'busy' && P.led.L !== 'busy') || (R === 'busy' && P.led.R !== 'busy')) P.ledBusy++; P.led.L = L; P.led.R = R; P.led.lastChangeT = now(); P.lastActT = Math.max(P.lastActT, P.led.lastChangeT); }
+      const L = ledState(l);
+      if (L !== P.led.L) { if (L === 'busy') P.ledBusy++; P.led.L = L; P.led.lastChangeT = now(); P.lastActT = Math.max(P.lastActT, P.led.lastChangeT); }
     };
     upd();
     new MutationObserver(upd).observe(l, { attributes: true, attributeFilter: ['class'] });
-    new MutationObserver(upd).observe(r, { attributes: true, attributeFilter: ['class'] });
     return true;
   };
   if (!watchLeds()) document.addEventListener('DOMContentLoaded', () => { if (!watchLeds()) setTimeout(watchLeds, 0); });
@@ -309,7 +308,7 @@
   P.longSince = (since, until = Infinity) => P.longtasks.filter((t) => t[0] + t[1] >= since && t[0] <= until).map((t) => [+t[0].toFixed(2), +t[1].toFixed(2)]);
 
   const pendingNow = () => { try { return typeof GLR !== 'undefined' && GLR && typeof GLR.frameStatus === 'function' ? !!GLR.frameStatus().pending : false; } catch (e) { return false; } };
-  P.status = () => ({ now: now(), lastDrawT: P.lastDrawT, lastActT: Math.max(P.lastActT, P.lastDrawT), ledL: P.led.L, ledR: P.led.R, draws: P.draws, nFrames: P.frames.length, pending: pendingNow(), invLinks: P.invLinks, invDraws: P.invDraws });
+  P.status = () => ({ now: now(), lastDrawT: P.lastDrawT, lastActT: Math.max(P.lastActT, P.lastDrawT), ledL: P.led.L, draws: P.draws, nFrames: P.frames.length, pending: pendingNow(), invLinks: P.invLinks, invDraws: P.invDraws });
   // frames and listener timings with t0 >= since (page time), compacted for transfer
   P.framesSince = (since, until = Infinity) => P.frames.filter((f) => f.t0 >= since && f.t0 <= until).map((f) => [+f.t0.toFixed(2), +f.cpu.toFixed(3), +f.gpu.toFixed(3), f.draws, f.n, +f.ts.toFixed(2), +f.t1.toFixed(2), f.inv]);
   // programs linked at page times in [since, until]: [t, ready (null: never seen complete), inv]

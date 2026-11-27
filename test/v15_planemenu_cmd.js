@@ -1,7 +1,7 @@
 // The planes' context menu (src/planemenu.js; notes/ui-redesign-2/desktop/DESIGN.md 2.5, INTERFACE.md "Long-press"
 // and "Keyboard and screen readers"), as issue #13 left it: a menu of objects only. Checks: a right-click (and a touch
 // long-press) on a shape opens it with the head (the point and F there), one line integral, Hide and Delete (no
-// Select); on empty plane, on X, Y, the deformation and the landscape, nothing opens (no Add zero / pole here, Add
+// Select); on empty plane, on X, the deformation and the landscape, nothing opens (no Add zero / pole here, Add
 // point here, Copy coordinates or Center view here); a zero mark keeps Remove, Turn into a pole, Edit; a right-click
 // while drawing (a polygon's vertices, a left-button drag that draws) cancels the drawing and opens nothing; a
 // double-click on empty plane centres the view there (X and Y), one on a shape does not; no menu after a pan, a pinch,
@@ -116,12 +116,7 @@ await pick('shape-delete');
 ok('Delete removes the circle', !(await H('shapes()')).some((s) => s.id === 's2'));
 await undo();
 ok('undo brings it back', (await H('shapes()')).some((s) => s.id === 's2'));
-// Y: empty: nothing (standards-ok: the deformation plane's row went with the classic transport, #994)
-let R = await paneRect('R');
-await rclick(R.l + 30, R.t + 30);
-ok('Y: a right-click on empty plane opens nothing', !(await anyMenu()), await menu());
-await closeAll();
-// the landscape and Phase over empty X: nothing
+// the landscape and Phase over empty X: nothing (standards-ok: the page has no Y pane; a right-click on it has no plane to land on)
 await ev(`__cmwSetMain('land'), 1`); await settle(1500);
 let L = await paneRect('L');
 await rclick(L.cx, L.cy + 40);
@@ -186,16 +181,15 @@ await dbl(p[0], p[1]);
 v1 = await H(`view('L')`);
 ok('a double-click on empty X centres the view there', Math.abs(v1.cx - z0[0]) < 1e-9 && Math.abs(v1.cy - z0[1]) < 1e-9 && v1.s === v0.s, { v0, v1, z0 });
 ok('a double-click opens no menu', !(await anyMenu()));
-// (Y is the classic view's right pane, the image of the chain; the steps view's equivalent is its last plane, in the one pane)
-const yPane = (await ev(`document.documentElement.classList.contains('sv')`)) ? 'L' : 'R';
-if (yPane === 'L') { await ev(`__cmwSteps({ go: __cmwSteps().planes.length - 1, now: true })`); await settled({ until: '!__cmwSteps().moving' }); }
-R = await paneRect(yPane);
-const vr0 = await H(`view('${yPane}')`);
-const zr = await H(`s2w('${yPane}', ${R.l + 60}, ${R.t + 60})`);
+// (Y, the image of the chain, is the steps view's last plane, in the one pane)
+await ev(`__cmwSteps({ go: __cmwSteps().planes.length - 1, now: true })`); await settled({ until: '!__cmwSteps().moving' });
+const R = await paneRect('L');
+const vr0 = await H(`view('L')`);
+const zr = await H(`s2w('L', ${R.l + 60}, ${R.t + 60})`);
 await dbl(R.l + 60, R.t + 60);
-const vr1 = await H(`view('${yPane}')`);
+const vr1 = await H(`view('L')`);
 ok('a double-click on empty Y centres Y there', Math.abs(vr1.cx - zr[0]) < 1e-9 && Math.abs(vr1.cy - zr[1]) < 1e-9, { vr0, vr1, zr });
-if (yPane === 'L') { await ev(`__cmwSteps({ go: 0, now: true })`); await settled({ until: '!__cmwSteps().moving' }); }
+await ev(`__cmwSteps({ go: 0, now: true })`); await settled({ until: '!__cmwSteps().moving' });
 await tool('point');
 const nS0 = (await H('shapes()')).length;
 v0 = await H(`view('L')`);

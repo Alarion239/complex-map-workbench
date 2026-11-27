@@ -121,8 +121,8 @@ measuring code: settle with a pending compile, compile stats, the scrub scene's 
   * wraps WebGL `bufferData / texImage2D / texImage3D / texStorage2D/3D / renderbufferStorage*` and the matching
     `delete*` calls: **live bytes** of buffers, textures and renderbuffers (+ the peak). Drawing buffers are reported
     separately in `details` and are not gated.
-  * watches `#leftLed` / `#rightLed` (`led ok | busy | err`, set by `updateLeds()` while the fix-up job `fixJob`
-    runs) and the time of the last WebGL draw; collects Long Tasks (≥ 50 ms); counts how often an LED turned busy.
+  * watches `#leftLed` (`led ok | busy | err`, set by `updateLeds()` while the fix-up job `fixJob`
+    runs) and the time of the last WebGL draw; collects Long Tasks (≥ 50 ms); counts how often the LED turned busy.
   * (P0) wraps `shaderSource / attachShader / linkProgram / getProgramParameter / useProgram`: one record per linked
     program (link time; the time the app first saw it complete, through `COMPLETION_STATUS_KHR` or a `LINK_STATUS`
     query; whether it is an **inverse program**, i.e. its fragment shader contains the SPEC 4.1 walker `invWalk` /

@@ -2,7 +2,6 @@
 // dark, Russian where words changed. "before" is dist/before-test.html: the merged tree with the pieces' conflicts
 // resolved but without the merge's own fixes (built by the merge for these pictures only, then deleted); "after" is
 // dist/test.html. Pictures: <daemon>/shots/w1-merge/<fix>-before|after-<light|dark>[-ru].png
-//   title  Y's head with the chain empty at 1366 × 768: the tagged title does not vanish ("Y · " gives way first)
 //   tile   the Russian phone's More tools: the Hyperbolic tile «Гиперб.» on one line (not «Гипербо-лическая»)
 //   tap    a refused pick on the phone says Tap (not Click)
 //   keys   a card's ⋯ on the laptop shows Alt ← / Alt →
@@ -28,12 +27,8 @@ const tool = async (id) => { await ev(`(() => { const b = [...document.querySele
 for (const which of ['before', 'after']) {
   for (const dark of [false, true]) {
     const th = dark ? 'dark' : 'light';
-    // title: Y's head with the chain empty
-    await laptop(dark);
-    await open(which, `w1ms${which}${th}t`, st0());
-    const hd = await box('#paneR .pane-head');
-    await S(`title-${which}-${th}`, hd && { x: hd.x, y: hd.y, width: hd.width, height: hd.height + 4 });
     // keys: a card's ⋯
+    await laptop(dark);
     await open(which, `w1ms${which}${th}k`, st0({ steps: [{ type: 'exp', params: {}, on: true }, { type: 'recip', params: {}, on: true }] }));
     const cb = await box('#pipeline .card[data-k="1"] .thumb');
     if (cb) {

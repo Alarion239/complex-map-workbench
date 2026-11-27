@@ -24,7 +24,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
     await settled({ max: 10000, until: `!!document.querySelector('#toastHost .toast')` });
     await settled({ max: 10000, until: `(() => { const r = document.querySelector('#toastHost .toast').getBoundingClientRect(), k = r.top + ',' + r.left, same = window.__toastKey === k; window.__toastKey = k; return same; })()` });
     const t = info[tag + ' toast'] = await ev(`(() => { const T = document.querySelector('#toastHost .toast').getBoundingClientRect(), P = document.getElementById('panes').getBoundingClientRect();
-      const hit = [...document.querySelectorAll('#paneL .viewstack, #paneR .viewstack, #leftReadout, #rightReadout, #leftLegend, #rightLegend')].filter((e) => e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { n: e.id || e.className, r: [r.left, r.top, r.right, r.bottom].map(Math.round) }; })
+      const hit = [...document.querySelectorAll('#paneL .viewstack, #leftReadout, #leftLegend')].filter((e) => e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { n: e.id || e.className, r: [r.left, r.top, r.right, r.bottom].map(Math.round) }; })
         .filter(({ r }) => r[2] > r[0] && r[3] > r[1] && T.left < r[2] && T.right > r[0] && T.top < r[3] && T.bottom > r[1]).map((x) => x.n + ' ' + x.r.join(','));
       return { toast: [T.left, T.top, T.right, T.bottom].map(Math.round), panesBottom: Math.round(P.bottom), hit, placed: document.getElementById('toastHost').getAttribute('data-placed') }; })()`);
     ok(`${tag}: a message stands at the planes' foot (its bottom within 40 px above it)`, t.toast[3] <= t.panesBottom && t.toast[3] >= t.panesBottom - 40, t);

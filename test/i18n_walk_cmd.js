@@ -27,15 +27,14 @@ for (const id of ['settingsBtn', 'exportBtn', 'shareBtn', 'helpBtn', 'soundMore'
 // views and surfaces
 for (const m of ['phase', 'land', 'xy']) { await ev(`__cmwSetMain('${m}'), 1`); await S('view ' + m, 1200); }
 await ev(`__cmwSetView('L', 'sphere'), 1`); await S('left sphere', 1200);
-await ev(`__cmwSetView('R', 'sphere'), 1`); await S('right sphere', 1200);
-await ev(`__cmwSetView('L', 'plane'), __cmwSetView('R', 'plane'), 1`); await S('planes', 800);
+await ev(`__cmwSetView('L', 'plane'), 1`); await S('planes', 800);
 // every example, hover readouts
 const nEx = await ev(`(() => { let n = 0; for (const b of document.querySelectorAll('[data-example], .gal-item')) n++; return n; })()`);
 for (let i = 0; i < 40; i++) {
   const ok = await ev(`(() => { try { __cmwExample(${i}); return true; } catch (e) { return String(e); } })()`);
   if (ok !== true) break;
   await S('example ' + i, 1500);
-  for (const sel of ['#overlayL', '#overlayR']) { const c = await center(sel); if (c) { await move(c[0], c[1]); await S(`example ${i} hover ${sel}`, 400); } }
+  for (const sel of ['#overlayL']) { const c = await center(sel); if (c) { await move(c[0], c[1]); await S(`example ${i} hover ${sel}`, 400); } }
   await ev(`__cmwSetMain('phase'), 1`); await S(`example ${i} phase`, 900);
   await ev(`__cmwSetMain('land'), 1`); await S(`example ${i} land`, 900);
   await ev(`__cmwSetMain('xy'), 1`); await sleep(500);
@@ -44,7 +43,7 @@ for (let i = 0; i < 40; i++) {
 const tools = await ev(`[...document.querySelectorAll('.tool[data-tool]')].map((b) => b.dataset.tool)`);
 for (const t of [...new Set(tools)]) { await ev(`(() => { const b = document.querySelector('.tool[data-tool=${t}]'); b && b.click(); })()`); await S('tool ' + t, 250); }
 await esc();
-// draw a circle, a point target in the right plane, the shape context menu
+// draw a circle, the shape context menu
 await ev(`__cmwExample(0), 1`); await sleep(1500);
 {
   const L = await center('#overlayL');
@@ -60,11 +59,6 @@ await ev(`__cmwExample(0), 1`); await sleep(1500);
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: L[0] - 80, y: L[1] - 70, button: 'right', clickCount: 1 });
     await S('context menu empty', 900);
     await esc();
-  }
-  const R = await center('#overlayR');
-  if (R) {
-    await ev(`(() => { const b = document.querySelector('.tool[data-tool=point]'); b && b.click(); })()`);
-    await click(R[0] + 30, R[1] - 20); await S('target point', 1500);
   }
 }
 // one shape of each kind drawn by drag, with its editor open
@@ -142,7 +136,6 @@ if (!PHONE) {
     await tryEv(`(() => { const p = __cmwPlaneMenu().w2s('L', ${re}, ${im}); PlaneMenu.open('L', null, { clientX: p[0], clientY: p[1] }); return 1; })()`);
     await S('plane menu ' + lab, 600); await esc();
   }
-  await tryEv(`(() => { PlaneMenu.open('R', null, { clientX: document.getElementById('canvasR').getBoundingClientRect().left + 60, clientY: document.getElementById('canvasR').getBoundingClientRect().top + 60 }); return 1; })()`); await S('plane menu Y', 600); await esc();
 } else {
   for (const k of ['edit', 'tools', 'display', 'more']) { await tryEv(`(Phone.open(${JSON.stringify(k)}), 1)`); await S('phone sheet ' + k, 800); await tryEv('(Phone.close(true), 1)'); await sleep(300); }
   await tryEv(`(Phone.open('edit', { params: true }), 1)`); await S('phone sheet numbers', 800); await tryEv('(Phone.close(true), 1)');

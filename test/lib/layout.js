@@ -41,7 +41,7 @@
     // tol (px), why. ux's table on #470
     centred: [
       // (both axes, ux for Alexander's #288 note: the label sits centred up and down too)
-      { sel: '#leftTabs > button, #rightTabs > button, #viewSwitch > button', what: 'content', axis: 'both', why: 'a view tab: its icon and word as a pair (#335)' },
+      { sel: '#leftTabs > button, #viewSwitch > button', what: 'content', axis: 'both', why: 'a view tab: its icon and word as a pair (#335)' },
       { sel: '.seg > button', what: 'content', axis: 'both', why: 'a segment\'s word (and icon) in its tile' },
       { sel: '.icon-btn, .vbtn', what: 'content', axis: 'both', why: 'an icon button\'s icon (the zoom and fit buttons, the ⋯ and eye buttons)' },
       { sel: '.tool[data-tool]', what: 'content', axis: 'x', why: 'a drawing tool\'s icon over its name' },

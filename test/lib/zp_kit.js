@@ -1,7 +1,7 @@
 // What the two zeros-and-poles suites share: the exactness probe of the image. An expression for eval in a suite:
-// `const EXACT_SRC = eval(fs.readFileSync(...))(DISC)`, then `ev(EXACT_SRC('R'), 60000)` (the classic right pane) or
-// `EXACT_SRC('L')` (the steps view's pane, on its last plane).
-// Exactness: classify pixels of the right plane against the exact image of the disc |z| < R under the step's map
+// `const EXACT_SRC = eval(fs.readFileSync(...))(DISC)`, then `ev(EXACT_SRC('L'), 60000)` (X's pane: the steps view's
+// pane, on its last plane).
+// Exactness: classify pixels of X's plane against the exact image of the disc |z| < R under the step's map
 // (degree <= 2: the roots of a prod(z - zeta) - w prod(z - p) = 0). Samples on a 6 px lattice whose truth is the
 // same 2 px around them (the boundary band is not scored), and 3.5 px away from the image of the boundary circle (its
 // stroke, which a fold lays inside the image); a pixel is 'fill' when nearer the fill colour than the plane.
@@ -29,7 +29,7 @@
     return roots.some((z) => Math.hypot(z.re - CZ.re, z.im - CZ.im) < R);
   };
   const F = (z) => { const ev = (co) => co.reduce((s, c) => cadd(cmul(s, z), c), C(0, 0)); return cdiv(ev(P), ev(Q)); };
-  const c = document.getElementById(${SIDE === 'L' ? "'canvasL'" : "'canvasR'"});
+  const c = document.getElementById('canvasL');
   const s = document.createElement('canvas'); s.width = c.width; s.height = c.height;
   const x = s.getContext('2d', { willReadFrequently: true }); x.drawImage(c, 0, 0);
   const d = x.getImageData(0, 0, s.width, s.height).data;

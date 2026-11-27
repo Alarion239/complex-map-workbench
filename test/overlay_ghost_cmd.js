@@ -1,7 +1,7 @@
 // Issue #297: X's overlay kept example 7's cut handle (the ring and the chip "θ 180°") after example 8 loaded, about one
 // cold load in three on SwiftShader: every overlay pass after the load cleared the canvas and drew nothing there, and
 // the GPU-accelerated canvas still held example 7's picture. The overlays' contexts are CPU-backed (view.js, Pane).
-//   A  both overlay contexts are CPU-backed (willReadFrequently): the fix itself; false before it, every time
+//   A  X's overlay context is CPU-backed (willReadFrequently): the fix itself; false before it, every time
 //   B  a sanity check only, which never caught the bug (20 of 20 loads clean before the fix, in this daemon's own page,
 //      programs cached): the overlay still draws and clears, example 7's handle is on the screen, and after example 8
 //      nothing in the cut ink is left in its box (read from a screenshot). A and C carry the regression.
@@ -16,8 +16,8 @@ await load('ovg' + Date.now(), {});
 await settled({ only: true, max: 30000, until: `document.readyState === 'complete' && !!document.querySelector('#svStrip .sv-add')` });
 
 // A
-info.attrs = await ev(`['overlayL', 'overlayR'].map((id) => { const c = document.getElementById(id), a = c && c.getContext('2d').getContextAttributes(); return a ? !!a.willReadFrequently : null; })`);
-ok('A: both overlay contexts are CPU-backed (willReadFrequently)', info.attrs[0] === true && info.attrs[1] === true, info.attrs);
+info.attrs = await ev(`['overlayL'].map((id) => { const c = document.getElementById(id), a = c && c.getContext('2d').getContextAttributes(); return a ? !!a.willReadFrequently : null; })`);
+ok('A: X\'s overlay context is CPU-backed (willReadFrequently)', info.attrs[0] === true, info.attrs);
 
 // B
 // the pixels near the cut ink (TH.cut, #CC3311 in the light theme) in a box of the screen

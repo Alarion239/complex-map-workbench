@@ -1,4 +1,4 @@
-window.__peek = (side='R', x=0, y=0, w=null, h=null) => {
+window.__peek = (side='L', x=0, y=0, w=null, h=null) => {
   document.getElementById('__pk')?.remove();
   if (side === null) return 'removed';
   const a = document.getElementById('canvas'+side), b = document.getElementById('overlay'+side);
@@ -13,15 +13,15 @@ window.__peek = (side='R', x=0, y=0, w=null, h=null) => {
   d.appendChild(c); document.body.appendChild(d); return [w,h,s];
 };
 window.__snaps = [];
-window.__snap = (k, x=0, y=0, w=820, h=1032) => { const a = document.getElementById('canvasR'), b = document.getElementById('overlayR'); const c = document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); g.drawImage(a,x,y,w,h,0,0,w,h); g.drawImage(b,x,y,w,h,0,0,w,h); __snaps[k]=c; return k; };
+window.__snap = (k, x=0, y=0, w=820, h=1032) => { const a = document.getElementById('canvasL'), b = document.getElementById('overlayL'); const c = document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); g.drawImage(a,x,y,w,h,0,0,w,h); g.drawImage(b,x,y,w,h,0,0,w,h); __snaps[k]=c; return k; };
 window.__showSnaps = () => { document.getElementById('__pk')?.remove(); const d = document.createElement('div'); d.id='__pk'; d.style.cssText='position:fixed;inset:0;z-index:99999;background:#888;display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center'; const L=__snaps.filter(Boolean); const n=L.length; const cols = n<=2?n:Math.ceil(n/2), rows = n<=2?1:2; for (const c of L) { const s=Math.min((innerWidth-8*cols)/cols/c.width, (innerHeight-8*rows)/rows/c.height); c.style.cssText=`width:${c.width*s}px;height:${c.height*s}px`; d.appendChild(c);} document.body.appendChild(d); return n; };
 window.__key = (k) => document.dispatchEvent(new KeyboardEvent('keydown', {key:k, bubbles:true}));
 window.__wait = (ms) => new Promise(r=>setTimeout(r,ms));
-window.__theme = async (want) => { for (let i=0;i<4;i++){ const t = document.documentElement.getAttribute('data-theme') || 'auto'; if (t===want) break; document.getElementById('themeBtn').click(); await __wait(450); const it = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === { auto: 'Auto', light: 'Light', dark: 'Dark' }[want]); if (it) it.click(); await __wait(450); } await __wait(500); const px=[...document.getElementById('canvasR').getContext('2d').getImageData(10,10,1,1).data].slice(0,3); return (document.documentElement.getAttribute('data-theme') || 'auto') + ' ' + px; };
+window.__theme = async (want) => { for (let i=0;i<4;i++){ const t = document.documentElement.getAttribute('data-theme') || 'auto'; if (t===want) break; document.getElementById('themeBtn').click(); await __wait(450); const it = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === { auto: 'Auto', light: 'Light', dark: 'Dark' }[want]); if (it) it.click(); await __wait(450); } await __wait(500); const px=[...document.getElementById('canvasL').getContext('2d').getImageData(10,10,1,1).data].slice(0,3); return (document.documentElement.getAttribute('data-theme') || 'auto') + ' ' + px; };
 'helpers ok'
-// scripted drag on #overlayR, one pointermove per animation frame; returns frame-interval stats (ms)
+// scripted drag on #overlayL, one pointermove per animation frame; returns frame-interval stats (ms)
 window.__drag = async (ms = 1500, dx = 3, dy = 1, opts = {}) => {
-  const o = document.getElementById(opts.id || 'overlayR'); const r = o.getBoundingClientRect();
+  const o = document.getElementById(opts.id || 'overlayL'); const r = o.getBoundingClientRect();
   let x = r.x + r.width * 0.5, y = r.y + r.height * 0.5;
   // synthetic pointers are not 'active': let the app's setPointerCapture through
   o.setPointerCapture = () => {}; o.releasePointerCapture = () => {}; o.hasPointerCapture = () => true;

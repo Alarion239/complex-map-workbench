@@ -794,7 +794,7 @@ await section('I', async () => {
   const near3 = (a, b, t = 18) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) <= t;
   const hist = async () => (await ST()).hi;
   const ends = (k) => [k.a, k.b];
-  const segOn = async (v) => { await ev(`(() => { const b = [...document.querySelectorAll('#draftChipL .cm-sb, #draftChipR .cm-sb')].find((x) => x.getAttribute('aria-label') === ${JSON.stringify(v)}); b && b.click(); return !!b; })()`); await settle(150); };
+  const segOn = async (v) => { await ev(`(() => { const b = [...document.querySelectorAll('#draftChipL .cm-sb')].find((x) => x.getAttribute('aria-label') === ${JSON.stringify(v)}); b && b.click(); return !!b; })()`); await settle(150); };
   const inspBtn = (lab) => ev(`(() => { const b = [...document.querySelectorAll('.cm-iside button')].find((x) => x.textContent.trim() === ${JSON.stringify(lab)}); if (b) b.click(); return !!b; })()`);
   const rowMenuOf = async (id) => { const r = await ev(`(() => { const b = document.querySelector('.shape[data-id="${id}"] .more'); if (!b) return null; b.scrollIntoView({ block: 'nearest' }); const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`); if (r) { await click(r[0], r[1]); await settle(200); } return r; };
   const SD = { shapes: [], steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 170 }, unit: true, snap: true, nextId: 50 };
