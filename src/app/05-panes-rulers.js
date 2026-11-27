@@ -423,14 +423,14 @@
       if (py >= 0 && py <= yh) { cy.beginPath(); cy.moveTo(yw - 4, py - 2.5); cy.lineTo(yw - 4, py + 2.5); cy.lineTo(yw, py); cy.fill(); }
     }
   }
-  function setLed(side, state, tip) {
+  function setLed(side, state, tip, quiet) {
     const el = $(side === 'L' ? 'leftLed' : 'rightLed');
     if (!el) return;
     el.className = 'led ' + state;
     el.setAttribute('data-tip', tip || { ok: $t('Up to date'), busy: $t('Refining near cuts and poles'), err: $t('Evaluation failed') }[state]);
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
-    ledSay(side, state, el.getAttribute('data-tip'));
+    if (!quiet) ledSay(side, state, el.getAttribute('data-tip'));
   }
   // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
   // with its pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
@@ -474,8 +474,8 @@
       $('hairL').hidden = true; $('hairR').hidden = true;
     }
   }
-  // whether a frame has run: before it the LEDs know nothing of their panes' programs, so they say they are starting, busy, rather than
-  // "Up to date" (the first frame's own state, compiling or not, replaces it)
+  // whether a frame has run: before it the LEDs know nothing of their panes' programs, so they show and label that they are starting,
+  // busy, rather than "Up to date", and say nothing in the polite region (the first frame's own state, compiling or not, replaces it)
   let ledFramed = false;
   function ledFirstFrame() {
     if (ledFramed) return;
@@ -496,8 +496,8 @@
     const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : !ledFramed ? $t('Starting…') : undefined);
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
     if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileBusy.L || !ledFramed ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'));
-    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileBusy.R || !ledFramed ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
+    else setLed('L', busy || colourPending() || compileBusy.L || !ledFramed ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'), !ledFramed);
+    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileBusy.R || !ledFramed ? 'busy' : 'ok', errTip || note('R') || compTip('R'), !ledFramed);
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)

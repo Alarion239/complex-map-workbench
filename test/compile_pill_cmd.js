@@ -119,4 +119,25 @@ for (const [lang, words] of Object.entries(LANGS)) {
   ok('a page that links at once: its LED settles to "Up to date"', w.ok && fin.led === 'led ok' && fin.label === 'Up to date', fin);
   ok('a page that links at once: the polite region says nothing', fin.live === '', fin);
 }
+// A start that lasts past the polite region's wait says nothing: the LED shows and labels its starting state, and the region is for
+// changes after the page is up. The first frame is held back 900 ms here (a slow start), the region read at 700 ms and again when the
+// page is up.
+{
+  const ns4 = 'cplslow' + Date.now();
+  const HOLD = `(() => { const raf = window.requestAnimationFrame.bind(window), t0 = performance.now();
+    window.requestAnimationFrame = (cb) => { const left = 900 - (performance.now() - t0); return left > 0 ? setTimeout(() => raf(cb), left) : raf(cb); }; })()`;
+  const rec = await send('Page.addScriptToEvaluateOnNewDocument', { source: HOLD });
+  await seed(ns4, { steps: [{ type: 'pown', params: { n: 2 }, on: true }], shapes: [], sv: { at: 0, T: 1, scope: 'in', surf: 'plane' } });
+  await go(`${base}/test.html?ns=${ns4}&view=steps&lang=en`);
+  const mid = await settled({ max: 20000, only: true, panes: false, until: "!!document.getElementById('ledLive') && !!document.getElementById('leftLed') && performance.now() > 700 && document.getElementById('leftLed').className === 'led busy'" });
+  const at700 = await ev(`({ t: performance.now(), led: document.getElementById('leftLed').className, label: document.getElementById('leftLed').getAttribute('aria-label'), live: document.getElementById('ledLive').textContent })`);
+  await settled({ max: 20000, only: true, panes: false, until: "document.getElementById('leftLed').className === 'led ok'" });
+  await sleep(900);
+  const done = await ev(`({ led: document.getElementById('leftLed').className, live: document.getElementById('ledLive').textContent })`);
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: rec.identifier });
+  info['slow start'] = { at700, done };
+  ok('a slow start: the LED is still starting at 700 ms (the control: the first frame is held)', mid.ok && at700.led === 'led busy' && at700.label === 'Starting…', at700);
+  ok('a slow start: the polite region says nothing while it lasts', at700.live === '', at700);
+  ok('a slow start: the page comes up "Up to date" and the polite region still says nothing', done.led === 'led ok' && done.live === '', done);
+}
 return { pass: fails.length === 0, fails, info };
