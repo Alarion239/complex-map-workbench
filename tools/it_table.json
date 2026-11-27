@@ -3297,6 +3297,8 @@
  "Overlays": "Sovrapposizioni",
  "Quality": "Qualità",
  "Drawing a quick preview; the exact plot is still being built": "Disegno un'anteprima rapida; il grafico esatto è ancora in costruzione",
+ "Showing the previous picture; the Cauchy plot is still being built": "Mostro l’immagine precedente; il grafico di Cauchy è ancora in costruzione",
+ "Choose another colour style.": "Scegli un altro stile di colore.",
  "Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.": "Sonda al centro, {v} = {z}. Incrementi di {st}; Shift per {x}.",
  "{v} {z}. F is infinite here.": "{v} {z}. Qui F è infinita.",
  "{v} {z}. Modulus {modulus}, argument {n} degrees.\u0004{v} {z}. Modulus {modulus}, argument {n} degrees.": {
