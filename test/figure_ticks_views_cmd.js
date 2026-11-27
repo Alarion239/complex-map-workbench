@@ -24,7 +24,7 @@ const STEPS = [{ type: 'custom', params: { expr: 'z' }, on: true }];
 // (classic: the classic view; else the steps view, its glide parked halfway from z to w₁, the video's frame)
 const open = async (ns, lang, srcView, classic) => {
   await view(1440, 900, false);
-  await seed(ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, steps: STEPS, srcView, rightView: srcView,
+  await seed(ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, steps: STEPS, srcView,
     shapes: [{ id: 's1', kind: 'rect', a: [srcView.cx - RECT_PX / srcView.s, srcView.cy - RECT_PX / srcView.s], b: [srcView.cx + RECT_PX / srcView.s, srcView.cy + RECT_PX / srcView.s], visible: true }] });
   await go(`${base}/test.html?ns=${ns}&lang=${lang}${classic ? '&view=classic' : '&view=steps'}`);
   await settled({ until: `window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwFig && ${classic ? 'typeof __cmwSetMain === "function"' : 'typeof __cmwSteps === "function" && __cmwSteps().on'}`, max: 30000 });
