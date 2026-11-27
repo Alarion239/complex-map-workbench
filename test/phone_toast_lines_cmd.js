@@ -6,7 +6,7 @@
 //  - a message of two rows at 360 × 640 that stays up while the phone turns to 740 × 360 has one row beside its buttons, and the other way
 //    round; with the Menu sheet open it has one row after the turn too, and with the Display sheet open, whose column's foot it takes in landscape
 //    (360 px), two: `data-rows` is what is drawn (the buttons beside the words, or under them).
-//  - (#2567) at 390 × 844 in en, ru and it, over the plot: the Landscape's message (the Sphere key's reason, with its ×) fits in two lines beside
+//  - at 390 × 844 in en, ru and it, over the plot: the Landscape's message (the Sphere key's reason, with its ×) fits in two lines beside
 //    its ×, so it is one row: the × beside the words, and the message no taller than its words and × beside them need (a message that
 //    takes the × to a row of its own under two lines is 44 px taller).
 // In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -72,7 +72,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of [[390, 844], [360, 740]]) 
   ok(`${tag}: data-rows is what is drawn (${m.rows}: the buttons ${m.rows === 'two' ? 'under' : 'beside'} the words)`, m.btnTop !== null && (m.rows === 'two' ? m.btnTop >= m.wordsBottom - 1 : m.btnTop < m.wordsBottom - 1), m);
   ok(`${tag}: the message is inside the window`, m.win, m.toast);
 }
-// ---- #2567: a message that fits in two lines beside its × keeps the × beside it, and is as tall as the one-row layout
+// ---- a message that fits in two lines beside its × keeps the × beside it, and is as tall as the one-row layout
 const NO_SPHERE = {
   en: 'The Landscape has no sphere: choose Plane or Sphere in the surface menu',
   ru: 'В Рельефе нет сферы: выберите Плоскость или Сферу в меню поверхности',

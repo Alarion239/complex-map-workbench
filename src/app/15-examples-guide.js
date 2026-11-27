@@ -1042,7 +1042,9 @@
   // measured on the one-row layout with the words unclamped and the buttons unshrunk, so that the choice follows the text and the buttons,
   // not the language. The words fit when they take at most TOAST_ONE_ROW_LINES lines and keep the width the one-row layout gives them at
   // least (its flex-basis: 140 px over the steps view's plot, where narrower words would send the buttons to a row of their own)
-  const TOAST_ONE_ROW_LINES = 2;
+  // (the lines are counted from the words' line-height, which phone.css sets in px; one that is not would count as no number of lines,
+  // and the message would take two rows)
+  const TOAST_ONE_ROW_LINES = 2, TOAST_FIT_TOL_PX = 0.5;   // (a width within half a pixel of the flex-basis is the flex-basis, rounding aside)
   function fitToastRows(t) {
     if (!t.isConnected) return;
     const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
@@ -1051,7 +1053,7 @@
     for (const c of parts) if (c !== sp) /** @type {HTMLElement} */ (c).style.flex = 'none';
     t.style.flexWrap = 'nowrap'; sp.style.display = 'block'; sp.style.webkitLineClamp = 'none';
     const lines = Math.round(sp.getBoundingClientRect().height / parseFloat(getComputedStyle(sp).lineHeight));
-    t.dataset.rows = lines <= TOAST_ONE_ROW_LINES && sp.clientWidth >= minW - 0.5 ? 'one' : 'two';
+    t.dataset.rows = lines <= TOAST_ONE_ROW_LINES && sp.clientWidth >= minW - TOAST_FIT_TOL_PX ? 'one' : 'two';
     for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
     t.style.flexWrap = ''; sp.style.display = ''; sp.style.webkitLineClamp = '';
     toastFitW.set(t, t.clientWidth);
