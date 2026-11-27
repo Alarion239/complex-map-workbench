@@ -89,6 +89,17 @@ await settled({ max: 14000, only: true, until: '!!document.querySelector("#toast
 const hung = await ev('Array.from(document.querySelectorAll("#toastHost .toast button")).map((b) => b.textContent)');
 info.hung = hung;
 ok('after 10 s: the message offers Retry and Cancel', hung.includes('Retry') && hung.includes('Cancel'), hung);
+// (a dialog that opens takes the message away; the message says what the wait is, so it is back once the dialog
+// closes, with the wait still on)
+await key('e', 2);
+const dlgOpen = await settled({ max: 20000, only: true, until: '!!document.querySelector(".modal-bg")' });
+ok('a dialog that opens over the wait takes its message away', dlgOpen.ok && !(await ev('!!document.querySelector("#toastHost .toast")')), dlgOpen);
+await key('Escape');
+await settled({ max: 5000, only: true, until: '!document.querySelector(".modal-bg")' });
+const back = await settled({ max: 2000, only: true, until: '!!document.querySelector("#toastHost .toast:not(.toast-out)")' });
+const backBtns = await ev('Array.from(document.querySelectorAll("#toastHost .toast button")).map((b) => b.textContent)'), backState = await ev(state('.sv-play'));
+info.backAfterDialog = { backBtns, backState };
+ok('the dialog closed: the wait goes on and its message is back with Retry and Cancel', back.ok && backBtns.includes('Retry') && backBtns.includes('Cancel') && backState.busy, { back, backBtns, backState });
 // (the keyboard user acts on the message: the focus goes back to the button the wait is on, never to the page)
 const FOCUS_IN_MSG = (name) => `(() => { const b = Array.from(document.querySelectorAll("#toastHost .toast:not(.toast-out) button")).find((x) => x.textContent === ${JSON.stringify(name)}); if (!b) return false; b.focus(); return document.activeElement === b; })()`;
 const FOCUS_ON = (sel) => `(() => { const a = document.activeElement; return a ? a.matches(${JSON.stringify(sel)}) : false; })()`;
