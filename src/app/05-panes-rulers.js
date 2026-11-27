@@ -1240,7 +1240,7 @@
         // dc line colour on a white casing)
         const sk = shapeStroke(s, pane.dpr, { still: true });
         if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
-        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8, cpu: () => cpuMap(sm) }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
@@ -1441,7 +1441,7 @@
     const cv = pane.ocanvas, host = cv && cv.parentElement;
     if (!host) return [];
     const c = cv.getBoundingClientRect(), out = [];
-    for (const e of host.querySelectorAll('.vbtn, .ph-key')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
     return out;
   }
   // the half-width a line centred at mid may take in the band top … bottom of a pane (CSS px) beside the view buttons

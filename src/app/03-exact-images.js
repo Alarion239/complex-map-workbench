@@ -752,7 +752,7 @@
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   const NOTE_GAP = 4;   // the room a note keeps from a message above which it stands
   const NOTE_ROOM_MIN = 160;   // the least room, in px, a note is laid out in beside the chips over its plane (narrower, it keeps its centred place)
-  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
+  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.viewstack and .vbtn in phone.css) + 4 px
   // where a message standing over the plane begins, in the pane's CSS px from its top (Infinity: none over it)
   function messageTop(pane) {
     const msg = document.querySelector('#toastHost .toast');
