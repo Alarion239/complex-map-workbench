@@ -71,7 +71,7 @@ info.dialog = dlg;
 ok('over a dialog a message\'s × leaves the click to what lies under it', under !== 'x' || dlg.live, under);
 await press('Escape', 'Escape', 27); await settled({ max: 5000, only: true, until: `!document.querySelector('.modal-bg')` });
 await ev(`document.getElementById('toastHost').innerHTML = '', 1`);
-// a dialog that opens takes away a message that is already up (#2538)
+// a dialog that opens takes away a message that is already up
 await show('Up first', null, { ms: 60000 });
 await press('e', 'KeyE', 69, 4); await settled({ max: 20000, only: true, until: `!!document.querySelector('.modal-bg #xfMore')` });
 ok('a dialog that opens takes away a message that is already up', !(await has()), await ev(`document.getElementById('toastHost').textContent`));
