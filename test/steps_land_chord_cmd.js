@@ -1,9 +1,12 @@
 // The steps view's carried Landscape against its exact surface on the screen (#1155): the chord error of each grid the
 // carried draw keeps triangles of, read on the CPU by __cmwLandChordPx (each kept triangle's chord against the exact
 // point (F(z), h(z)) at its centroid and its edges' midpoints, both projected with the frame's camera, in css px), and
-// each frame's pixels against the same frame with the far rings drawn fine (GLR._lw.farN [512, 384]). Two scenes:
+// each frame's pixels against the same frame with the far rings drawn fine (GLR._lw.farN [512, 384]); and the carried
+// grids' jump rule (LAND_CARRY_NRM_VS, mirrored on the CPU) against the carry's map, read by __cmwLandJumps's bisection
+// oracle. Three scenes:
 // - A: the log of an annulus, Im heights, coloured from z, held at u = .05, .1, .25, .5 and .75, and parked on w₁;
-// - B: the default page (z, exp, Möbius), Everywhere, T = w₂, log |F|, held at u = .25, .5 and .75.
+// - B: the default page (z, exp, Möbius), Everywhere, T = w₂, log |F|, held at u = .25, .5 and .75;
+// - C: z³ parked on w₁, coloured from z: a carry whose map has no jump.
 // Checked:
 // (i) on a smooth part of B's box (its points of plane z with 0.4 <= |z| <= 1.5: the slope down to F's zero at 0, short
 //     of its spike and away from F's poles at ±πi) the triangles read, and none is off by more than 0.5 px: where the
@@ -12,10 +15,19 @@
 // (ii) B's outer far ring at u = .5 and .75 has kept triangles and none off by more than 3 px (the ring leaves out the
 //     copies of the box and the inner ring that #1137 measured, landInStrip);
 // (iii) with the far rings drawn at 32 points a side (GLR._lw.farN), B's inner ring at u = .5 reads triangles off by more
-//     than 3 px: the hook reads the rings the frame drew.
-// The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}) and its
-// pixel row: the share of the surface's pixels (a pixel coloured in either frame, its channels more than SAT apart) more
-// than PX_TOL apart in a channel from the fine-ring frame.
+//     than 3 px: the hook reads the rings the frame drew;
+// (iv) A's box at u = .25, .5 and .75 keeps no triangle across a jump of the log's glide (the oracle finds jumps there,
+//     and none is an edge of a kept triangle), and none off by more than 3 px: the jump rule leaves out the slivers that
+//     bridged the slit along the cut;
+// (iv') with the rule off (GLR._lw.noJump), A's box at those u keeps triangles off by more than 3 px: (iv) reads the rule;
+// (v) B at u = .5 and C keep the same triangles, grid by grid, with and without the rule: it leaves out nothing where the
+//     carry's map has no jump.
+// The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
+// jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
+// a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
+// kept triangle may bridge one: a lower J would come within reach of the continuous edges' ratios), and its pixel row:
+// the share of the surface's pixels (a pixel coloured in either frame, its channels more than SAT apart) more than PX_TOL
+// apart in a channel from the fine-ring frame.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = { A: {}, B: {} };
@@ -30,6 +42,9 @@ const PX_TOL = 30, SAT = 24;           // (the pixel rows: a channel more than P
 const LIM = 300000;
 
 const chord = (o = '') => evJson(`JSON.stringify(__cmwLandChordPx(${o}))`, LIM);
+const jumps = () => evJson('JSON.stringify(__cmwLandJumps())', LIM);
+// the kept triangles per grid (the chord rows' tris)
+const counts = (rows) => Object.fromEntries(Object.entries(rows || {}).map(([k, r]) => [k, r.tris]));
 const carried = () => evJson('JSON.stringify((({ u, s, far }) => ({ u, s, far: (far || []).map((p) => p[4]) }))(__cmwLandCarry() || {}))');
 const pane = () => ev(`(() => { const o = document.getElementById('overlayL').getBoundingClientRect(); return [o.left, o.top, o.width, o.height]; })()`);
 // the frame redrawn with the knob set (null: unset), once it has settled
@@ -70,8 +85,17 @@ for (const u of [0.05, 0.1, 0.25, 0.5, 0.75]) {
   await held(u);
   const c = await carried();
   ok(`A, held at u = ${u}: a carried frame from plane z`, c.s === 0 && Math.abs(c.u - u) < 0.004, c);
-  info.A['u' + u] = { rows: await chord() };
+  const rows = await chord(), jm = await jumps();
+  info.A['u' + u] = { rows, jumps: jm };
   if (u === 0.5) info.A['u' + u].px = await pixelRow('A-u0.5');
+  if (u >= 0.25) {
+    ok(`A, held at u = ${u} (iv): the box keeps no triangle across a jump of the log's glide, and none off by more than ${TOL} px`, !!rows && !!jm && rows.box.off === 0 && jm.box.across === 0 && jm.box.jumps > 0, { box: rows && rows.box, jumps: jm && jm.box });
+    await redraw({ noJump: true });
+    const nj = await chord();
+    info.A['u' + u].noJump = nj && nj.box;
+    ok(`A, held at u = ${u} (iv'): with the jump rule off (GLR._lw.noJump) the box keeps triangles off by more than ${TOL} px`, !!nj && nj.box.off > 0, nj && nj.box);
+    await redraw(null);
+  }
   await letGo();
 }
 await ev(`__cmwSteps({ go: 1, now: true }); 1`);
@@ -94,6 +118,11 @@ for (const u of [0.25, 0.5, 0.75]) {
   ok(`${tag} (i): on the box's smooth part, triangles and none off by more than ${SMOOTH_TOL} px`, !!smooth && smooth.box.tris > 500 && smooth.box.worst <= SMOOTH_TOL, smooth && smooth.box);
   if (u >= 0.5) ok(`${tag} (ii): the outer far ring keeps triangles, none off by more than ${TOL} px`, !!rows && !!rows.far1 && rows.far1.tris > 0 && rows.far1.off === 0, rows && rows.far1);
   if (u === 0.5) {
+    info.B.jumps = await jumps();
+    await redraw({ noJump: true });
+    const nj = await chord();
+    ok(`${tag} (v): the jump rule leaves out no triangle of the default page's glide (the same kept triangles without it)`, JSON.stringify(counts(nj)) === JSON.stringify(counts(rows)), { rule: counts(rows), noJump: counts(nj) });
+    await redraw(null);
     await redraw({ farN: COARSE });
     const cc = await carried(), coarse = await chord();
     info.B.coarse = { far: cc.far, far0: coarse && coarse.far0 };
@@ -102,4 +131,16 @@ for (const u of [0.25, 0.5, 0.75]) {
   }
   await letGo();
 }
+
+// ---- C: z³ parked on w₁, coloured from z: a carry with no jump
+await loadView('steps', `chordC${Date.now()}`, { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [{ type: 'custom', params: { expr: 'z^3' }, on: true }], nextId: 50, sheets: false });
+await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 0, go: 1, now: true }); 1`);
+await settled({ max: 90000, until: '__cmwSteps().ready.ready && __cmwSteps().i === 1' });
+const cC = await carried(), rC = await chord();
+await redraw({ noJump: true });
+const nC = await chord();
+await redraw(null);
+info.C = { rows: rC, jumps: await jumps() };
+ok('C, z³ parked on w₁ coloured from z (v): a carried frame, and the jump rule leaves out none of its triangles', cC.s === 0 && !!rC && JSON.stringify(counts(nC)) === JSON.stringify(counts(rC)), { carried: cC, rule: counts(rC), noJump: counts(nC) });
 return { pass: fails.length === 0, fails, info };

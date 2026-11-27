@@ -336,8 +336,9 @@
   const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into o when
-  // given (another sheet's copy, landCopies), else into landC)
-  function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
+  // given (another sheet's copy, landCopies), else into landC); jump: the jump rule its normals' pass flags edges by
+  // (LAND_CARRY_NRM_VS: the frame's, or CARRY_NO_JUMP)
+  function carryHeights(st, N, mode, H, mu, aspect, polar, o, jump) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
     if (!o && (!landC || landC.N !== N)) {
@@ -359,6 +360,7 @@
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
     u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
+    u1f(P2, 'uJump', jump.J); u1f(P2, 'uJumpW', jump.w);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
@@ -427,6 +429,10 @@
   // only where the others leave a hole) and its far patches (st.carry.far, the slot after them): their textures, kept
   // between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
+  // (the carried grids' jump rule for this frame, LAND_CARRY_NRM_VS: J, CARRY_JUMP_J or 0 for none, and w, CARRY_JUMP_PX at the
+  // fitted scale in plane units; set by drawLandscape before its height passes)
+  let carryJump = { J: CARRY_JUMP_J, w: Infinity };
+  const CARRY_NO_JUMP = { J: 0, w: Infinity };
   // the carried heights of the other sheets' copies (st.carry.copies), one set of textures each
   const landCopies = [];
   // a seam's band (st.carry.copies' band): the part of the carried box sb within SEAM_CELLS cells of the principal grid
@@ -1351,11 +1357,14 @@
     const dbg = {};
     // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px; farN: the carry's far rings
-    // at these points a side, [inner, outer], for a reference frame (test/steps_land_chord_cmd.js) }
+    // at these points a side, [inner, outer], for a reference frame (test/steps_land_chord_cmd.js); noJump: no jump rule
+    // (J 0): the carried grids keep their triangles across a jump }
     Object.assign(dbg, api._lw || {});
     // TEST-HOOK
     // (the carry's far rings' points a side: CARRY_FAR_N, or a test's reference counts)
     const farN = (k) => (dbg.farN && dbg.farN[k]) || CARRY_FAR_N[k];
+    // (the jump rule's floor: CARRY_JUMP_PX css px at the fitted scale, in plane units of the block; a test's noJump: none)
+    carryJump = { J: dbg.noJump ? 0 : CARRY_JUMP_J, w: (CARRY_JUMP_PX / pxW0) * (BW / (2 * aspect[0])) };
     // At rest (and in figures, films and exports) the scale is the camera's at the block's nearest point, when that is
     // nearer than the fitted distance (zoomed in, or the near side of the block in perspective): a finished zoom or
     // orbit rebuilds once. While something moves the fitted scale stands, and a mesh built at rest for the same heights
@@ -1375,7 +1384,7 @@
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
     // its own first would stall the GPU process once for them and once more for the sheets'; with none, the CPU stand-in's)
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    let hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    let hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect, null, null, carryJump) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     // (nothing to draw from yet, the principal surface's programs still linking: the stand-in's relief)
     if (!hd && !st.carry) hd = landStandSurface(st, mode, H, mu, aspect, heightOf);
     else if (hd && !hd.standIn) landStandRelease();
@@ -1384,10 +1393,10 @@
     const farPatches = [];
     if (st.carry && !hs && hd) for (const polar of (st.carry.polar || []).slice(0, CARRY_POLES)) {
       const o = landPP[pp.length] || (landPP[pp.length] = {});
-      pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
+      pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o, carryJump) });
     }
     // (the far patches, the last: their own textures)
-    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: farN(k), o: carryHeights(st, farN(k), mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {})) });
+    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: farN(k), o: carryHeights(st, farN(k), mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {}), carryJump) });
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets would hold both)
     if (!st.card) {
@@ -1492,7 +1501,9 @@
           const band = cp.band == null ? null : seamBand(sb, cp.band, N);
           if (cp.band != null && !band) return;
           const n = band ? SEAM_N : N, sc = band ? Object.assign({}, st, { carry: Object.assign({}, st.carry, { src: band }) }) : st;
-          made[i] = { band, o: carryHeights(sc, n, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {})) };
+          // (a seam's band, drawn where the surfaces leave the slit along the cut, reaches past the branch point, where its
+          // own turned cut runs: its triangles across that cut close the slit's tip, so the jump rule leaves it whole)
+          made[i] = { band, o: carryHeights(sc, n, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {}), band ? CARRY_NO_JUMP : carryJump) };
         }
         const m = made[i];
         if (!m) return;
@@ -1552,7 +1563,7 @@
       }
       info.copyAlpha = copies.length ? Math.min(...copies.map(alphaOf)) : null;
       info.refine = null;
-      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null })); info.step = carryStep(mode, H);
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null })); info.step = carryStep(mode, H); info.jump = Object.assign({}, carryJump);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;

@@ -53,15 +53,20 @@ const Inverse = (() => {
   // the plans of longer ranges match): {rept}, a repeat's one REPT op only when it is the chain's one live step. The REPT
   // search starts from the pixel's own w (chain error 0) and ends at the shape (Inverse.enumerate's, the GLSL walker's),
   // so it stands for no repeat with another step's op before or after it; there the repeat's copies make the plan, as any
-  // other repeat's. A range that holds the repeat alone plans its REPT op with a program of its own (Inverse.rangeOpts)
+  // other repeat's. A range that holds the repeat alone plans its REPT op with a program of its own, and so does a range
+  // that does not hold the repeat when the chain's own program would hold more ops than a program takes and the program
+  // that holds the repeat as one REPT op, the only one, builds (Inverse.rangeOpts)
   function chainOpts(steps, built) {
     let live = 0;
     for (let k = 0; k < steps.length; k++) if (isLive(steps[k], built[k])) live++;
     return { rept: live === 1 };
   }
-  // REPT_RANGE: a plane range that holds a repeat alone plans it as one REPT op, with the GLSL inverse program of its
-  // own options (GLChain.buildInverse(steps, built, plan.opts), beside the chain's); false: every plan takes the chain's
-  // options (Inverse.chainOpts), so a repeat in a longer chain is planned by its copies on its own plane too
+  // REPT_RANGE: a plane range that holds a repeat alone plans it as one REPT op, and a range that does not hold the
+  // chain's repeat, when the chain's own program would hold more ops than a program takes, plans with the options of the
+  // program that holds the repeat as one REPT op, if that program builds with it as its only REPT op; each draws by the
+  // GLSL inverse program of its own options (GLChain.buildInverse(steps, built, plan.opts), beside the chain's). false:
+  // every plan takes the chain's options (Inverse.chainOpts), so a repeat in a longer chain is planned by its copies on its
+  // own plane too, and a range that does not hold it has no program when the chain's own cannot be built
   const REPT_RANGE = true;
   // Inverse.rangeOpts(steps, built, a, b) -> the stepOps options of the plans for the stages (a, b] (REPT_RANGE):
   // - {rept: true} when the range's one live step is a repeat whose ops are then one REPT op;
