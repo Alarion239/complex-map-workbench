@@ -498,7 +498,7 @@
   function click(pane, side, x, y) {
     const tool = A.tool();
     if (!isCTool(tool)) return false;
-    if (side === 'R' && !A.targetsEditable()) return false;
+    if (side === 'R') return false;
     // the perpendicular or touching circle's draft (its curve, its points) is not dropped by a
     // click in the other plane that picks no curve there: that click does nothing
     if (draftC && draftC.tool === tool && draftC.side !== side && CURVE1.has(tool) && (draftC.picks.length || curve1Ok()) && !perpCurveAt(side, x, y)) return true;
