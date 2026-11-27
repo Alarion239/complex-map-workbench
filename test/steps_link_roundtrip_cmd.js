@@ -3,7 +3,8 @@
 // with its reason and the value it must take. The reopened figure is made into a link and reopened once more: that state is the
 // same as the first reopened one, compared both ways (a link's figure is a fixed point).
 // Covered, one case each: the steps' fields; every kind of shape and the targets' fields; the shared numbers; constructions with
-// references to a zeros-and-poles step; the view, the steps view's place (sv) and the right pane's camera; the display options.
+// references to a zeros-and-poles step; the view, the steps view's place (sv) and an older figure's view of Y and right pane's
+// camera, which the page drops; the display options.
 // Controls: every named normalisation is used by a case; the comparison reports a changed expression and a key the page does not
 // carry; a normalised key is a real difference of the figure as set; the two-way comparison reports a key, or an array entry,
 // that only the second state has; and a clipWin that differs is no difference, while a display option that differs is.
@@ -42,7 +43,8 @@ const NORMALISED = {
   'focus': [0, 'the steps view parks the classic focus on the whole chain (svViewFix)'],
   'view.main': ['phase', 'the view names the picture of the plane shown (svViewFix)'],
   'sv.T': [-1, 'the colour plane that is the last plane is written as -1'],
-  'rightView': [null, 'the globe has no right-pane camera: the steps view writes none'],
+  'rightView': [undefined, 'no view draws Y: the page drops the right pane\'s camera'],
+  'view.R': [undefined, 'no view draws Y: the page drops Y\'s view'],
   'params.1.value': [3, 'a number given by a formula takes the formula\'s value (a + 1, a = 2)'],
   'params.1.im': [1, 'the imaginary part of a number given by a formula is the formula\'s (a = 2 + i)'],
   'steps.0.uid': ['f1', 'a step that constructions refer to is given the next free uid; the references follow it'],
@@ -77,7 +79,7 @@ const CASES = [
   ['steps: type, params, on, repeat', { ...CURRENT, shapes: [], targets: [], nextId: 5, steps: [
     { type: 'pown', params: { n: 2 }, on: true, repeat: { n: 2, len: 1 } }, { type: 'exp', params: {}, on: false }, { type: 'pown', params: { n: 3 }, on: true }] }, []],
   ['display options and the selection', { ...CURRENT, steps: [{ type: 'pown', params: { n: 2 } }], shapes: [], targets: [], nextId: 5,
-    view: { main: 'phase', L: { surf: 'plane', eq: false }, R: { surf: 'plane', eq: false }, P: { surf: 'plane', eq: false }, D: { phase: true } },
+    view: { main: 'phase', L: { surf: 'plane', eq: false }, P: { surf: 'plane', eq: false }, D: { phase: true } },
     focus: 1, sel: 1, alpha: 0.6, meshN: 120, lines: true, unit: true, snap: true, outline: true, compact: true, chev: true, unitLevel: true, dcGrid: 5,
     patternScale: 2, figCam: { yaw: 0.4, pitch: -0.3, d: 1.5, tx: 0.1, ty: -0.2 }, sheets: true, sheetW: 3, height: 'abs', homAll: true, morphPaths: false, cauchyShow: 'in', cauchyPlus: true,
     landPlain: true, wKey: true, lscale: 1.5, sectors: 16, fov: false, srcView: { cx: 1, cy: 2, s: 77 }, morphSecs: 3.2 }, ['focus']],
@@ -96,8 +98,8 @@ const CASES = [
   ['steps.0.uid', 'shapes.5.def.args.1.zp']],
   ['the view, the steps view\'s place and the globe', { ...CURRENT, steps: [{ type: 'pown', params: { n: 2 } }], shapes: [], targets: [], nextId: 5,
     view: { main: 'xy', L: { surf: 'sphere', eq: true }, R: { surf: 'sphere', eq: true }, P: { surf: 'sphere', eq: true }, D: { phase: false } },
-    sv: { at: 1, T: 1, scope: 'in', surf: 'sphere', speed: 'slow' }, rightView: { cx: 1, cy: 2, s: 33 } }, ['view.main', 'sv.T', 'rightView']],
-  ['the right pane\'s camera on a plane', { ...CURRENT, steps: [{ type: 'pown', params: { n: 2 } }], shapes: [], targets: [], nextId: 5, rightView: { cx: 1, cy: 2, s: 33 } }, []],
+    sv: { at: 1, T: 1, scope: 'in', surf: 'sphere', speed: 'slow' }, rightView: { cx: 1, cy: 2, s: 33 } }, ['view.main', 'view.R', 'sv.T', 'rightView']],
+  ['the right pane\'s camera on a plane', { ...CURRENT, steps: [{ type: 'pown', params: { n: 2 } }], shapes: [], targets: [], nextId: 5, rightView: { cx: 1, cy: 2, s: 33 } }, ['rightView']],
 ];
 for (const [name, figure, used] of CASES) {
   try {
