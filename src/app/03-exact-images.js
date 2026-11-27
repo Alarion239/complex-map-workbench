@@ -99,8 +99,8 @@
     return !plan.ok && !!plan.tooLong;
   }
   // whether map (the plain map, mode 0) carries through a live Repeat block of more than one copy in its range,
-  // whatever op its plan draws it with: a REPT op when the repeat is the chain's one live step, the copies' own ops
-  // beside another step (Inverse.chainOpts)
+  // whatever op its plan draws it with: a REPT op when the range holds the repeat alone (Inverse.rangeOpts), the
+  // copies' own ops when it holds another live step too
   function repeatIn(map) {
     const m = normalizeMap(map);
     return (m.mode || 0) === 0 && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
@@ -893,7 +893,9 @@
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     const hatched = hatchNotes.get(pane) || '';
     if (!quiet) hatchNotes.delete(pane);
-    if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
+    // (a Cauchy plot that cannot be built says what to do: the plane has no other picture to show)
+    const error = st && st.error && pane === paneL && lColor() && S.dc === 'cauchy' ? `${st.error} ${$t('Choose another colour style.')}` : st && st.error;
+    if (!quiet && error) { paneNote(pane, error); setLed(pane === paneL ? 'L' : 'R', 'err', error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
     const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || hatched) : '';
