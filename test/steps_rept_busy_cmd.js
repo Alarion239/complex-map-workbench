@@ -135,12 +135,9 @@ const landHeld = async (releaseMs) => {
 };
 // the logged frames that are REPT-pending, each with its time since the first compiling frame (since)
 const reptFrames = (log) => { const c = log.find((e) => e.compiling), t0 = c ? c.t : Infinity; return log.filter((e) => e.rept).map((e) => Object.assign({ since: e.t - t0 }, e)); };
-const release = async () => {
-  await ev('GLR.holdLinks(false); __cmwRept({ holdB: false }); 1');
-  const r = await settled({ max: 120000, until: DRAWN });
-  await ev('__cmwRept({ fast: 0, tiles: 0 }); 1');
-  return r;
-};
+// (the holds and the REPT knobs reset, with no wait for the Landscape's whole picture: a scene's rows are read by then,
+// and the next scene opens a page of its own)
+const release = () => ev('GLR.holdLinks(false); __cmwRept({ holdB: false, fast: 0, tiles: 0 }); 1');
 // a long compile: held until the "Compiling…" note has been drawn
 {
   const start = await landHeld(null);
@@ -154,7 +151,7 @@ const release = async () => {
   ok(`a phone, Landscape, a long compile: the frames before the "Compiling…" note's ${COMPILE_NOTE_MS} ms draw the cue, alone (the corner is never empty)`, early.length > 0 && early.every((e) => CUE.test(e.cue || '') && !e.box), early.find((e) => !CUE.test(e.cue || '') || e.box) || info.landLong);
   ok('a phone, Landscape, a long compile: from then the cue gives way to "Compiling…", the corner\'s one note', late.length > 0 && late.every((e) => !e.cue), late.find((e) => e.cue) || info.landLong);
   ok('a phone, Landscape: the programs linked, the second pass still held, the corner note says the cue again', back.ok, info.landLong);
-  info.landLong.released = (await release()).ok;
+  await release();
 }
 // a short compile: the links released SHORT_COMPILE_MS after its first frame
 {
@@ -164,6 +161,6 @@ const release = async () => {
   info.landShort = { start, over: over.ok, frames: frs };
   ok(`a phone, Landscape, a short compile: some frames are both REPT-pending and compiling, none ${COMPILE_NOTE_MS} ms after the first, and "Compiling…" is never drawn (control)`, start.drawn && start.cued && over.ok && both.length > 0 && both.every((e) => e.since < COMPILE_NOTE_MS && !e.box), info.landShort);
   ok('a phone, Landscape, a short compile: every frame draws the cue (it does not blink off)', frs.length > 0 && frs.every((e) => CUE.test(e.cue || '')), frs.find((e) => !CUE.test(e.cue || '')) || info.landShort);
-  info.landShort.released = (await release()).ok;
+  await release();
 }
 return { pass: fails.length === 0, fails, info };
