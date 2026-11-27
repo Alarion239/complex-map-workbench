@@ -2434,7 +2434,9 @@ void ixAncTan(vec2 w) {
   const NP = { GRID: 0, AT: 1, BACK: 2, RAY: 3, LAD: 4, POL: 5, DEFL: 6, HIT: 7, CHECK: 8 };
   // the stepper's loop bound: its longest schedule in single steps and hit tests (kit as newtCoreFns'). A member 0 whose
   // stored root misses: CHECK, GRID's NEWT_K stages, AT, POL, HIT; LAD, POL, HIT; DEFL, HIT; a seed: BACK's at most NEWT_K
-  // stages, POL, HIT, and with the ray that again after RAY's stages ((HALVINGS SUB + 1) NEWT steps at most)
+  // stages, POL, HIT, and with the ray that again after RAY's stages ((HALVINGS SUB + 1) NEWT steps at most). The loop,
+  // and each _roots' loop over the members that calls _run, is bounded by max(bound, uNoUnroll) (#72): a constant trip
+  // count lets FXC (ANGLE's Direct3D 11 back end) unroll it, a copy of _run, and so of the step and H, an iteration
   const newtRunMax = (kit, { NEWT_K: K, NEWT_POL: POL, NEWT_LAD: LAD, NEWT_DEF: DEF, NEWT_RAY: RAY } = Inverse) => Math.max(POL + 1,
     kit.walk ? 1 + K + 1 + POL + 1 : 0, kit.lad ? LAD + POL + 1 : 0, kit.defl ? DEF + 1 : 0, kit.back ? (K + POL + 1) * (kit.ray ? 2 : 1) + (kit.ray ? (RAY.SUB * RAY.HALVINGS + 1) * RAY.NEWT : 0) : 0);
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
@@ -2485,7 +2487,7 @@ ${kit.walk ? `  int k0 = min(${K}, int(floor(${K}.0 * t)));
   bool again = ph == ${NP.BACK};
   int nr = 0;
   float g0 = ${Math.log(RAY.R)}, gw = 0.0;
-` : ''}  for (int it = 0; it < ${newtRunMax(kit)}; it++) {
+` : ''}  for (int it = 0; it < max(${newtRunMax(kit)}, uNoUnroll); it++) {
 ${kit.ray ? `    if (ph == ${NP.RAY} && n >= (nr + 1) * ${RAY.NEWT}) { ph = ${NP.BACK}; n = 1; }
 ` : ''}${kit.walk ? `    if (ph == ${NP.GRID} && n > k0) { ug = u; ph = ${NP.AT}; n = 0; }
     if (ph == ${NP.AT} && n > 0) { ph = ${NP.POL}; n = 0; }
@@ -2585,7 +2587,7 @@ void ${P}_roots(vec2 w, float t) {
   ${P}_has = true; ${P}_w = w;
   int kb = max(1, int(ceil(${K}.0 * (1.0 - t))));
 ${bk.single ? `  bool got = false;
-` : ''}  for (int m = 0; m < ${NB}; m++) {
+` : ''}  for (int m = 0; m < max(${NB}, uNoUnroll); m++) {
     vec2 v, ug; bool okv; int ph, n;
     if (m > 0) {
 ${bk.single ? `      if (got) { ${P}_r[m] = vec2(${IX_NR_NONE}); ${P}_k[m] = false; continue; }
@@ -2661,7 +2663,7 @@ ${fetch('uNrPrev')}
     ${P}_start(w, de, z);
     ${P}_aberth(w, de, z, ${Inverse.NEWT_ABERTH_IT});
   }
-  for (int i = 0; i < ${D}; i++) {
+  for (int i = 0; i < max(${D}, uNoUnroll); i++) {
     vec2 v = z[i], ug;
     bool ok = i < de && ixFin(v);
     if (ok) ok = ${P}_run(v, w, t, ${NP.POL}, 0, 0, vec2(0.0), ug);
@@ -2726,7 +2728,7 @@ void main() {
 #endif
   bool ok = false;
   vec2 v = ${NONE};
-  for (int m = 0; m < mem; m++) {
+  for (int m = 0; m < max(mem, uNoUnroll); m++) {
     vec2 x = u, ugm, dz = vec2(0.0);
     bool okm = true;
     int ph = ${NP.GRID}, n = ks + 1;
@@ -2801,7 +2803,7 @@ void ${P}_roots(vec2 w, float t) {
   vec2 lo = anch ? vec2(an.z, an.w) : vec2(w.x / (1.0 - t), w.y / (1.0 - t) - ${Inverse.NEWT_SPAN.toFixed(1)});
   float span = anch ? an.y - an.w : ${(2 * Inverse.NEWT_SPAN).toFixed(1)};
   float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(6)).join(', ')});
-  for (int m = 0; m < ${NB}; m++) {
+  for (int m = 0; m < max(${NB}, uNoUnroll); m++) {
     vec2 v, ug, dz = vec2(0.0);
     bool okv = true;
     int ph = ${NP.LAD}, n = 0;

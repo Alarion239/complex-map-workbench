@@ -1,23 +1,23 @@
 {
  "quintic @ 0.3": {
   "newt": 1,
-  "src": "4c52a6a64f8fb45c09a472dd431f1a0ff1bb9db4e94f8ad40fd93830676de224"
+  "src": "a953a9464f6ed1ddf957913844dc10306bd702c5c8752682d52b30e349f30edb"
  },
  "quintic @ 0.7": {
   "newt": 1,
-  "src": "cb34744546d6c78bce7c8b405e95201d85cd2e558f5d8810ddf06a6e920ced62"
+  "src": "0b865b95aafabba9b4b368bf6cd7030288cbff76194aa5aa19c306a5f068acb8"
  },
  "sextic @ 0.3": {
   "newt": 1,
-  "src": "70c6c4df48e288c319e0521073134dfc155866fce2e745f5bfe98dc7bad3e510"
+  "src": "6cf87a904f48cd533b208cb35e31ea1d245b2605715d8ffa979fab18ec835205"
  },
  "sextic @ 0.7": {
   "newt": 1,
-  "src": "70c6c4df48e288c319e0521073134dfc155866fce2e745f5bfe98dc7bad3e510"
+  "src": "6cf87a904f48cd533b208cb35e31ea1d245b2605715d8ffa979fab18ec835205"
  },
  "gamma+1 @ 0.3": {
   "newt": 1,
-  "src": "df2f532318485a9eca4034601f670fff81cdefeadef25e0a8acf0b6a21c56970"
+  "src": "f379cf18df18ea911bb6b021cc6ccf1f90baea36d1006ae66c07b6bd839fb8fb"
  },
  "gamma+1 @ 0.7": {
   "newt": 0,
@@ -25,11 +25,11 @@
  },
  "sinz/z @ 0.3": {
   "newt": 1,
-  "src": "fea021f9e2e5ffccdec0a5a58ff47f1f1b120e5332475b526751897e03740e41"
+  "src": "a6f9c7cc23fb5d9659620e6db2f2a8232530212390bda149da1544862179432a"
  },
  "sinz/z @ 0.7": {
   "newt": 1,
-  "src": "fea021f9e2e5ffccdec0a5a58ff47f1f1b120e5332475b526751897e03740e41"
+  "src": "a6f9c7cc23fb5d9659620e6db2f2a8232530212390bda149da1544862179432a"
  },
  "cos^2 @ 0.3": {
   "newt": 0,
@@ -81,18 +81,18 @@
  },
  "ijouk @ 0.3": {
   "newt": 1,
-  "src": "c5ce91c1af88f75d847befd7cc285e696679bb9b53ee7e9f139473968c0264be"
+  "src": "0b06335c5522e38c551cca5bf02ad10ef02b3e771dacecd09a1845fa830dbb07"
  },
  "ijouk @ 0.7": {
   "newt": 1,
-  "src": "c5ce91c1af88f75d847befd7cc285e696679bb9b53ee7e9f139473968c0264be"
+  "src": "0b06335c5522e38c551cca5bf02ad10ef02b3e771dacecd09a1845fa830dbb07"
  },
  "zeta @ 0.3": {
   "newt": 1,
-  "src": "e10c0dfe95c7bd004d73a22197c1c07f2966773f5b6b4440d191aec75f1c95f1"
+  "src": "6a4dcae6e3d50b444b8f28c1139b5febade856347d81b660240f188e3a261b61"
  },
  "zeta @ 0.7": {
   "newt": 1,
-  "src": "e10c0dfe95c7bd004d73a22197c1c07f2966773f5b6b4440d191aec75f1c95f1"
+  "src": "6a4dcae6e3d50b444b8f28c1139b5febade856347d81b660240f188e3a261b61"
  }
 }
