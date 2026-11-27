@@ -36,8 +36,9 @@ const probe = (pad = 0) => ev(`(() => {
   return { shown: true, collapsed: k.classList.contains('collapsed'), open: k.classList.contains('open'), w: r(b.width), h: r(b.height),
     inPlane: b.left >= q.left - 0.5 && b.right <= q.right + 0.5 && b.top >= q.top - 0.5 && b.bottom <= q.bottom + 0.5,
     onScreen: b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom <= innerHeight, top: pts, vw: innerWidth,
-    // (the globe key of the plane's column, and the plane: the folded key's centre stands level with the globe key's)
-    globe: (() => { const g = document.querySelector('#plotL > .ph-col .ph-sph'); if (!g || !g.getClientRects().length) return null; const gb = g.getBoundingClientRect(); return { cy: r(gb.top + gb.height / 2), top: r(gb.top) }; })(), plotTop: r(q.top), cy: r(b.top + b.height / 2), keyTop: r(b.top),
+    // (the globe key of the plane's stack, and the plane: the folded key's centre stands level with the globe key's, where the key is in use: the
+    // Landscape's, disabled, stays in its slot and the folded key keeps its place)
+    globe: (() => { const g = document.querySelector('#leftSph'); if (!g || !g.getClientRects().length || g.getAttribute('aria-disabled') === 'true') return null; const gb = g.getBoundingClientRect(); return { cy: r(gb.top + gb.height / 2), top: r(gb.top) }; })(), plotTop: r(q.top), cy: r(b.top + b.height / 2), keyTop: r(b.top),
     // (how far the invisible ::before reaches beyond the glyph's border box on each side: its inset from the padding box less the border)
     reach: (() => { const bs = getComputedStyle(k), ps = getComputedStyle(k, '::before'), bw = parseFloat(bs.borderTopWidth) || 0;
       return ['top', 'right', 'bottom', 'left'].map((d) => r(-parseFloat(ps[d]) - bw)); })(),
