@@ -1,6 +1,6 @@
 // What the keyboard-navigation suite uses: where the focus is (and whether it is shown), which area that is (the tools in
-// the grid or the tablet's rail), and the page it opens (two discs, a reciprocal and a sine). An expression for eval in a suite: `const K = eval(fs.readFileSync(...))` (the suite's own view, load,
-// ev and settled are used).
+// the grid or the tablet's rail), and the page it opens (two discs, a reciprocal and a sine). An expression for eval in a
+// suite: `const K = eval(fs.readFileSync(...))` (the suite's own view, load, ev and settled are used).
 ({
   where: () => ev(`(() => { const a = document.activeElement; if (!a) return null; return { tag: a.tagName, id: a.id || '', cls: String(a.className).slice(0, 40), tool: a.dataset && a.dataset.tool || '', k: a.dataset && a.dataset.k || '', inTop: !!a.closest('#top'), inTools: !!a.closest('#tools, #railTools'), shown: a.getClientRects().length > 0, inThread: !!a.closest('#svStrip'), inProps: !!a.closest('#propsPanel'), xCanvas: !!(a.parentElement && a.closest('#paneL')), yCanvas: !!a.closest('#paneR') }; })()`),
   // the area a `where()` answer is in (the thread is inside the plane's pane, so it is asked first)

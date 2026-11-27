@@ -853,8 +853,8 @@
   function areaKeys(e) {
     if (e.key !== 'F6' || e.altKey || e.ctrlKey || e.metaKey || document.querySelector('.modal-bg')) return;
     const act = (gs) => { const g = document.querySelector(gs); return g ? /** @type {HTMLElement[]} */ ([...g.querySelectorAll(ROVE.find((r) => r[0] === gs)[1])]).find((el) => el.tabIndex === 0 && shown(el)) : null; };
-    // (the tools: the grid's stop, else the tablet rail's active tool, else its first shown; a phone's grid has every tool a
-    // stop, so its first is the active one's row: the tool that is on, else the first)
+    // (the tools: on a phone every tool in the grid is a stop, and the area is the tool that is on; elsewhere the grid's one
+    // stop, else the tablet rail's active tool, else its first shown)
     const tools = () => {
       const g = document.querySelector('#tools'), on = g && /** @type {HTMLElement} */ (g.querySelector('.tool.on'));
       if (!onLaptop() && shown(on)) return on;
