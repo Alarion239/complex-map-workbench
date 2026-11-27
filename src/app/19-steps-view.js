@@ -746,11 +746,11 @@
   }
   // the angle at grid column i of n, radius r, of an outer far ring with its copies' strip dup ([n.x, n.y, half-width, 1],
   // svLandFarDup): the strip's edges cross the circle at ±b from its normal n and from -n, b = acos(half-width / r); the
-  // columns up to the gap h = floor((n - 1) / 2) run from +b to -b about n, the rest from +b to -b about -n. So the
+  // columns up to the gap h (GLR.dupGap) run from +b to -b about n, the rest from +b to -b about -n. So the
   // grid's outermost columns lie on the strip's edges and its cells cover the ring outside the strip; the cells between
   // columns h and h + 1 span the strip and are left out (LAND_CARRY_VS), its points drawn by their copies
   function svDupTheta(d, i, r, n) {
-    const h = Math.floor((n - 1) / 2), b = Math.acos(Math.min(1, d[2] / r)), tn = Math.atan2(d[1], d[0]);
+    const h = GLR.dupGap(n), b = Math.acos(Math.min(1, d[2] / r)), tn = Math.atan2(d[1], d[0]);
     return i <= h ? tn + b - (2 * b * i) / h : tn + Math.PI + b - (2 * b * (i - h - 1)) / (n - 2 - h);
   }
   // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's

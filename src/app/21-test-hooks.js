@@ -418,7 +418,7 @@
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // the gap column of a far ring with its copies' strip (ring.dup, svDupTheta) of n x n vertices: the cells between it and
   // the next span the strip and are left out (LAND_CARRY_VS); -1 for a ring without one
-  const landGapCol = (ring, n) => (ring && ring.dup ? Math.floor((n - 1) / 2) : -1);
+  const landGapCol = (ring, n) => (ring && ring.dup ? GLR.dupGap(n) : -1);
   // whether the plane point (x, y) lies in the disc of one of the carry c's pole patches ([x, y, r0, r1], out to r1), which
   // that patch covers
   const inPoleDisc = (c, x, y) => (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(x - qx, y - qy) < q1);

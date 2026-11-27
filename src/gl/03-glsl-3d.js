@@ -576,12 +576,15 @@ void main() {
   // are left out. uSeamOn 1: the glide's map has a cut out of the pole (the branch of a power or a log that ends there,
   // svPatchSeam): each ring starts at the cut, uSeam[k] on the ring k / (SEAM_RINGS - 1) of the way out (linear between them), SEAM_EPS
   // inside it on each side out to the cut's end (uSeamEnd, a fraction of the way out), so the ring's first and last cells
-  // end at the cut and no cell straddles it; past its end the ring closes round
+  // end at the cut and no cell straddles it; past its end the ring closes round. uDup (n.x, n.y, half-width, 1: an outer
+  // far ring with its copies' strip, svLandFarDup) puts its columns on the two arcs outside the strip, the gap column
+  // uGap (dupGap) between them (svDupTheta). uDup.w is the switch: a program that never sets uGap reads 0 (the sheets'
+  // programs), and with uDup unset (w 0) that path is off
   const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
   const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
   const SEAM_RINGS = 9;    // (the rings a patch's seam is measured on, svPatchSeam, and given to CARRY_ZIN as uSeam)
   const CARRY_ZIN = `
-uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[${SEAM_RINGS}]; uniform float uSeamEnd; uniform vec4 uDup;
+uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[${SEAM_RINGS}]; uniform float uSeamEnd; uniform vec4 uDup; uniform int uGap;
 vec2 carryZIn(vec4 src, vec2 ij) {
   float f = 1.0 / float(uN - 1);
   if (uPolar.w <= 0.0) return src.xy + ij * f * src.zw;
@@ -592,7 +595,7 @@ vec2 carryZIn(vec4 src, vec2 ij) {
     float e = ij.y * f <= uSeamEnd ? ${SEAM_EPS} : 0.0;
     th = mix(uSeam[k], uSeam[k + 1], t - float(k)) - e - (6.283185307179586 - 2.0 * e) * ij.x * f;
   } else if (uDup.w > 0.0) {
-    int h = (uN - 1) / 2;
+    int h = uGap;
     float b = acos(min(1.0, uDup.z / r)), tn = atan(uDup.y, uDup.x);
     th = ij.x <= float(h) ? tn + b - 2.0 * b * ij.x / float(h) : tn + 3.141592653589793 + b - 2.0 * b * (ij.x - float(h + 1)) / float(uN - 2 - h);
   }
@@ -692,7 +695,7 @@ void main() {
   // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge. A patch with uDup
   // (n.x, n.y, half-width, 1: the outer far ring of a periodic carry, svLandFarDup) has its columns on the two arcs outside
   // the strip within the half-width of its centre across the period (CARRY_ZIN, svPatchZ), and leaves out the cells
-  // between its gap column (uN - 1) / 2 and the next, which span that strip: copies of points the box and the inner ring
+  // between its gap column uGap (dupGap) and the next, which span that strip: copies of points the box and the inner ring
   // draw finer
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
@@ -721,7 +724,7 @@ void main() {
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
-  if (uPolar.w > 0.0 && uDup.w > 0.0 && c.x == (uN - 1) / 2) return;
+  if (uPolar.w > 0.0 && uDup.w > 0.0 && c.x == uGap) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
   vZ = carryZ(vec2(V));
