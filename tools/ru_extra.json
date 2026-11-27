@@ -736,6 +736,8 @@
  "Quality": "Качество",
  "split f{x} into f{x}–f{x2}: {chain}": "разложение f%{x} на шаги f%{x}–f%{x2}: %{chain}",
  "Drawing a quick preview; the exact plot is still being built": "Рисуется быстрый черновик; точный график ещё строится",
+ "Showing the previous picture; the Cauchy plot is still being built": "Показана прежняя картинка; график интеграла Коши ещё строится",
+ "Choose another colour style.": "Выберите другой стиль окраски.",
  "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
  "Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.": "Указатель в центре, %{v} = %{z}. Шаг %{st}; с Shift — %{x}.",
  "{v} {z}. F is infinite here.": "%{v} %{z}. Здесь функция F обращается в бесконечность.",
