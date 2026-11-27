@@ -24,8 +24,7 @@ ok('UX21: the line\'s words are never cut: laneFit drops the optional part (the 
 const APP = ['soundhooks.js', 'morphpaths.js', 'examples.js'].reduce((t, f) => t + '\n' + require('./src_text').source(f), require('./src_text').appText());
 ok('UX74: the Try line drops the example\'s name first', /drop: 'title', onClose/.test(APP));
 ok('UX20: the example fit measures X\'s bar only on the plane (it is in the head on a desktop)', /f\.parentNode === \$\('plotL'\)/.test(APP));
-ok('UX20: the head note gives way before the title (fitTitle noNote)', /function fitTitle\(side, noNote[,)]/.test(APP) && /\$t\('Preimage in X'\)/.test(APP));
-ok('UX20: the empty chain\'s call to action goes into Y\'s head on a desktop', /head\.insertBefore\(er, leg\)/.test(APP));
+// (standards-ok: the head note and the empty chain's call to action stood in Y's head, which the page does not have)
 ok('UX103: the readout names the step\'s function', /\$t\('Step \{k\} of \{m\} · \{f\} · \{p\} %'/.test(APP) && /\$t\('All steps at once · \{p\} %'/.test(APP));
 ok('UX72: Listen along in the row menu and in the selected curve\'s editor, both through sndListenAsk', (() => {
   const ed = APP.slice(APP.indexOf('  function shapeEditor(s) {'), APP.indexOf('  // ---------------- formula region input'));
@@ -46,9 +45,9 @@ ok('#34: Move on by itself is a checkbox in the chapters menu (no timer icon in 
 // ---- Russian (UX78, UX93 and every string of this piece)
 const RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../notes/i18n/ru/v165-ux-learn.json'), 'utf8'));
 const ents = Object.entries(RU).filter(([k]) => !k.startsWith('_'));
-// (60: the piece's strings the page still ships; the classic transport's six and the classic tour's Phase key task are
-// not among them, #994)
-ok('the table has the piece\'s strings', ents.length >= 60, ents.length);
+// (50: the piece's strings the page ships; the classic transport's six, the classic tour's Phase key task, the cell and
+// view-edge words of a key chip, and the target notes of a Y pane head, none of which the page has, are not among them)
+ok('the table has the piece\'s strings', ents.length >= 50, ents.length);
 ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter(([, v]) => !(v.en && v.ru)).map(([k]) => k));
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
 // (V165_HERE is one set holding every piece's table, this one among them)

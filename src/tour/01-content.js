@@ -421,9 +421,9 @@
     formula: '#secFormula', shapes: '#secShapes',
     // (D3: the phone's context bar, while a construction tool is in hand: its Undo pick)
     ctxUndo: () => vis1('.ph-ctx[data-k="construct"] .ph-cb'),
-    // (on the laptop the regions' display is behind Y's Regions button in the pane head: the open
+    // (on the laptop the regions' display is behind X's Regions button in the pane head: the open
     // popover, or the button; on a phone the Display sheet's section)
-    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.pat-pop') || document.querySelector('#rightFoot .pat-btn')),
+    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.pat-pop') || document.querySelector('#leftFoot .pat-btn')),
     // (on a phone the chain, its Add tile and F are rows of the chain sheet; while it is closed, its "N steps ▾"
     // button in the chain bar, which opens it)
     chain: '.pipe-wrap', panes: '#panes', paneL: '#paneL', paneR: '#paneR',

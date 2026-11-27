@@ -122,7 +122,7 @@ async function settle(since = 0, quiet = QUIET_MS, timeout = SETTLE_TIMEOUT) {
   for (;;) {
     const s = await status();
     const last = Math.max(s.lastActT, since);
-    if (s.ledL !== 'busy' && s.ledR !== 'busy' && !s.pending && s.now - last >= quiet) return { t: last, now: s.now, timeout: false };
+    if (s.ledL !== 'busy' && !s.pending && s.now - last >= quiet) return { t: last, now: s.now, timeout: false };
     if (Date.now() - t0 > timeout) return { t: s.now, now: s.now, timeout: true };
     await sleep(80);
   }

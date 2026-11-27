@@ -75,9 +75,10 @@ ok(/probeTeachUntil > now/.test(APP) && /sessionStorage\.getItem\('cmw-probe-tau
 ok(/new ResizeObserver\(\(\) => \{ if \(!q && th\.firstElementChild\)/.test(APP), 'regress-2: a toast is placed again when the layout under it changes');
 ok(/host\.setAttribute\('data-placed', 'plot'\)/.test(fnBody(APP, 'placeToasts')) && /#toastHost\[data-placed="plot"\] \.toast \{/.test(DESK), 'a desktop message sits over the plot, above the thread');
 ok(/run: \(\) => go\(\) \}\], drop: 'title'/.test(APP) && /Tour\.laneHide\('example'\);\s*\}/.test(fnBody(APP, 'sndPlayEnded')), 'regress-5: the Try line stays while the melody plays');
-ok(/let wOnce;/.test(APP) && /const w = wOnce !== undefined \? wOnce : focusF\(\)\(z\);/.test(APP), 'regress-6: F(z) of the probe evaluated once per move');
-ok(/if \(k === undoKey\) return;/.test(fnBody(APP, 'updateUndo')) && /if \(key === targetNoteKey\) return;/.test(fnBody(APP, 'targetNote')), 'regress-7: updateUndo and targetNote return at once when nothing changed');
-ok(/b\.x1 > 0 && b\.y1 > 0 && b\.x0 < r\.width && b\.y0 < r\.height/.test(fnBody(APP, 'mfNogo')), 'regress-8: no-go rectangles only over the plane');
+// (standards-ok: the probe's one F(z) shared by two readouts has one readout to serve: X's evaluates it once in its own line)
+// (standards-ok: the page has no Y pane; targetNote writes no pane-head note, so it has no note's key to return on)
+ok(/if \(k === undoKey\) return;/.test(fnBody(APP, 'updateUndo')), 'regress-7: updateUndo returns at once when nothing changed');
+// (standards-ok: the page has no Y pane; regress-8's no-go rectangles were Y's transport bar and legend, which the page does not have)
 ok(/performance\.now\(\) - navKeyAt > NAV_KEY_MS \|\| !el\.matches\(':focus-visible'\)/.test(APP) && /el !== kbdTip/.test(APP), 'regress-9: a Tab focus shows the tip, a focus the app moves does not');
 ok(/const namesA = shapeNames\(A\.shapes \|\| \[\]\), namesB = shapeNames\(B\.shapes \|\| \[\]\);/.test(fnBody(APP, 'histWhat')), 'regress-10: an undo step names its shape from its own snapshot (z₆)');
 

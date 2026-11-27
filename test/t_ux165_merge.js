@@ -51,10 +51,10 @@ ok('integrateSelected: the touch toast (phone), the pick-a-curve guard and integ
 
 // ---- plane UX27 + learn UX103 in paneTitles
 const pt = fnBody(APP, 'paneTitles');
-ok('paneTitles: the Y tag on the four right titles (plane)', count(pt, 'right = T(YT + ') === 4);
-// ---- plane + learn: the tag gives way before the title (merge: with Add function in Y's head the title vanished)
+ok('paneTitles: the X tag on the plane\'s title (plane)', pt.includes('T(XT + xName'));
+// ---- plane + learn: the tag gives way before the title
 const ft = fnBody(APP, 'fitTitle');
-ok('fitTitle: the note, then the X / Y tag, give way before the title', ft.includes("t.classList.add('notag')") && ft.indexOf('fitTitle(side, true)') < ft.indexOf("add('notag')") && ft.indexOf("add('notag')") > ft.indexOf("querySelector('.ptag')") && PAGE.includes('.pane-title.notag .ptag { display: none; }'));
+ok('fitTitle: the Regions button\'s caret, then the X tag, give way before the title', ft.includes("t.classList.add('notag')") && ft.indexOf('fitTitle(side, true)') < ft.indexOf("add('notag')") && ft.indexOf("add('notag')") > ft.indexOf("querySelector('.ptag')") && PAGE.includes('.pane-title.notag .ptag { display: none; }'));
 
 // ---- plane UX92/UX95 + learn UX72 in shapeEditor
 const se = fnBody(APP, 'shapeEditor');
@@ -63,8 +63,7 @@ ok('shapeEditor: the unbounded note (plane) and Listen along it (learn)', se.inc
 ok('shape ⋯: Duplicate through duplicateShape with ⌘D (learn) and colours by name (plane)', APP.includes("label: $t('Duplicate'), key: modK('D'), run: () => duplicateShape(s)") && APP.includes('label: colorName(i), swatch: cc'));
 // ---- plane UX67 + chain UX33 in paramField
 ok('paramField: the sheet ‹ ahead of the field (plane) and the worded class and paramWord (chain)', APP.includes("(word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input)") && /function paramWord\(st, q\)/.test(APP));
-// ---- plane + learn in idleRight
-ok('idleRight: the phone target line (learn), then "Draw a target in Y" (plane)', /targetText\(\{ phone: true \}\)/.test(APP) && APP.includes("$t('Draw a target in Y (the {x}-plane)'"));
+// (standards-ok: idleRight wrote Y's readout, which the page does not have)
 // ---- learn UX93 for the plane's seventh tool
 ok('the Russian phone tile for Hyperbolic (plane UX55, learn UX93)', APP.includes("hyper: $tx('phone tile', 'Hyperbolic')") && TABLE['phone tile\u0004Hyperbolic'] === 'Гиперб.', TABLE['phone tile\u0004Hyperbolic']);
 

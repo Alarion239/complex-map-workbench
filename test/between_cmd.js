@@ -13,7 +13,7 @@ const ST = () => CI({ shapes: true });
 const byId = (st, id) => st.list.find((s) => s.id === id);
 const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(150); return r; };
 const rowD = (id) => ev(`(document.querySelector('.shape[data-id="${id}"] .d') || {}).textContent`);
-const chipBtn = (lab) => ev(`(() => { const b = [...document.querySelectorAll('#draftChipL .cm-sb, #draftChipR .cm-sb')].find((x) => x.getAttribute('aria-label') === ${JSON.stringify(lab)}); if (b) b.click(); return !!b; })()`);
+const chipBtn = (lab) => ev(`(() => { const b = [...document.querySelectorAll('#draftChipL .cm-sb')].find((x) => x.getAttribute('aria-label') === ${JSON.stringify(lab)}); if (b) b.click(); return !!b; })()`);
 const inspBtn = (lab) => ev(`(() => { const b = [...document.querySelectorAll('.cm-iside button')].find((x) => x.textContent.trim() === ${JSON.stringify(lab)}); if (b) b.click(); return !!b; })()`);
 const NS = 'btw' + (Date.now() % 1000000);
 const SD = { shapes: [], steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 170 }, unit: true, snap: true, nextId: 50 };

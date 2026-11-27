@@ -132,11 +132,6 @@
     tempInsp = true;
     host.classList.add('temp');
     host.setAttribute('role', 'dialog'); host.setAttribute('aria-label', $t('Inspector'));
-    // (with X and Y side by side, an overlay would cover Y's centre; the stage gives the Inspector
-    // its width for the time it is open instead. A merged view is wide enough to keep its centre clear.)
-    const L = $('paneL').getBoundingClientRect(), R = $('paneR').getBoundingClientRect();
-    const lay = document.querySelector('.layout');
-    if (L.width > 0 && R.width > 0 && lay && !lay.classList.contains('temp-dock')) { lay.classList.add('temp-dock'); onPaneResize(); }
     requestRender('P');
   }
   function closeTemp() {
@@ -144,31 +139,20 @@
     if (!tempInsp && !(host && host.classList.contains('temp'))) return false;
     tempInsp = false;
     if (host) { host.classList.remove('temp'); host.setAttribute('role', 'region'); host.setAttribute('aria-label', $t('Inspector')); host.style.top = host.style.right = host.style.height = ''; }
-    for (const id of ['paneL', 'paneR']) $(id).classList.remove('under-insp');
-    const lay = document.querySelector('.layout');
-    if (lay && lay.classList.contains('temp-dock')) { lay.classList.remove('temp-dock'); if (paneL && paneR) onPaneResize(); }
+    $('paneL').classList.remove('under-insp');
     return true;
   }
-  // over the stage's right edge, from the planes' top to above the chain; the plane under it keeps its controls clear
+  // over the stage's right edge, from the plane's top to above the chain; the plane under it keeps its controls clear
   function placeTemp() {
     const host = $('propsPanel');
     if (!tempInsp || !host) return;
     if (!S.hideRight || window.innerWidth < 1024) { closeTemp(); return; }
     const r = $('panes').getBoundingClientRect();
-    const lay = document.querySelector('.layout');
-    if (lay && lay.classList.contains('temp-dock')) {
-      // (docked for the time it is open: the stage's freed right column, the planes' top to the chain's bottom)
-      const st = document.querySelector('.layout > .stage').getBoundingClientRect();
-      host.style.top = Math.round(st.top) + 'px';
-      host.style.height = Math.round(st.height) + 'px';
-      host.style.right = Math.round(window.innerWidth - st.right - 8 - 288) + 'px';
-      for (const id of ['paneL', 'paneR']) $(id).classList.remove('under-insp');
-      return;
-    }
     host.style.top = Math.round(r.top) + 'px';
     host.style.height = Math.round(r.height) + 'px';
     host.style.right = Math.round(window.innerWidth - r.right) + 'px';
-    for (const id of ['paneL', 'paneR']) { const b = $(id).getBoundingClientRect(); $(id).classList.toggle('under-insp', b.width > 0 && b.right >= r.right - 2); }
+    const p = $('paneL'), b = p.getBoundingClientRect();
+    p.classList.toggle('under-insp', b.width > 0 && b.right >= r.right - 2);
   }
   let insp = null;
   let swPhone = null;   // the phone sheet open before a language switch

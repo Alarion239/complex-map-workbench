@@ -51,7 +51,7 @@ for (const [lang, w] of [['en', 1440], ['ru', 1440], ['en', 390], ['ru', 390]]) 
   ok(`${tag}: the disc is drawn (mesh and lines)`, d0 && d0.tris > 0 && d0.segs > 0, d0);
   const lay = await ev('__cmwLayout()');
   info[tag] = { layout: lay, drawn: d0 };
-  ok(`${tag}: the planes are shown`, lay.shown.length >= 1 && lay.wL + lay.wR > 0, lay);
+  ok(`${tag}: the plane is shown`, lay.shown.length >= 1 && lay.wL > 0, lay);
   // the menu wait does not ask the page's quiet: with the panes held in "refining" for good, the menu opened by the button is there
   if (tag === 'en 1440') {
     await ev(`window.__cmwPaneStatusOwn = window.__cmwPaneStatus; window.__cmwPaneStatus = () => ({ pending: false, compiling: false, refining: true }); document.querySelector('#svHead .sv-surf1').click(); 1`);

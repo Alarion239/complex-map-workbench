@@ -94,33 +94,15 @@
   }
   // titles and chrome
   $('leftTitle').innerHTML = '<span class="ptitle"><i>z</i>-plane</span><span class="prole">domain</span>';
-  $('rightTitle').innerHTML = '<span class="ptitle"><i>w</i> = <i>F</i>(<i>z</i>)</span><span class="prole">after 2 steps</span>';
-  const MODES = [['image', 'Image'], ['color', 'Phase'], ['3d', 'Landscape'], ['sphere', 'Sphere'], ['morph', 'Morph']];
-  const mic = '<svg class="mic" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25"><circle cx="7" cy="7" r="5.5"/><path d="M7 7h5.5M7 7l-2.75 4.76M7 7L4.25 2.24"/></svg>';
-  const mode = q.get('mode') || 'color';
-  $('rightTabs').innerHTML = MODES.map(([m, l]) => `<button data-mode="${m}" role="radio" class="${m === mode ? 'on' : ''}" aria-checked="${m === mode}">${mic}<span>${l}</span></button>`).join('');
-  $('leftLed').className = 'led ok'; $('rightLed').className = 'led ' + (q.get('led') || 'busy');
-  $('rightLed').title = 'Refining';
-  $('cornerL').innerHTML = '<i>z</i>'; $('cornerR').innerHTML = '<i>w</i>';
+  $('leftLed').className = 'led ok';
+  $('cornerL').innerHTML = '<i>z</i>';
   $('leftReadout').innerHTML = '<span class="rk">z</span> <span class="rv">0.4210 + 1.2034<i>i</i></span><span class="rk">|z|</span> <span class="rv">1.2749</span><span class="rk">arg</span> <span class="rv">72.08°</span>';
-  $('rightReadout').innerHTML = '<span class="rk">w</span> <span class="rv">−0.3127 + 0.8810<i>i</i></span><span class="rk">|w|</span> <span class="rv">0.9349</span>';
-  $('rightLegend').hidden = false;
-  $('hairR').hidden = false;
-  for (const [s, ic] of [['ZoomIn', 'plus'], ['ZoomOut', 'minus'], ['Fit', 'fit'], ['Solo', 'expand']]) { $('left' + s).innerHTML = I[ic]; $('right' + s).innerHTML = I[ic]; }
-  const seg = (opts, on, id) => `<div class="seg small" ${id ? `id="${id}"` : ''} role="radiogroup">${opts.map((o) => `<button data-v="${o}" role="radio" class="${o === on ? 'on' : ''}" aria-checked="${o === on}">${o}</button>`).join('')}</div>`;
-  if (mode === 'morph') {
-    $('rightFoot').className = 'options transport';
-    $('rightFoot').innerHTML = `<button class="icon-btn play" aria-label="Play">${I.play}</button><div class="tscrub"><input type="range" min="0" max="2" step="0.001" value="1.37"><div class="tticks"><span class="ttick" style="left:25%"><i>f</i><sub>1</sub></span><span class="ttick" style="left:75%"><i>f</i><sub>2</sub></span></div></div><span class="tread mono">t = 1.37 / 2</span>${seg(['0.5×', '1×', '2×'], '1×')}<select class="sel"><option>One after another</option><option>All at once</option></select>`;
-  } else if (mode === 'image') {
-    $('rightFoot').innerHTML = '<label class="check"><input type="checkbox" checked><span>View outline</span></label>';
-  } else {
-    $('rightFoot').innerHTML = seg(['Tiles', 'Phase', 'Modulus', 'Contours', 'Grid'], 'Tiles', 'dcSeg') + '<div class="scrub"><span class="pl scrub">n</span><select class="sel"><option>12</option></select></div><label class="check"><input type="checkbox" checked><span>Region outline</span></label>';
-  }
+  $('leftLegend').hidden = false;
+  $('hairL').hidden = false;
+  for (const [s, ic] of [['ZoomIn', 'plus'], ['ZoomOut', 'minus'], ['Fit', 'fit'], ['Solo', 'expand']]) { $('left' + s).innerHTML = I[ic]; }
   if (q.has('empty')) {
     $('emptyState').hidden = false;
     $('emptyState').innerHTML = '<div><b>No shapes yet</b><span class="lbl">Draw a region with the tools, or type a set such as |z − 1| &lt; 2</span><div class="row"><button class="chip ftag">|z| &lt; 1</button><button class="chip ftag">Im z &gt; 0</button><button class="chip ftag">1 &lt; |z| &lt; 2</button></div></div>';
-    $('emptyRight').hidden = false;
-    $('emptyRight').innerHTML = '<span>Add a function to map the region</span><button class="btn primary small">Add function</button>';
   }
   // canvases: graph paper and a fake region so the chrome reads against real content
   function paper(c, phase) {
@@ -163,15 +145,15 @@
     }
   }
   function lg() {
-    const c = $('legendCanvas'), x = c.getContext('2d'); x.setTransform(2, 0, 0, 2, 0, 0); x.clearRect(0, 0, 136, 72);
+    const c = $('legendCanvasL'), x = c.getContext('2d'); x.setTransform(2, 0, 0, 2, 0, 0); x.clearRect(0, 0, 136, 72);
     for (let a = 0; a < 360; a += 2) { x.strokeStyle = `oklch(0.75 0.12 ${29 - a})`; x.lineWidth = 10; x.beginPath(); x.arc(36, 36, 19, a * Math.PI / 180, (a + 3) * Math.PI / 180); x.stroke(); }
     x.fillStyle = tok('--ink-2'); x.font = '11px "Roboto Flex"'; x.fillText('×1.69 per band', 66, 58);
     const gr = x.createLinearGradient(66, 0, 130, 0); gr.addColorStop(0, tok('--plane')); gr.addColorStop(1, tok('--ink')); x.fillStyle = gr; x.fillRect(66, 30, 64, 8);
   }
   function paint() {
-    paper($('canvasL')); paper($('canvasR'), mode === 'color');
-    for (const id of ['rulerLX', 'rulerRX']) ruler($(id), false);
-    for (const id of ['rulerLY', 'rulerRY']) ruler($(id), true);
+    paper($('canvasL'));
+    ruler($('rulerLX'), false);
+    ruler($('rulerLY'), true);
     lg();
     for (const c of document.querySelectorAll('.thumb canvas')) paper(c);
     for (const c of document.querySelectorAll('.ex-thumb, .pal-preview canvas, .pad canvas')) paper(c);

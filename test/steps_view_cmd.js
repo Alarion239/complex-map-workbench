@@ -49,8 +49,8 @@ await open(1280, 800, false, true);
 const s0 = await S();
 ok('the steps view is on, on the z-plane, coloured from the last plane', s0.on && s0.i === 0 && s0.T === 2 && s0.planes.join() === '0,1,2' && s0.solo === 'L', s0);
 const dom = await ev(`({ sv: document.documentElement.classList.contains('sv'), strip: !!document.getElementById('svStrip'), steps: document.querySelectorAll('#svStrip .sv-fchip').length,
-  dots: document.querySelectorAll('#svStrip .sv-plane').length, chain: getComputedStyle(document.querySelector('.pipe-wrap')).display, R: document.getElementById('paneR').getBoundingClientRect().width })`);
-ok('one plane, the strip with 2 steps and 3 planes, no chain row and no Y pane', dom.sv && dom.strip && dom.steps === 2 && dom.dots === 3 && dom.chain === 'none' && dom.R === 0, dom);
+  dots: document.querySelectorAll('#svStrip .sv-plane').length, chain: getComputedStyle(document.querySelector('.pipe-wrap')).display, noR: !document.getElementById('paneR') })`);
+ok('one plane, the strip with 2 steps and 3 planes, no chain row and no Y pane', dom.sv && dom.strip && dom.steps === 2 && dom.dots === 3 && dom.chain === 'none' && dom.noR, dom);
 // (an area example opens with Inside regions: Everywhere first, for the pictures below)
 await ev(`__cmwSteps({ scope: 'all' }); 1`);
 // (z's first picture once the page has settled: the fonts loaded (with CMW_VENDOR=1 they land late) and the colour key

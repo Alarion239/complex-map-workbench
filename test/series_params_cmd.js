@@ -24,9 +24,9 @@ const names = async () => (await ev('__cmwP().params')).map((p) => p.name).join(
 const enter = (key, text) => ev(`(() => { const i = document.querySelector('input[data-pkey="${key}"]'); if (!i) return false; i.value = ${JSON.stringify(text)}; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
 const F = (z) => ev(`JSON.stringify(__cmwEval('F', null, [${JSON.stringify(z)}]))`);
 const glKey = async () => (await ev('__cmwZp()')).glKey;
-// a hash of the plane's pixels (a screenshot of the wider of the two plane canvases: Phase is one full-width panel)
+// a hash of the plane's pixels (a screenshot of X's plane canvas)
 const picture = async () => {
-  const r = await ev(`(() => { const c = ['canvasL', 'canvasR'].map((id) => document.getElementById(id).getBoundingClientRect()).sort((a, b) => b.width - a.width)[0]; return { x: c.left, y: c.top, width: c.width, height: c.height }; })()`);
+  const r = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return { x: c.left, y: c.top, width: c.width, height: c.height }; })()`);
   const s = await send('Page.captureScreenshot', { format: 'png', clip: Object.assign({ scale: 1 }, r) });
   let h = 2166136261;
   for (let i = 0; i < s.data.length; i++) h = Math.imul(h ^ s.data.charCodeAt(i), 16777619) >>> 0;

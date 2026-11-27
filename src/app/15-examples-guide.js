@@ -407,21 +407,19 @@
     const mg = Views.merged(S.view);
     panes.classList.add('solo-L');
     panes.classList.toggle('merged-L', mg === 'L');
-    panes.classList.toggle('merged-R', mg === 'R');
     syncModeChips();
-    if (mg !== layoutMg) { layoutMg = mg; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
+    if (mg !== layoutMg) { layoutMg = mg; if (paneL) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
   }
   let layoutMg;   // (undefined until the first layout, which always resizes the panes)
   // the panes' canvases follow their boxes (the ResizeObserver, and a layout change at once: a merge or a split
   // must not leave a frame, a fit or a mesh to be made at the old width)
   function onPaneResize() {
-    const a = paneL.resize(), b = paneR.resize();
-    $('paneR').classList.toggle('narrow', $('paneR').getBoundingClientRect().width < 520);
+    const a = paneL.resize();
     $('paneL').classList.toggle('narrow', $('paneL').getBoundingClientRect().width < 520);
     syncViewControls();
     fitRightTitle();
     if (a && leftStage() > 0 && leftAuto) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
-    if (a || b) {
+    if (a) {
       // (the options strip re-flows at the pane's new width)
       layoutFoot();
       sourceViewChanged();
@@ -553,13 +551,13 @@
     setStackKey(sph, $('leftSphWhy'), SV.on ? SV.surf === 'land' : lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
     setStackKey($('leftFit'), $('leftFitWhy'), false, '', $t('Fit view') + '  Z');
   }
-  // Sphere on a plane's stack, the laptop's and the phone's: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own
+  // Sphere on X's stack, the laptop's and the phone's: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own
   // tabs do. A key the surface cannot use says why in a message and changes nothing
-  function stackSphere(side) {
-    const key = $(side === 'L' ? 'leftSph' : 'rightSph');
-    if (key.getAttribute('aria-disabled') === 'true') { toast($(side === 'L' ? 'leftSphWhy' : 'rightSphWhy').textContent); return; }
+  function stackSphere() {
+    const key = $('leftSph');
+    if (key.getAttribute('aria-disabled') === 'true') { toast($('leftSphWhy').textContent); return; }
     if (svSphereKey() != null) return;
-    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    const tabs = $('leftTabs');
     const sb = tabs && tabs.querySelector('button[data-mode="sphere"]'), pb = tabs && tabs.querySelector('button[data-mode="plane"]');
     const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
     if (t) t.click();
@@ -568,7 +566,6 @@
     const main = S.view.main;
     document.documentElement.classList.toggle('view-land', main === 'land');
     setSeg($('leftTabs'), xView().surf);
-    setSeg($('rightTabs'), S.view.R.surf);
     // the landscape is its own surface: no Plane | Sphere in its head
     const lt = $('leftTabs'); if (lt && lt.parentElement.hidden !== lLand()) lt.parentElement.hidden = lLand();
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
@@ -584,7 +581,7 @@
   }
   // resizable gutters between the planes and above the chain (sizes are per viewer)
   function setupGutters() {
-    const stage = $('stage'), panes = $('panes');
+    const stage = $('stage');
     const store = (k, v) => { try { localStorage.setItem(lsk(k), String(v)); } catch (e) { /* ignore */ } };
     const read = (k) => { try { return localStorage.getItem(lsk(k)); } catch (e) { return null; } };
     // (the chain is 188 px with pictures, 96 with names; a height saved for 272 px cards is not reused)
@@ -594,7 +591,6 @@
     // the quality and perf suites render their scenes at the pane geometry of a 272 px chain, so their golden images
     // and baselines stay valid (test/regress/quality/run_quality.js, test/regress/perf/run.js set window.__cmwChainH)
     if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEST-HOOK
-    const sp = +read('cmw-split'); if (sp) panes.style.setProperty('--split', String(sp));
     const drag1 = (el, onMove, onEnd) => el.addEventListener('pointerdown', (e) => {
       e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('active');
       const mv = (ev) => onMove(ev);
@@ -610,15 +606,6 @@
       document.documentElement.style.setProperty('--chain-h', Math.round(hgt) + 'px');
       setOpt('compact', hgt < 140);
     }, () => store('cmw-chain-h2', parseInt(getComputedStyle(stage).getPropertyValue('--chain-h')) || 188));
-    const col = $('gutterCol');
-    if (col) {
-      drag1(col, (e) => {
-        const r = panes.getBoundingClientRect();
-        const f = Math.max(0.2, Math.min(0.8, (e.clientX - r.left) / r.width));
-        panes.style.setProperty('--split', f.toFixed(4));
-      }, () => store('cmw-split', panes.style.getPropertyValue('--split') || 0.5));
-      col.addEventListener('dblclick', () => { panes.style.setProperty('--split', '0.5'); store('cmw-split', 0.5); });
-    }
   }
   // tooltips: elements with data-tip (or title) show a styled tip after a short delay
   function setupTooltips() {
@@ -706,7 +693,7 @@
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
     // (also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips, and the steps
     // view's colour button, whose tip says why it does nothing while the thread is parked between two planes)
-    const LP_SEL = '.tool[data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
+    const LP_SEL = '.tool[data-tip], #leftTabs [data-tip], .phbtn[data-tip], '
       + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip], .sv-cp[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
@@ -857,7 +844,6 @@
       { id: 'top', el: () => first('#top'), has: (el) => !!el.closest('#top') },
       { id: 'tools', el: () => act('#tools'), has: (el) => !!el.closest('#secDraw, #railTools') },
       { id: 'x', el: () => plane(paneL), has: (el) => paneL && el === paneL.ocanvas },
-      { id: 'y', el: () => plane(paneR), has: (el) => paneR && el === paneR.ocanvas },
       // (the steps view's thread, between the plane and the Inspector: F6 lands on its ring, and any control of the thread is in it)
       { id: 'thread', el: () => { const t = document.querySelector('#svStrip .sv-thumb'); return shown(t) ? t : null; }, has: (el) => !!el.closest('#svStrip') },
       { id: 'inspector', el: () => (S.hideRight ? null : first('#propsPanel')), has: (el) => !!el.closest('#propsPanel') },
@@ -887,7 +873,7 @@
       const el = findByKey(lastFocus.key);
       if (el && el.getClientRects().length) el.focus({ preventScroll: true });
     });
-    for (const id of ['shapeList', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'propsPanel', 'tools']) {
+    for (const id of ['shapeList', 'leftFoot', 'leftTabs', 'propsPanel', 'tools']) {
       const el = $(id);
       if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-checked'] });
     }
@@ -994,11 +980,9 @@
         for (const r of keys) if (r.bottom > top - 80) hi = Math.min(hi, r.left - 8);
       }
     } else {
-      // the planes side by side: between X's and Y's button columns; one plane: left of its own
-      const stacks = ['paneL', 'paneR'].map((id) => { const p = $(id); return p && p.getClientRects().length ? box(p.querySelector('.viewstack')) : null; });
-      const plots = ['plotL', 'plotR'].map((id) => box($(id)));
-      if (stacks[0] && stacks[1] && stacks[1].left > stacks[0].right) { lo = stacks[0].right + 8; hi = stacks[1].left - 8; }
-      else { const k = stacks[1] ? 1 : 0, st2 = stacks[k], pl = plots[k]; if (st2 && pl && pl.width > 0) { lo = pl.left + 8; hi = st2.left - 8; } }
+      // X's plane: from its left edge to its own button column
+      const p = $('paneL'), stack = p && p.getClientRects().length ? box(p.querySelector('.viewstack')) : null, pl = box($('plotL'));
+      if (stack && pl && pl.width > 0) { lo = pl.left + 8; hi = stack.left - 8; }
     }
     if (!(hi - lo >= 160)) { clear(); return; }
     host.setAttribute('data-placed', '');

@@ -51,13 +51,10 @@ const announced = async (leg, tipOf) => {
   const want = tipOf.busy;
   const s1 = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(want)})` });
   ok(`${leg}: a busy state that holds is announced politely (#ledLive says "${want}")`, s1.ok, await live());
-  // (the shown LED's words come once, with its pane's title when the pane shows one: "X · z-plane: ..." in the classic view;
-  // the hidden right LED says nothing)
-  const shown = await ev(`['L', 'R'].map((side) => { const led = document.getElementById(side === 'L' ? 'leftLed' : 'rightLed'), t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'); return { led: led.getClientRects().length > 0, title: t && t.getClientRects().length ? t.textContent.trim() : '' }; })`);
+  // (the shown LED's words come once, with its pane's title when the pane shows one: "X · z-plane: ..." in the classic view)
+  const shown = await ev(`['L'].map(() => { const led = document.getElementById('leftLed'), t = document.querySelector('#leftTitle .ptitle'); return { led: led.getClientRects().length > 0, title: t && t.getClientRects().length ? t.textContent.trim() : '' }; })`);
   const said = await live();
-  // (a pane whose title is hidden at this width is named by its letter when two LEDs are shown, X and Y: the words alone would not say which)
-  const two = shown.filter((x) => x.led).length > 1;
-  const lines = shown.map((x, i) => ({ x, i })).filter((e) => e.x.led).map((e) => { const name = e.x.title || (two ? ['X', 'Y'][e.i] : ''); return (name ? name + ': ' : '') + tipOf.busy; });
+  const lines = shown.filter((x) => x.led).map((x) => (x.title ? x.title + ': ' : '') + tipOf.busy);
   ok(`${leg}: the one shown LED's words come once, with its pane's title`, lines.length === 1 && said === lines.join('. '), { shown, said, lines });
   ok(`${leg}: #ledLive is a polite live region`, await ev(`document.getElementById('ledLive').getAttribute('aria-live') === 'polite'`));
   await busy(false);

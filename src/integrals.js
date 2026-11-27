@@ -376,14 +376,14 @@ const Integrals = (() => {
     const re = Math.abs(w.re) <= tol ? 0 : w.re, im = Math.abs(w.im) <= tol ? 0 : w.im;
     return CX.fmt(C(re, im), 12).replace(/\s/g, '');
   };
-  function openIntegralPop(id, cx, cy, o) {
+  function openIntegralPop(id, cx, cy) {
     closePalette();
     const s = A.S.shapes.find((x) => x.id === id);
     if (!s) return null;
     const pop = h('div', { class: 'pop int-pop', role: 'dialog', 'aria-label': $t('Line integral') });
     $('popHost').append(pop);
     A.popEl = pop;
-    A.intPop = { id, el: pop, cx, cy, it: null, x: null, timer: 0, beside: !!(o && o.beside), bx0: o && o.bx0 != null ? o.bx0 : null };
+    A.intPop = { id, el: pop, cx, cy, it: null, x: null, timer: 0 };
     tourEmit('integral-opened', { shape: id });
     pop._onClose = () => {
       if (!A.intPop || A.intPop.el !== pop) return;
@@ -408,18 +408,10 @@ const Integrals = (() => {
     let x = A.intPop.cx + 12, y = A.intPop.cy + 12;
     if (x + pw > window.innerWidth - 12) x = Math.max(12, A.intPop.cx - pw - 12);
     if (y + ph > window.innerHeight - 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, A.intPop.cy - ph - 12));
-    // (opened from the palette, the result sits beside its curve in X, never over Y, where its image is)
-    if (A.intPop.beside) {
-      const R = $('paneR').getBoundingClientRect();
-      if (R.width > 0 && R.left > pw + 24 && x + pw > R.left - 8) x = Math.max(12, Math.min(A.intPop.bx0 != null ? A.intPop.bx0 - pw - 12 : x, R.left - 8 - pw));
-    }
-    // keep the planes' legend chips clear (merged-views review: on the wide Phase panel it covered the colour key):
-    // a popover that would overlap one moves to its left, or below it when there is no room on the left
-    for (const id of ['leftLegend', 'rightLegend']) {
-      const el = $(id);
-      if (!el || el.hidden || el.offsetParent === null) continue;
-      const q = el.getBoundingClientRect();
-      if (!(q.width > 0) || x > q.right + 4 || x + pw < q.left - 4 || y > q.bottom + 4 || y + ph < q.top - 4) continue;
+    // keep the plane's legend chip clear (merged-views review: on the wide Phase panel it covered the colour key):
+    // a popover that would overlap it moves to its left, or below it when there is no room on the left
+    const el = $('leftLegend'), q = el && !el.hidden && el.offsetParent !== null ? el.getBoundingClientRect() : null;
+    if (q && q.width > 0 && !(x > q.right + 4 || x + pw < q.left - 4 || y > q.bottom + 4 || y + ph < q.top - 4)) {
       if (q.left - 8 - pw >= 12) x = q.left - 8 - pw;
       else y = Math.min(window.innerHeight - ph - 12, q.bottom + 8);
     }

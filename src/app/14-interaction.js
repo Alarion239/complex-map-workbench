@@ -696,8 +696,8 @@
     }
     return '';
   }
-  function globeChip(side, s) {
-    const el = $(side === 'L' ? 'leftReadout' : 'rightReadout');
+  function globeChip(s) {
+    const el = $('leftReadout');
     if (!el || el.classList.contains('copied')) return;
     let t = s ? capSetHtml(s) : '';
     if (s && !t) {
@@ -868,7 +868,7 @@
     // its overlay); a stored shape that changes updates the lists and both panes
     const changed = (s) => {
       if (d.mode !== 'gdraw') { if (d.target) targetsChanged(false); else shapesChanged(false); }
-      globeChip(side, s);
+      if (side === 'L') globeChip(s);
       requestRender(side, 'O' + side);
     };
     if (d.mode === 'gdraw' && draft) {
@@ -1265,7 +1265,7 @@
     return `${fmtR(re, dp)} ${im < 0 ? '−' : '+'} ${fmtR(Math.abs(im), dp)}${unit}`;
   }
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
-  const copyValue = { L: '', R: '' };
+  const copyValue = { L: '' };
   // While the steps view's thread moves (a glide, a scrub, a play, held between two planes), the left probe shows
   // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
   // left pane is kept, so the probe reads again at once in the first parked frame (idleReadouts), without a pointer move.
@@ -1281,13 +1281,12 @@
     probeHeld = !!probeHover;
   }
   function setReadouts(z) {
-    const lr = $('leftReadout'), ro = $('rightReadout');
-    if (!lr || !ro) return;
+    const lr = $('leftReadout');
+    if (!lr) return;
     const lk = leftStage();
     const vin = lk === 0 ? '<i>z</i>' : `<i>w</i>${sub(lk)}`;
     if (!z) {
       if (!lr.classList.contains('copied') && !hov.w && !stackKeeps()) lr.innerHTML = idleLeft();
-      if (!ro.classList.contains('copied')) ro.innerHTML = idleRight();
       legendNeedle = null; legendMod = null; requestRender('G');
       return;
     }
@@ -1307,7 +1306,6 @@
     }
     // X Phase: the painted function (F, or its homotopy at t while the deformation transport is open) as modulus and
     // angle, with a swatch of its colour; the legend's needle and modulus tick follow it
-    let wOnce;   // ([v16.5 fix regress-6] F(z) of the probe, evaluated once per move for both readouts)
     if (lPhase()) {
       const hv = homView();
       const wl = (hv ? hv.F : focusF())(z);
@@ -1355,7 +1353,7 @@
       // [v16.5 UX10] one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
       // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
       // (the key's "=" and parentheses in the maths face, as its letters: the old mono face's (B612 Mono) "(" read as "[" [UX105])
-      const wz = wOnce = focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
+      const wz = focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
       // (the steps view's plane past the colour plane reads where the point comes from in the colour plane: its preimage, or
       // "—"; at a plane where the colour is pulled back (a d/dz in the way) there is no second line, 19)
       const src = SV.on ? svSource(z) : undefined, eqv = SV.on ? '' : ` ${m('=')}`;
@@ -1374,25 +1372,6 @@
         if (i === forms.length - 1 || [...lr.children].every(fits)) break;
       }
     }
-    // Y: the image of the probe (F at t = end)
-    const w = wOnce !== undefined ? wOnce : focusF()(z);
-    copyValue.R = CX.isFin(w) ? CX.fmt(w, 6).replace(/\s/g, '') : '';
-    const vout = yHtml();
-    if (rImage()) {
-      // F' at the current probe (never a cached value from an earlier pointer position)
-      const F = focusF(), hh = 1e-6 * Math.max(1, CX.abs(z));
-      const d = CX.scale(CX.sub(F(C(z.re + hh, z.im)), F(C(z.re - hh, z.im))), 1 / (2 * hh));
-      const fd = CX.isFin(d) ? (CX.abs(d) < 1e-9 ? $t('critical point') : `${fmtR(CX.abs(d))} ∠ ${fmtR(Math.atan2(d.im, d.re) / DEG).replace(/0+$/, '').replace(/[.,]$/, '')}°`) : '—';
-      let clamp = '';
-      if (tool === 'select' && CX.isFin(d) && paneL && paneR) {
-        const rimg = CX.abs(d) * (10 / paneL.view.s) * V.right.s;
-        const factor = rimg > 120 ? 120 / rimg : rimg < 3 && rimg > 0 ? 3 / rimg : 1;
-        if (factor !== 1) clamp = rk($t('gauge'), '×' + I18N.num(CX.fmtNum(factor, 3)));
-      }
-      ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`${fnHtml()}′`, fd) + clamp;
-    } else {
-      ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`|${vout}|`, fmtR(CX.abs(w)));
-    }
   }
   // the phase colour of w as a CSS colour (the legend wheel's, arg 0 = red at 1)
   function phaseCss(w) {
@@ -1408,14 +1387,13 @@
     }
     // (a globe gesture's chip shows the set being drawn or edited until release)
     if (probe || (drag && /^g(draw|handle|move)$/.test(drag.mode))) return;
-    const lr = $('leftReadout'), ro = $('rightReadout');
-    const a = idleLeft(), b = idleRight();
+    const lr = $('leftReadout');
+    const a = idleLeft();
     if (!hov.w && !stackKeeps() && !lr.classList.contains('copied') && lr.innerHTML !== a) lr.innerHTML = a;
-    if (!ro.classList.contains('copied') && ro.innerHTML !== b) ro.innerHTML = b;
   }
-  function copyReadout(side) {
-    const el = $(side === 'L' ? 'leftReadout' : 'rightReadout');
-    const v = copyValue[side];
+  function copyReadout() {
+    const el = $('leftReadout');
+    const v = copyValue.L;
     if (!v) return;
     const done = () => { el.classList.add('copied'); el.innerHTML = rk('', $t('Copied')); setTimeout(() => { el.classList.remove('copied'); setReadouts(probe); }, 900); };
     try { navigator.clipboard.writeText(v).then(done, done); } catch (e) { done(); }
@@ -1548,7 +1526,7 @@
       if (typing) return;
       // Tab on a focused plane steps through its shapes (Shift+Tab backwards); past the last one Tab leaves the plane as usual
       if (e.key === 'Tab' && !mod && !e.altKey && t.matches('.plot > canvas.overlay')) {
-        const list = t.id === 'overlayR' ? S.targets : S.shapes;
+        const list = S.shapes;
         const i = list.findIndex((x) => x.id === selected), n = i + (e.shiftKey ? -1 : 1);
         if (list.length && n >= 0 && n < list.length && !(i < 0 && e.shiftKey)) {
           e.preventDefault(); selected = list[n].id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'P'); return;

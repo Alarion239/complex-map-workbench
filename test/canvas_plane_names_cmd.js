@@ -1,7 +1,7 @@
 // The planes' accessible names follow the plane shown, as the titles and the readout do: the left canvas's aria-label says which
 // plane it is (z, w₁, w₂, from the head's own title and role), and the keyboard probe's words name that plane's variable
 // ("Probe at the centre, w₁ = 0", "w₁ 0.1. Modulus …"), not z. The steps view at each plane of a three-plane chain; the classic
-// view with a step focused, where the right canvas follows Y's title too.
+// view with a step focused.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -65,23 +65,21 @@ for (const [lang, start, notPlane] of [['ru', 'Указатель в центр�
   ok(`${lang}, plane w₁: the probe's step announcement names w₁`, s2.ok, await heard());
   info[lang] = { label: l, said };
 }
-// ---- the classic view with step 2 focused: X shows w₁, Y shows w₂ = f₂(w₁)
+// ---- the classic view with step 2 focused: X shows w₁ (standards-ok: the page has no Y pane; its canvas has no name to check)
 const ns2 = 'cpn2' + Date.now();
 await seed(ns2, st(2));
 await go(`http://localhost:${PORT}/test.html?ns=${ns2}&lang=en&view=classic`);
 await settled({ max: 30000, until: `typeof __cmwCards === 'function' && __cmwCards().focus === 2` });
 await settled({ max: 8000, only: true, until: `(document.getElementById('overlayL').getAttribute('aria-label') || '').includes('w₁')` });
-const lx = await label('overlayL'), ry = await label('overlayR');
-info.classic = { x: lx, y: ry };
+const lx = await label('overlayL');
+info.classic = { x: lx };
 ok('classic, step 2 focused: X\'s canvas is named for w₁, not the z-plane', lx.includes('w₁') && !/z-plane/.test(lx), lx);
-ok('classic, step 2 focused: Y\'s canvas is named for w₂', ry.includes('w₂'), ry);
 // ---- at rest on z the names are the heads' own
 const ns3 = 'cpn3' + Date.now();
 await seed(ns3, st(0));
 await go(`http://localhost:${PORT}/test.html?ns=${ns3}&lang=en&view=classic`);
 await settled({ max: 30000, until: `typeof __cmwCards === 'function'` });
-const l0 = await label('overlayL'), r0 = await label('overlayR');
-info.rest = { x: l0, y: r0 };
+const l0 = await label('overlayL');
+info.rest = { x: l0 };
 ok('classic, no step focused: X\'s canvas is the z-plane, domain of F', /z/.test(l0) && /domain of/.test(l0), l0);
-ok('classic, no step focused: Y\'s canvas says it is the image', /image/.test(r0), r0);
 return { pass: fails.length === 0, fails, info };

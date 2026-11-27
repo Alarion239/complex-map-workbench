@@ -2320,7 +2320,7 @@
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, settled ? {} : { lite: true }));
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
-    if (rest) drawRulers(pane, 'L');
+    if (rest) drawRulers(pane);
     // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
     glStatusNote(pane);
     if (svHeldOn) { svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL; svHeldOn.pre = svCarryPre; }

@@ -6,7 +6,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const CAY = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true };
 await view(1440, 900, false);
-const paneR0 = async (side) => ev(`(() => { const r = document.getElementById('${side === 'L' ? 'canvasL' : 'canvasR'}').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
+const paneR0 = async (side) => ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
 // a plane point's CSS pixel on a globe, in page coordinates
 const at = async (side, x, y) => { const o = await paneR0(side); const q = await ev(`__cmwGlobeXY('${side}', ${x}, ${y})`); return q ? [o[0] + q[0], o[1] + q[1]] : null; };
 const tool = async (t) => ev(`document.querySelector('#tools .tool[data-tool="${t}"]').click(); 1`);

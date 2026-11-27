@@ -256,12 +256,12 @@
         return;
       }
       if (side === 'sheet') return;
-      // (the regions' display is behind Y's Regions button on the laptop: its step opens that popover, which
+      // (the regions' display is behind X's Regions button on the laptop: its step opens that popover, which
       // is the step's own layer, as a phone's sheet is: it carries the step's id (data-tour-layer), and the next step that
       // does not ask for it closes it, closeSheet)
       if (side === 'left' && sheet === 'display') {
         if (early) return;
-        if (!document.querySelector('.pat-pop')) { const b = /** @type {HTMLElement | null} */ (document.querySelector('#rightFoot .pat-btn')); if (b) b.click(); }
+        if (!document.querySelector('.pat-pop')) { const b = /** @type {HTMLElement | null} */ (document.querySelector('#leftFoot .pat-btn')); if (b) b.click(); }
         const p = /** @type {HTMLElement | null} */ (document.querySelector('.pat-pop')), c = Tour.current();
         if (p && c) p.dataset.tourLayer = c.chapter + '/' + c.id;
         return;

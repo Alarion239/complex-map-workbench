@@ -24,7 +24,7 @@ const MODES = {
 const fillSrc = (mode) => MODES[mode].fill;
 // the frame the toggle asked for is drawn: the page quiet, the steps view's glide done, no program linking
 const quiet = () => settled({ max: 15000, until: '!(window.__cmwSteps && __cmwSteps().moving) && GLR.pendingLinks === 0' });
-const grab = (side) => ev(`(() => { const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); window.__p3grab = window.__p3grab || {}; window.__p3grab[${JSON.stringify(side)}] = x.getImageData(0, 0, g.width, g.height).data; return [g.width, g.height]; })()`);
+const grab = (side) => ev(`(() => { const cv = document.getElementById('canvasL'); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); window.__p3grab = window.__p3grab || {}; window.__p3grab[${JSON.stringify(side)}] = x.getImageData(0, 0, g.width, g.height).data; return [g.width, g.height]; })()`);
 // the steps view's neutral frame of a side into the page's Db: the shape's eye in the list hidden, shown again after
 const neutralFrame = async (side, id = 's1') => {
   const eye = JSON.stringify(`#shapeList .shape[data-id="${id}"] .eye`);
@@ -43,7 +43,7 @@ const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
   await quiet();
   if (mode === 'scope') await neutralFrame(side, id);
   return ev(`(() => {
-  const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}), r = cv.getBoundingClientRect();
+  const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect();
   const D1 = window.__p3D1, D0 = window.__p3D0, Db = window.__p3Db, GW = cv.width, dpr = cv.width / r.width;
   const pick = __cmwSphereWL;
   const cls = ${cls}, fillAt = ${fillSrc(mode)};
@@ -75,7 +75,7 @@ const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
 const HAND_MARGIN = 20, HAND_STEP = 23, HAND_LEG = 4;
 const handedness = (side) => ev(`(() => {
   const out = [0, 0], pick = __cmwSphereWL;
-  const r = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}).getBoundingClientRect();
+  const r = document.getElementById('canvasL').getBoundingClientRect();
   for (let y = ${HAND_MARGIN}; y < r.height - ${HAND_MARGIN}; y += ${HAND_STEP}) for (let x = ${HAND_MARGIN}; x < r.width - ${HAND_MARGIN}; x += ${HAND_STEP}) {
     const a = pick(x, y), b = pick(x + ${HAND_LEG}, y), c = pick(x, y - ${HAND_LEG});
     if (!a || !b || !c) continue;
@@ -85,7 +85,7 @@ const handedness = (side) => ev(`(() => {
 })()`);
 // the number of pane pixels (every second one, 3 px in from the edge) whose point, by the pane's own pick, satisfies pred
 // (page code: (w) => boolean)
-const countPicks = (side, pred) => ev(`(() => { let n = 0; const pick = __cmwSphereWL, r = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}).getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = pick(x, y); if (w && (${pred})(w)) n++; } return n; })()`);
+const countPicks = (side, pred) => ev(`(() => { let n = 0; const pick = __cmwSphereWL, r = document.getElementById('canvasL').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = pick(x, y); if (w && (${pred})(w)) n++; } return n; })()`);
 const EPI = Math.exp(-Math.PI);
 // the annulus e^-pi < |w| < 1 (z^i of H): inside beyond 3 px of both rims; outside: the hole cap and beyond |w| = 1
 const ANNULUS = `(w) => { const a = Math.hypot(w[0], w[1]), e = ${EPI}; return a > e && a < 1 ? 1 : -1; }`;

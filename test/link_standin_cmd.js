@@ -89,11 +89,11 @@ const pts = K.grid(P, 12, 8).filter(away);
 const heldZ = { wait: zWait, standIn: await standIn(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), px: (await K.lpx(pts)).px };
 info.colourZ = Object.assign({}, heldZ, { px: undefined });
 ok('the colour plot, its program held: plane z is drawn from the stand-in (in colour, the frame pending)', zWait.ok && heldZ.hue > 0.6 && heldZ.pending === true, info.colourZ);
-// (the left LED: amber with its own tooltip while the colour plot is not done; the right LED is the right plane's)
+// (the left LED: amber with its own tooltip while the colour plot is not done)
 const STANDIN_TIP = 'Drawing a quick preview; the exact plot is still being built';
 const led = (id) => ev(`(() => { const e = document.getElementById('${id}'); return { cls: e.className, tip: e.getAttribute('data-tip'), label: e.getAttribute('aria-label') }; })()`);
-const ledHeld = { left: await led('leftLed'), right: await led('rightLed') };
-ok('the colour plot, its program held: the left LED is amber with its own tooltip, the right one is not', /\bbusy\b/.test(ledHeld.left.cls) && ledHeld.left.tip === STANDIN_TIP && ledHeld.left.label === STANDIN_TIP && !/\bbusy\b/.test(ledHeld.right.cls), ledHeld);
+const ledHeld = { left: await led('leftLed') };
+ok('the colour plot, its program held: the left LED is amber with its own tooltip', /\bbusy\b/.test(ledHeld.left.cls) && ledHeld.left.tip === STANDIN_TIP && ledHeld.left.label === STANDIN_TIP, ledHeld);
 await ev('__cmwSteps({ go: 1, now: true }), 1');
 await settled({ panes: false });
 const w1Wait = await levelDone();

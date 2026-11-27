@@ -9,7 +9,7 @@ const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 700) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 await view(1440, 900, false);
-const paneR0 = async (side) => ev(`(() => { const r = document.getElementById('${side === 'L' ? 'canvasL' : 'canvasR'}').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
+const paneR0 = async (side) => ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
 const at = async (side, x, y) => { const o = await paneR0(side); const q = await ev(`__cmwGlobeXY('${side}', ${x}, ${y})`); return q ? [o[0] + q[0], o[1] + q[1]] : null; };
 // the page position of a point P of the sphere (through its planar point; null at N or on the far side)
 const atP = async (side, P) => { const z = await ev(`(() => { const z = Region.Globe.unlift(${JSON.stringify(P)}); return z ? [z.re, z.im] : null; })()`); return z ? at(side, z[0], z[1]) : null; };
@@ -18,7 +18,6 @@ const shapes = async () => ev('__cmwShapes()');
 const M = (type, x, y, extra = {}) => send('Input.dispatchMouseEvent', Object.assign({ type, x, y }, extra));
 const cursorL = async () => ev(`document.getElementById('overlayL').style.cursor`);
 const readL = async () => ev(`document.getElementById('leftReadout').textContent`);
-const readR = async () => ev(`document.getElementById('rightReadout').textContent`);
 const DEG = Math.PI / 180;
 const sph = (pol, az) => [Math.sin(pol) * Math.cos(az), Math.sin(pol) * Math.sin(az), Math.cos(pol)];
 const capShape = async (C, h, kind = 'disc') => ev(`(() => { const s = { kind: '${kind}', c: [0, 0], r: 1 }; Region.Globe.applyCap(s, ${JSON.stringify(C)}, ${h}); return s; })()`);

@@ -405,11 +405,9 @@
       if (!opt.preview) scheduleFix();   // (a drag's fix-ups wait for the release)
       soundFunctionChanged();
       if (opt.preview) {
-        // (a drag's snap: the planes and the title only, a uniform change; the Inspector, the transport and the fit follow
-        // at the release, setHomRange(…, {force}))
+        // (a drag's snap: the planes only, a uniform change; the Inspector, the transport and the fit follow at the
+        // release, setHomRange(…, {force}))
         requestRender('L', 'R');
-        const t = paneTitles();
-        if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
       } else {
         requestRender('L', 'R', 'P');
         updateFocusUI();

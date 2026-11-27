@@ -157,30 +157,13 @@
       Fat: morphAt, T: morph.T, Tend: m, seq: !allAtOnce() && morphRange().steps.length >= 2,
       startId: !(S.focus > 1 || (S.focus === 0 && !!homRangeOk())),
       key: JSON.stringify(['classic', chainSig[nSteps()], S.focus, !!S.homAll, m]) + rangeKey(),
-      alive: () => morph.open, side: 'R', nogo: mfNogo, win: (pane) => pane.box(),
+      alive: () => morph.open, side: 'R', nogo: () => [], win: (pane) => pane.box(),
     };
   }
   function mfScreenKey(pane, src = classicSource()) {
     const key = JSON.stringify([src.key, S.shapes.filter((s) => s.visible !== false), pane.globeSel ? `globe${mfGlobe.epoch}` : '']);
     const v = pane.view, vkey = [v.cx, v.cy, v.s, pane.w, pane.h].join('|');
     return { key, vkey, m: src.Tend };
-  }
-  // no-go rectangles on the right plane (px of its overlay): the transport bar and the Pattern legend
-  function mfNogo(pane) {
-    const out = [];
-    try {
-      const r = pane.ocanvas.getBoundingClientRect();
-      for (const id of ['rightFoot', 'rightLegend']) {
-        const el = $(id);
-        if (!el || el.hidden || el.offsetParent === null) continue;
-        const q = el.getBoundingClientRect();
-        // (only where it lies over the plane: a desktop's legend and options sit in the
-        // pane head, above the overlay, and a rectangle outside it rules out nothing)
-        const b = { x0: q.left - r.left - 4, x1: q.right - r.left + 4, y0: q.top - r.top - 4, y1: q.bottom - r.top + 4 };
-        if (q.width > 0 && q.height > 0 && b.x1 > 0 && b.y1 > 0 && b.x0 < r.width && b.y0 < r.height) out.push(b);
-      }
-    } catch (e) { /* no layout: no rectangles */ }
-    return out;
   }
   function mfStartJob(pane, key, vkey, src) {
     const m = src.Tend;

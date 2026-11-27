@@ -29,7 +29,7 @@ for (const [lang, vw, w, h] of CASES) {
     const b = t && t.getBoundingClientRect();
     const vs = __layout.toasts().concat(__layout.noClippedText(host)).map((v) => ({ check: v.check, key: v.key, okey: v.okey, detail: v.detail }));
     // (the same from the boxes, not the library: the toast clear of every shown plot (the steps view's thread strip is inside the pane), and inside the window)
-    const over = t ? [...document.querySelectorAll('#plotL, #plotR')].filter((p) => p.getClientRects().length).map((p) => { const q = p.getBoundingClientRect(); return [p.id, Math.round(Math.min(b.right, q.right) - Math.max(b.left, q.left)), Math.round(Math.min(b.bottom, q.bottom) - Math.max(b.top, q.top))]; }).filter((o) => o[1] > 2 && o[2] > 2) : [];
+    const over = t ? [...document.querySelectorAll('#plotL')].filter((p) => p.getClientRects().length).map((p) => { const q = p.getBoundingClientRect(); return [p.id, Math.round(Math.min(b.right, q.right) - Math.max(b.left, q.left)), Math.round(Math.min(b.bottom, q.bottom) - Math.max(b.top, q.top))]; }).filter((o) => o[1] > 2 && o[2] > 2) : [];
     return { over, win: b ? b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom <= innerHeight : null, shown: !!t, text: sp && sp.textContent, placed: host && host.getAttribute('data-placed'), box: b && [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)], cut: sp && sp.scrollWidth - sp.clientWidth, vs };
   })()`);
   info[at] = r;

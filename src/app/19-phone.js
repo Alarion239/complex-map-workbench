@@ -29,7 +29,7 @@
       chainState: () => chainState(), glide: (d) => glideStep(d), cardClick: (k) => selectStep(k),
       prestart: () => { try { if (GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } },
       moveStep: (k, d) => moveStep(k, d),
-      footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
+      footKids: () => foot.kids.slice(Math.max(0, foot.n)),
       regionsNote,
       regionsView: () => SV.on || S.view.main === 'xy',   // the views that hold the regions' display
       // (the steps view's Display sheet is the colour panel: it names the shown plane)

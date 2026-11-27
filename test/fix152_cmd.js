@@ -39,7 +39,7 @@ const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToa
 // the thread's strip under it: LEGEND_W is the legend's width (about 150 px) and its margin, STRIP_H the strip (64 px) and the
 // ruler above it)
 const LEGEND_W = 170, STRIP_H = 100;
-const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; const hd = p.querySelector('.pane-head'); const top = hd ? hd.getBoundingClientRect().bottom + 2 : r.top; out.push({ x: Math.round(r.left) + 2, y: Math.round(top), width: Math.round(r.width) - 4 - ${LEGEND_W}, height: Math.round(r.bottom - top - ${STRIP_H}) }); } return out; })()`);
+const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; const hd = p.querySelector('.pane-head'); const top = hd ? hd.getBoundingClientRect().bottom + 2 : r.top; out.push({ x: Math.round(r.left) + 2, y: Math.round(top), width: Math.round(r.width) - 4 - ${LEGEND_W}, height: Math.round(r.bottom - top - ${STRIP_H}) }); } return out; })()`);
 async function planes() { await hideToasts(true); await toF(); await settled(); const rs = await planesRect(); const out = []; for (const r of rs) out.push(await img(r)); await hideToasts(false); return out; }
 function diff(a, b) {
   if (a.length !== b.length) return -1;
