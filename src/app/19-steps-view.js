@@ -16,6 +16,7 @@
     poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
+    glideSat: 1,     // (a test hook's) 0: a glide frame with the other sheets' copies draws them in painter's order, not front to back (colour())
     glideStencil: 0, // (a test hook's) 1: the sphere draws a glide's sheet copies only where the principal sheet is not opaque (drawSphere's sheetCut)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
     plotsKeep: 1,    // (a test hook's) 0: a glide frame draws the plots under its carried colour itself, never from the kept layer (svPlotsUnder)
@@ -1024,345 +1025,6 @@
   // for being near the centre alone, as beside plane b's poles. Its points: plane b's accumulation set, then plane b's
   // poles and the glide's poles at t, nearest the window first (at most 4 in all, as Inverse.keySing gives them at
   // rest). At t = 1 the glide's poles are plane b's: the key meets plane b's own.
-  // The poles are tracked once per glide (the plane and the chain up to it, the windows), in idle moments: SV_POLE_K
-  // steps of t, found on a grid over the camera's window (a quarter wider each side, SV_POLE_GRID cells a side) and on a
-  // coarser one over the key's window widened by three times its size on each side, at t = 0 and every SV_POLE_SEED
-  // steps; each followed from step to step by Newton's method on 1/F (or, where it leaves through a cut, by svPeakAt
-  // while the points beside it go past 4 R), and read between two steps by linear interpolation, so the key moves
-  // continuously with t. The search is a generator that pauses every SV_POLE_CHUNK evaluations of the map, so a slice of
-  // it stops at SV_POLE_BUDGET ms whatever step it is in
-  const SV_POLE_K = 64, SV_POLE_SEED = 8, SV_POLE_GRID = 24, SV_POLE_MAX = 8, SV_POLE_TOP = 8;
-  const SV_POLE_CHUNK = 16, SV_POLE_BUDGET = 2;
-  const svPoleMemo = new Map(), svPoleLast = new Map();
-  // a pause of a search: once SV_POLE_CHUNK evaluations (E.n, counted by the map P.Ft gives) ran since the last. The
-  // searches may pause at the start of each Newton or peak climb and of each grid, after each of their iterations and
-  // every 8 points of a grid, so at most SV_POLE_CHUNK - 1 plus a peak climb's first 9 evaluations run between two
-  // pauses: a slice ends within a few evaluations of its time (a map such as zeta's takes tens of µs each)
-  function* svPoleTick(E) {
-    if (E.n - E.at >= SV_POLE_CHUNK) { E.at = E.n; yield; }
-  }
-  // a search run to its end at once, through all its pauses: its result
-  function svDrain(gen) {
-    let r;
-    do r = gen.next(); while (!r.done);
-    return r.value;
-  }
-  // Newton's method on h = 1/F from z: a pole of F (h(z) = 0, |F| past 1e8) or null (it left the box or did not settle)
-  function* svPoleAt(F, z, box, E) {
-    const h = (p) => { const w = F(p); return w && CX.isFin(w) && !CX.isZero(w) ? CX.inv(w) : null; };
-    yield* svPoleTick(E);
-    for (let i = 0; i < 12; i++) {
-      const e = 1e-6 * (1 + CX.abs(z)), h0 = h(z);
-      if (!h0) return null;
-      if (CX.abs(h0) < 1e-8) return z;
-      const hp = h(CX.add(z, C(e, 0))), hm = h(CX.sub(z, C(e, 0)));
-      if (!hp || !hm) return null;
-      const d = CX.div(CX.sub(hp, hm), C(2 * e, 0));
-      if (!CX.isFin(d) || CX.isZero(d)) return null;
-      z = CX.sub(z, CX.div(h0, d));
-      if (!CX.isFin(z) || z.re < box.x0 || z.re > box.x1 || z.im < box.y0 || z.im > box.y1) return null;
-      yield* svPoleTick(E);
-    }
-    return null;
-  }
-  // where a pole leaves through a cut (the map continues past it on another branch): from z, the nearest local maximum
-  // of |F| (climbing over 8 points about it, its step shrinking), while |F| there is past big; null otherwise. A
-  // pole's track continues through it while the points beside it still go far, so the key does not lose it a step of
-  // t before it reaches the cut (or gain it a step after)
-  function* svPeakAt(F, z, big, E) {
-    const m = (p) => { try { const w = F(p); return w && CX.isFin(w) ? CX.abs(w) : Infinity; } catch (e) { return 0; } };
-    yield* svPoleTick(E);
-    let v = m(z), h = 0.05 * (1 + CX.abs(z));
-    for (let i = 0; i < 40 && h > 1e-7 * (1 + CX.abs(z)); i++) {
-      let best = null, bv = v;
-      for (let a = 0; a < 8; a++) { const p = CX.add(z, C(h * Math.cos(a * Math.PI / 4), h * Math.sin(a * Math.PI / 4))), u = m(p); if (u > bv) { bv = u; best = p; } }
-      if (best) { z = best; v = bv; } else h /= 2;
-      yield* svPoleTick(E);
-    }
-    return v > big && v < Infinity ? z : null;
-  }
-  // a point where F is unbounded without being a pole (the logarithm at 0, a root at a pole of its Möbius step: Newton's
-  // method on 1/F reflects about it or crawls): z itself when F is not finite there, else the nearest peak of |F| from z
-  // when it is past big and within box; null otherwise (a map that only grows, exp's, has its peak climbed out of the box)
-  function* svSingularAt(F, z, big, E, box) {
-    let w = null;
-    try { w = F(z); } catch (e) { w = null; }
-    if (!w || !CX.isFin(w)) return z;
-    const p = yield* svPeakAt(F, z, big, E);
-    return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
-  }
-  const SV_SING_BIG = 10;
-  // svSingNewton's limits: at most SV_SING_ITERS Newton steps, each reading u again at most SV_SING_REREAD times; a
-  // point is kept only where |F| at SV_SING_R (1 + |z|) from it is past big at each of four points, and grows towards it
-  // by more than SV_SING_GROW from ten times as far (|F| ~ r^-a grows by 10^a: a root's a is at least about 0.2 where |F|
-  // at that distance is past SV_SING_BIG, and a bounded branch point, 20 + √z at 0, does not grow); the four points are
-  // turned SV_SING_TURN from the axes, so that a cut along an axis does not take one
-  const SV_SING_ITERS = 16, SV_SING_R = 1e-6, SV_SING_GROW = 10 ** 0.1, SV_SING_TURN = 0.3, SV_SING_REREAD = 4;
-  const SV_SING_OFF = [0.27, 0.31];   // svPolesIn's start for svSingNewton: this share of a cell off its grid point, on neither line
-  // a point where F is unbounded without being a pole, from z, by Newton's method on u = h/h' (h = 1/F): u has a simple
-  // zero where h has a zero of any order, a pole's (order 1) or a root's (|F| ~ |z - p|^-a, 0 < a < 1, where Newton's
-  // method on h reflects about p or crawls). It is the point Newton's method settles on (u or its step under 1e-12 or
-  // 1e-11 of 1 + |z|), within box, where |F| next to it is past big and grows towards it; null otherwise: a start that
-  // does not settle (Newton on u reflects where u's zero is not simple, as exp(√z)'s u = -2√z sends z to -z), that
-  // leaves the box, or that settles on no such point (a zero of h' alone)
-  function* svSingNewton(F, z, box, big, E) {
-    const h = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? (CX.isZero(w) ? null : CX.inv(w)) : C(0, 0); };
-    const u = (p, e) => {
-      const h0 = h(p), hp = h(CX.add(p, C(e, 0))), hm = h(CX.sub(p, C(e, 0)));
-      if (!h0 || !hp || !hm) return null;
-      const d = CX.div(CX.sub(hp, hm), C(2 * e, 0));
-      return CX.isZero(h0) ? C(0, 0) : CX.isFin(d) && !CX.isZero(d) ? CX.div(h0, d) : null;
-    };
-    yield* svPoleTick(E);
-    let gap = Infinity, settled = false;
-    for (let i = 0; i < SV_SING_ITERS && !settled; i++) {
-      // (the differences' step: a hundredth of the distance u gives, at most 1e-6 (1 + |z|) and at least 1e-14 (1 + |z|),
-      // where float64 differences still resolve: steps that straddle the point, or the cut through it, would read the
-      // difference across it. It is first the last step's distance; where u read with it says the point is nearer than
-      // that (a Newton step lands much nearer the point, and so nearer its cut, than the step before was long), u is read
-      // again with steps of a hundredth of its own distance, up to SV_SING_REREAD times, until they are)
-      const s = CX.abs(z), lo = 1e-14 * (1 + s);
-      let e = Math.max(lo, Math.min(1e-6 * (1 + s), gap / 100)), u0 = u(z, e);
-      for (let k = 0; k < SV_SING_REREAD && u0 && CX.abs(u0) / 100 < e && e > lo; k++) { e = Math.max(lo, CX.abs(u0) / 100); u0 = u(z, e); }
-      if (!u0) return null;
-      if (CX.abs(u0) < 1e-12 * (1 + s)) { settled = true; break; }
-      // (a step more than twice the last: Newton's method moving away from the zero, not towards it)
-      if (CX.abs(u0) > 2 * gap) return null;
-      gap = CX.abs(u0);
-      const up = u(CX.add(z, C(e, 0)), e), um = u(CX.sub(z, C(e, 0)), e);
-      if (!up || !um) return null;
-      const d = CX.div(CX.sub(up, um), C(2 * e, 0));
-      if (!CX.isFin(d) || CX.isZero(d)) return null;
-      const step = CX.div(u0, d);
-      z = CX.sub(z, step);
-      if (!CX.isFin(z) || z.re < box.x0 || z.re > box.x1 || z.im < box.y0 || z.im > box.y1) return null;
-      yield* svPoleTick(E);
-      if (CX.abs(step) < 1e-11 * (1 + s)) settled = true;
-    }
-    if (!settled) return null;
-    const m = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? CX.abs(w) : Infinity; };
-    const r = SV_SING_R * (1 + CX.abs(z));
-    for (let a = 0; a < 4; a++) {
-      const c = Math.cos(a * Math.PI / 2 + SV_SING_TURN), sn = Math.sin(a * Math.PI / 2 + SV_SING_TURN);
-      const near = m(CX.add(z, C(r * c, r * sn))), far = m(CX.add(z, C(10 * r * c, 10 * r * sn)));
-      if (near == null || far == null || !(near > big) || (near < Infinity && !(near > SV_SING_GROW * far))) return null;
-    }
-    return z;
-  }
-  // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
-  // sing, a start Newton's method does not settle on is refined to its singular point: where |F| there is past
-  // SV_SING_BIG, by its nearest peak of |F|; else (and where that finds none) by svSingNewton, which finds a root's
-  // point (√ of a Möbius step at its pole) from a grid whose |F| next to it is small
-  function* svPolesIn(F, box, n, lim, E, sing = false) {
-    const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
-    yield* svPoleTick(E);
-    for (let j = 0; j <= n; j++) {
-      for (let i = 0; i <= n; i++) {
-        let w = null;
-        try { w = F(C(box.x0 + i * dx, box.y0 + j * dy)); } catch (e) { w = null; }
-        M.push(w && CX.isFin(w) ? CX.abs(w) : Infinity);
-        if (i % 8 === 7) yield* svPoleTick(E);
-      }
-      yield* svPoleTick(E);
-    }
-    // (the starts: the grid's local maxima of |F|, and its SV_POLE_TOP points of the largest |F| / (1 + |z - c|), c the
-    // box's centre: a map that grows like z far out hides a pole's maximum from a coarse grid, not its ratio)
-    const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2, at = (i, j) => C(box.x0 + i * dx, box.y0 + j * dy);
-    const starts = [], ratio = [];
-    for (let j = 1; j < n; j++) for (let i = 1; i < n; i++) {
-      const m = M[j * (n + 1) + i];
-      ratio.push([m / (1 + Math.hypot(box.x0 + i * dx - cx, box.y0 + j * dy - cy)), i, j]);
-      let top = true;
-      for (let b = -1; b <= 1 && top; b++) for (let a = -1; a <= 1; a++) if ((a || b) && M[(j + b) * (n + 1) + i + a] > m) { top = false; break; }
-      if (top) starts.push([i, j]);
-    }
-    ratio.sort((u, v) => v[0] - u[0]);
-    for (const [, i, j] of ratio.slice(0, SV_POLE_TOP)) if (!starts.some(([a, b]) => a === i && b === j)) starts.push([i, j]);
-    const out = [];
-    for (const [i, j] of starts) {
-      let p = yield* svPoleAt(F, at(i, j), lim, E);
-      if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
-      // (svSingNewton starts SV_SING_OFF of a cell off the grid's point: a root's cut through a Möbius step's pole runs
-      // along a grid line where the pole is on an axis (the dipole's), and a start on it reads differences across it)
-      if (!p && sing) p = yield* svSingNewton(F, C(box.x0 + (i + SV_SING_OFF[0]) * dx, box.y0 + (j + SV_SING_OFF[1]) * dy), lim, SV_SING_BIG, E);
-      if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
-    }
-    return out;
-  }
-  // a seed step's search for P's map F: svPolesIn over the camera's window and the coarse box, the SV_POLE_MAX nearest
-  // the key's window's centre
-  function* svPolesNear(F, P) {
-    const fine = yield* svPolesIn(F, P.win, SV_POLE_GRID, P.box, P.E), coarse = yield* svPolesIn(F, P.box, SV_POLE_GRID / 2, P.box, P.E);
-    return fine.concat(coarse).sort((p, q) => CX.abs(CX.sub(p, P.cz)) - CX.abs(CX.sub(q, P.cz))).slice(0, SV_POLE_MAX);
-  }
-  // the tracks of the glide's poles to plane b for the window w: {tr: [[z or null] x (SV_POLE_K + 1)], k: the next
-  // step of t to make}, made by svPoleGen. Keyed by the chain up to plane b (the glide's map is h_{b,t} after the steps
-  // before b): an edit after plane b keeps them
-  function svPoleTracks(b, w) {
-    // (the fine grid over the camera's window, what the view shows, a quarter wider each side: clipWin, kept while the
-    // view stays inside it, can be many times larger after a zoom out and back, and its grid's cells too coarse to have
-    // a point by a pole that has just come out of a cut)
-    const v = S.srcView, hw = 0.75 * paneL.w / v.s, hh = 0.75 * paneL.h / v.s, cam = { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hh, y1: v.cy + hh };
-    const key = [b, chainSig[b], w.x0, w.x1, w.y0, w.y1, cam.x0, cam.x1, cam.y0, cam.y1].join('|');
-    if (svPoleMemo.has(key)) return svPoleMemo.get(key);
-    const ex = (f) => ({ x0: w.x0 - f * (w.x1 - w.x0), x1: w.x1 + f * (w.x1 - w.x0), y0: w.y0 - f * (w.y1 - w.y0), y1: w.y1 + f * (w.y1 - w.y0) });
-    const Fp = stageF(b - 1), E = { n: 0, at: 0 };
-    const P = { key, b, sig: chainSig[b], tr: [], k: 0, gen: null, found: null, seek: null, E, box: ex(3), win: cam, big: 4 * Math.hypot(w.x1 - w.x0, w.y1 - w.y0) / 2, cz: C((w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2),
-      Ft: (t) => { const H = homF(b, t); return (z) => { E.n++; return H(Fp(z)); }; } };
-    if (svPoleMemo.size >= 16) svPoleMemo.clear();
-    svPoleMemo.set(key, P);
-    return P;
-  }
-  // P's tracks, step by step of t: each track followed from the step before; at a seed step the poles found there, each
-  // new one back-tracked, and a track lost near one bridged to it. A seed step can find a pole the grid missed before (a
-  // grid has no point near one that has just come out of a cut), and its back-track changes earlier steps: the tracks
-  // are final only once every step is made (P.k past SV_POLE_K). A map that throws leaves no tracks
-  function* svPoleGen(P) {
-    const { tr, box, big, Ft, E } = P;
-    try {
-      for (let k = P.k; k <= SV_POLE_K; k++) {
-        const F = Ft(k / SV_POLE_K);
-        for (const r of tr) r[k] = r[k - 1] ? (yield* svPoleAt(F, r[k - 1], box, E)) || (yield* svPeakAt(F, r[k - 1], big, E)) : null;
-        if (k % SV_POLE_SEED === 0) {
-          const near = yield* svPolesNear(F, P);
-          for (const p of near) {
-            if (tr.some((r) => r[k] && CX.abs(CX.sub(r[k], p)) < 1e-6 * (1 + CX.abs(p)))) continue;
-            // (a track lost near p is p's: the steps between are bridged on the line from there to p, so the key keeps the
-            // pole through them, never dropping it for a step and taking it back)
-            const last = (r) => r.findLastIndex((q, i) => q && i < k);
-            const old = tr.find((r) => { if (r[k]) return false; const j = last(r); return j >= 0 && CX.abs(CX.sub(r[j], p)) < 0.25 * (1 + CX.abs(p)); });
-            if (old) {
-              const j = last(old);
-              for (let i = j + 1; i <= k; i++) old[i] = CX.add(old[j], CX.mul(C((i - j) / (k - j), 0), CX.sub(p, old[j])));
-              continue;
-            }
-            const r = new Array(SV_POLE_K + 1).fill(null);
-            r[k] = p;
-            // (and back to where it came into the box, or out of a cut: a pole a seed step finds has its track at the steps before it too)
-            for (let j = k - 1; j >= 0 && r[j + 1]; j--) { const G = Ft(j / SV_POLE_K); r[j] = (yield* svPoleAt(G, r[j + 1], box, E)) || (yield* svPeakAt(G, r[j + 1], big, E)); }
-            tr.push(r);
-          }
-        }
-        P.k = k + 1;
-      }
-    } catch (e) { tr.length = 0; P.k = SV_POLE_K + 1; }
-  }
-  // gen run for at most ms (checked at its pauses): its last result ({done, value}). kind 'idle' or 'frame': counted in
-  // __svPathStats where a measurement sets that object (the slices, the longest slice's ms, the most evaluations
-  // between two pauses, and the idle slices' steps of t made)
-  function svPoleRun(gen, E, ms, kind, P) {
-    const t0 = performance.now(), k0 = P ? P.k : 0;
-    let r, most = 0;
-    for (;;) {
-      const n0 = E.n;
-      r = gen.next();
-      most = Math.max(most, E.n - n0);
-      if (r.done || performance.now() - t0 >= ms) break;
-    }
-    const ps = globalThis.__svPathStats, dt = performance.now() - t0;
-    if (ps && kind) {
-      const K = kind === 'idle' ? 'poleIdle' : 'poleFrame';
-      ps[K] = (ps[K] || 0) + 1;
-      ps[K + 'Max'] = Math.max(ps[K + 'Max'] || 0, dt);
-      if (P) ps[K + 'Steps'] = (ps[K + 'Steps'] || 0) + P.k - k0;
-      ps.poleChunk = Math.max(ps.poleChunk || 0, most);
-    }
-    return r;
-  }
-  // every glide's pole tracks forgotten, as right after load (a test hook's)
-  function svDropTracks() { svPoleMemo.clear(); svPoleLast.clear(); svPolesWatch(); }
-  // P's tracks made for at most ms; once whole, they are plane b's last whole tracks (svPoleLast)
-  function svPoleMake(P, ms, kind) {
-    if (P.k > SV_POLE_K) return;
-    if (!P.gen) P.gen = svPoleGen(P);
-    svPoleRun(P.gen, P.E, ms, kind, P);
-    if (P.k > SV_POLE_K) svPoleLast.set(P.b, P);
-  }
-  // the poles near t of P's map while its tracks are not whole: a seed step's search at the tracks' seed step nearest t
-  // (at most SV_POLE_K / SV_POLE_SEED + 1 searches a glide, those the whole tracks make anyway), SV_POLE_BUDGET ms of it
-  // a frame, kept while t stays nearest it; until it is done, the last one done (none at first). Its frames' time is
-  // counted in __svPathStats.poleSyncMs, its searches in poleSync, where a measurement sets that object
-  function svPolesNow(P, t) {
-    const j = Math.min(SV_POLE_K, Math.round(t * SV_POLE_K / SV_POLE_SEED) * SV_POLE_SEED);
-    if (P.found && P.found.j === j) return P.found.poles;
-    const ps = globalThis.__svPathStats, t0 = performance.now();
-    if (!P.seek || P.seek.j !== j) {
-      P.seek = { j, gen: (function* () { try { return yield* svPolesNear(P.Ft(j / SV_POLE_K), P); } catch (e) { return []; } })() };
-      if (ps) ps.poleSync = (ps.poleSync || 0) + 1;
-    }
-    const r = svPoleRun(P.seek.gen, P.E, SV.poleFrameMs || SV_POLE_BUDGET, 'frame', null);
-    if (r.done) { P.found = { j, poles: r.value }; P.seek = null; }
-    if (ps) ps.poleSyncMs = (ps.poleSyncMs || 0) + performance.now() - t0;
-    return P.found ? P.found.poles : [];
-  }
-  // svHoldB: plane b when the left pane's last frame held the glide into b for its missing tracks (svLinkHold), else 0: each
-  // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind, and
-  // the idle job (svPolesAhead) sets it to 0, and asks for a frame, once plane b's tracks are whole
-  let svHoldB = 0;
-  // how many things the last frame svHolds tested waits for: its inverse paths still linking, the carried meshes, the Cauchy style's
-  // carried programs, and the pole tracks (one); 0 when the frame need not wait. A hold's ring is the share of it that has gone
-  let svHoldLeft = 0;
-  // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
-  // as svSheetKey gives it, without its singular points)
-  // (the glide held by svLinkHold for its missing tracks comes first)
-  function svPolesLeft() {
-    const n = nSteps();
-    for (const b of svHoldB ? [svHoldB] : []) if (b <= n && !derivIn(b - 1, b)) { const P = svPoleTracks(b, clipWin); if (P.k <= SV_POLE_K) return P; }
-    for (let b = 1; b <= n; b++) {
-      if (derivIn(b - 1, b) || svGlideEntire(b)) continue;
-      const P = svPoleTracks(b, clipWin);
-      if (P.k <= SV_POLE_K) return P;
-    }
-    return null;
-  }
-  // Whether the glide into plane b moves through entire maps alone, so its map h_{b,t} after the steps before b has no
-  // pole at any t: step b is a polynomial step, whose homotopy has none (Inverse.polyHom: a root power, a zoom, or a
-  // polynomial in u inverted by every root, NEWT with deg), and each active step before b is entire. Its frames' key then takes no pole tracks (svSheetKeyAt),
-  // none are made for it (svPolesLeft), and its glide never waits for them (svTracksMissing)
-  function svGlideEntire(b) {
-    if (isDeriv(b) || !Inverse.polyHom(built[b - 1])) return false;
-    for (let k = 1; k < b; k++) if (stepActive(k) && (isDeriv(k) || !(built[k - 1] && built[k - 1].props && built[k - 1].props.entire))) return false;
-    return true;
-  }
-  // The pole tracks the frames of the glide into plane b are drawn from, while they are not made (null otherwise): its
-  // inverse paths h have a Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's
-  // last whole ones (svSheetKeyAt) exist. A glide through entire maps alone has none to wait for (svGlideEntire)
-  function svTracksMissing(b, h) {
-    if (svGlideEntire(b) || !(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return null;
-    const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
-    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]) ? P : null;
-  }
-  // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
-  // the plane and of the chain's other glides, nearest first, with their meshes, as far as the caches take them (svRingAhead, svRingNext),
-  // SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time (svPoleJob, its token: a
-  // new one ends the one before); it reads its inputs (the chain, clipWin, the camera) afresh each slice, and
-  // svPolesWatch starts it again once they change after it ended
-  let svPoleJob = 0, svPoleBusy = false;
-  function svPolesAhead() {
-    const tok = ++svPoleJob;
-    svPoleBusy = true;
-    const ric = window.requestIdleCallback, idle = (f) => (ric ? ric.call(window, f, { timeout: 2000 }) : setTimeout(() => f(null), 100));
-    const next = (dl) => {
-      if (tok !== svPoleJob) return;
-      const t0 = performance.now();
-      // (a callback the browser ran for its timeout, not in an idle moment, has no time remaining and still runs one slice)
-      const left = () => Math.min(SV_POLE_BUDGET - (performance.now() - t0), dl && !dl.didTimeout ? dl.timeRemaining() : SV_POLE_BUDGET);
-      try {
-        while (left() > 0) {
-          const P = svPolesLeft();
-          if (P) { svPoleMake(P, left(), 'idle'); if (P.k > SV_POLE_K && svHoldB === P.b) { svHoldB = 0; requestRender('L'); } }
-          else if (!svRingAhead(left()) && !svMeshAhead(left())) break;
-        }
-        if (svPolesLeft() || svRingLeft() || svMeshNext()) { idle(next); return; }
-      } catch (e) { /* (a map that cannot be evaluated: nothing more to make) */ }
-      svPoleBusy = false;
-    };
-    idle(next);
-  }
-  // the idle job started again where its inputs changed since it ended (a frame of the view calls it)
-  function svPolesWatch() {
-    if (!svPoleBusy && (svPolesLeft() || svRingLeft() || svMeshNext())) svPolesAhead();
-  }
   // the key of the glide's frame at t in (0, 1) to plane b (svSheetKey(b) at rest)
   function svSheetKeyAt(b, t) {
     const k = svSheetKey(b);
@@ -1502,7 +1164,8 @@
   // not ('error' when it threw). A shape drawn already stays: the next path draws over it
   // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
   // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
-  // (alphaOf, edgeOf: svInvArg's; b, a: the frame's planes, a = b - 1 unless given: svCarryAlpha's glide)
+  // (alphaOf, edgeOf: svInvArg's; b, a: the frame's planes, a = b - 1 unless given: svCarryAlpha's glide; gl.sat: each
+  // draw blended front to back, drawInverse's saturate)
   function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf, b, a = b - 1) {
     const carry = svCarryStyle(T), p0 = paths[0];
     let nr = 0;
@@ -1516,7 +1179,7 @@
     for (let i = 0; i < list.length; i++) {
       let res = 'error';
       try {
-        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { a, b, u: t } : null), { nr }));
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { a, b, u: t } : null), { nr, saturate: !!gl.sat }));
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -2499,10 +2162,16 @@
   const SV_PLOTS = 'svPlots';
   let svPlotsKey = null;
   const svPlotsUse = { drawn: 0, kept: 0 };
-  function svPlotsUnder(pane, frame, a, b, draw) {
-    if (frame.open || SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) { draw(); return; }
-    const key = [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
+  // (the key of what the plots read, or null when this frame draws them itself: a frame of another size than the left
+  // pane's, or SV.plotsKeep 0)
+  function svPlotsKeyOf(pane, a, b) {
+    if (SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) return null;
+    return [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
       GLR.palette(), TH.planeRGB, TH.inkRGB, TH.dark, SV.restPaint, svColoured(a), svColoured(b)].join('|');
+  }
+  function svPlotsUnder(pane, frame, a, b, draw) {
+    const key = frame.open ? null : svPlotsKeyOf(pane, a, b);
+    if (key === null) { draw(); return; }
     GLR.begin(pane.pw, pane.ph);
     frame.open = true;
     if (key === svPlotsKey && GLR.layerDraw(SV_PLOTS)) { svPlotsUse.kept++; return; }
@@ -2559,12 +2228,62 @@
     // one copy into cc at the end)
     const frame = { open: false };
     // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
-    const plot = (k, al, noValue) => {
+    // (under: under what the frame holds, drawColorPlot's under)
+    const plot = (k, al, noValue, under) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue });
+      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue, under });
+    };
+    // (the glide's record, svGlideRec, of a frame that drew (drew) or not, why not (why.r), its span and its sheet copies;
+    // sat: drawn front to back, colour())
+    const record = (drew, why, span, sheets, sat) => {
+      const kp = !drew ? null : span ? invSpanPath(SV_ALL, 0, span.a, b, u, span.stepT, () => svSheetKey(b).sing) : invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
+      // (sheets: the sheet combos drawn, svGlideSheets, the window of an infinitely sheeted step's, and each combo's
+      // offsets, one per multivalued step up to b in chain order, the chain as it is first)
+      // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
+      // farthest opaque (svCarryLook at base 1))
+      const hl = drew ? svHomPaths(b, u, span).h : null, look = hl ? svCarryLook(1, hl.list[0], { a: span ? span.a : b - 1, b, u }, T) : null;
+      svGlideRec = { b, u, all: !!span, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, per: kp && kp.prep && kp.prep.per ? [kp.prep.per.re, kp.prep.per.im] : null, ops: kp && kp.plan ? kp.plan.ops.map((o) => o.kind) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: sheets.length ? svSheetMemo.W : null, sheetKs: sheets.length ? [sheets[0].offs.map(() => 0), ...sheets.map((v) => v.offs)] : null,
+        sat, ...(look && { alpha: look.alpha }) };
     };
     const colour = () => {
+      // (the other sheets' copies, svGlideSheets, nearest the principal sheet first)
+      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+      // (front to back, when the inverse pass draws the frame and its copies into a frame still empty: the principal sheet
+      // and then the copies, nearest first, each blended by SRC_ALPHA_SATURATE (drawInverse's saturate), then the
+      // planes' plots under them (drawColorPlot's under), plane a's no-value colour first so that it stays over plane
+      // b's. Two copies that meet along a cut's image each cover part of its pixels: saturate makes those parts the whole
+      // pixel, where painter's order leaves the plots showing through as a line (#2069). Where copies overlap, the first
+      // drawn wins, as the last drawn does in painter's order, so each pixel's winner is painter's. A pass that cannot
+      // draw sends the frame back to painter's order below, from a fresh frame. SV.glideSat 0 (a test hook's) keeps
+      // painter's order; not with a repeat's plan (REPT), whose pass writes marks, not colours)
+      // (the plots under them as svPlotsUnder keeps them: drawn back from the kept layer under the copies (layerDraw's
+      // under); with no layer of their key, drawn into the layer first (GLR.layerInto), not into the frame)
+      if (sheets.length && !frame.open && SV.glideSat !== 0 && svExactGlide(b, u, null) && !svHomPaths(b, u, null).h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'REPT'))) {
+        const key = svPlotsKeyOf(pane, a, b);
+        GLR.begin(pane.pw, pane.ph); frame.open = true;
+        let kept = key !== null && key === svPlotsKey, fresh = false;
+        if (key !== null && !kept && GLR.layerInto(SV_PLOTS)) {
+          try { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); } finally { GLR.layerInto(null); }
+          svPlotsUse.drawn++;
+          // (a plot whose program still links drew a stand-in or nothing: not a picture to keep)
+          svPlotsKey = !GLR.frameStatus().pending ? key : null;
+          fresh = kept = svPlotsKey !== null;
+        }
+        let drew = false;
+        frame.sat = true;
+        try { drew = svCarryExactHom(pane, b, u, T, frame, { r: null }, null) && sheets.every((v) => svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }))); } finally { frame.sat = false; }
+        if (drew) {
+          if (kept && GLR.layerDraw(SV_PLOTS, true)) { if (!fresh) svPlotsUse.kept++; }
+          else {
+            plot(a, 1, true, true);
+            if (SV.restPaint !== 0) plot(b, 1, false, true);
+          }
+          record(true, { r: null }, null, sheets, true);
+          return;
+        }
+        GLR.begin(pane.pw, pane.ph, undefined, true);
+      }
       // (between planes, under the carried colour, which covers both wherever a point of the glide arrives, so that a
       // pixel no point reaches shows them: what plane b draws there at rest, its own colour when it is a coloured plane
       // (no blank, and at the arrival plane b's parked picture), and over it the departure plane's
@@ -2575,20 +2294,12 @@
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan, or, all at
       // once, each step of the span at its own time (svSpanPaths): the exact picture of the map at u, with nothing
       // blended in; else the carried meshes below, with the planes' plots)
-      // (the other sheets' copies first, svGlideSheets, the farthest from the principal sheet first: where they meet, a
-      // nearer sheet is drawn over a farther one, and the principal one over them all)
-      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+      // (painter's order: the copies first, the farthest from the principal sheet first: where they meet, a nearer sheet
+      // is drawn over a farther one, and the principal one over them all)
       for (const v of sheets.slice().reverse()) svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }) || svCarryRegions(pane, map, T, b, frame, null));
       if (!still && (map.mode === 1 || map.mode === 3) && !isDeriv(b)) {
         const span = svSpanPaths(bt), why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why, span);
-        const kp = !drew ? null : span ? invSpanPath(SV_ALL, 0, span.a, b, u, span.stepT, () => svSheetKey(b).sing) : invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
-        // (sheets: the sheet combos drawn, svGlideSheets, the window of an infinitely sheeted step's, and each combo's
-        // offsets, one per multivalued step up to b in chain order, the chain as it is first)
-        // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
-        // farthest opaque (svCarryLook at base 1))
-        const hl = drew ? svHomPaths(b, u, span).h : null, look = hl ? svCarryLook(1, hl.list[0], { a: span ? span.a : b - 1, b, u }, T) : null;
-        svGlideRec = { b, u, all: !!span, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, per: kp && kp.prep && kp.prep.per ? [kp.prep.per.re, kp.prep.per.im] : null, ops: kp && kp.plan ? kp.plan.ops.map((o) => o.kind) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: sheets.length ? svSheetMemo.W : null, sheetKs: sheets.length ? [sheets[0].offs.map(() => 0), ...sheets.map((v) => v.offs)] : null,
-          ...(look && { alpha: look.alpha }) };
+        record(drew, why, span, sheets, false);
         if (drew) return;
       }
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
@@ -3995,8 +3706,8 @@
   // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
   // programs linked (both map modes, the carried colour and its cut fills, the glide's map mode of the programs the
   // panes draw, which the warm-up starts in the init part (WARM's first group, in the same modes), any inverse one
-  // still compiling), the carried colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the
-  // meshes), with M (the motion the gate is about to start) the frames it may draw ahead (svAheadPart), and the inverse
+  // still compiling), the carried colour's warm draw made, the idle jobs finished, one part each (poles: the pole tracks, ring: the outer ring,
+  // meshes: the regions' meshes), with M (the motion the gate is about to start) the frames it may draw ahead (svAheadPart), and the inverse
   // programs of the glides a press starts linked while the thread rests on a plane (inverse: svInvList, which
   // svInvWarmNext's jobs ask for; their first draw is the jobs' own, and a cold program is drawn by the glide's frame,
   // svLinkHold; no part while a frame is held between planes or a glide runs); while a pane's last frame had a REPT
@@ -4007,21 +3718,22 @@
   // the GPU layer or the chain is not up; ready is true only when done = total > 0; rest: the same without the inverse
   // part. Programs counted that no job asks for any more (the jobs were dropped when what svInvKey names changed, or a
   // program was evicted after its job) are queued again, unless peek (a read that starts no work: the test hook's)
-  // (test hooks: the idle jobs count as unfinished while svJobsHold is set, the warm draw while svWarmHold is)
-  let svJobsHold = false, svWarmHold = false;
-  const svJobsHoldSet = (on) => { svJobsHold = !!on; };
+  // (test hooks: svJobsHold names what counts as unfinished: true, the three idle jobs, or a list of this gauge's part names, as __cmwSteps's
+  // holdJobs says; the warm draw also while svWarmHold is set; the Play gate's message names the first part not done, svGateMissing)
+  let svJobsHold = null, svWarmHold = false;
+  const svJobsHoldSet = (on) => { svJobsHold = Array.isArray(on) ? on : on ? true : null; };
   const svWarmHoldSet = (on) => { svWarmHold = !!on; };
   function svReady(M, peek = false) {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
+    const held = (k) => svJobsHold === true ? k === 'poles' || k === 'ring' || k === 'meshes' : !!svJobsHold && svJobsHold.includes(k);
+    let left = {};
+    try { left = { poles: svPolesLeft(), ring: svRingLeft(), meshes: svMeshNext() }; } catch (e) { left = {}; }
     parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
-    parts.warm = { done: !svWarmHold && svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1, whole: true };
-    let jobs = 0;
-    try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
-    if (svJobsHold) jobs = 3;
-    parts.jobs = { done: 3 - jobs, total: 3 };
+    parts.warm = { done: !svWarmHold && svWarmSig === chainSig[nSteps()] && !held('warm') ? 1 : 0, total: derivIn(0, 1) ? 0 : 1, whole: true };
+    for (const k of ['poles', 'ring', 'meshes']) parts[k] = { done: left[k] || held(k) ? 0 : 1, total: 1 };
     if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1, whole: true };
-    if (svRedrawDue) parts.redraw = { done: 0, total: 1, whole: true };
+    if (svRedrawDue || held('redraw')) parts.redraw = { done: 0, total: 1, whole: true };
     // (M: the motion the gate is about to start, whose frames may be drawn ahead once all else is ready, svAheadPart)
     const ahead = M ? svAheadPart(M) : null;
     if (ahead) parts.ahead = ahead;

@@ -89,7 +89,7 @@
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
-    if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
+    if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && tool !== 'select') ro.innerHTML = idleRight(); }
     // the left readout's idle hint names the tool on a globe and on the landscape (panels.md 3, 9.1)
     if (!probe && !hov.w && (lGlobe() || lLand())) { const lr = $('leftReadout'); if (lr && !lr.classList.contains('copied')) lr.innerHTML = idleLeft(); }
     // an editable globe's graticule is the snap net of the tool (P3b): it is redrawn
@@ -99,7 +99,6 @@
   function updateToolHint() {
     updateDraftChips();
     if (paneL) setCursor(paneL, 'L');
-    if (paneR) setCursor(paneR, 'R');
   }
 
   // ---------------- shapes ----------------
@@ -372,8 +371,8 @@
   function nudgeShape(s, dx, dy, big) {
     if (s.def) return false;
     // (the step of the grid of the plane on screen, halves included, Constr.gridStep, as snapping uses: the steps view
-    // has one camera for every plane, S.srcView; else a target is in Y's view and a shape in X's)
-    const sc = (SV.on ? S.srcView : isTarget(s) ? V.right : leftView()).s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
+    // has one camera for every plane, S.srcView; else X's view, the one plane on screen)
+    const sc = (SV.on ? S.srcView : leftView()).s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
     const step = (Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
     try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
     if (isTarget(s)) targetsChanged(true); else shapesChanged(true);

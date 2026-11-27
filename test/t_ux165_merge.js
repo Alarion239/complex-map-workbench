@@ -51,7 +51,7 @@ ok('integrateSelected: the touch toast (phone), the pick-a-curve guard and integ
 
 // ---- plane UX27 + learn UX103 in paneTitles
 const pt = fnBody(APP, 'paneTitles');
-ok('paneTitles: the Y tag on the four right titles (plane)', count(pt, 'right = T(YT + ') === 4);
+ok('paneTitles: the Y tag on the three right titles (plane)', count(pt, 'right = T(YT + ') === 3);
 // ---- plane + learn: the tag gives way before the title (merge: with Add function in Y's head the title vanished)
 const ft = fnBody(APP, 'fitTitle');
 ok('fitTitle: the note, then the X / Y tag, give way before the title', ft.includes("t.classList.add('notag')") && ft.indexOf('fitTitle(side, true)') < ft.indexOf("add('notag')") && ft.indexOf("add('notag')") > ft.indexOf("querySelector('.ptag')") && PAGE.includes('.pane-title.notag .ptag { display: none; }'));
@@ -64,7 +64,7 @@ ok('shape ⋯: Duplicate through duplicateShape with ⌘D (learn) and colours by
 // ---- plane UX67 + chain UX33 in paramField
 ok('paramField: the sheet ‹ ahead of the field (plane) and the worded class and paramWord (chain)', APP.includes("(word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input)") && /function paramWord\(st, q\)/.test(APP));
 // ---- plane + learn in idleRight
-ok('idleRight: the phone target line (learn), then "Draw a target in Y" (plane)', /targetText\(\{ phone: true \}\)/.test(APP) && APP.includes("$t('Draw a target in Y (the {x}-plane)'"));
+ok('idleRight: the phone target line (learn)', /targetText\(\{ phone: true \}\)/.test(APP));
 // ---- learn UX93 for the plane's seventh tool
 ok('the Russian phone tile for Hyperbolic (plane UX55, learn UX93)', APP.includes("hyper: $tx('phone tile', 'Hyperbolic')") && TABLE['phone tile\u0004Hyperbolic'] === 'Гиперб.', TABLE['phone tile\u0004Hyperbolic']);
 
@@ -84,7 +84,7 @@ ok('editDown: rail\'s Point-tool move and plane\'s handleAt both present', fnBod
 // ---- phone guide + chain UX85 / UX65
 ok('the phone guide names the button Show alone (chain UX85) and finds Numbers (chain UX65)', APP.includes("The editor's <b>Show alone</b> button") && !APP.includes('Show this step alone') && APP.includes('`Shared numbers|Numbers`'));
 // (#246: on a phone the steps are rows of the chain sheet: the task opens it first, and still says Show alone)
-ok('the tour\'s chain step on touch says Show alone (chain over phone)', TOUR.includes("touch: 'Open the chain, tap $f_1$, then Show alone.'") && !TOUR.includes('Show this step alone'));
+ok('the tour never says Show this step alone (the button is Show alone)', !TOUR.includes('Show this step alone'));
 
 // ---- the tour's shared notes
 const INT = fs.readFileSync(path.join(__dirname, '../notes/tour/INTEGRATION.md'), 'utf8');

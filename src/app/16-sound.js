@@ -1,5 +1,5 @@
   // ---------------- sound (notes/sound/DESIGN.md §2 and §4.1; the engine is src/sound.js) ----------------
-  // On by default from v15 (Interface and Mathematical events; Hear the function off; a ?ns= test page starts off), and
+  // On by default (Interface and Mathematical events; Hear the function off; a ?ns= test page starts off), and
   // free while off: every hook returns on one flag (sndP.on) before any work, and the engine creates nothing (no
   // AudioContext) before the page's first click or key. The settings live in lsk('cmw-sound') (the
   // engine's own key), never in S, a saved session or a shared link. Three tiers: Interface (controls you operate),
@@ -52,9 +52,9 @@
   // reassign as getters (and setters for the state they write)
   function soundHooksApi() {
     return {
-      C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText,
+      C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, curvePieces, derivIn, drawProbe, exOk, fnText,
       focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn,
-      morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts,
+      morphState, nSteps, pickLand, pickSphereLeft, rangeF, rangeKey, rangeParts,
       render3D, requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, svName, toast, touchUI, tourEmit,
       tourL, tourSndMine, updateDraftChips, zerosPolesTimed,
       get S() { return S; },

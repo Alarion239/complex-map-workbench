@@ -24,22 +24,20 @@
   const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
   // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
   const GLOBE_MARK_PX = 13;
-  function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
-  // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
-  function* stageSampler(F0, xs, ys, k) {
+  // the images of the visible shapes under a stage's map, as points (xs, ys): what a fit of the plane frames
+  function stageSamples(F0, xs, ys, k) {
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
-    let got = 0;
-    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } return ++got % 16 === 0; };
+    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } };
     for (const s of S.shapes) {
       if (s.visible === false) continue;
       const t = kindType(s);
       // (the curves and points of a construction, and the unit circle or an axis made a shape, are
-      // lines to build with: Y's fit follows the user's own shapes and regions, never a large orthogonal circle's image)
+      // lines to build with: the fit follows the user's own shapes and regions, never a large orthogonal circle's image)
       if ((s.def || s.fixed) && t !== 'area') continue;
       const F = shapeF(s, F0, k);
       if (!F) continue;
-      if (t === 'point') { if (push(F(C(s.p[0], s.p[1])))) yield; continue; }
+      if (t === 'point') { push(F(C(s.p[0], s.p[1]))); continue; }
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
         const src = r.mesh.src, nv = src.length / 2;
@@ -47,7 +45,7 @@
         for (let i = 0; i < nv; i += stride) {
           const x = src[2 * i], y = src[2 * i + 1];
           if (r.mesh.stretched && !inCore(x, y)) continue;
-          if (push(F(C(x, y)))) yield;
+          push(F(C(x, y)));
         }
       }
       // (a traced curve formula, like a formula area, counts by its part in the meshing window: its tails run out to
@@ -56,7 +54,7 @@
       if (t === 'area') { try { unbounded = !Region.bboxOf(s); } catch (e) { unbounded = true; } }
       for (const p of r.polys || []) {
         const n = p.length / 2, stride = Math.max(1, Math.floor(n / POLY_SAMPLE_CAP));
-        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if ((!unbounded || inCore(x, y)) && push(F(C(x, y)))) yield; }
+        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if (!unbounded || inCore(x, y)) push(F(C(x, y))); }
       }
     }
   }
@@ -310,7 +308,7 @@
     const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
     if (!rx || !ry) return;
     const seen = rulerSeen[side];
-    const show = side === 'R' ? rImage() : lFlat();
+    const show = side === 'R' || lFlat();
     if (seen.vis !== show) { rx.style.visibility = ry.style.visibility = show ? '' : 'hidden'; seen.vis = show; }
     const corner = $(side === 'L' ? 'cornerL' : 'cornerR');
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
@@ -414,7 +412,7 @@
     let mk = null;
     if (probe) {
       if (side === 'L') mk = probe;
-      else if (rImage()) { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
+      else { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
     }
     if (mk) {
       const px = pane.w / 2 + (mk.re - v.cx) * v.s, py = pane.h / 2 - (mk.im - v.cy) * v.s;
@@ -466,31 +464,47 @@
     const live = $('ledLive');
     if (live && parts.length) live.textContent = parts.join('. ');
   }
-  // a hairline runs along the top of the plots when work takes longer than 300 ms
+  // a hairline runs along the top of the plots when work takes longer than CUE_DELAY_MS (a REPT draw's pane note on a
+  // phone waits as long)
+  const CUE_DELAY_MS = 300;
   let hairTimer = 0;
   function setHairline(on) {
     if (on) {
-      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, 300);
+      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, CUE_DELAY_MS);
     } else {
       clearTimeout(hairTimer); hairTimer = 0;
       $('hairL').hidden = true; $('hairR').hidden = true;
     }
   }
+  // what a pane's LED says while its exact picture is still being drawn in tiles (a REPT draw; prog: its second pass's
+  // tiles { done, total }, or null before that pass's tiles are known)
+  function reptTip(prog) {
+    return prog && prog.total ? $tn('Drawing the exact picture… ({k}\u00a0of\u00a0{n} tile)', 'Drawing the exact picture… ({k}\u00a0of\u00a0{n} tiles)', prog.total, { k: prog.done, n: prog.total }) : $t('Drawing the exact picture…');
+  }
   function updateLeds() {
     const errStep = S.steps.findIndex((st, i) => st.on !== false && built[i] && built[i].error);
     const busy = fixJob.running || !!lineJob.running || sm.running;
-    setHairline(!!busy);
+    // a pane whose last frame left a REPT draw drawing its tiles (paneGl's rept): its LED busy and its plot aria-busy
+    // until the frame that draws the final picture
+    const rept = (r) => (paneGl[r] && paneGl[r].rept ? paneGl[r] : null);
+    for (const r of ['L', 'R']) {
+      const el = $(r === 'L' ? 'plotL' : 'plotR');
+      if (el) { if (rept(r)) el.setAttribute('aria-busy', 'true'); else el.removeAttribute('aria-busy'); }
+    }
+    setHairline(!!busy || !!rept('L') || !!rept('R'));
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
-    // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
+    // frames stand in for a compiling program is busy from its first such frame; one whose exact picture is still drawing in
+    // tiles, a REPT draw, is busy with the cue's words; the left pane's colour plot still a quick stand-in while its program
+    // links, colourPending, is busy too; and its LED says so: the notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
-    const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
+    const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : undefined);
+    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')] : busy || compileBusy[r] ? ['busy', compTip(r)] : ['ok']);
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
-    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
-    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
+    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip); else setLed('L', ...led('L'));
+    if (errStep >= 0 || note('R')) setLed('R', 'err', errTip || note('R')); else setLed('R', ...led('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -517,6 +531,9 @@
     // the Cauchy style (st.cauchy: the nodes of the selected closed curve, F inside, 0 outside)
     const cz = S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
     const cst = { map: S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    // (the Cauchy style, its program still linking: the plot the pane drew in the style before it, held on the pane until the Cauchy plot
+    // lands, GLR.drawColorPlot's st.hold; any other style is the pane's last, which a frame of it sets after its draw)
+    if (S.dc === 'cauchy') cst.hold = pane.dcLast || null;
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
@@ -546,6 +563,11 @@
     }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (S.dc !== 'cauchy' && !cauchyWhy) pane.dcLast = { map: cst.map, style: cst.style, sectors: cst.sectors, grid: cst.grid };
+    // (the frame's plot is the held one: the key and the LED's tip say what is shown, not the style asked for)
+    // (a frame that draws no plot, one that keeps the pane's picture, leaves it as it was)
+    const held = GLR.colourHeld();
+    pane.dcHeld = S.dc === 'cauchy' && !!cst.hold && (held === null ? !!pane.dcHeld : held);
     if (cauchyWhy) sumDrop(pane); else sumWatch(pane, cst.map);
     // (the grid under the pane's notes, which glStatusNote draws)
     if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)
@@ -586,7 +608,7 @@
     ctx.fillRect(0, 0, pane.w, pane.h);
     ctx.restore();
   }
-  // median |F| over the box (used to scale |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
+  // median |F| over the box (the scale of the |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
   // while morphing), or of map (a map spec of the left plane, with Fm its CPU twin): the steps view's planes. One
   // value cached per map
   const muCache = new Map();
@@ -1225,7 +1247,7 @@
         // dc line colour on a white casing)
         const sk = shapeStroke(s, pane.dpr, { still: true });
         if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
-        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8, cpu: () => cpuMap(sm) }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
@@ -1426,7 +1448,7 @@
     const cv = pane.ocanvas, host = cv && cv.parentElement;
     if (!host) return [];
     const c = cv.getBoundingClientRect(), out = [];
-    for (const e of host.querySelectorAll('.vbtn, .ph-key')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
     return out;
   }
   // the half-width a line centred at mid may take in the band top … bottom of a pane (CSS px) beside the view buttons
@@ -1475,15 +1497,15 @@
     requestRender('L', 'R'); save();
   }
   function setupViewControls() {
-    // the panes' Plane | Sphere radios (U4)
-    for (const side of ['L', 'R']) {
-      const el = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-      for (const [v, l, k] of SURF[side]) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView(side, v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
+    // X's Plane | Sphere radios (U4)
+    {
+      const el = $('leftTabs');
+      for (const [v, l, k] of SURF) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView('L', v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
       el.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const list = SURF[side], i = list.findIndex((x) => x[0] === (side === 'L' ? xView() : S.view.R).surf);
-        const j = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setView(side, list[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
+        const i = SURF.findIndex((x) => x[0] === xView().surf);
+        const j = Math.max(0, Math.min(SURF.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+        setView('L', SURF[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
       });
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
@@ -1509,7 +1531,6 @@
       if (leftStage() > 0) leftAuto = true;
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
-    $('rightFit').addEventListener('click', () => { if ($('rightFit').getAttribute('aria-disabled') === 'true') return; rightAuto = true; fitRight(true); requestRender('R'); });
     // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (on a 356 px plot the key covers a third of the landscape);
     // a tap on a folded or unfolded chip toggles
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -1565,21 +1586,19 @@
       });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
-    for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
-      $(side + 'ZoomIn').innerHTML = ICONS.plus;
-      $(side + 'ZoomOut').innerHTML = ICONS.minus;
-      $(side + 'Fit').innerHTML = ICONS.fit;
-      $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
-      const zb = (f) => () => {
-        const sd = side === 'left' ? 'L' : 'R';
-        if (is3DSide(sd)) { zoomPane(pane, sd, pane.w / 2, pane.h / 2, f); return; }
-        const v = sd === 'L' ? leftView() : V.right;
-        pane.setView({ cx: v.cx, cy: v.cy, s: v.s });
-        const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
-        if (sd === 'R') rightAuto = false; else if (leftStage() > 0) leftAuto = false;
-        tweenView(v, target, 180, () => sourceViewChanged());
-      };
-      $(side + 'ZoomIn').addEventListener('click', zb(1.6));
-      $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
-    }
+    // (X's buttons: Y's pane is not drawn)
+    $('leftZoomIn').innerHTML = ICONS.plus;
+    $('leftZoomOut').innerHTML = ICONS.minus;
+    $('leftFit').innerHTML = ICONS.fit;
+    $('leftSph').addEventListener('click', () => stackSphere('L'));
+    const zb = (f) => () => {
+      if (is3DSide('L')) { zoomPane(paneL, 'L', paneL.w / 2, paneL.h / 2, f); return; }
+      const v = leftView();
+      paneL.setView({ cx: v.cx, cy: v.cy, s: v.s });
+      const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
+      if (leftStage() > 0) leftAuto = false;
+      tweenView(v, target, 180, () => sourceViewChanged());
+    };
+    $('leftZoomIn').addEventListener('click', zb(1.6));
+    $('leftZoomOut').addEventListener('click', zb(1 / 1.6));
   }

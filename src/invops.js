@@ -983,12 +983,15 @@ const InvOps = (() => {
     o[0] = Rr; o[1] = Ri; o[2] = (RR + r * ms + ENCL_EPS * mag(Rr, Ri)) * ENCL_UP;
     return true;
   }
-  // D(c, rho) through the n steps -> {c, r} enclosing its image, or null (a pole in reach); Inverse.opDisc's REPT case
-  function reptDisc(P, Q, n, c, rho) {
-    const Pa = Float64Array.from(P.flatMap((x) => [x.re, x.im])), Qa = Float64Array.from(Q.flatMap((x) => [x.re, x.im])), o = new Float64Array(24);
+  // D(c, rho) through the n steps -> {c, r} enclosing its image, or null (a pole in reach); Inverse.opDisc's REPT case.
+  // head ({P, Q}, the op's head, or null): the last of the n steps is the head's map
+  function reptDisc(P, Q, n, c, rho, head = null) {
+    const flat = (co) => Float64Array.from(co.flatMap((x) => [x.re, x.im])), o = new Float64Array(24);
+    const Pa = flat(P), Qa = flat(Q), Ha = head ? flat(head.P) : Pa, Hq = head ? flat(head.Q) : Qa;
     let cr = c.re, ci = c.im, cR = rho;
     for (let r = 0; r < n; r++) {
-      if (!dStep(o, Pa, Qa, cr, ci, cR) || !(mag(o[0], o[1]) + o[2] < ENCL_R_MAX)) return null;
+      const last = r === n - 1;
+      if (!dStep(o, last ? Ha : Pa, last ? Hq : Qa, cr, ci, cR) || !(mag(o[0], o[1]) + o[2] < ENCL_R_MAX)) return null;
       cr = o[0]; ci = o[1]; cR = o[2];
     }
     return { c: C(cr, ci), r: cR };
@@ -1043,6 +1046,12 @@ const InvOps = (() => {
     if (enclCache.size > ENCL_CACHE) enclCache.delete(enclCache.keys().next().value);
     return E;
   }
+  // a monomial step k z^d (P's leading term alone over a constant Q): {k: |k| = |p_d / q_0|, d}, else null
+  function reptMono(P, Q) {
+    const qi0 = Q.findIndex((q) => !isZero(q));
+    if (!(P.slice(1).every(isZero) && qi0 === Q.length - 1)) return null;
+    return { k: abs(div(P[0], Q[qi0])), d: P.length - 1 };
+  }
   function reptEncloseNew(P, Q, n, b, escR, disc) {
     const E = [Object.assign({ esc: 0 }, b)];
     for (let r = 1; r <= n; r++) E.push({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, esc: 0 });
@@ -1057,9 +1066,7 @@ const InvOps = (() => {
     if (![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return E.map(() => null);
     let open = n + 1;                         // levels from here on are the whole plane
     const Pa = Float64Array.from(P.flatMap((c) => [c.re, c.im])), Qa = Float64Array.from(Q.flatMap((c) => [c.re, c.im])), o = new Float64Array(24);
-    // (a monomial step: P's leading term alone over a constant Q, k = p_n / q_0 and its degree d)
-    const qi0 = Q.findIndex((q) => !isZero(q)), mono = P.slice(1).every(isZero) && qi0 === Q.length - 1;
-    const monoD = P.length - 1, monoK = mono ? abs(div(P[0], Q[qi0])) * RAD_UP * RAD_UP : 0;
+    const mn = reptMono(P, Q), mono = !!mn, monoD = mono ? mn.d : 0, monoK = mono ? mn.k * RAD_UP * RAD_UP : 0;
     const size = Math.abs(b.x0) + Math.abs(b.x1) + Math.abs(b.y0) + Math.abs(b.y1);
     const hx = (b.x1 - b.x0) / ENCL_GRID, hy = (b.y1 - b.y0) / ENCL_GRID, queue = [];
     for (let i = 0; i < ENCL_GRID; i++) for (let j = 0; j < ENCL_GRID; j++) queue.push([b.x0 + i * hx, b.y0 + j * hy, hx, hy]);
@@ -1146,14 +1153,60 @@ const InvOps = (() => {
     }
     return { P: padTo(P, REPT_DEG + 1), Q: padTo(Q, REPT_DEG + 1) };
   }
-  // the op: p = {P, Q, n, escR (reptEscR)}; its members come from Inverse.enumerate's search (rept), not from pre(); pre lists the leaves
-  // of a point's search, first certified ones in search order, at most REPT_PRE_CAP (the singular points' pull-backs)
+  // The head of a glide frame's REPT op: a Repeat x N glides through its copies one at a time (Inverse.homOps), so its
+  // frame at x = j + s is H_s o R^j, H_s the homotopy of the copy R = P/Q at s. Where H_s is R between two affine maps
+  // (ops: AFF a1 z + b1, the copy's own op, AFF a2 u + b2, either AFF absent for the identity: the rational zoom's path,
+  // NatPaths' ratzoom), it is the rational map P_h/Q_h of the same degree, P_h(z) = a2 P(a1 z + b1) + b2 Q(a1 z + b1) and
+  // Q_h(z) = Q(a1 z + b1), both scaled by the power of 2 that brings the largest coefficient near 1 (reptForm's, for the
+  // GPU's float32). -> {P, Q} (high-first, padded to REPT_DEG + 1), or null: another shape of ops, a middle op that is not
+  // P/Q (checked at REPT_HEAD_AT, to REPT_HEAD_TOL relatively), or a head whose degree is not REPT_DEG
+  const REPT_HEAD_AT = [C(0.37, 0.21), C(-1.3, 0.8), C(0.9, -1.7)], REPT_HEAD_TOL = 1e-11;
+  function reptHead(P, Q, ops) {
+    if (!ops || !ops.length || ops.length > 3) return null;
+    let i = 0, a1 = ONE, b1 = ZERO, a2 = ONE, b2 = ZERO;
+    if (ops.length > 1 && ops[0].kind === 'AFF') { a1 = ops[0].p.a; b1 = ops[0].p.b; i = 1; }
+    const mid = ops[i], rest = ops.slice(i + 1);
+    if (!mid || mid.kind === 'AFF' || rest.length > 1 || (rest.length && rest[0].kind !== 'AFF')) return null;
+    if (rest.length) { a2 = rest[0].p.a; b2 = rest[0].p.b; }
+    const R = (z) => { const [p] = reptEval(P, z), [q] = reptEval(Q, z); return div(p, q); };
+    for (const z of REPT_HEAD_AT) {
+      const v = R(z), u = mid.fwd(z);
+      if (!isFin(v) || !isFin(u) || !(abs(sub(u, v)) <= REPT_HEAD_TOL * (1 + abs(v)))) return null;
+    }
+    // (c(a1 z + b1), c high-first, by Horner on polynomials)
+    const comp = (co) => {
+      let acc = [ZERO];
+      for (const ck of co) {
+        const nx = Array.from({ length: acc.length + 1 }, () => ZERO);
+        acc.forEach((x, k) => { nx[k] = add(nx[k], mul(x, a1)); nx[k + 1] = add(nx[k + 1], mul(x, b1)); });
+        nx[nx.length - 1] = add(nx[nx.length - 1], ck);
+        acc = nx;
+      }
+      return acc.slice(acc.length - co.length);
+    };
+    const Pc = comp(P), Qc = comp(Q);
+    let Ph = Pc.map((x, k) => add(mul(a2, x), mul(b2, Qc[k]))), Qh = Qc;
+    if (!Ph.concat(Qh).every(isFin)) return null;
+    const big = Math.max(...Ph.concat(Qh).map(abs));
+    if (!(big > 0) || !Number.isFinite(big)) return null;
+    const sc = Math.pow(2, -Math.round(Math.log2(big)));
+    Ph = Ph.map((x) => scale(x, sc)); Qh = Qh.map((x) => scale(x, sc));
+    const tP = CX.polyTrim(Ph), tQ = CX.polyTrim(Qh);
+    if (tP.length - 1 !== REPT_DEG || tQ.length - 1 >= REPT_DEG || isZero(tP[0])) return null;
+    return { P: padTo(tP, REPT_DEG + 1), Q: padTo(tQ, REPT_DEG + 1) };
+  }
+  // the op: p = {P, Q, n, escR (reptEscR), head, own}; its members come from Inverse.enumerate's search (rept), not from
+  // pre(); pre lists the leaves of a point's search, first certified ones in search order, at most REPT_PRE_CAP (the
+  // singular points' pull-backs). head: null, or {P, Q} (reptHead's), the map of the last of the n copies, so the
+  // search's first level solves P_h - v Q_h and the n - 1 after it P - v Q (a glide frame's). own: the op's map is its
+  // step's own (the plane's REPT op, stepOps'), so a member maps to the pixel's own w through the step's stages; false
+  // for a glide frame's (Inverse.homOps'), whose map is the copies' homotopy
   const REPT_PRE_CAP = 64;
-  function opRept(P, Q, n, fwd) {
+  function opRept(P, Q, n, fwd, { head = null, own = false } = {}) {
     const pre = (w) => {
       const out = [];
       const go = (v, dv, depth, J) => {
-        const nd = reptNode(P, Q, v, dv);
+        const nd = depth === 0 && head ? reptNode(head.P, head.Q, v, dv) : reptNode(P, Q, v, dv);
         if (!nd) return;
         for (let i = 0; i < REPT_DEG && out.length < REPT_PRE_CAP; i++) {
           const J2 = mul(J, nd.d[i]);
@@ -1164,7 +1217,7 @@ const InvOps = (() => {
       if (isFin(w)) go(w, 0, 0, ONE);
       return out;
     };
-    return op('REPT', { P, Q, n, escR: reptEscR(P, Q) }, fwd, { fam: { type: 'rept', count: REPT_DEG ** n }, pre });
+    return op('REPT', { P, Q, n, escR: reptEscR(P, Q), head, own }, fwd, { fam: { type: 'rept', count: REPT_DEG ** n }, pre });
   }
 
   // =====================================================================================================
@@ -1247,7 +1300,7 @@ const InvOps = (() => {
       case 'custom': {
         // a Repeat of one step of degree REPT_DEG: one REPT op for every copy, unless opts.rept is false (the copies' ops)
         const rf = b.repeat && opts.rept !== false ? reptForm(b) : null;
-        if (rf) return OK([opRept(rf.P, rf.Q, b.repeat.n, b.f)]);
+        if (rf) return OK([opRept(rf.P, rf.Q, b.repeat.n, b.f, { own: true })]);
         // a formula recognized as catalog steps (Funcs, src/recognize.js): their ops, when every one has them
         if (b.rec) {
           const ops = [];
@@ -1827,7 +1880,7 @@ const InvOps = (() => {
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, cubicRoots, quarticRoots, ratPoly, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtDH, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm, ratCritical,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF
+    REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF, reptMono, reptForm, reptHead, opRept
   };
 })();
 import { CX } from './cx.js';

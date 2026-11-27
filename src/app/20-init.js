@@ -2,8 +2,7 @@
   // the figure: the saved state without the panels the viewer chose
   function figureState() {
     if (S.homRange) HR.resolve(S, true);
-    const out = Object.assign({}, S, { rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
-    const o = JSON.parse(JSON.stringify(out, cmSaveReplacer(out)));
+    const o = JSON.parse(JSON.stringify(S, cmSaveReplacer(S)));
     delete o.hideLeft; delete o.hideRight;
     // (the steps view's place on screen, as a save writes it: S.sv is written only by a save and an undo entry)
     const sv = svPlace();
@@ -225,7 +224,6 @@
     setupParams(!!loaded);
     buildDisplay();
     setupPane(paneL, 'L');
-    setupPane(paneR, 'R');
     PlaneMenu.init(planeMenuApi());   // the planes' context menu
     Commands.init(commandsApi());   // the command palette (src/commands.js)
     Construct.init({ cm: cmApi() });   // constructions (the interface)
@@ -294,8 +292,6 @@
           // focus returns to the control that switched: Settings, or the phone's More button
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
-        // the right plane reopens at the view the user left it at
-        if (loaded.rightView && autoFit()) { Object.assign(V.right, loaded.rightView); rightAuto = false; requestRender('R'); }
         if (loadDropped) toast($tn('{n} saved item could not be restored by this version and was left out.', '{n} saved items could not be restored by this version and were left out.', loadDropped));
       } catch (err) {
         // never a dead app on every reload: fall back to the first example

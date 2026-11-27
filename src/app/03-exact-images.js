@@ -34,7 +34,7 @@
   // homotopy has H_0 = id and H_1 = f exactly (Inverse.homExact); the linear homotopy is exact at its ends.
   function normalizeMap(map) {
     const mode = map.mode || 0;
-    if (!mode || morph.playing || trans.k) return map;
+    if (!mode || morph.playing) return map;
     const t = map.t, base = map.base || 0;
     // (with a bracket's post, H_t = Q o G_t o P is a still map only at its end, and only once the bracketed steps
     // after the running one are inactive: the stages base..post; its start skips the running step but not the post)
@@ -67,9 +67,11 @@
     return map;
   }
   // Inverse.planChain per stage range and chain signature (parameter values included: a scrub makes new plans). A plan
-  // whose options are not the chain's (a range that holds a repeat alone, Inverse.rangeOpts) carries its own inverse op
-  // list, p.inv (GLChain.buildInverse with the plan's options: a program beside the chain's, marked rest so that it is
-  // warmed as the chain's own, GLR.warmInverse), which its draws pass on
+  // whose options are not the chain's (Inverse.rangeOpts: a range that holds a repeat alone, or a range that does not hold
+  // the chain's repeat when the chain's own program would hold more ops than a program takes and the program that holds
+  // the repeat as one REPT op, the only one, builds) carries its own inverse op list, p.inv
+  // (GLChain.buildInverse with the plan's options: a program beside the chain's, marked rest so that it is warmed as the
+  // chain's own, GLR.warmInverse), which its draws pass on
   const invPlans = new Map();
   function invPlan(a, b) {
     const ck = `${a}|${b}|${chainSig[nSteps()]}`;
@@ -99,8 +101,8 @@
     return !plan.ok && !!plan.tooLong;
   }
   // whether map (the plain map, mode 0) carries through a live Repeat block of more than one copy in its range,
-  // whatever op its plan draws it with: a REPT op when the repeat is the chain's one live step, the copies' own ops
-  // beside another step (Inverse.chainOpts)
+  // whatever op its plan draws it with: a REPT op when the range holds the repeat alone (Inverse.rangeOpts), the
+  // copies' own ops when it holds another live step too
   function repeatIn(map) {
     const m = normalizeMap(map);
     return (m.mode || 0) === 0 && S.steps.slice(m.a || 0, m.b || 0).some((st) => st.on !== false && st.repeat && st.repeat.n > 1);
@@ -372,7 +374,7 @@
     if (!st.demote && g.demoted) { g.demoted = false; requestRender(side); }   // recovered: the shapes return to inverse
     return { motion: counts, half: st.half && motion && contiguous, demoted: st.demote, timed };
   }
-  // the view is in continuous motion (a drag, a tween, a transition, a playing morph, a wheel, a slider or a scrub of
+  // the view is in continuous motion (a drag, a tween, a playing morph, a wheel, a slider or a scrub of
   // changes): an inverse program never drawn yet is not drawn now (its first draw stalls the GPU process), another
   // ready B class or the forward stand-in takes its place (gl.js drawInverse) and it is warmed at the next quiet
   // moment. A single discrete change (an example, a toggle) or a hover is not motion: its program draws as soon as it
@@ -380,7 +382,7 @@
   function interacting() {
     const now = performance.now();
     // (a number's slider held: its frames come further apart than 150 ms when the chain is costly)
-    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
+    return !!(drag || tweens.length || camTweens.length || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
   }
   // a camera still turning after its drag is let go (its momentum) moves too: its frames would otherwise be drawn as rest frames,
   // each at a new distance, and All sheets at the Max mesh would rebuild their refinement in every one
@@ -470,7 +472,7 @@
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
     const m = normalizeMap(map);
-    if ((m.mode || 0) !== 0) return F(morph.playing || trans.k ? 'homotopy playing' : 'paused inside a step (homotopy)');
+    if ((m.mode || 0) !== 0) return F(morph.playing ? 'homotopy playing' : 'paused inside a step (homotopy)');
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
     // covers the north pole exactly, where the lifted mesh left a hole; panels.md 11, the stage-0 globe inverse)
     if (isIdentMap(m) && viewKind !== 'globe') return F('identity map');
@@ -752,7 +754,7 @@
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   const NOTE_GAP = 4;   // the room a note keeps from a message above which it stands
   const NOTE_ROOM_MIN = 160;   // the least room, in px, a note is laid out in beside the chips over its plane (narrower, it keeps its centred place)
-  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
+  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.viewstack and .vbtn in phone.css) + 4 px
   // where a message standing over the plane begins, in the pane's CSS px from its top (Infinity: none over it)
   function messageTop(pane) {
     const msg = document.querySelector('#toastHost .toast');
@@ -880,11 +882,12 @@
   const sumDrop = (pane) => { const r = sumRuns.get(pane); if (r && r.timer) clearTimeout(r.timer); sumRuns.delete(pane); };
   // the pane's note for it: '' when the sample found no point that did not converge or took more than the budget
   const sumNote = (pane) => { const r = sumRuns.get(pane); return r && (r.hit || r.spent) ? sumSay(r) : ''; };
-  // whether each screen pane's "Compiling…" note is drawn: its LED says so (updateLeds), where a screen reader hears it
-  const compileShown = { L: false, R: false };
-  function setCompileShown(role, on) {
-    if (compileShown[role] === on) return;
-    compileShown[role] = on;
+  // whether each screen pane's frames stand in for a compiling program: its LED says so (updateLeds) from the first such frame,
+  // where a screen reader hears it, while the "Compiling…" note on the canvas waits for 300 ms
+  const compileBusy = { L: false, R: false };
+  function setCompileBusy(role, on) {
+    if (compileBusy[role] === on) return;
+    compileBusy[role] = on;
     updateLeds();
   }
   const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
@@ -893,7 +896,9 @@
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     const hatched = hatchNotes.get(pane) || '';
     if (!quiet) hatchNotes.delete(pane);
-    if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
+    // (a Cauchy plot that cannot be built says what to do: the plane has no other picture to show)
+    const error = st && st.error && pane === paneL && lColor() && S.dc === 'cauchy' ? `${st.error} ${$t('Choose another colour style.')}` : st && st.error;
+    if (!quiet && error) { paneNote(pane, error); setLed(pane === paneL ? 'L' : 'R', 'err', error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
     const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || hatched) : '';
@@ -902,13 +907,25 @@
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
     // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
-    const rept = !!(GLR.reptPendingTake && GLR.reptPendingTake());
-    // (a note that comes or goes changes the LED's state and tip with it)
-    const noted = paneGl[role] && paneGl[role].note;
-    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
+    const rp = GLR.reptPendingTake ? GLR.reptPendingTake() : null, rept = !!rp;
+    const was = paneGl[role], reptProg = rp && rp.prog ? rp.prog : null;
+    // (reptT: when the pane's REPT cue started; cue: the cue's words, when they were drawn as the pane's corner note)
+    const reptT = rept ? (was && was.rept ? was.reptT : now) : null;
+    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, reptProg, reptT, cue: null, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
     invPendN = 0;
-    if ((noted || '') !== note) updateLeds();
+    // (the LEDs, the plots' aria-busy and the hairline follow a note that comes or goes, and a REPT draw's cue: updateLeds,
+    // when it starts, moves on a tile or ends)
+    if (((was && was.note) || '') !== note || rept !== !!(was && was.rept) || reptTip(reptProg) !== reptTip(was && was.reptProg)) updateLeds();
     if (quiet) return;
+    // (where the pane's LED is not laid out, a phone's head: the cue's words as the pane's corner note, CUE_DELAY_MS after
+    // it starts, so a sighted user sees the picture is still drawing; a frame is asked for then)
+    if (rept) {
+      const led = $(role === 'L' ? 'leftLed' : 'rightLed');
+      if (led && !led.offsetWidth) {
+        if (now - reptT >= CUE_DELAY_MS) { const text = reptTip(reptProg); cornerNote(pane, text); paneGl[role].cue = text; }
+        else if (reptT === now) setTimeout(() => requestRender(role), CUE_DELAY_MS + 20);
+      }
+    }
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
@@ -919,24 +936,29 @@
       const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
       if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
     }
-    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileShown(role, false); return; }
+    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileBusy(role, false); return; }
+    setCompileBusy(role, true);
     const t0 = compileT.get(pane);
     if (t0 === undefined) {
       compileT.set(pane, now);
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
-    } else if (now - t0 >= 300) { compileNote(pane); setCompileShown(role, true); }
+    } else if (now - t0 >= 300) {
+      // (not while the Play gate's message is up: it says the programs are not ready, and the note would lie under it)
+      if (svGateMessageUp()) compileBox = null; else compileNote(pane);
+    }
   }
   // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
   let compileBox = null;
-  function compileNote(pane) {
+  function compileNote(pane) { compileBox = cornerNote(pane, $t('Compiling…')); }
+  // a small quiet note of text in the pane's lower left corner: its box, in the pane's CSS px
+  function cornerNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const text = $t('Compiling…');
     const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, x0 = 8.5, y0 = Math.round(pane.h - bh - 8) + 0.5;
-    compileBox = { x: x0, y: y0, w: bw, h: bh };
+    const box = { x: x0, y: y0, w: bw, h: bh };
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
     // (the surface fill alone is the paper's own colour on paper in the light theme: the outline keeps the pill's shape there)
@@ -945,6 +967,7 @@
     ctx.fillStyle = TH.muted;
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
+    return box;
   }
   // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
   // them (the steps view's whole-plane region); staged: the shapes of the later planes too
@@ -1218,7 +1241,6 @@
   const PRIMES = ['', '′', '″', '‴'];
   const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
   let figMode = false; // set while a figure is drawn: image points read F(z₀) rather than z₀″
-  let figVec = false; // the figure draws the deformation's outline, paths and labels as vectors (the morph figure)
   // a formula as plain text for a tooltip outside English: Tour's reading of TeX, the screen's comma
   const texTitle = (tex) => {
     try {
@@ -1285,7 +1307,7 @@
     const st = shapeStage(s), num = sub(Number.isInteger(s.num) ? s.num : idx);
     const base = exLabel(s.label) || (bn ? Params.display(bn) : (st > 0 ? `w${sub(st)},` : 'z') + num);
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
-    if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
+    if (figMode && primes > 0 && morphOn()) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
     // (a figure's carried point reads as the image on the plane it is shown on: primes counts the maps from the point's own plane, so
     // that plane is stage + primes; F is the whole map from z)

@@ -69,6 +69,7 @@ const MAP = [
   ['src/app/19-shell.js', ui('desktop', 'phone', 'layout')],                                       // the header, its menus, the panels and drawers (#385)
   ['src/app/19-steps-fit.js', ui('views', 'desktop', 'phone', 'layout')],                           // the thread's and the head's fit, a part of the steps view
   ['src/app/19-steps-gate.js', ui('views', 'desktop', 'phone', 'layout')],                          // the Play gate, a part of the steps view
+  ['src/app/19-steps-poles.js', ui('views', 'desktop', 'phone', 'layout')],                         // the glide's pole tracks, a part of the steps view
   ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone', 'layout')],                         // the steps view (#366 prototype)
   ['src/app/19-steps-ahead.js', { core: true, areas: ['views'] }],                              // the steps view's render-ahead frames (#1339; its suite is in the exact shard)
   ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
@@ -109,7 +110,8 @@ const MAP = [
   ['vendor/**', full('the vendored typesetter and faces, in every page')],
   ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
   ['src/phone.*', ui('phone', 'layout')],                                     // the phone layout, its script and CSS
-  ['src/tour.js', ui('tour')],                                                // the guided tour
+  ['src/tour.js', ui('tour')],                                                // the guided tour (a stand-in for node: src/tour/'s parts)
+  ['src/tour/**', ui('tour')],                                                // tour.js in parts (#1552), the same
   ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/sound/**', ui('sound')],                                              // sound.js in parts

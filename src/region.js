@@ -289,7 +289,10 @@ const Region = (() => {
     return Object.assign(idx.map((i) => P[i]), { th: idx.map((i) => curve.th[i]), L: curve.L, c: curve.c });
   }
   let dhQueue = [], dhTimer = null;
+  // (a key already waiting or under way is left as it is, its progress and its timer with it: the same c asked again
+  // by a redraw or a line job at rest is no new c, and restarting would never let a slow trace land)
   function dhSchedule(job) {
+    if (dhQueue.some((q) => q.key === job.key)) return;
     dhQueue = dhQueue.filter((q) => q.kindKey !== job.kindKey);
     dhQueue.push(job);
     clearTimeout(dhTimer);
