@@ -206,7 +206,7 @@
   // fitB: one wider than the tile may be is left out), with full; and the spot for formula i (0 the first, 1 the second)
   // alone in it, or the morph (2) whose one frame holds both (svTile.spot, or null; svTile.shown = i)
   function svTileLay(plot, i, full) {
-    if (svTile.trace) svTile.trace.push({ what: 'lay', i, now: svTile.now });
+    if (svTile.trace) svTile.trace.push({ what: 'lay', i, now: svTile.now, t: performance.now() });
     const el = svTile.el, P = plot.getBoundingClientRect(), maxW = SV_TILE_W(P.width);
     el.style.visibility = 'hidden'; el.hidden = false;
     if (full) {
@@ -239,7 +239,7 @@
     if (key !== svTile.key) {
       svTile.key = key; full = true; svTile.morph = undefined;
       svTile.texA = svTileTex(bt.a); svTile.texB = svTileTex(bt.b);
-      if (svTile.trace) svTile.trace.push({ what: 'tex', now });
+      if (svTile.trace) svTile.trace.push({ what: 'tex', now, t: performance.now() });
       for (const [n, t] of [[svTile.a, svTile.texA], [svTile.b, svTile.texB]]) { if (t) TeX.set(n, t); else { n.textContent = ''; delete n.dataset.tex; } }
     }
     // (synced again a frame on while the glide moves, so the tile is still once the thread comes to rest)
