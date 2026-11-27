@@ -746,7 +746,8 @@
   // opened, pending: the last carried frame is still and its refinement is not all built, trace: with a reset, the
   // passes since, each {u: the glide's place, N: its grid's points a side, polar: a patch's}, grids: the last frame's
   // refined grids, {name: {cells: refined, maxL: the largest level along x or y, drop: the levels the budget took off every
-  // cell (rfPlan), want: the levels asked for, with their counts}}}. reset: a new trace
+  // cell (rfPlan), want: the levels asked for, with their counts}}, held: the GL bytes the carried grids' refinement
+  // holds (GLR.carryRfBytes)}. reset: a new trace
   window.__cmwLandRf = (reset = false) => {
     const rs = GLR.carryRfStats;
     if (reset) rs.trace = [];
@@ -756,7 +757,7 @@
       for (const v of lv) if (v) { cells++; maxL = Math.max(maxL, v & 7, v >> 3); }
       return [name, { cells, maxL, drop, want }];
     }));
-    return { passes: rs.passes, pending: !!rs.pending, trace: rs.trace ? rs.trace.slice() : null, grids };
+    return { passes: rs.passes, pending: !!rs.pending, trace: rs.trace ? rs.trace.slice() : null, grids, held: GLR.carryRfBytes() };
   };
   // TEST-HOOK
 

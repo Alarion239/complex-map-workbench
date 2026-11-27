@@ -372,9 +372,12 @@
   // cells' vertex records group by group, which landCarry draws (uRef 1) where the base draw leaves their cells
   // (uRefOn). Only a frame that has stood still CARRY_STILL_MS is refined (carryStill): the same carried state and
   // scale, and nothing moving, so a glide's frames, played or dragged, never run a pass, and a held, parked or arrived
-  // one is refined once, its redraws drawing what was built (rkey). Not an export's or a figure's frame (rf.full): those
-  // draw the base grids. carryRfStats: the levels passes made, and with trace on, the glide place and grid of each (the
-  // tests' __cmwLandRf)
+  // one is refined once, its redraws drawing what was built (rkey). A grid's refinement is held while its carried state
+  // stands (o.rfStill, the state without the scale): an orbit or a zoom draws it, and once the camera stands still it is
+  // built again at the new scale. It is freed in the first screen frame of another carried state, or of a Landscape with
+  // no carried grids (carryRfDrop: a plane at rest, All sheets), and when the Landscape leaves the pane (landRelease).
+  // Not an export's or a figure's frame (rf.full): those draw the base grids and free nothing. carryRfStats: the levels
+  // passes made, and with trace on, the glide place and grid of each (the tests' __cmwLandRf)
   // (longer than a pause in a scrub that goes on, so stopping and going neither refines nor frees on each pause: what
   // shows and the memory held change once, when the thread has stopped)
   const CARRY_STILL_MS = 350;
@@ -387,14 +390,17 @@
     if (rf.motion || now - carryStillT < CARRY_STILL_MS) { rfLater(); return false; }
     return true;
   }
-  // grid o (N points a side; polar: a patch, null the box's) of the carried frame st: with run, its refinement made or
-  // advanced, at most cap evaluations. o.rfCur: its refinement is built for this frame; o.rfOn: and has cells to draw;
-  // o.rfLv: their levels as drawn (rfPlan's, Lx + 8 Ly, 4 cells a texel, Mq x M). Returns the evaluations its vertices took
-  function carryRefine(st, o, N, mode, H, mu, aspect, polar, rf, run, cap) {
+  // grid o (N points a side; polar: a patch, null the box's) of the carried frame st, in the carried state held (its key
+  // without the scale): with run, its refinement made or advanced, at most cap evaluations. o.rfCur: its refinement is
+  // built for this frame's scale; o.rfOn: a refinement of this carried state has cells to draw (at an earlier scale while
+  // the camera moves or a new one is built); o.rfLv: their levels as drawn (rfPlan's, Lx + 8 Ly, 4 cells a texel, Mq x M).
+  // Returns the evaluations its vertices took
+  function carryRefine(st, o, N, mode, H, mu, aspect, polar, rf, run, cap, held) {
     // (the chain's own program, never an earlier version's, whose vertices would be another surface's; while it links,
     // in the background, the grid is drawn unrefined and looked at again)
     const c = st.carry, P = run ? program('landCarryTFr', c.map, true) : null;
-    o.rfOn = o.rfCur = false;
+    o.rfCur = false;
+    o.rfOn = !!(o.rf && o.rf.groups.length && held != null && o.rfStill === held);
     if (!P) { if (run) rfLater(); return 0; }
     const M = N - 1, Mq = (M + 3) >> 2, sb = c.src || st.box, b = st.box;
     const pk = polar ? [...polar, polar.dup ? polar.dup.join(',') : '', polar.seam ? [...polar.seam, polar.seam.end].join(',') : ''].join(',') : (c.polar || []).filter((p) => p.seam).map((p) => p.join(',')).join(';');
@@ -445,6 +451,27 @@
     }
     o.rf = r; o.rkey = key; o.rfLv = plan.lv; o.rfCur = true; o.rfOn = r.groups.length > 0;
     return r.evals;
+  }
+  // A screen frame of a Landscape with no carried grids to draw (a plane at rest, All sheets): the carried grids'
+  // refinement goes, as it would in another carried state's first frame
+  function carryRfDrop() {
+    carryRfStats.pending = false;
+    for (const o of [landC, ...landPP]) if (o && o.rfStill != null) { rfFree(o); o.rfStill = null; }
+  }
+  // the GL bytes the carried grids' refinement holds: the levels, the list, the vertex records, the levels pass's
+  // target and its read-back buffer (the tests' __cmwLandRf)
+  function carryRfBytes() {
+    let n = 0;
+    for (const o of [landC, ...landPP]) {
+      if (!o) continue;
+      const M = (o.N || 1) - 1, Mq = (M + 3) >> 2;
+      if (o.lvTex && o.lvDim) n += ((o.lvDim + 3) >> 2) * o.lvDim * 16;
+      if (o.lstTex) n += 1024 * (o.lstRows || 0) * 4;
+      if (o.rfTex) n += RF_W * (o.rfRows || 0) * 16;
+      if (o.lvTmp) n += Mq * M * 16;
+      if (o.rbBuf) n += o.rbBytes || 0;
+    }
+    return n;
   }
   // the carried All sheets' places, bound to unit 11 (uCP) for the sheets' draw and run every frame, as the places
   // change with the glide; the box's in landCP[0], a patch's in slot i + 1. sh ({sp: the sheets' plan, tileC: their
@@ -1483,22 +1510,24 @@
     // within RF_REST evaluations in all; on the screen only, not an export's, a figure's or a stage card's frame)
     if (st.carry && !hs && hd) {
       const c = st.carry, grids = [[hd, hd.N, null], ...farPatches.map((p) => [p.o, p.N, p.polar]), ...pp.map((p) => [p.o, p.N, p.polar])];
-      const stillKey = rf && !rf.full && !st.card && !dbg.noCarryRf ? JSON.stringify([mapKeyOf(c.map), c.s, c.T, c.hT, c.u, c.lim, c.src || null, box, c.polar || [], c.far || [], N, mode, H, mu, landHComp, rf.pxW]) : null;
+      // (the carried state held, without the scale, which an orbit or a zoom changes; the still wait's, with it)
+      const held = rf && !rf.full && !st.card && !dbg.noCarryRf ? JSON.stringify([cur.key, cur.hash, mapKeyOf(c.map), c.s, c.T, c.hT, c.u, c.lim, c.src || null, box, c.polar || [], c.far || [], N, mode, H, mu, landHComp]) : null;
+      const stillKey = held != null ? held + '|' + rf.pxW : null;
       const run = stillKey != null && carryStill(stillKey, rf);
       let cap = RF_REST;
       for (const [o, n, polar] of grids) {
-        // (a grid's refinement is held while its still state stands, an orbit of it included, and freed in the first
-        // screen frame of another: up to ~40 MB with twelve pole patches, sv.land_bytes; an export's frame keeps it)
-        if (stillKey != null && o.rfStill != null && o.rfStill !== stillKey) { rfFree(o); o.rfStill = null; }
-        cap -= carryRefine(st, o, n, mode, H, mu, aspect, polar, rf, run, cap);
-        if (o.rfCur) o.rfStill = stillKey;
+        // (a grid's refinement is held while its carried state stands and freed in the first screen frame of another:
+        // up to ~40 MB with twelve pole patches, sv.land_bytes; an export's frame keeps it)
+        if (held != null && o.rfStill != null && o.rfStill !== held) { rfFree(o); o.rfStill = null; }
+        cap -= carryRefine(st, o, n, mode, H, mu, aspect, polar, rf, run, cap, held);
+        if (o.rfCur) o.rfStill = held;
       }
       // (what the hook reads: each grid's levels as drawn, named as landKeptTris names them; pending: a still frame
       // whose refinement is not all built yet)
       carryRfStats.pending = stillKey != null && grids.some(([o]) => !o.rfCur);
       const named = [['box', hd], ...farPatches.map((p, k) => ['far' + k, p.o]), ...pp.map((p, k) => ['pole' + k, p.o])];
       info.carriedRf = Object.fromEntries(named.filter(([, o]) => o.rfOn).map(([name, o]) => [name, { M: o.N - 1, lv: o.rfLv, drop: o.rf.drop, want: o.rf.want }]));
-    }
+    } else if (!st.full && !st.card) carryRfDrop();
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets would hold both)
     if (!st.card) {

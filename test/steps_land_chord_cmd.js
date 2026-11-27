@@ -22,7 +22,7 @@
 // (iv') with the rule off (GLR._lw.noJump), A's box at those u keeps triangles off by more than 3 px: (iv) reads the rule;
 // (v) B at u = .5 and C keep the same triangles, grid by grid, with and without the rule: it leaves out nothing where the
 //     carry's map has no jump;
-// (vi) a still carried frame is refined (#2475): once its refinement has landed (__cmwLandRf, not pending), A parked on w₁
+// (vi) a still carried frame is refined: once its refinement has landed (__cmwLandRf, not pending), A parked on w₁
 //     and B held at u = .25, .5 and .75 (the hook reading the refined cells the frame drew) keep no triangle off by more
 //     than TOL px in a cell refined below the level cap (offL.ref), and their triangles off by more than TOL px in all are
 //     at most RF_SHARE of the same frame's drawn unrefined (GLR._lw.noCarryRf), which has some. What stays off is read,
@@ -35,7 +35,11 @@
 // (viii) a frame that moves is never refined: a glide of A played live (clock) from w₁ back to z makes no levels pass at a
 //     place between the two planes;
 // (ix) a pause shorter than the still wait (CARRY_STILL_MS, 350 ms) is not refined: B's thread placed at six places
-//     PAUSE_MS apart and then left makes no levels pass at the first five, and does at the last.
+//     PAUSE_MS apart and then left makes no levels pass at the first five, and does at the last;
+// (x) an orbit keeps the refinement: A parked on w₁ and refined, a left drag across the pane draws its refined grids in
+//     the middle of the drag;
+// (xi) a Landscape frame with no carried grids frees the carried refinement: A jumped from w₁ to plane z at once (go,
+//     now: a plane at rest) holds no bytes of it (__cmwLandRf().held, 0).
 // The controls (iii) and (iv') read the base grids' chords: their frames are drawn with the carried refinement off.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
@@ -62,6 +66,9 @@ const rfOf = (reset = false) => evJson(`JSON.stringify(window.__cmwLandRf ? __cm
 // (a still frame's refinement lands a frame or two after the still wait, 350 ms: its levels are read back fenced)
 const RF_WAIT = 30000;
 const RF_SHARE = 0.05;                 // (vi): the share of the unrefined frame's off triangles a refined frame may keep
+const ORBIT_PX = 48, ORBIT_STEPS = 8;  // (x): a left drag across the pane, in moves
+const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+const mouse = (type, x, y, o = {}) => send('Input.dispatchMouseEvent', Object.assign({ type, x, y, button: 'none', pointerType: 'mouse' }, o));
 const PAUSE_MS = 250, PAUSES = [0.3, 0.32, 0.34, 0.36, 0.38, 0.4];   // (ix): a scrub's pauses, shorter than the still wait
 const refined = () => settled({ max: RF_WAIT, until: '!!window.__cmwLandRf && !__cmwLandRf().pending && __cmwLandRf().passes > 0' });
 // the grids with triangles off by more than TOL px: {name: {off, offL, worst, at, atL}}; and the triangles off in all
@@ -142,6 +149,30 @@ const cA = await carried();
 ok('A, parked on w₁ coloured from z: a carried frame from plane z', cA.s === 0 && cA.u === 1, cA);
 info.A.parked = await rfRow('A, parked on w₁');
 info.A.parked.px = await pixelRow('A-parked');
+{
+  // (x) a left drag of ORBIT_PX across the pane, in ORBIT_STEPS moves, read before the button is let go
+  const [x0, y0, w, h] = await pane(), cx = x0 + w / 2, cy = y0 + h / 2, before = await rfOf();
+  await mouse('mouseMoved', cx, cy);
+  await mouse('mousePressed', cx, cy, { button: 'left', buttons: 1, clickCount: 1 });
+  for (let i = 1; i <= ORBIT_STEPS; i++) await mouse('mouseMoved', cx + (ORBIT_PX * i) / ORBIT_STEPS, cy, { button: 'left', buttons: 1 });
+  await frames();
+  const mid = await rfOf();
+  await mouse('mouseReleased', cx + ORBIT_PX, cy, { button: 'left', buttons: 0, clickCount: 1 });
+  await refined();
+  const after = await rfOf();
+  info.A.orbit = { before: before && before.grids, mid: mid && mid.grids, after: after && { passes: after.passes, grids: after.grids } };
+  ok('A, parked on w₁ (x): an orbit draws the refined grids in the middle of the drag', !!mid && Object.keys(mid.grids).length > 0 && Object.keys(mid.grids).length === Object.keys(before.grids).length, info.A.orbit);
+  // (xi) at once to plane z: a Landscape with no carried grids
+  const held0 = after ? after.held : null;
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: 60000, until: '__cmwSteps().i === 0 && !__cmwLandCarry()' });
+  const z = await rfOf();
+  info.A.jumped = { held0, held: z && z.held };
+  ok('A, jumped at once from w₁ to plane z (xi): the carried refinement holds no GL bytes', held0 > 0 && !!z && z.held === 0, info.A.jumped);
+  await ev(`__cmwSteps({ go: 1, now: true }); 1`);
+  await settled({ max: 90000, until: '__cmwSteps().ready.ready && __cmwSteps().i === 1' });
+  await refined();
+}
 // (viii) a glide played live from w₁ back to z, each frame advancing it 1/60 s however long it takes to draw
 await rfOf(true);
 await ev(`__cmwSteps({ clock: 1000 / 60, go: 0 }); 1`);
