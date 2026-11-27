@@ -79,13 +79,13 @@
   // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
   // one number) and a true minus sign
   const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
-  // why disc s has no tubes tilted: the card's words ("The pieces of its preimage are not counted: step 1 (exp) has infinitely
-  // many preimages"), or that a piece of the preimage reaches ∞; '' where they are drawn or straight down, where no tubes are drawn
+  // why disc s has no tubes tilted: "No tubes: " and the card's words ("The pieces of its preimage are not counted: step 1 (F) has
+  // infinitely many preimages"), or that a piece of the preimage reaches ∞; '' where they are drawn or straight down, where no tubes are drawn
   function tubesWhy(s, camera) {
     if (!s || stackTilt(camera) <= 0) return '';
     const r = readoutData(s);
     if (r.pc.counted && r.pc.pieces.some((P) => P.unbounded)) return $t('No tubes: the disc holds F(∞), so a piece of its preimage reaches ∞');
-    return r.pc.counted ? '' : readoutCounts(r.pc, r.stuck);
+    return r.pc.counted ? '' : $t('No tubes: {why}', { why: readoutCounts(r.pc, r.stuck) });
   }
   // whether the point z lies inside the closed polygon of points path (C[]): the ray to the right crosses it an odd number of times
   function tubeInside(path, z) {
@@ -96,21 +96,29 @@
     }
     return c;
   }
-  // The tubes that cover the disc more than once, by their critical points whose values lie in the disc (the connectors' critical
-  // strands, ln.crit): [{piece, crit, z, text}], the words "covers the disc twice: its critical point 0" (k times: "covers the disc
-  // 3 times: …"). A piece's critical point is the one inside its outer loop; where two such pieces nest, the smaller
+  // a closed polygon's area (the shoelace sum's half, unsigned)
+  const tubeArea = (path) => Math.abs(path.reduce((a, q, i) => { const r = path[(i + 1) % path.length]; return a + q.re * r.im - r.re * q.im; }, 0)) / 2;
+  // The tubes that cover the disc more than once, one label each, by the critical points whose values lie in the disc: [{piece,
+  // crit (the first one's strand), z, text}], the words "covers the disc twice around its critical point 0", "covers the disc 3 times
+  // around its critical points −1, 1". A critical point belongs to the piece Pieces.count gives a root: the piece of the smallest outer loop
+  // around it (loops[0]), unless it lies in a hole of that piece (loops[1..]), where it belongs to none that is drawn
   function tubeCovers(d, ln, s) {
-    const out = [];
+    const byPiece = new Map();
     ln.crit.forEach((lev, k) => {
       const z = lev[0], w = lev[LINK_N];
       if (!CX.isFin(w) || Math.hypot(w.re - s.c[0], w.im - s.c[1]) >= s.r) return;
-      let best = -1;
-      d.pieces.forEach((P, n) => { if (P.covers > 1 && P.loops.length && tubeInside(P.loops[0].z, z) && (best < 0 || P.covers < d.pieces[best].covers)) best = n; });
-      if (best < 0) return;
-      const zt = tubeNum(z), cv = d.pieces[best].covers;
-      out.push({ piece: best, crit: k, z, text: cv === 2 ? $t('covers the disc twice: its critical point {z}', { z: zt }) : $t('covers the disc {k} times: its critical point {z}', { k: cv, z: zt }) });
+      let best = -1, area = Infinity;
+      d.pieces.forEach((P, n) => { if (P.loops.length && tubeInside(P.loops[0].z, z) && tubeArea(P.loops[0].z) < area) { best = n; area = tubeArea(P.loops[0].z); } });
+      if (best < 0 || d.pieces[best].covers < 2 || d.pieces[best].loops.slice(1).some((L) => tubeInside(L.z, z))) return;
+      if (!byPiece.has(best)) byPiece.set(best, []);
+      byPiece.get(best).push({ k, z });
     });
-    return out;
+    return [...byPiece].map(([piece, pts]) => {
+      const cv = d.pieces[piece].covers, zt = pts.map((q) => tubeNum(q.z)).join(', ');
+      const text = pts.length > 1 ? $t('covers the disc {k} times around its critical points {z}', { k: cv, z: zt })
+        : cv === 2 ? $t('covers the disc twice around its critical point {z}', { z: zt }) : $t('covers the disc {k} times around its critical point {z}', { k: cv, z: zt });
+      return { piece, crit: pts[0].k, z: pts[0].z, text };
+    });
   }
   // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map from its part's lower level to its upper one,
   // named as the plane's title names it)
@@ -128,7 +136,8 @@
   // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate when
   // the plate is a plate height or more away (nearer, a leader would read as a dash after the words);
   // where there is none, the spot beside the dot over the fewest marks. Each label's box [x0, y0, x1, y1] (css px, the
-  // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it
+  // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it. A label with oneLine is never
+  // broken in two (the off-view count: "+1 off view" mid-phrase); one with dot false has no dot
   const TUBE_SPOTS = ['right', 'left', 'above right', 'above left', 'below right', 'below left'];
   const TUBE_CELL = 4, TUBE_STEP = 6;
   // A label that was clear at the last frame (covering no mark) keeps that place (an offset of its plate from its dot): where
@@ -157,7 +166,7 @@
     for (const L of labels) {
       const [x, y] = L.at, sp = [...L.text.matchAll(/ /g)].map((m) => m.index), mid = L.text.length / 2;
       const two = sp.length ? (() => { const i = sp.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a)); return [L.text.slice(0, i), L.text.slice(i + 1)]; })() : null;
-      const options = two ? [[L.text], two] : [[L.text]], size = (lines) => [width(lines) + 2 * P, lines.length * lh - 2 + 2 * P];
+      const options = two && !L.oneLine ? [[L.text], two] : [[L.text]], size = (lines) => [width(lines) + 2 * P, lines.length * lh - 2 + 2 * P];
       let best = null, near = null;
       const key = `${L.kind}|${L.text}`, kept = tubeKept.get(key), held = kept && options.find((lines) => lines.length === kept.lines);
       if (held) {
