@@ -125,11 +125,6 @@
   "ru": "Нарисуйте множество в плоскости $z$, пропустите его через цепочку функций и посмотрите на его образ: это займёт около двух минут. Всё, что вы нарисуете во время обучения, в конце сотрётся, а ваша собственная работа вернётся в точности такой, какой была.",
   "note": "UX90, UX77: the welcome's Details."
  },
- "key.cell": {
-  "en": "cell {x}",
-  "ru": "клетка %{x}",
-  "note": "UX20: the pattern key's chip in Y's pane head."
- },
  "key.height": {
   "en": "Height key",
   "ru": "Шкала высоты",
@@ -139,11 +134,6 @@
   "en": "Colour key",
   "ru": "Шкала цвета",
   "note": "X's chip in Phase."
- },
- "key.edge": {
-  "en": "edge of X's view",
-  "ru": "край вида X",
-  "note": "UX20: the legend row of the dashed outline (was «left view»). Fits 100 px at 11 px."
  },
  "note.ph.both.inset": {
   "en": "Shaded and drawn in X (the inset)",
