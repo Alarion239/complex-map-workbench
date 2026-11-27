@@ -1000,6 +1000,17 @@
     }
     host.toggleAttribute('data-clear-of-dialog', live);
   }
+  // A dialog that opens takes every message already up away at once, an Undo's included: its words were said before
+  // the dialog, and its Undo stays on the bar and ⌘Z. What is said while the dialog is open shows over it
+  // (syncToastLive). The removal says nothing (a message that leaves is not announced), and the dialog that opens takes
+  // the focus, wherever it was. Each message taken away is marked data-dropped, so that one which says a state rather
+  // than news (the Play gate's) can be raised again once no dialog is open
+  function dropToasts() {
+    const host = $('toastHost');
+    if (!host) return;
+    for (const t of host.children) t.setAttribute('data-dropped', '');
+    host.replaceChildren();
+  }
   function refreshToasts() { placeToasts(); syncToastLive(); }
   // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.
   const TOAST_OUT_MS = 150;

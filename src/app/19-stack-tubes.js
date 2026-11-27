@@ -42,8 +42,8 @@
     return out;
   }
   // The tubes of disc s over the plane shown, in the plane's coordinates, or null where its pieces are not counted:
-  // {pieces: [{ink: index into TH.c, loops: [{z: C[]}] (each loop's points)}],
-  //  narrows: [{z, d, s, p, a, b}]}, kept per plane, stage, chain, disc and All at once. A narrowing is where the straight
+  // {pieces: [{ink: index into TH.c, covers: how many times it covers the disc, loops: [{z: C[]}] (each loop's points)}],
+  //  narrows: [{z, d, s, p, a, b, piece}]}, kept per plane, stage, chain, disc and All at once. A narrowing is where the straight
   //  connectors from a preimage z₀ of the centre narrow to a point: on the part from level a to level b of the planes
   //  between (stackLevelStages; the floor and the glass alone when there are none), at z, z₀'s image on level a, where
   //  the step's map f from a to b has f′(z) = d a negative real number, at the height s, where it passes the plane point p
@@ -52,10 +52,11 @@
     if (tubeCache.has(key)) return tubeCache.get(key);
     const pc = readoutData(s).pc;
     let d = null;
-    if (pc.counted) {
+    // (a preimage that reaches ∞, the disc holding F(∞): its piece has no bounded tube, and drawing the others alone would show part of it: none)
+    if (pc.counted && !pc.pieces.some((P) => P.unbounded)) {
       const { L, G, m } = stackLevelMaps(k, T), f = L.slice(1).map((b, n) => rangeF(L[n], b));
       const dF = (g, z) => { const h = 1e-6 * (1 + CX.abs(z)); return CX.scale(CX.sub(g(CX.add(z, C(h, 0))), g(CX.sub(z, C(h, 0)))), 0.5 / h); };
-      const pieces = pc.pieces.map((P, i) => ({ ink: TUBE_INKS[i % TUBE_INKS.length], loops: P.loops.map((li) => {
+      const pieces = pc.pieces.map((P, i) => ({ ink: TUBE_INKS[i % TUBE_INKS.length], covers: P.covers, loops: P.loops.map((li) => {
         const z = tubeResample(pc.loops[li].path, TUBE_PTS);
         return { z };
       }) }));
@@ -66,7 +67,7 @@
           const z = G[n](r.z), dz = dF(f[n], z);
           if (!(dz.re < 0 && Math.abs(dz.im) <= NARROW_TOL * CX.abs(dz))) continue;
           const u = 1 / (1 - dz.re), w = G[n + 1](r.z);
-          narrows.push({ z, d: C(dz.re, 0), s: (n + u) / m, p: tubeMix(z, w, u), a: L[n], b: L[n + 1] });
+          narrows.push({ z, d: C(dz.re, 0), s: (n + u) / m, p: tubeMix(z, w, u), a: L[n], b: L[n + 1], piece: r.piece });
         }
       }
       d = { pieces, narrows };
@@ -78,6 +79,51 @@
   // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
   // one number) and a true minus sign
   const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
+  // why disc s has no tubes tilted: "No tubes: " and the card's words, in lower case after the colon ("No tubes: the pieces of its preimage
+  // are not counted: step 1 (F) has infinitely many preimages"), or that a piece of the preimage reaches ∞; '' where they are drawn or
+  // straight down, where no tubes are drawn
+  function tubesWhy(s, camera) {
+    if (!s || stackTilt(camera) <= 0) return '';
+    const r = readoutData(s);
+    if (r.pc.counted && r.pc.pieces.some((P) => P.unbounded)) return $t('No tubes: the disc holds F(∞), so a piece of its preimage reaches ∞');
+    if (r.pc.counted) return '';
+    const why = readoutCounts(r.pc, r.stuck);
+    return $t('No tubes: {why}', { why: why.charAt(0).toLocaleLowerCase(I18N.lang) + why.slice(1) });
+  }
+  // whether the point z lies inside the closed polygon of points path (C[]): the ray to the right crosses it an odd number of times
+  function tubeInside(path, z) {
+    let c = false;
+    for (let i = 0, j = path.length - 1; i < path.length; j = i++) {
+      const a = path[i], b = path[j];
+      if ((a.im > z.im) !== (b.im > z.im) && z.re < a.re + ((z.im - a.im) * (b.re - a.re)) / (b.im - a.im)) c = !c;
+    }
+    return c;
+  }
+  // a closed polygon's area (the shoelace sum's half, unsigned)
+  const tubeArea = (path) => Math.abs(path.reduce((a, q, i) => { const r = path[(i + 1) % path.length]; return a + q.re * r.im - r.re * q.im; }, 0)) / 2;
+  // The tubes that cover the disc more than once, one label each, by the critical points whose values lie in the disc: [{piece,
+  // crit (the first one's strand), z, text}], the words "covers the disc twice around its critical point 0", "covers the disc twice around its
+  // critical points −1, 1" (a piece with a hole), "covers the disc 3 times around its critical points −1, 1". A critical point belongs to the piece Pieces.count gives a root: the piece of the smallest outer loop
+  // around it (loops[0]), unless it lies in a hole of that piece (loops[1..]), where it belongs to none that is drawn
+  function tubeCovers(d, ln, s) {
+    const byPiece = new Map();
+    ln.crit.forEach((lev, k) => {
+      const z = lev[0], w = lev[LINK_N];
+      if (!CX.isFin(w) || Math.hypot(w.re - s.c[0], w.im - s.c[1]) >= s.r) return;
+      let best = -1, area = Infinity;
+      d.pieces.forEach((P, n) => { if (P.loops.length && tubeInside(P.loops[0].z, z) && tubeArea(P.loops[0].z) < area) { best = n; area = tubeArea(P.loops[0].z); } });
+      if (best < 0 || d.pieces[best].covers < 2 || d.pieces[best].loops.slice(1).some((L) => tubeInside(L.z, z))) return;
+      if (!byPiece.has(best)) byPiece.set(best, []);
+      byPiece.get(best).push({ k, z });
+    });
+    return [...byPiece].map(([piece, pts]) => {
+      const cv = d.pieces[piece].covers, zt = pts.map((q) => tubeNum(q.z)).join(', ');
+      const text = pts.length > 1
+        ? cv === 2 ? $t('covers the disc twice around its critical points {z}', { z: zt }) : $t('covers the disc {k} times around its critical points {z}', { k: cv, z: zt })
+        : cv === 2 ? $t('covers the disc twice around its critical point {z}', { z: zt }) : $t('covers the disc {k} times around its critical point {z}', { k: cv, z: zt });
+      return { piece, crit: pts[0].k, z: pts[0].z, text };
+    });
+  }
   // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map from its part's lower level to its upper one,
   // named as the plane's title names it)
   function tubeNarrowText(n) {
@@ -94,7 +140,8 @@
   // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate when
   // the plate is a plate height or more away (nearer, a leader would read as a dash after the words);
   // where there is none, the spot beside the dot over the fewest marks. Each label's box [x0, y0, x1, y1] (css px, the
-  // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it
+  // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it. A label with oneLine is never
+  // broken in two (the off-view count: "+1 off view" mid-phrase); one with dot false has no dot
   const TUBE_SPOTS = ['right', 'left', 'above right', 'above left', 'below right', 'below left'];
   const TUBE_CELL = 4, TUBE_STEP = 6;
   // A label that was clear at the last frame (covering no mark) keeps that place (an offset of its plate from its dot): where
@@ -123,7 +170,7 @@
     for (const L of labels) {
       const [x, y] = L.at, sp = [...L.text.matchAll(/ /g)].map((m) => m.index), mid = L.text.length / 2;
       const two = sp.length ? (() => { const i = sp.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a)); return [L.text.slice(0, i), L.text.slice(i + 1)]; })() : null;
-      const options = two ? [[L.text], two] : [[L.text]], size = (lines) => [width(lines) + 2 * P, lines.length * lh - 2 + 2 * P];
+      const options = two && !L.oneLine ? [[L.text], two] : [[L.text]], size = (lines) => [width(lines) + 2 * P, lines.length * lh - 2 + 2 * P];
       let best = null, near = null;
       const key = `${L.kind}|${L.text}`, kept = tubeKept.get(key), held = kept && options.find((lines) => lines.length === kept.lines);
       if (held) {
@@ -166,7 +213,7 @@
       if (L.leader) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(...L.leader); ctx.stroke(); }
       ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(L.box[0], L.box[1], L.box[2] - L.box[0], L.box[3] - L.box[1]);
       ctx.globalAlpha = fade; ctx.fillStyle = TH.ink;
-      ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill();
+      if (L.dot !== false) { ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill(); }
       L.lines.forEach((t, i) => ctx.fillText(t, L.box[0] + P, L.box[1] + P + TUBE_FONT / 2 + i * lh));
     }
     ctx.restore();
@@ -191,7 +238,8 @@
     const exits = tubeExits(pane, ln), num = (x) => I18N.num(x.toFixed(2));
     const labels = (ln.mode === 'curved'
       ? ln.tears.map((r) => ({ text: linkTearText(), kind: 'tear', piece: r.piece, z: [r.z.re, r.z.im], s: r.s, at: at(r.z, r.s) }))
-      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(n.p, n.s) })))
+      : d.narrows.filter((n) => d.pieces[n.piece].covers < 2).map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(n.p, n.s) })))
+      .concat(tubeCovers(d, ln, s).map((x) => ({ text: x.text, kind: 'covers', piece: x.piece, z: [x.z.re, x.z.im], s: 0.5, at: at(ln.crit[x.crit][Math.round(LINK_N / 2)], 0.5) })))
       .concat(exits.map((x) => ({ text: x.s1 < 1 ? $t('out of the window from here to height {s}', { s: num(x.s1) }) : $t('out of the window from here up'), kind: 'exit', piece: x.piece, s: x.s0, s1: x.s1, at: lift(x.at, x.at[2]) })))
       .concat(ln.crosses.filter((x, i) => x.kind === 'cross' || ln.crosses.findIndex((y) => y.kind === 'sooner') === i)
         .map((x) => ({ text: x.kind === 'cross' ? $t('the pieces cross here, not a join') : $t('the glide brings the pieces together from here, not a join'), kind: x.kind, pieces: x.pieces, z: [x.z.re, x.z.im], s: x.s, s1: x.s1, at: at(x.z, x.s) })));
