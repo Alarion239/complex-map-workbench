@@ -67,9 +67,10 @@
     return map;
   }
   // Inverse.planChain per stage range and chain signature (parameter values included: a scrub makes new plans). A plan
-  // whose options are not the chain's (a range that holds a repeat alone, Inverse.rangeOpts) carries its own inverse op
-  // list, p.inv (GLChain.buildInverse with the plan's options: a program beside the chain's, marked rest so that it is
-  // warmed as the chain's own, GLR.warmInverse), which its draws pass on
+  // whose options are not the chain's (Inverse.rangeOpts: a range that holds a repeat alone, or one beside a repeat when
+  // the chain's own program would hold more ops than a program takes) carries its own inverse op list, p.inv
+  // (GLChain.buildInverse with the plan's options: a program beside the chain's, marked rest so that it is warmed as the
+  // chain's own, GLR.warmInverse), which its draws pass on
   const invPlans = new Map();
   function invPlan(a, b) {
     const ck = `${a}|${b}|${chainSig[nSteps()]}`;
