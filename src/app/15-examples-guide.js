@@ -678,8 +678,11 @@
       const tdesc = byTouch && TOUCH_DESC[el.getAttribute('data-tool')];
       const desc = tdesc ? tdesc() : el.getAttribute('data-desc');
       if (desc) tip.append(h('span', { class: 'tip-desc' }, desc));
+      // (a tip that is open is placed by follow, in the next frame: the element may be laid out elsewhere for the moment, and a place now
+      // would be painted there)
+      const open = !tip.hidden;
       tip.hidden = false;
-      place(el);
+      if (!open) place(el);
       follow(el);
       // (an open tip follows its element's words: a control that changes its data-tip while it is shown, as Play does when
       // its glide waits and when the wait ends, shows the new words at once, and no tip when it has none)

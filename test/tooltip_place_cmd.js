@@ -28,9 +28,10 @@ const LOG = (act, frames = 24, grace = 0) => `new Promise((resolve) => {
     if (Math.abs((t.left + t.width / 2) - (l.left + l.width / 2)) > t.width / 2 + 40 || Math.min(Math.abs(t.bottom - l.top), Math.abs(t.top - l.bottom)) > 40) away.push({ when, tip: [t.left, t.top, t.width, t.height], led: [l.left, l.top, l.width, l.height], text: tip.textContent });
   };
   let n = 0;
-  const loop = () => { look('frame'); if (++n < ${frames}) requestAnimationFrame(loop); else resolve({ away, seen }); };
+  // (each frame is read after it has been painted: from a task queued in its animation frame callback, when the frame's rendering update is done)
+  const loop = () => requestAnimationFrame(() => setTimeout(() => { look('frame'); if (++n < ${frames}) loop(); else resolve({ away, seen }); }, 0));
   ${act}
-  requestAnimationFrame(loop);
+  loop();
 })`;
 for (const [lang, words] of Object.entries(LANGS)) {
   const ns = 'tipp' + lang + Date.now();
@@ -62,9 +63,11 @@ for (const [lang, words] of Object.entries(LANGS)) {
   // (the LED's words change while a layout puts it elsewhere for a moment, as the pane head laid out again around it does: the
   // observer that re-shows the open tip reads the LED where it is then, and the LED is back where it was, under the pointer, before
   // the next frame. No pointer event follows, so nothing but the tip itself can put it right)
-  const m = await ev(LOG(`led.style.marginRight = '260px'; led.setAttribute('data-tip', led.getAttribute('data-tip') + ' '); queueMicrotask(() => { led.style.marginRight = ''; });`, 30, 4));
+  // (the pane head's size changes, and its observer, which runs in the frame's rendering update after the animation frame callbacks and
+  // before the paint, does what a pane head's layout pass does: the LED's words change while it is elsewhere)
+  const m = await ev(LOG(`const head = led.closest('.pane-head'); const ro = new ResizeObserver(() => { ro.disconnect(); led.style.marginRight = '260px'; led.setAttribute('data-tip', led.getAttribute('data-tip') + ' '); queueMicrotask(() => { led.style.marginRight = ''; }); }); ro.observe(head); head.style.paddingLeft = '7px';`, 30));
   info['moved ' + lang] = m.seen;
-  ok(`${lang}: the open tip is re-shown while the LED is elsewhere for a moment: within 4 frames the tip is beside the LED again, or gone`, m.away.length === 0, m.away.slice(0, 2));
+  ok(`${lang}: the open tip is re-shown while the LED is elsewhere for a moment: in every painted frame the tip is beside the LED, or gone`, m.away.length === 0, m.away.slice(0, 2));
 }
 // (c) the real trigger: the Cauchy style picked while the LED is hovered, links landing late (test/lib/late_links.js). The pane head
 // lays out again around the LED as the style changes, and the LED's words change with it: the tip stays beside the LED in every
