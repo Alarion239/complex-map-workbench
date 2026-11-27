@@ -6,7 +6,8 @@
 //    by a narrowing (the piece's feature is the critical point, not a narrowing); control: z² with the disc about 1 (the
 //    critical value outside it) keeps its narrowing label and has no such label; a piece that covers the disc three times with two
 //    critical points (z³ − 3z, the disc about 0 of radius 3) has one label for both, "covers the disc 3 times around its critical points
-//    −1, 1";
+//    −1, 1"; a piece that covers it twice around two critical points (the Joukowski map, the disc about 0 of radius 2: an annulus)
+//    says "twice", as for one;
 //  - a preimage that reaches ∞ (1/z with the disc about 0.2, which holds F(∞) = 0): its piece has no bounded tube, so no tube is
 //    drawn (neither the cone of its hole nor a narrowing at 5), and the key says so, in en, ru and it;
 //  - a piece off the window (the Joukowski map, the disc about 0.6 + 0.5i, the view on the other piece): the Stack says "+1 off view"
@@ -30,6 +31,7 @@ const SCENES = {
   crit: { name: 'z² with 0 inside the disc', steps: [{ type: 'pown', params: { n: 2 }, on: true }], c: [0.2, 0], r: 0.5, view: [0, 0, 160] },
   cut: { name: 'exp with the disc on log\'s cut', steps: [{ type: 'exp', params: {}, on: true }], c: [-1, 0], r: 0.4, view: [0, 0, 90], noTubes: true },
   m2: { name: 'Joukowski, the disc about 0.6 + 0.5i, the whole plane in view', steps: [{ type: 'joukowski', params: {}, on: true }], c: [0.6, 0.5], r: 0.35, view: [0, 0, 110] },
+  annulus: { name: 'Joukowski with both critical values inside a large disc (a piece with a hole)', steps: [{ type: 'joukowski', params: {}, on: true }], c: [0, 0], r: 2, view: [0, 0, 20] },
   cubic: { name: 'z³ − 3z with both critical values inside the disc', steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 }, on: true }], c: [0, 0], r: 3, view: [0, 0, 50] },
   off: { name: 'Joukowski with a piece off the view', steps: [{ type: 'joukowski', params: {}, on: true }], c: [0.6, 0.5], r: 0.35, view: [0.4, 1.1, 260] },
   inf: { name: '1/z with F(∞) = 0 inside the disc', steps: [{ type: 'recip', params: {}, on: true }], c: [0.2, 0], r: 0.5, view: [0, 0, 60], noTubes: true },
@@ -88,6 +90,13 @@ for (const [lang, test] of [['en', /^covers the disc 3 times around its critical
   info['cubic ' + lang] = T && { pieces: T.pieces.length, strands: T.strands.length, labels: T.labels.map((L) => ({ kind: L.kind, text: clean(L.text) })) };
   ok(`${SCENES.cubic.name} (${lang}): one piece, two critical strands (controls)`, !!T && T.pieces.length === 1 && T.strands.length === 2, info['cubic ' + lang]);
   ok(`${SCENES.cubic.name} (${lang}): one label for both critical points, with the covering count`, cov.length === 1 && test.test(clean(cov[0].text)), info['cubic ' + lang]);
+}
+// a piece that covers the disc twice around two critical points (an annulus): "twice", as for one critical point
+for (const [lang, test] of [['en', /^covers the disc twice around its critical points (−1, 1|1, −1)$/], ['ru', /^накрывает круг дважды вокруг своих критических точек (−1, 1|1, −1)$/], ['it', /^copre il disco due volte attorno ai suoi punti critici (−1, 1|1, −1)$/]]) {
+  await open('annulus', { lang });
+  const d = await drawn(), T = d && d.tubes, cov = T ? T.labels.filter((L) => L.kind === 'covers') : [];
+  info['annulus ' + lang] = T && { pieces: T.pieces.length, strands: T.strands.length, labels: T.labels.map((L) => ({ kind: L.kind, text: clean(L.text) })) };
+  ok(`${SCENES.annulus.name} (${lang}): one label for both critical points, "twice"`, cov.length === 1 && test.test(clean(cov[0].text)), info['annulus ' + lang]);
 }
 await open('outside');
 {

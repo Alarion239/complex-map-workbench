@@ -102,8 +102,8 @@
   // a closed polygon's area (the shoelace sum's half, unsigned)
   const tubeArea = (path) => Math.abs(path.reduce((a, q, i) => { const r = path[(i + 1) % path.length]; return a + q.re * r.im - r.re * q.im; }, 0)) / 2;
   // The tubes that cover the disc more than once, one label each, by the critical points whose values lie in the disc: [{piece,
-  // crit (the first one's strand), z, text}], the words "covers the disc twice around its critical point 0", "covers the disc 3 times
-  // around its critical points −1, 1". A critical point belongs to the piece Pieces.count gives a root: the piece of the smallest outer loop
+  // crit (the first one's strand), z, text}], the words "covers the disc twice around its critical point 0", "covers the disc twice around its
+  // critical points −1, 1" (a piece with a hole), "covers the disc 3 times around its critical points −1, 1". A critical point belongs to the piece Pieces.count gives a root: the piece of the smallest outer loop
   // around it (loops[0]), unless it lies in a hole of that piece (loops[1..]), where it belongs to none that is drawn
   function tubeCovers(d, ln, s) {
     const byPiece = new Map();
@@ -118,7 +118,8 @@
     });
     return [...byPiece].map(([piece, pts]) => {
       const cv = d.pieces[piece].covers, zt = pts.map((q) => tubeNum(q.z)).join(', ');
-      const text = pts.length > 1 ? $t('covers the disc {k} times around its critical points {z}', { k: cv, z: zt })
+      const text = pts.length > 1
+        ? cv === 2 ? $t('covers the disc twice around its critical points {z}', { z: zt }) : $t('covers the disc {k} times around its critical points {z}', { k: cv, z: zt })
         : cv === 2 ? $t('covers the disc twice around its critical point {z}', { z: zt }) : $t('covers the disc {k} times around its critical point {z}', { k: cv, z: zt });
       return { piece, crit: pts[0].k, z: pts[0].z, text };
     });
