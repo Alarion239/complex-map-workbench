@@ -110,7 +110,8 @@ const MAP = [
   ['vendor/**', full('the vendored typesetter and faces, in every page')],
   ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
   ['src/phone.*', ui('phone', 'layout')],                                     // the phone layout, its script and CSS
-  ['src/tour.js', ui('tour')],                                                // the guided tour
+  ['src/tour.js', ui('tour')],                                                // the guided tour (a stand-in for node: src/tour/'s parts)
+  ['src/tour/**', ui('tour')],                                                // tour.js in parts (#1552), the same
   ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/sound/**', ui('sound')],                                              // sound.js in parts

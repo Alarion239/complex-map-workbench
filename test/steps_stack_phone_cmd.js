@@ -179,9 +179,9 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'ru'], [740, 360, 'it']
   await open(w, h, { lang });
   await cam(0, 35);
   await sleep(300); await frames();
-  const P = await pane(), tilt = await box('#plotL .ph-tilt'), ld = await box('#plotL .ld-key'), sph = await box('#plotL .ph-col > .ph-sph');
+  const P = await pane(), tilt = await box('#plotL .ph-tilt'), ld = await box('#plotL .ld-key'), sph = await box('#leftSph');
   const bar = await ev(`(() => { const c = document.querySelector('.ph-ctx.in:not(.under)'); return c ? c.getBoundingClientRect().top : Infinity; })()`);
-  const others = await ev(`[...document.querySelectorAll('#plotL > .chip, #plotL > .legend-chip, #plotL > .viewstack, #plotL > .ph-col, #plotL > .empty-chip, #plotL > .draft-chip, #toastHost .toast')].filter((e) => !e.hidden && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => { const r = e.getBoundingClientRect(); return { k: e.className, b: [r.left, r.top, r.right, r.bottom] }; })`);
+  const others = await ev(`[...document.querySelectorAll('#plotL > .chip, #plotL > .legend-chip, #plotL > .viewstack, #plotL > .empty-chip, #plotL > .draft-chip, #toastHost .toast')].filter((e) => !e.hidden && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => { const r = e.getBoundingClientRect(); return { k: e.className, b: [r.left, r.top, r.right, r.bottom] }; })`);
   // (the box: the pane's corners through the floor's and the glass's maps; the labels' plates as placed)
   const s = await ev('__cmwStack()'), d = s.drawn, corners = [];
   for (const m of [d.floor, d.glass]) for (const [u, v] of [[0, 0], [P[2] - P[0], 0], [0, P[3] - P[1]], [P[2] - P[0], P[3] - P[1]]]) corners.push([P[0] + m[0] * u + m[2] * v + m[4], P[1] + m[1] * u + m[3] * v + m[5]]);

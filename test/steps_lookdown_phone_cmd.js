@@ -43,7 +43,7 @@ const box = (sel) => ev(`(() => { const e = document.querySelector(${JSON.string
 const meets = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 const inside = (a, b) => a[0] >= b[0] - 0.5 && a[1] >= b[1] - 0.5 && a[2] <= b[2] + 0.5 && a[3] <= b[3] + 0.5;
 // the plane's other keys and chips shown over it, and the context bar
-const others = () => ev(`[...document.querySelectorAll('#plotL > .chip, #plotL > .legend-chip, #plotL > .viewstack, #plotL > .ph-col, #plotL > .empty-chip, #plotL > .draft-chip')].filter((e) => !e.hidden && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => { const r = e.getBoundingClientRect(); return { k: e.className, b: [r.left, r.top, r.right, r.bottom] }; })`);
+const others = () => ev(`[...document.querySelectorAll('#plotL > .chip, #plotL > .legend-chip, #plotL > .viewstack, #plotL > .empty-chip, #plotL > .draft-chip')].filter((e) => !e.hidden && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => { const r = e.getBoundingClientRect(); return { k: e.className, b: [r.left, r.top, r.right, r.bottom] }; })`);
 const ctxTop = () => ev(`(() => { const c = document.querySelector('.ph-ctx.in:not(.under)'); return c ? c.getBoundingClientRect().top : Infinity; })()`);
 
 // ---- the key at each size
@@ -81,7 +81,7 @@ await sleep(400); await frames();
   ok('568×320 ru, the sheet open: the folded key lies in the plane, clear of its other keys', !!key && inside(key, pane) && !oth.some((o) => meets(o.b, key)), info.side);
   if (btn) await tap([(btn[0] + btn[2]) / 2, (btn[1] + btn[3]) / 2]);
   await frames();
-  const k2 = await box('#plotL .ld-key'), col = (await others()).filter((o) => /ph-col|viewstack/.test(o.k));
+  const k2 = await box('#plotL .ld-key'), col = (await others()).filter((o) => /viewstack/.test(o.k));
   const n = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), kb = k.getBoundingClientRect(); return [...k.querySelectorAll('.ld-it')].filter((e) => { if (!e.getClientRects().length) return false; const g = document.createRange(); g.selectNodeContents(e); const b = g.getBoundingClientRect(); return b.left >= kb.left - 0.5 && b.right <= kb.right + 0.5; }).length; })()`);
   info.side.open = { k2, col, n };
   ok('568×320 ru, the sheet open: the open key\'s five marks lie inside it, clear of the button column', n === 5 && !!k2 && inside(k2, pane) && !col.some((o) => meets(o.b, k2)), info.side.open);

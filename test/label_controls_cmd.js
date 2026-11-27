@@ -95,7 +95,7 @@ const markerShare = () => ev(`(() => {
   for (const [dx, dy] of samples) {
     const e = document.elementFromPoint(x + dx, y + dy);
     n++;
-    if (!e || e === plot || e.tagName === 'CANVAS' || e.classList.contains('ph-col') || !plot.contains(e)) seen++; else by[(e.id || e.getAttribute('class') || e.tagName).split(' ')[0]] = 1;
+    if (!e || e === plot || e.tagName === 'CANVAS' || !plot.contains(e)) seen++; else by[(e.id || e.getAttribute('class') || e.tagName).split(' ')[0]] = 1;
   }
   return { at: [Math.round(x), Math.round(y)], share: seen / n, under: Object.keys(by), plane: [plane.left, plane.top, plane.right, plane.bottom].map(Math.round) };
 })()`);
