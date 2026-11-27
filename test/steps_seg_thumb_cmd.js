@@ -6,6 +6,8 @@
 // - control: the held load is up (the app's hooks) while its sheet still waits (print media), and its faces then land;
 // - every segmented control shown has its thumb on its checked segment (at least one control is read);
 // - the scope switch (Everywhere | Inside regions) is among them where the view's strip shows it (1440, 844 × 390).
+// Then, Settings opened and closed OPENS times (its Language row is a segmented control built anew each time):
+// - the segment buttons observed for their size do not grow with the openings (a closed popover's are let go).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names.
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -15,7 +17,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const SIZES = [[1440, 900, false, false], [1440, 900, true, false], [1280, 800, false, false], [1024, 768, false, false], [844, 390, false, true]];
 // (the scope switch is in the strip at these widths; at 1280 and 1024 it is behind the strip's ⋯)
 const SCOPE_SHOWN = new Set([1440, 844]);
-const HOLD_MS = 2500, POLL_MS = 200, POLL_MAX = 300, NAV_SETTLE_MS = 300;
+const HOLD_MS = 2500, POLL_MS = 200, POLL_MAX = 300;
 const LANGS = ['en', 'ru', 'it'];
 // (two frames after the view is idle: a thumb placed at the next frame is placed by then)
 const FRAMES = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))';
@@ -37,7 +39,7 @@ for (const [w, h, dark, mobile] of SIZES) {
     await view(w, h, dark, mobile);
     const ns = 'segth' + Date.now();
     await seed(ns, st);
-    await sleep(NAV_SETTLE_MS);
+    await settled({ max: 5000, only: true, until: `document.readyState === 'complete' && localStorage.getItem('complex-map-workbench-v1:${ns}') !== null` });
     await holdSheet(HOLD_MS);
     // raw-navigate: the held sheet holds the load event back, which go() would wait on (as font_late does)
     await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
@@ -54,4 +56,25 @@ for (const [w, h, dark, mobile] of SIZES) {
   }
 }
 await holdSheet(0);
+// ---- a popover's segmented control, built anew on each opening, is let go when the popover closes ----
+const OPENS = 6;
+await view(1440, 900, false, false);
+{
+  const ns = 'segpop' + Date.now();
+  await seed(ns, st);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+  await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving` });
+}
+const opened = () => `!!document.querySelector('#setLang button.on')`;
+const observedAt = [];
+for (let i = 0; i < OPENS; i++) {
+  await ev(`document.getElementById('settingsBtn').click(), 1`);
+  await settled({ max: 8000, only: true, until: opened() });
+  await ev(`document.getElementById('settingsBtn').click(), 1`);
+  await settled({ max: 8000, only: true, until: `!document.getElementById('setLang')` });
+  await ev(FRAMES);
+  observedAt.push(await ev('__cmwSegObserved()'));
+}
+info.observed = observedAt;
+ok(`Settings opened and closed ${OPENS} times: the segment buttons observed do not grow`, observedAt.length === OPENS && observedAt[OPENS - 1] === observedAt[1], observedAt);
 return { pass: fails.length === 0, fails, info };

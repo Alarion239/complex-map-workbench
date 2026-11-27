@@ -165,12 +165,18 @@
   let segRaf = 0;
   // (a control's segments change size after it is placed: when it first lays out in the page, when the faces land, when
   // the head lays its row out again. Each segment is observed, and a change places its control's thumb again in the
-  // next frame's pass; the observer reports after layout, so it forces none)
+  // next frame's pass; the observer reports after layout, so it forces none. A segment taken out of the page, a closed
+  // popover's, is reported once more, at 0 x 0, and is let go)
   const segRO = new ResizeObserver((es) => {
-    for (const e of es) { const el = e.target.parentElement, on = el && el.querySelector(':scope > .on'); if (on) segPending.set(el, on); }
+    for (const e of es) {
+      const b = e.target;
+      if (!b.isConnected) { segRO.unobserve(b); segSeen.delete(b); continue; }
+      const el = b.parentElement, on = el && el.querySelector(':scope > .on');
+      if (on) segPending.set(el, on);
+    }
     if (segPending.size && !segRaf) segRaf = requestAnimationFrame(placeSegs);
   });
-  const segSeen = new WeakSet();
+  const segSeen = new Set();
   function placeSegs() {
     segRaf = 0;
     const list = [...segPending];
