@@ -1126,14 +1126,14 @@
     if (!want) return;
     const st = legendState[side];
     // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
-    const compact = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    const compact = SV.on && kind === 'color' && keyDc() === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     const { dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H, W = kind === 'color' && svCarriedKey() ? LEG.Wk : LEG.W;
     if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.closest('.legend-chip').parentElement.style.setProperty('--lg-w', W + 'px'); st.drawn = ''; }
     st.h = Hh; st.w = W;
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, plasterKey(kind), keyDc(), compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1169,6 +1169,8 @@
   }
   // the modulus key's facts, shared by the pane and the export's still and video: the bands' light and dark ends, the
   // factor per band, and the caption words around the plane's variable
+  // the style the left key shows: the style asked for, but while the pane holds the picture it had (GLR.drawColorPlot's st.hold) that style's
+  const keyDc = () => (paneL.dcHeld && paneL.dcLast ? paneL.dcLast.style : S.dc);
   const keyStops = (dark) => (dark ? ['#3a4650', '#c9d2d8'] : ['#9aa4ab', '#eef2f4']);
   const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
   const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
@@ -1206,7 +1208,7 @@
       return;
     }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
-    const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    const cauchyOff = SV.on && kind === 'color' && keyDc() === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
     const noRing = cauchyOff || plasterKey(kind);
     st.ring = !noRing;
@@ -1226,19 +1228,33 @@
       ctx.textAlign = 'left'; ctx.fillText('1', cx + R + 3, cy);
       ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
       ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
-    }
+      // (the −i label's ink box, which the caption below stops short of; kept in st.labelBox: tests)
+      const m = ctx.measureText('−i');
+      st.labelBox = { x0: cx - m.actualBoundingBoxLeft, x1: cx + m.actualBoundingBoxRight, y0: cy + R + 7 - m.actualBoundingBoxAscent, y1: cy + R + 7 + m.actualBoundingBoxDescent };
+    } else st.labelBox = null;
     const n = S.sectors || 12;
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
-    // (the caption drawn is kept in st.caption: tests)
+    // (the caption drawn, its ink box and how much it was narrowed are kept in st.caption, st.capBox and st.capK: tests)
+    // (CAP_GAP: room kept between the caption and the ring's −i label, px. A caption is not to be narrowed below 0.75 of its
+    // width, the most it reads at (the Italian Cauchy caption takes 0.79): steps_key_caption fails below it, and a caption
+    // that needs more is to get a taller key that wraps it, which this key does not have)
+    const CAP_GAP = 4;
     const caption = (t) => {
       st.caption = t; say.unshift(t);
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
-      // (right-aligned under the wheel; the one-line key, with no wheel, is centred)
-      let x = cauchyOff ? LEG.W / 2 : LEG.W - 8;
-      for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width * (cauchyOff ? 0.5 : 1); }
+      let w = 0, asc = 0, desc = 0;
+      for (const [p, f, dy] of parts) { ctx.font = f; const m = ctx.measureText(p); w += m.width; asc = Math.max(asc, m.actualBoundingBoxAscent - dy); desc = Math.max(desc, m.actualBoundingBoxDescent + dy); }
+      // (right-aligned under the wheel, starting right of the ring's −i label: a run wider than that room is narrowed to it,
+      // as the strip's Russian words are narrowed to the chip's edge; the one-line key, with no wheel, is centred)
+      const right = LEG.W - 8, room = st.labelBox ? right - st.labelBox.x1 - CAP_GAP : Infinity;
+      const k = cauchyOff ? 1 : Math.min(1, room / w), x0 = cauchyOff ? (LEG.W - w) / 2 : right - w * k, y = cauchyOff ? Hh / 2 : 62;
+      st.capK = k; st.capBox = { x0, x1: x0 + w * k, y0: y - asc, y1: y + desc };
+      ctx.save(); ctx.translate(x0, 0); ctx.scale(k, 1);
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
-      for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
+      let x = 0;
+      for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, y + dy); x += ctx.measureText(p).width; }
+      ctx.restore();
     };
     // (the steps view on every plane but the colour plane's own: the wheel is the colour plane's, carried by the points)
     if (kind === 'color' && svCarriedKey()) {
@@ -1248,12 +1264,12 @@
       const KEY_TOP = 22;    // baseline of the first line
       const KEY_STEP = 13;   // line step (10.5 px text)
       const maxW = W - KEY_PAD - KEY_X,
-        words = (svT() === 0 && S.dc === 'cauchy' && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
+        words = (svT() === 0 && keyDc() === 'cauchy' && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
-      st.caption = words.join(' '); say.unshift(st.caption); st.lines = lines.length;
+      st.caption = words.join(' '); st.capBox = null; st.capK = null; say.unshift(st.caption); st.lines = lines.length;
       st.room = maxW; st.words = words; st.ui = ui;
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
@@ -1265,13 +1281,13 @@
     // the Phase style has no modulus bands: no strip
     const Fl = SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     // the landscape paints Tiles unless the style is Plain (P10)
-    const plainL = S.dc === 'phase';
+    const plainL = keyDc() === 'phase';
     if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
     // (the steps view's Cauchy style with no picture on this plane: the reason, no bands that are not drawn)
-    if (SV.on && kind === 'color' && S.dc === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(cauchyOff ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
+    if (SV.on && kind === 'color' && keyDc() === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(cauchyOff ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
     // modulus strip
-    st.strip = !(kind === 'color' && S.dc === 'classic');
-    if (kind === 'color' && S.dc === 'classic') {
+    st.strip = !(kind === 'color' && keyDc() === 'classic');
+    if (kind === 'color' && keyDc() === 'classic') {
       const g = ctx.createLinearGradient(sx, 0, sx + sw, 0);
       g.addColorStop(0, '#000000'); g.addColorStop(0.5, '#8a8f93'); g.addColorStop(1, '#ffffff');
       ctx.fillStyle = g; ctx.fillRect(sx, sy, sw, sh);
@@ -1296,7 +1312,7 @@
     }
     // (the steps view's Height key names what the height reads on the shown plane, svHeightName)
     const Fn = SV.on ? (kind === '3d' ? svHeightName('text') : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
-    if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
+    if (SV.on && kind === 'color' && keyDc() === 'cauchy') { caption($t('Cauchy integral')); return; }
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
   // ‹ › on a phone's chain row: the stage that rightStage() names glides from the plane after one step to the next or
