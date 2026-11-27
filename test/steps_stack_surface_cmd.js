@@ -173,7 +173,7 @@ await frames();
   ok('phone: the Stack opens in Look down', !!cl && near(cl.pitch, 90 * DEG) && near(cl.yaw, 0), cl);
   const headSeg = await ev(`(() => { const g = document.querySelector('.sv-camseg'); return g ? g.getClientRects().length : null; })()`);
   ok('phone: the head has no view control (no room: the Tilt key and the Display sheet carry it)', headSeg === 0, headSeg);
-  const keyAt = () => ev(`(() => { const b = document.querySelector('#plotL .ph-col .ph-tilt'); if (!b) return null; const r = b.getBoundingClientRect(); return { shown: !b.hidden && r.width > 0, box: [r.width, r.height], label: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-pressed'), at: [r.left + r.width / 2, r.top + r.height / 2] }; })()`);
+  const keyAt = () => ev(`(() => { const b = document.querySelector('#plotL .ph-tilt'); if (!b) return null; const r = b.getBoundingClientRect(); return { shown: !b.hidden && r.width > 0, box: [r.width, r.height], label: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-pressed'), at: [r.left + r.width / 2, r.top + r.height / 2] }; })()`);
   let k = await keyAt();
   info.phoneKey = { k };
   ok('phone: the key column has a Tilt key, 44 px, named Tilt, not pressed in Look down', !!k && k.shown && k.box[0] >= 44 && k.box[1] >= 44 && k.label === 'Tilt' && k.pressed === 'false', k);

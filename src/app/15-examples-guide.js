@@ -465,10 +465,7 @@
   // Plane | Sphere switches in their heads (Shift 1, 2: the left or only panel, X or the portrait; Shift 3, 4: Y),
   // and the Deformation toggle (M), which modifies the active view. The preimages and the integrals are parts of every
   // view.
-  const SURF = {
-    L: [['plane', $t('Plane'), '⇧1'], ['sphere', $t('Sphere'), '⇧2']],
-    R: [['plane', $t('Plane'), '⇧3'], ['sphere', $t('Sphere'), '⇧4']],
-  };
+  const SURF = [['plane', $t('Plane'), '⇧1'], ['sphere', $t('Sphere'), '⇧2']];
   const VIEW_ICONS = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], phase: MODE_ICONS.color, xy: MODE_ICONS.xy };
   // the globes' static programs, started in the background when a switch to Sphere is coming (the pointer or focus on
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
@@ -476,11 +473,11 @@
   // shows until a globe frame asks for them. Not at start-up: compiles there compete with the first scene's own
   // (example settle times)
   function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS, true); } catch (e) { /* the frame links them */ } }
-  // side 'L': X's surface in the active view (X → Y's left pane or the phase panel); 'R': Y's (X → Y)
+  // side 'L': X's surface in the active view (X → Y's plane or the phase panel); Y ('R') has none, as no view draws it
   function setView(side, surf) {
-    if (side === 'L' && lLand()) return;
-    const v = side === 'L' ? xView() : S.view.R;
-    if (!v || v.surf === surf || !(side === 'L' ? Views.SURF_L : Views.SURF_R).includes(surf)) return;
+    if (side !== 'L' || lLand()) return;
+    const v = xView();
+    if (!v || v.surf === surf || !Views.SURF_L.includes(surf)) return;
     if (surf === 'sphere') prestartGlobe();
     v.surf = surf;
     viewChanged(side);
@@ -553,9 +550,11 @@
     setStackKey(sph, $('leftSphWhy'), SV.on ? SV.surf === 'land' : lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
     setStackKey($('leftFit'), $('leftFitWhy'), false, '', $t('Fit view') + '  Z');
   }
-  // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
+  // Sphere on a plane's stack, the laptop's and the phone's: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own
+  // tabs do. A key the surface cannot use says why in a message and changes nothing
   function stackSphere(side) {
-    if ($(side === 'L' ? 'leftSph' : 'rightSph').getAttribute('aria-disabled') === 'true') return;
+    const key = $(side === 'L' ? 'leftSph' : 'rightSph');
+    if (key.getAttribute('aria-disabled') === 'true') { toast($(side === 'L' ? 'leftSphWhy' : 'rightSphWhy').textContent); return; }
     if (svSphereKey() != null) return;
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     const sb = tabs && tabs.querySelector('button[data-mode="sphere"]'), pb = tabs && tabs.querySelector('button[data-mode="plane"]');
@@ -566,7 +565,6 @@
     const main = S.view.main;
     document.documentElement.classList.toggle('view-land', main === 'land');
     setSeg($('leftTabs'), xView().surf);
-    setSeg($('rightTabs'), S.view.R.surf);
     // the landscape is its own surface: no Plane | Sphere in its head
     const lt = $('leftTabs'); if (lt && lt.parentElement.hidden !== lLand()) lt.parentElement.hidden = lLand();
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
@@ -953,7 +951,7 @@
       // (and left of any control of the plane that its box would reach, the colour key and the plane's keys: a message is never over a control. Its place is
       // the one it has once its eased move ends: its foot at bottom, its height as it stands)
       st.removeProperty('right');
-      const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
+      const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack .vbtn')].map(box) : [];
       const tb = keys.length ? mt.getBoundingClientRect() : null, foot = sb.top - barH - 8;
       const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
@@ -984,7 +982,7 @@
     if (inset) {
       // a phone with the inset: right of it, left of the large plane's keys at the bottom
       const big = document.querySelector('.panes > .pane:not(.ph-inset):not([hidden])');
-      const keys = big ? [...big.querySelectorAll('.viewstack, .ph-col')].map(box).filter((r) => r && r.width > 0 && r.bottom > inset.top) : [];
+      const keys = big ? [...big.querySelectorAll('.viewstack .vbtn')].map(box).filter((r) => r && r.width > 0 && r.bottom > inset.top) : [];
       lo = inset.right + 8;
       for (const r of keys) hi = Math.min(hi, r.left - 8);
       if (hi - lo < 200) {
