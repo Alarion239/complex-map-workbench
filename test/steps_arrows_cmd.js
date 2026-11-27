@@ -48,6 +48,7 @@ const HELP = [
   ['steps', 'en', /Alt \+ the arrows move a probe/, /Alt ← → ↑ ↓ move a probe/], ['steps', 'ru', /Alt\u00a0\+\u00a0стрелки перемещают указатель/, /Alt ← → ↑ ↓ перемещают указатель/],
   ['steps', 'it', /Alt \+ le frecce spostano una sonda/, /Alt ← → ↑ ↓ muovono una sonda/],
   ['classic', 'en', /: the arrows move a probe/, /Tab to the left plane: the arrows move a probe/], ['classic', 'ru', /На активной плоскости: стрелки перемещают указатель/, /Tab на левую плоскость; стрелки перемещают указатель/],
+  ['classic', 'it', /Con il focus su un piano: le frecce spostano una sonda/, /raggiungi con Tab il piano sinistro: le frecce muovono una sonda/],
 ];
 for (const [vw, lang, keyLine, guide] of HELP) {
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=${vw}`);

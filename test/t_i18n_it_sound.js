@@ -61,7 +61,7 @@ for (const k of ['Hear the function: notes', 'Hear the function: glide', 'Hear t
 }
 
 // 3. the tour's Sound chapter
-const tour = read('src/tour.js');
+const tour = require('./src_text').source('tour.js');
 const t0 = tour.indexOf("id: 'sound', title: 'Sound'"), t1 = tour.indexOf('\n    },\n    {', t0);
 ok('the tour chapter is found', t0 > 0 && t1 > t0, [t0, t1]);
 const ch = tour.slice(t0, t1);
