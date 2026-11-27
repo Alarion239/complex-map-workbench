@@ -380,6 +380,7 @@ const VIEWS = {
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
   'steps_cauchy_cmd.js': steps(),
+  'steps_key_caption_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
   'steps_cauchy_carry_cmd.js': steps(),
   'steps_plane_key_cmd.js': steps({ pin: true }),   // (its page, in test/lib/plane_key_kit.js, asks ?view=steps itself)

@@ -1226,19 +1226,33 @@
       ctx.textAlign = 'left'; ctx.fillText('1', cx + R + 3, cy);
       ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
       ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
-    }
+      // (the −i label's ink box, which the caption below stops short of; kept in st.labelBox: tests)
+      const m = ctx.measureText('−i');
+      st.labelBox = { x0: cx - m.actualBoundingBoxLeft, x1: cx + m.actualBoundingBoxRight, y0: cy + R + 7 - m.actualBoundingBoxAscent, y1: cy + R + 7 + m.actualBoundingBoxDescent };
+    } else st.labelBox = null;
     const n = S.sectors || 12;
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
-    // (the caption drawn is kept in st.caption: tests)
+    // (the caption drawn, its ink box and how much it was narrowed are kept in st.caption, st.capBox and st.capK: tests)
+    // (CAP_GAP: room kept between the caption and the ring's −i label, px. A caption is not to be narrowed below 0.75 of its
+    // width, the most it reads at (the Italian Cauchy caption takes 0.79): steps_key_caption fails below it, and a caption
+    // that needs more is to get a taller key that wraps it, which this key does not have)
+    const CAP_GAP = 4;
     const caption = (t) => {
       st.caption = t; say.unshift(t);
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
-      // (right-aligned under the wheel; the one-line key, with no wheel, is centred)
-      let x = cauchyOff ? LEG.W / 2 : LEG.W - 8;
-      for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width * (cauchyOff ? 0.5 : 1); }
+      let w = 0, asc = 0, desc = 0;
+      for (const [p, f, dy] of parts) { ctx.font = f; const m = ctx.measureText(p); w += m.width; asc = Math.max(asc, m.actualBoundingBoxAscent - dy); desc = Math.max(desc, m.actualBoundingBoxDescent + dy); }
+      // (right-aligned under the wheel, starting right of the ring's −i label: a run wider than that room is narrowed to it,
+      // as the strip's Russian words are narrowed to the chip's edge; the one-line key, with no wheel, is centred)
+      const right = LEG.W - 8, room = st.labelBox ? right - st.labelBox.x1 - CAP_GAP : Infinity;
+      const k = cauchyOff ? 1 : Math.min(1, room / w), x0 = cauchyOff ? (LEG.W - w) / 2 : right - w * k, y = cauchyOff ? Hh / 2 : 62;
+      st.capK = k; st.capBox = { x0, x1: x0 + w * k, y0: y - asc, y1: y + desc };
+      ctx.save(); ctx.translate(x0, 0); ctx.scale(k, 1);
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
-      for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
+      let x = 0;
+      for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, y + dy); x += ctx.measureText(p).width; }
+      ctx.restore();
     };
     // (the steps view on every plane but the colour plane's own: the wheel is the colour plane's, carried by the points)
     if (kind === 'color' && svCarriedKey()) {
@@ -1253,7 +1267,7 @@
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
-      st.caption = words.join(' '); say.unshift(st.caption); st.lines = lines.length;
+      st.caption = words.join(' '); st.capBox = null; st.capK = null; say.unshift(st.caption); st.lines = lines.length;
       st.room = maxW; st.words = words; st.ui = ui;
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
