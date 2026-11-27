@@ -38,7 +38,7 @@ const isHalo = (on, off, j) => {
 // the ink of shape/target id on pane side: pixels that change by more than 90 (sum of |dRGB|) when it is hidden (skipHalo: not the
 // target stroke's halo)
 // (the steps view has one plane: the source plane is step 0, the right pane's plane is the chain's last step)
-// (a later plane takes the shared view of the steps view, so the right pane's pinned view `rv` is set as that view first)
+// (a later plane takes the shared view of the steps view, so the scene's image-plane view `rv` is set as that view first)
 const inkOf = async (side, id, isTarget, nSteps, rv, skipHalo) => {
   if (await ev(`document.documentElement.classList.contains('sv')`)) {
     if (side === 'R') await ev(`__cmwSet('srcView', ${JSON.stringify(rv)}); 1`);
@@ -158,20 +158,21 @@ const runScene = async (sc) => {
   // (a scene on the image plane, side 'R', is read on the chain's last plane in the steps view; the classic view draws X
   // alone, so it has none to read there. standards-ok: the classic pass of an image-plane scene went with Y's pane, #994)
   if ((sc.side || 'R') === 'R' && !(await ev(`document.documentElement.classList.contains('sv')`))) return;
-  const st = Object.assign({}, BASE, { steps: sc.steps.map((s) => Object.assign({ on: true }, s)), srcView: sc.srcView || { cx: 0, cy: 0, s: 60 }, rightView: sc.rv, targets: [], shapes: [] });
+  const st = Object.assign({}, BASE, { steps: sc.steps.map((s) => Object.assign({ on: true }, s)), srcView: sc.srcView || { cx: 0, cy: 0, s: 60 }, targets: [], shapes: [] });
   // the shapes come from the formula box as a user adds them (exact shapes or a curve formula)
   await load('curves-' + sc.name, st);
   await settle();
   if (sc.target) await addFormula(sc.target); else await addFormula(sc.expr);
   await settle();
-  // a pinned right view (the app may have refit after the add)
+  // the shape or target the formula added
   const s = await shapes();
   const id = sc.target ? s.targets[0] && s.targets[0].id : s.shapes[0] && s.shapes[0].id;
   if (!ok(`${sc.name}: the formula added a shape`, !!id, s)) return;
-  // the right view as pinned: reload with the state the app saved (the add is in it) plus the pinned view
+  // reload with the state the app saved (the add is in it), its source view as seeded (the app may have refit after the
+  // add) and no clip window
   // (the app has saved the shape or target the formula box added)
   await settled({ until: `(() => { const st = JSON.parse(localStorage.getItem('complex-map-workbench-v1:curves-${sc.name}') || 'null'); return !!st && (st.shapes || []).length + (st.targets || []).length > 0; })()`, max: 5000 });
-  await ev(`(() => { const k = 'complex-map-workbench-v1:curves-${sc.name}'; const st = JSON.parse(localStorage.getItem(k)); st.rightView = ${JSON.stringify(sc.rv)}; st.srcView = ${JSON.stringify(sc.srcView || { cx: 0, cy: 0, s: 60 })}; st.clipWin = null; localStorage.setItem(k, JSON.stringify(st)); return 1; })()`);
+  await ev(`(() => { const k = 'complex-map-workbench-v1:curves-${sc.name}'; const st = JSON.parse(localStorage.getItem(k)); st.srcView = ${JSON.stringify(sc.srcView || { cx: 0, cy: 0, s: 60 })}; st.clipWin = null; localStorage.setItem(k, JSON.stringify(st)); return 1; })()`);
   await go(`http://localhost:${PORT}/test.html?ns=curves-${sc.name}`);
   await settled({ until: `typeof __cmwSet === 'function' && typeof __cmwShapes === 'function'`, max: 30000 });
   await settle();

@@ -582,6 +582,9 @@ void main() {
   // programs), and with uDup unset (w 0) that path is off
   const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
   const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
+  // (a carried grid edge crosses a jump of the carry's map when its step on the plane is over CARRY_JUMP_J times the larger
+  // of its neighbours' along the same line, and over CARRY_JUMP_PX css px at the fitted scale: LAND_CARRY_NRM_VS)
+  const CARRY_JUMP_J = 4, CARRY_JUMP_PX = 2;
   const SEAM_RINGS = 9;    // (the rings a patch's seam is measured on, svPatchSeam, and given to CARRY_ZIN as uSeam)
   const CARRY_ZIN = `
 uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[${SEAM_RINGS}]; uniform float uSeamEnd; uniform vec4 uDup; uniform int uGap;
@@ -656,16 +659,28 @@ void main() {
 }
 `;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
-  // across a tear (a step over uLim on the plane) or a height step over uStep, or is across the gap of an outer ring's
-  // copies' strip, between columns uGap and uGap + 1 (-1: none)), and the occlusion of the heights over the grid (LAND_AO,
-  // as at rest, its points reached by edges the normals keep: near)
+  // across a tear (a step over uLim on the plane), a height step over uStep or a jump, or is across the gap of an outer
+  // ring's copies' strip, between columns uGap and uGap + 1 (-1: none)), and the occlusion of the heights over the grid
+  // (LAND_AO, as at rest, its points reached by edges within uLim and uStep: near, aoLink). Its jumps: the
+  // grid edge a -> b, between the edges p -> a and b -> q along the same line, crosses a jump of the carry's map when its
+  // place step on the plane (stepOf: -1 where a point is not finite or off the grid, Tin) is over uJumpW and over uJump
+  // times the larger of theirs (of those that are finite; none: no jump), uJump 0: none. tfOut: (the normal, the
+  // occlusion (0 to 1) + 2 x the jump bits of the edges out of the point: 1 along +x, 2 along +y, 4 along the diagonal
+  // +(1, 1)), which LAND_CARRY_VS reads both of
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
-uniform float uPatch; uniform int uGap;
+uniform float uPatch; uniform int uGap; uniform float uJump; uniform float uJumpW;
 out vec4 tfOut;
 ` + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
+vec4 Tin(ivec2 p) { return all(greaterThanEqual(p, ivec2(0))) && all(lessThan(p, ivec2(uN))) ? texelFetch(uT1, p, 0) : vec4(0.0); }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
+float stepOf(vec4 a, vec4 b) { return a.w > 0.5 && b.w > 0.5 ? length(b.xy - a.xy) : -1.0; }
+bool jumpOf(vec4 p, vec4 a, vec4 b, vec4 q) {
+  if (uJump <= 0.0) return false;
+  float s = stepOf(a, b), m = max(stepOf(p, a), stepOf(b, q));
+  return m >= 0.0 && s > uJumpW && s > uJump * m;
+}
 bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
 bool aoLink(ivec2 a, vec4 ta, ivec2 b, vec4 tb) { return near(ta, tb); }
 ` + LAND_AO + glsl`
@@ -676,13 +691,18 @@ void main() {
   vec4 c = T(p);
   if (c.w < 0.5) { tfOut = vec4(0.0, 0.0, 1.0, 1.0); return; }
   vec4 L = T(p - ivec2(1, 0)), R = T(p + ivec2(1, 0)), D = T(p - ivec2(0, 1)), U = T(p + ivec2(0, 1));
-  bool oL = p.x > 0 && p.x != uGap + 1 && near(c, L), oR = p.x < uN - 1 && p.x != uGap && near(c, R), oD = p.y > 0 && near(c, D), oU = p.y < uN - 1 && near(c, U);
+  ivec2 ex = ivec2(1, 0), ey = ivec2(0, 1), ed = ivec2(1, 1);
+  bool jX = jumpOf(Tin(p - ex), c, Tin(p + ex), Tin(p + 2 * ex)), jY = jumpOf(Tin(p - ey), c, Tin(p + ey), Tin(p + 2 * ey));
+  bool jD = jumpOf(Tin(p - ed), c, Tin(p + ed), Tin(p + 2 * ed));
+  bool jL = jumpOf(Tin(p - 2 * ex), Tin(p - ex), c, Tin(p + ex)), jDn = jumpOf(Tin(p - 2 * ey), Tin(p - ey), c, Tin(p + ey));
+  bool oL = p.x > 0 && p.x != uGap + 1 && !jL && near(c, L), oR = p.x < uN - 1 && p.x != uGap && !jX && near(c, R), oD = p.y > 0 && !jDn && near(c, D), oU = p.y < uN - 1 && !jY && near(c, U);
   vec3 P0 = placeOf(c);
   vec3 dx = (oR ? placeOf(R) : P0) - (oL ? placeOf(L) : P0), dy = (oU ? placeOf(U) : P0) - (oD ? placeOf(D) : P0);
   vec3 n = cross(dx, dy);
   n = length(n) > 1e-20 ? normalize(n) : vec3(0.0, 0.0, 1.0);
   // (no occlusion on a patch (CARRY_Z): its 9 x 9 neighbours span radii many times apart, not a neighbourhood)
-  tfOut = vec4(n, uPatch > 0.5 ? 1.0 : landAO(p, c));
+  float ao = uPatch > 0.5 ? 1.0 : landAO(p, c);
+  tfOut = vec4(n, ao + 2.0 * float((jX ? 1 : 0) + (jY ? 2 : 0) + (jD ? 4 : 0)));
 }
 `;
   // its draw: two triangles a cell (gl_VertexID), each corner at its moved place in the block over uBox; a triangle
@@ -697,6 +717,11 @@ void main() {
   // the strip within the half-width of its centre across the period (CARRY_ZIN, svPatchZ), and leaves out the cells
   // between its gap column uGap (dupGap) and the next, which span that strip: copies of points the box and the inner ring
   // draw finer
+  // A triangle with an edge across a jump of the carry's map (LAND_CARRY_NRM_VS's bits in uT2's w: an edge whose step on
+  // the plane is over CARRY_JUMP_J times its neighbours' along the same line, and over CARRY_JUMP_PX at the fitted scale)
+  // is left out: the slit along a cut whose banks land within uLim, which a kept triangle would bridge. (jumpsAt: a grid
+  // point's bits; a triangle's edges are V0 -> V1, +x of V0 (hf 0) or its diagonal, V1 -> V2, +y of V1 (hf 0) or +x of V2,
+  // and V0 -> V2, the diagonal of V0 (hf 0) or its +y)
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
@@ -712,6 +737,7 @@ bool inDisc(vec2 a, vec2 b, vec2 c) {
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
+int jumpsAt(ivec2 v) { return int(floor(0.5 * texelFetch(uT2, v, 0).w)); }
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
@@ -725,11 +751,13 @@ void main() {
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
   if (uPolar.w > 0.0 && uDup.w > 0.0 && c.x == uGap) return;
+  int j0 = jumpsAt(V0), jE = hf == 0 ? (j0 & 5) | (jumpsAt(V1) & 2) : (j0 & 6) | (jumpsAt(V2) & 1);
+  if (jE != 0) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
   vZ = carryZ(vec2(V));
   vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
-  vNor = nv.xyz; vAO = nv.w;
+  vNor = nv.xyz; vAO = nv.w - 2.0 * floor(0.5 * nv.w);
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
 }

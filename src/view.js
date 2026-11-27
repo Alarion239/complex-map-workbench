@@ -190,21 +190,21 @@ const Axes = (() => {
 })();
 
 // Merged views (notes/ui-design/merged-views.md, revising U-b): the top bar's view switch picks one of three views.
-//   main 'xy'    X → Y, the split view: the left pane X (Plane | Sphere, the shapes), the right pane Y (Plane | Sphere,
-//                the images and the targets)
+//   main 'xy'    X → Y: X (Plane | Sphere, the shapes)
 //   main 'phase' one wide panel: the phase portrait of F over X, on the Plane or the Sphere (the phase sphere)
 //   main 'land'  one wide panel: the landscape of F over X, coloured by the phase (D.phase) or plaster
 // The state:
-//   view = { main, L: {surf, eq}, R: {surf, eq}, P: {surf, eq}, D: {phase} }   (surf: 'plane' | 'sphere'; eq: the
-//          Sphere's equatorial plane)
+//   view = { main, L: {surf, eq}, P: {surf, eq}, D: {phase} }   (surf: 'plane' | 'sphere'; eq: the Sphere's
+//          equatorial plane)
 // migrate(o) turns the fields of earlier builds into o.view: the single right-pane view (rightMode, sphereMode,
-// leftSphere, material, spherePlane) and U-b's pane views (view.L = {surf: plane | sphere | land, phase, eq}). No
-// dependencies: test/t_views.js runs it in node.
+// leftSphere, material, spherePlane) and U-b's pane views (view.L = {surf: plane | sphere | land, phase, eq}); an old
+// view's Y (view.R, a right pane's Y Sphere) is dropped, as no view draws Y. No dependencies: test/t_views.js runs it in
+// node.
 const Views = (() => {
   const MAIN = ['xy', 'phase', 'land'], SURF = ['plane', 'sphere'];
-  const SURF_L = SURF, SURF_R = SURF;
+  const SURF_L = SURF;
   const LEGACY = ['rightMode', 'sphereMode', 'leftSphere', 'material', 'spherePlane'];
-  const blank = () => ({ main: 'xy', L: { surf: 'plane', eq: false }, R: { surf: 'plane', eq: false }, P: { surf: 'plane', eq: false }, D: { phase: true } });
+  const blank = () => ({ main: 'xy', L: { surf: 'plane', eq: false }, P: { surf: 'plane', eq: false }, D: { phase: true } });
   const obj = (x) => (x && typeof x === 'object' ? x : {});
   const sv = (x) => ({ surf: SURF.includes(obj(x).surf) ? x.surf : 'plane', eq: !!obj(x).eq });
   // any object to a valid view. A U-b view (no main; X's surface could be the landscape, X's phase paint on) names its
@@ -213,14 +213,14 @@ const Views = (() => {
   function clean(v) {
     const b = blank();
     if (!v || typeof v !== 'object') return b;
-    const L = obj(v.L), R = obj(v.R);
+    const L = obj(v.L);
     if (!MAIN.includes(v.main)) {
-      const out = { main: 'xy', L: sv(L), R: sv(R), P: { surf: 'plane', eq: false }, D: { phase: true } };
+      const out = { main: 'xy', L: sv(L), P: { surf: 'plane', eq: false }, D: { phase: true } };
       if (L.surf === 'land') { out.main = 'land'; out.D.phase = !!L.phase; }
       else if (L.phase) { out.main = 'phase'; out.P = sv(L); }
       return out;
     }
-    return { main: v.main, L: sv(L), R: sv(R), P: sv(v.P), D: { phase: v.D && typeof v.D === 'object' && 'phase' in v.D ? !!v.D.phase : true } };
+    return { main: v.main, L: sv(L), P: sv(v.P), D: { phase: v.D && typeof v.D === 'object' && 'phase' in v.D ? !!v.D.phase : true } };
   }
   // X's picture in the active view, as U-b named it: {surf: 'plane' | 'sphere' | 'land', phase, eq}
   function xOf(v) {
@@ -236,7 +236,7 @@ const Views = (() => {
   // solo: the expanded pane follows the picture to the pane it moved to; the Phase and Landscape views are one wide
   // panel, so an expanded X plot needs no solo there.
   function fromLegacy(o, dc) {
-    const L6 = { surf: 'plane', phase: false, eq: false }, R6 = { surf: 'plane', eq: false };
+    const L6 = { surf: 'plane', phase: false, eq: false };
     const m = o.rightMode, eq = !!o.spherePlane;
     let landPlain = false, Lx = L6;
     if (o.leftSphere) L6.surf = 'sphere';
@@ -246,11 +246,9 @@ const Views = (() => {
       Lx = { surf: 'land', phase: mat !== 'plaster', eq: false };
       if (mat === 'phase' && dc !== 'phase') landPlain = true;
       else if (mat === 'tiles' && dc === 'phase') dc = 'enhanced';
-    } else if (m === 'sphere') {
-      if (o.sphereMode === 'color') Lx = { surf: 'sphere', phase: true, eq };
-      else { R6.surf = 'sphere'; R6.eq = eq; }
-    }
-    const view = clean({ L: Lx, R: R6 });
+    } else if (m === 'sphere' && o.sphereMode === 'color') Lx = { surf: 'sphere', phase: true, eq };
+    // (the old Y Sphere, rightMode 'sphere' with sphereMode 'image', opens in X → Y: no view draws Y)
+    const view = clean({ L: Lx });
     // X → Y keeps the old left plane's surface when the picture moved to a wide panel
     if (Lx !== L6) view.L = sv(L6);
     // 'image', and the Morph, Preimage and Integral views of older builds, open in X → Y
@@ -272,8 +270,7 @@ const Views = (() => {
     for (const k of LEGACY) delete o[k];
     return o;
   }
-  // the old fields that name the same picture (test hooks and the perf suite's old-layout units); a view with no old
-  // equivalent (e.g. X Sphere with Y Sphere) gets the nearest one
+  // the old fields that name the same picture (test hooks and the perf suite's old-layout units)
   function toLegacy(v, dc, landPlain) {
     v = clean(v);
     const x = xOf(v);
@@ -281,7 +278,6 @@ const Views = (() => {
     if (x.surf === 'land') { o.rightMode = '3d'; o.leftSphere = false; o.material = !x.phase ? 'plaster' : dc === 'phase' || landPlain ? 'phase' : 'tiles'; }
     else if (x.phase && x.surf === 'plane') { o.rightMode = 'color'; o.leftSphere = false; }
     else if (x.phase && x.surf === 'sphere') { o.rightMode = 'sphere'; o.sphereMode = 'color'; o.spherePlane = x.eq; o.leftSphere = false; }
-    else if (v.R.surf === 'sphere') { o.rightMode = 'sphere'; o.spherePlane = v.R.eq; }
     return o;
   }
   // which pane shows the picture an old rightMode named ('image' | 'color' | '3d' | 'sphere' (+ sphereMode))
@@ -326,7 +322,7 @@ const Views = (() => {
     const surf = x.surf === 'land' ? 'land' : x.surf === 'sphere' ? 'sphere' : 'plane';
     return { at: 0, T: -1, scope: v.main === 'xy' && (hasAreas || empty) ? 'in' : 'all', surf };
   }
-  return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, cleanSv, svOf, LEGACY, MAIN, SURF_L, SURF_R, SV_SPEEDS };
+  return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, cleanSv, svOf, LEGACY, MAIN, SURF_L, SV_SPEEDS };
 })();
 import { CX } from './cx.js';
 export { Axes, Pane, Views };
