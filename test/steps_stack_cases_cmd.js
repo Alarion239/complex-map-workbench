@@ -6,15 +6,18 @@
 //    by a narrowing (the piece's feature is the critical point, not a narrowing); control: z² with the disc about 1 (the
 //    critical value outside it) keeps its narrowing label and has no such label; a piece that covers the disc three times with two
 //    critical points (z³ − 3z, the disc about 0 of radius 3) has one label for both, "covers the disc 3 times around its critical points
-//    −1, 1" (rvC);
+//    −1, 1";
 //  - a preimage that reaches ∞ (1/z with the disc about 0.2, which holds F(∞) = 0): its piece has no bounded tube, so no tube is
-//    drawn (the first picture drew the cone of its hole and a narrowing at 5), and the key says so, in en, ru and it;
+//    drawn (neither the cone of its hole nor a narrowing at 5), and the key says so, in en, ru and it;
 //  - a piece off the window (the Joukowski map, the disc about 0.6 + 0.5i, the view on the other piece): the Stack says "+1 off view"
 //    as the flat plane does, as one upright label over the tilted floor, with the same count as the card and the plane's own
-//    (the flat draw's copy, turned with the floor, is not drawn), inside the pane and clear of the marks, in en, ru and it;
+//    (the flat draw's copy, turned with the floor, is not drawn), inside the pane and clear of the marks, in en, ru and it; the count
+//    stays on one line at 1280 × 800 (en, ru, it) and 360 × 640 (en, ru), not broken mid-phrase;
+//  - on a desk at pitch 20° (yaw 0, ±15 in en; ru and it at yaw 0), no label's plate, the exit label of the off-window tube included,
+//    meets the open key card (#2536);
 //  - steps whose pieces are not counted (exp, the disc about -1 on log's cut): no tubes, and the key says why: "No tubes: " and the
-//    card's own words, on a line of its own, in en, ru and it; straight down (no tubes by design) and where the pieces are counted the key
-//    has no such line.
+//    card's own words, lower case after the colon, on a line of its own, in en, ru and it; straight down (no tubes by design) and
+//    where the pieces are counted the key has no such line.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const LOAD_MS = 40000, READY_MS = 60000;
@@ -66,7 +69,7 @@ for (const [lang, want] of [['ru', 'накрывает круг дважды в�
   const d = await drawn(), L = d && d.tubes && d.tubes.labels.find((x) => x.kind === 'covers');
   ok(`${SCENES.crit.name}: the label in ${lang}`, !!L && clean(L.text) === want, L && L.text);
 }
-// the open key card on a desk: no label's plate meets it (the exit label of the off-window tube was drawn under it at pitch 20)
+// the open key card on a desk: no label's plate meets it, the exit label of the off-window tube at pitch 20 included
 for (const [lang, yaw] of [['en', 0], ['en', -15], ['en', 15], ['ru', 0], ['it', 0]]) {
   await open('off', { lang });
   await ev(`__cmwCam('L', { yaw: ${yaw * DEG}, pitch: ${20 * DEG} }); 1`);
@@ -99,7 +102,7 @@ for (const [lang, pre, test] of [['en', 'No tubes: ', /^The pieces of its preima
   const d = await drawn(), k = await keyWhy();
   info['cut ' + lang] = { tubes: !!(d && d.tubes), key: k };
   ok(`${SCENES.cut.name} (${lang}): no tubes are drawn (control)`, !!d && d.tubes === null, info['cut ' + lang]);
-  ok(`${SCENES.cut.name} (${lang}): the key says why: "No tubes: " and the card's own words`, !!k.why && k.why === pre + k.card && test.test(k.card), k);
+  ok(`${SCENES.cut.name} (${lang}): the key says why: "No tubes: " and the card's own words, lower case after the colon`, !!k.why && k.why === pre + k.card.charAt(0).toLowerCase() + k.card.slice(1) && test.test(k.card), k);
 }
 await open('crit');
 {
