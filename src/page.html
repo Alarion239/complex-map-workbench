@@ -1487,9 +1487,9 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-stage { position: relative; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-3); overflow: hidden; container: xf-stage / inline-size; }
 .xf-bar { position: absolute; top: 8px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 2; pointer-events: none; }
 .xf-bar > * { pointer-events: auto; }
-/* (the page label wraps rather than ending in an ellipsis: beside the buttons its longest text takes two lines at most, which end inside
-   .xf-scroll's 44 px top padding, above the page) */
-.xf-hint { font: var(--t-label); color: var(--muted); min-width: 0; }
+/* (the page label wraps rather than ending in an ellipsis: beside the buttons its longest text takes two lines at most, of 14 px, which
+   end 8 px inside .xf-scroll's 44 px top padding, above the page; its lines are balanced, so a second line is never one word alone) */
+.xf-hint { font: var(--t-label); line-height: 14px; color: var(--muted); min-width: 0; text-wrap: balance; }
 .xf-ico { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: var(--r-2); background: var(--surface); border: 1px solid var(--line); font: var(--t-label); color: var(--ink-2); white-space: nowrap; cursor: pointer; }
 .xf-ico:hover { border-color: var(--line-strong); color: var(--ink); }
 .xf-ico.on { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }

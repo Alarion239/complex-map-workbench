@@ -1,5 +1,5 @@
-// The export dialog's page label (#2539: "amsart, 10 pt text · Fit column", «amsart, testo a 10 pt · Adatta alla colonna»;
-// #2576: the longest, «Margini di 1 pollice · Letter, testo a 10 pt · Adatta alla colonna», «REVTeX во всю ширину, …») has room of
+// The export dialog's page label (the one it opens with: "amsart, 10 pt text · Fit column", «amsart, testo a 10 pt · Adatta alla colonna";
+// the longest: «Margini di 1 pollice · Letter, testo a 10 pt · Adatta alla colonna», «REVTeX во всю ширину, …») has room of
 // its own over the preview, at phone, tablet and desk widths, in English, Russian and Italian. Opened from the steps view (Ctrl+E),
 // each leg shows the label the dialog opens with (Article, amsart) and the longest label of each language (Homework's default,
 // REVTeX full width, an Overleaf article size), reads the label's box (.xf-hint), the grey and lens buttons' boxes
@@ -8,8 +8,8 @@
 // - the label's box meets neither button's box;
 // - the label's box ends above the page (so its last line never lands on the page's placeholder lines);
 // - the label is shown whole: its text is not cut by an ellipsis or a clamp (scrollWidth and scrollHeight within its box);
-// - in a preview 560 px wide or wider, where the bar lies over its top padding: the label takes at most two lines, and the bar ends inside that
-//   padding (a label that wraps uses the room above the page, it does not push the page down).
+// - in a preview 560 px wide or wider, where the bar lies over its top padding: the label takes at most two lines, the bar ends inside that
+//   padding (a label that wraps uses the room above the page, it does not push the page down), and the label ends 8 px above the page at least.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -20,6 +20,7 @@ const LANGS = ['en', 'ru', 'it'];
 const GAP = 0.5;   // px: two boxes meet when they overlap by more than this
 const BESIDE_MIN_STAGE = 560;   // px: in a preview this wide or wider the label sits beside the buttons, over the page's top margin
 const MAX_LINES_BESIDE = 2;
+const ROOM_ABOVE_PAGE = 8;   // px: beside the buttons, the label ends at least this far above the page
 // the labels each leg shows, [preset, columns (Article only), the size's place in the Size menu (0: the default)]: the first one
 // opened, then the longest of each language (Homework's default in it, REVTeX full width in ru, an Overleaf article size in en)
 const LABELS = [['article', '1', 0], ['homework', null, 0], ['article', '2', 2], ['homework', null, 2]];
@@ -77,6 +78,7 @@ for (const [W, H, touch] of LEGS) for (const lang of LANGS) {
     if (r.stage >= BESIDE_MIN_STAGE) {
       ok(`${ltag}: beside the buttons the label takes at most ${MAX_LINES_BESIDE} lines`, r.lines <= MAX_LINES_BESIDE, r.lines);
       ok(`${ltag}: the bar ends inside the preview's top padding (the page is not pushed down)`, r.barB <= r.padB + GAP, { barB: r.barB, padB: r.padB });
+      ok(`${ltag}: the label ends at least ${ROOM_ABOVE_PAGE} px above the page`, r.padB - r.hint.b >= ROOM_ABOVE_PAGE - GAP, { hintB: r.hint.b, padB: r.padB });
     }
   }
   await key('Escape');
