@@ -378,7 +378,7 @@ const Examples = (() => {
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
       [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, plane, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s chips')],
       // (the Alt+arrows row is the steps view's: the classic view's keyboard probe moves with the plain arrows)
-      [`${k('←')} ${k('→')}`, $t('Previous or next plane')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('With a shape selected: nudge it by one grid step, ⇧ for ten')], [exSv() ? `${k('Alt')} ${k('←')} ${k('→')} ${k('↑')} ${k('↓')}` : `${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('On a plane with the sound probe: move the probe')],   // (the steps view's plain arrows go to the thread, so the probe takes Alt with them; the classic view's plain arrows move it)
+      ...(exSv() ? [[`${k('←')} ${k('→')}`, $t('Previous or next plane')]] : []), [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('With a shape selected: nudge it by one grid step, ⇧ for ten')], [exSv() ? `${k('Alt')} ${k('←')} ${k('→')} ${k('↑')} ${k('↓')}` : `${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('On a plane with the sound probe: move the probe')],   // (the steps view's plain arrows go to the thread, so the probe takes Alt with them; the classic view's plain arrows move it)
        [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
       [k('Enter'), $t('Close a polygon')], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, $t('Undo, redo')],
     ];

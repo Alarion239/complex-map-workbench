@@ -18,6 +18,7 @@ for (const [lang, probe] of [['en', /move the probe/], ['ru', /указател�
   info[tag] = r && r.filter((x) => probe.test(x.text));
   const row = r && r.find((x) => probe.test(x.text) && x.keys.includes('←') && x.keys.includes('↓'));
   ok(`${tag}: the Keys list has a row for the probe's arrows`, !!row, r && r.map((x) => x.keys.join(' ') + ' | ' + x.text));
+  ok(`${tag}: the plane-stepping row (← →) is there in the steps view only`, !!(r && r.find((x) => x.keys.length === 2 && x.keys[0] === '←' && x.keys[1] === '→')) === (vw === 'steps'), r && r.filter((x) => x.keys.length === 2).map((x) => x.keys.join(' ')));
   if (row) ok(`${tag}: the row's keys are ${vw === 'steps' ? 'Alt with the arrows' : 'the plain arrows'}`, vw === 'steps' ? row.keys[0] === 'Alt' : !row.keys.includes('Alt'), row.keys);
 }
 return { pass: fails.length === 0, fails: fails.slice(0, 20), info };
