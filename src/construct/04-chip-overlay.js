@@ -59,7 +59,6 @@
   const howTo = (tool) => { const r = toolRows().find((x) => x[0] === tool); return r ? r[3] : ''; };
   // the plane whose draft chip a construction tool uses (updateDraftChips shows it)
   let hoverSide = 'L';
-  const CHIP_BAR_GAP = 4;   // room kept between the plane's chip and the context bar above which it stands, px
   const chipNarrow = { L: false, R: false }, chipBot = { L: 0, R: 0 }, chipH = { L: 0, R: 0 };
   function chipSide() {
     if (!A || !isCTool(A.tool())) return null;
@@ -189,11 +188,12 @@
         if (!el.classList.contains('cm-low')) chipBot[side] = el.offsetTop + el.offsetHeight;
         chipH[side] = el.offsetHeight;
       }
-      // (a landscape phone under the tall construction bar: a chip that would reach under the bar steps aside (cm-under, phone.css), as it
-      // does for a message; the bar's title says its sentence and the bar holds its ⌫ and ×. Measured against the bar's place once it is in:
-      // its offsetTop, which its slide's transform does not move)
+      // (a landscape phone under the tall construction bar: a chip that the bar would cut, one of its parts (its words, ?, × or token)
+      // reaching under the bar's top, steps aside (cm-under, phone.css), as it does for a message; the bar's title says its sentence and
+      // the bar holds its ⌫ and ×. Measured against the bar's place once it is in: its offsetTop, which its slide's transform does not move)
       const rc = document.documentElement.classList, bar = /** @type {HTMLElement | null} */ (document.querySelector('.ph-ctx.tall'));
-      el.classList.toggle('cm-under', rc.contains('ph-land') && rc.contains('ph-ctx-tall') && !!bar && el.getBoundingClientRect().bottom > bar.offsetTop - CHIP_BAR_GAP);
+      const barTop = rc.contains('ph-land') && rc.contains('ph-ctx-tall') && bar ? bar.offsetTop : Infinity;
+      el.classList.toggle('cm-under', [...box.children].some((c) => { const r = c.getBoundingClientRect(); return r.height > 0 && r.bottom > barTop; }));
     }
   }
 

@@ -18,7 +18,7 @@ const read = () => ev(`(() => {
   const bar = document.querySelector('.ph-ctx.in'), chip = document.querySelector('#plotL > .draft-chip.cm-on'), lg = document.getElementById('leftLegend');
   const vg = [...document.querySelectorAll('#plotL .viewstack > .vgroup')].map(R).find(Boolean) || null;
   return { plotTop: document.getElementById('plotL').getBoundingClientRect().top, toast: !!(document.getElementById('toastHost') || {}).firstElementChild, tall: document.documentElement.classList.contains('ph-ctx-tall'), barTop: bar ? bar.offsetTop : null, barText: bar ? bar.textContent : '',
-    chip: R(chip), chipShown: !!chip && getComputedStyle(chip).visibility === 'visible', keys: document.getElementById('plotL').dataset.keys || '',
+    chip: R(chip), partsB: chip ? Math.max(...[...chip.querySelectorAll('.cm-chip > *')].map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0).map((r) => r.bottom)) : null, chipShown: !!chip && getComputedStyle(chip).visibility === 'visible', keys: document.getElementById('plotL').dataset.keys || '',
     card: lg && !lg.classList.contains('collapsed') ? R(lg) : null, fit: vg, sph: R(document.querySelector('#plotL > .ph-col > .ph-sph')), dsp: R(document.querySelector('#plotL > .ph-col > .ph-dsp')) };
 })()`);
 for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[568, 320], [600, 320], [640, 360], [740, 360], [800, 390]]) {
@@ -38,9 +38,9 @@ for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (co
   const m = info[tag] = await read();
   ok(`${tag}: the example's message has gone (control)`, !m.toast, m.toast);
   ok(`${tag}: the tall bar is open and says the tool's sentence (control)`, m.tall && m.barText.includes(SAYS[lang]), { tall: m.tall, barText: m.barText });
-  ok(`${tag}: no part of the shown construction chip lies under the bar`, !m.chipShown || (!!m.chip && m.chip.b <= m.barTop + SLACK), { chip: m.chip, shown: m.chipShown, barTop: m.barTop });
+  ok(`${tag}: no part of the shown construction chip (its words, ?, ×) lies under the bar`, !m.chipShown || m.partsB <= m.barTop + SLACK, { chip: m.chip, partsB: m.partsB, shown: m.chipShown, barTop: m.barTop });
   if (short) ok(`${tag}: the chip, which the plane cannot hold above the bar, steps aside`, !m.chipShown, { chip: m.chip, barTop: m.barTop });
-  else ok(`${tag}: the chip stands whole above the bar (control)`, m.chipShown && !!m.chip && m.chip.b <= m.barTop + SLACK, { chip: m.chip, barTop: m.barTop });
+  else ok(`${tag}: the chip stands whole above the bar (control)`, m.chipShown && m.partsB <= m.barTop + SLACK, { chip: m.chip, partsB: m.partsB, barTop: m.barTop });
   // (the colour key unfolded over the keys)
   await ev(`document.getElementById('leftLegend').click(); 1`);
   await settled({ max: 10000, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
