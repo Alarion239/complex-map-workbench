@@ -78,11 +78,6 @@
   "ru": "нет",
   "note": "app.js: the guarantees matrix, an unlit cell's screen-reader label."
  },
- "lo.gauge": {
-  "en": "gauge",
-  "ru": "индикатор",
-  "note": "app.js right readout: the derivative gauge is drawn scaled by ×k (GLOSSARY: derivative gauge = индикатор производной)."
- },
  "lo.deg": {
   "en": "deg {n}",
   "ru": "степень {n}",
