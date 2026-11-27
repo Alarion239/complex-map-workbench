@@ -568,6 +568,10 @@
     const w = pk.F(C(x, y));
     return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // The chord error of the last carried Landscape frame on the screen, on the CPU, per grid the draw keeps triangles of
   // (landKeptTris, with the draw's height step, c.step): each kept triangle whose centroid's image lies in the block is sampled
   // at its centroid and its three edges' midpoints, at the same fractional grid place (i, j); there the chord (its
@@ -661,22 +665,6 @@
     for (const r of Object.values(out)) r.worst = +r.worst.toFixed(1);
     return out;
   };
-  // The still carried frame's refinement (GLR.carryRfStats, carryRefine): {passes: the levels passes made since the page
-  // opened, pending: the last carried frame is still and its refinement is not all built, trace: with a reset, the
-  // passes since, each {u: the glide's place, N: its grid's points a side, polar: a patch's}, grids: the last frame's
-  // refined grids, {name: {cells: refined, maxL: the largest level along x or y, drop: the levels the budget took off every
-  // cell (rfPlan), want: the levels asked for, with their counts}}}. reset: a new trace
-  window.__cmwLandRf = (reset = false) => {
-    const S = GLR.carryRfStats;
-    if (reset) S.trace = [];
-    const g = (render3D.carried && render3D.carried.rf) || {};
-    const grids = Object.fromEntries(Object.entries(g).map(([name, { lv, drop, want }]) => {
-      let cells = 0, maxL = 0;
-      for (const v of lv) if (v) { cells++; maxL = Math.max(maxL, v & 7, v >> 3); }
-      return [name, { cells, maxL, drop, want }];
-    }));
-    return { passes: S.passes, pending: !!S.pending, trace: S.trace ? S.trace.slice() : null, grids };
-  };
   // The jump rule of the last carried Landscape frame's grids (landJumpBits, LAND_CARRY_NRM_VS) against the carry's map, on the
   // CPU. An edge's ratio is its step on the plane over the larger of its neighbours' along the same line. The box's edges
   // within a seamed patch's disc, which that patch draws, are not read. An edge over the
@@ -750,6 +738,26 @@
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutMarks = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutMarksL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (the handles a frame between two planes draws, which take no input; test/steps_glide_cut_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (test/ux165_chain_cmd.js)
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // The still carried frame's refinement (GLR.carryRfStats, carryRefine): {passes: the levels passes made since the page
+  // opened, pending: the last carried frame is still and its refinement is not all built, trace: with a reset, the
+  // passes since, each {u: the glide's place, N: its grid's points a side, polar: a patch's}, grids: the last frame's
+  // refined grids, {name: {cells: refined, maxL: the largest level along x or y, drop: the levels the budget took off every
+  // cell (rfPlan), want: the levels asked for, with their counts}}}. reset: a new trace
+  window.__cmwLandRf = (reset = false) => {
+    const rs = GLR.carryRfStats;
+    if (reset) rs.trace = [];
+    const g = (render3D.carried && render3D.carried.rf) || {};
+    const grids = Object.fromEntries(Object.entries(g).map(([name, { lv, drop, want }]) => {
+      let cells = 0, maxL = 0;
+      for (const v of lv) if (v) { cells++; maxL = Math.max(maxL, v & 7, v >> 3); }
+      return [name, { cells, maxL, drop, want }];
+    }));
+    return { passes: rs.passes, pending: !!rs.pending, trace: rs.trace ? rs.trace.slice() : null, grids };
+  };
   // TEST-HOOK
 
   // TEST-HOOK (dropped from the published page by build.py)

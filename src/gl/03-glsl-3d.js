@@ -608,8 +608,9 @@ vec2 carryZ(vec2 ij) { return carryZIn(uSrc, ij); }
   // LAND_CARRY_NRM_VS: jumpsAt). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in one of the uDiscN
   // discs uDisc (x, y, r: a seamed patch's, svPatchSeam), which that patch draws; a patch with uDup (n.x, n.y,
   // half-width, 1: the outer far ring of a periodic carry, svLandFarDup) one whose corners all lie within the half-width
-  // of its centre across the period. t0, t1, t2: its corners' texels
-  const CARRY_KEEP = `
+  // of its centre across the period. t0, t1, t2: its corners' texels. carryWorld: a place on the plane and a height, in
+  // the block's world units, as the draw places them
+  const CARRY_KEEP = glsl`
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform vec4 uBox; uniform vec2 uAspect; uniform float uLim; uniform float uStep;
 uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup;
@@ -634,7 +635,6 @@ bool keptTri(ivec2 c, int hf, out vec4 t0, out vec4 t1, out vec4 t2) {
   int j0 = jumpsAt(V0), jE = hf == 0 ? (j0 & 5) | (jumpsAt(V1) & 2) : (j0 & 6) | (jumpsAt(V2) & 1);
   return jE == 0;
 }
-// (a place on the plane and a height, in the block's world units, as the draw places them)
 vec3 carryWorld(vec2 q, float h) { return vec3(((q - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, h); }
 `;
   // A carried grid's refinement, for a still frame (carryRefine in 06-draws-3d.js), in the program of its places
@@ -649,7 +649,11 @@ vec3 carryWorld(vec2 q, float h) { return vec3(((q - uBox.xy) / uBox.zw - 0.5) *
   // vertex records of one group (levels uL, list entries from uGE, uTot vertices, (2^Lx + 1)(2^Ly + 1) an entry, snapV):
   // two texels a vertex, (place x, y, height, 1 + its x in 16ths of a cell, 0 when not finite) and (its normal, its y in
   // 16ths); the normal from central differences at its spacing (one-sided where a neighbour is not finite), or a base
-  // corner's next to a base cell (snapV's -1), from uT2, so the refined cells meet the base ones with the same shading
+  // corner's next to a base cell (snapV's -1), from uT2, so the refined cells meet the base ones with the same shading.
+  // A cell with either direction at the cap (4) takes the cap in both, as far as its sub-cells' size allows: it holds
+  // curvature 16 sub-cells do not resolve, about a zero or a pole of F under log |F|, where the lattice's points miss its
+  // peak along the other direction too. The chain is called from one site, in a loop whose trip count is not a constant
+  // (a constant one is unrolled)
   const CARRY_RF = glsl`
 uniform int uPass; uniform ivec2 uL; uniform int uGE; uniform int uTot;
 float carryLevels(vec3 lat[25]) {
@@ -663,9 +667,6 @@ float carryLevels(vec3 lat[25]) {
   float fx = max(length(lat[4] - lat[0]), length(lat[24] - lat[20])) * uPxW, fy = max(length(lat[20] - lat[0]), length(lat[24] - lat[4])) * uPxW;
   int Lx = fx > uMinPx ? int(ceil(log2(fx / uMinPx))) : 0, Ly = fy > uMinPx ? int(ceil(log2(fy / uMinPx))) : 0;
   int ax = clamp(min(levelD(dx), Lx), 0, 4), ay = clamp(min(levelD(dy), Ly), 0, 4);
-  // (a direction at the cap: the cell holds curvature 16 sub-cells do not resolve, about a zero or a pole of F under
-  // log |F|, where the lattice's points miss its peak along the other direction too, so both take the cap, as far as
-  // the sub-cells' size allows)
   if (max(ax, ay) == 4) { ax = clamp(Lx, ax, 4); ay = clamp(Ly, ay, 4); }
   return float(ax + 8 * ay);
 }
@@ -688,12 +689,10 @@ void carryRefine() {
     ivec2 nn = ivec2(1 << uL.x, 1 << uL.y);
     int per = (nn.x + 1) * (nn.y + 1), en = v / per, l = v - en * per;
     sv = snapV(lstCell(uGE + en), uL, ivec2(l % (nn.x + 1), l / (nn.x + 1)));
-    // (a base corner next to a base cell: its normal is the base pass's)
     if (part == 1 && (sv.z < 0 || sv.w < 0)) { tfOut = vec4(texelFetch(uT2, sv.xy / 16, 0).xyz, float(sv.y)); return; }
     e = vec2(1.0 / float(1 << max(sv.z, 0)), 1.0 / float(1 << max(sv.w, 0)));
     n = part == 0 ? 1 : 5;
   }
-  // one call site of the chain, in a loop whose trip count is not a constant (a constant one is unrolled)
   vec3 P[5]; bool okP[5];
   vec2 w0 = vec2(0.0);
   float h0 = 0.0;
@@ -850,7 +849,12 @@ void main() {
   // the plane is over CARRY_JUMP_J times its neighbours' along the same line, and over CARRY_JUMP_PX at the fitted scale)
   // is left out: the slit along a cut whose banks land within uLim, which a kept triangle would bridge. (jumpsAt: a grid
   // point's bits; a triangle's edges are V0 -> V1, +x of V0 (hf 0) or its diagonal, V1 -> V2, +y of V1 (hf 0) or +x of V2,
-  // and V0 -> V2, the diagonal of V0 (hf 0) or its +y)
+  // and V0 -> V2, the diagonal of V0 (hf 0) or its +y). These rules are keptTri's (CARRY_KEEP), which the refinement's
+  // levels pass reads too. A still frame's refined cells (CARRY_RF, carryRefine): with uRefOn 1 the base draw leaves a
+  // cell with levels, and uRef 1 draws one instance per triangle of the sub-cells of one group's cells (levels uL, list
+  // entries from uRefE, vertex records from texel uRefT of uRf), 3 vertices each, a sub-triangle with a corner not
+  // finite, an edge over uLim or a height step over uStep left out as a base one is; its occlusion the base corners',
+  // bilinear across the cell, so two cells agree along their side
   const LAND_CARRY_VS = REFINE + `
 uniform int uN; uniform vec4 uSrc; uniform float uH; uniform mat4 uMVP;
 uniform int uRef; uniform int uRefOn; uniform highp sampler2D uRf; uniform ivec2 uL; uniform int uRefE; uniform int uRefT;
@@ -859,9 +863,6 @@ flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + CARRY_KEEP + glsl`
 vec4 rfAt(int t) { return texelFetch(uRf, ivec2(t & 2047, t >> 11), 0); }
 float aoAt(ivec2 v) { float w = texelFetch(uT2, v, 0).w; return w - 2.0 * floor(0.5 * w); }
-// uRef 1: one instance per triangle of the sub-cells of one group's cells (levels uL, list entries from uRefE, vertex
-// records from texel uRefT of uRf, CARRY_RF's), 3 vertices each; a sub-triangle with a corner not finite, an edge over
-// uLim or a height step over uStep is left out, as a base one is
 void refined() {
   ivec2 n = ivec2(1 << uL.x, 1 << uL.y);
   int per = 2 * n.x * n.y;
@@ -882,7 +883,6 @@ void refined() {
   vZ = carryZ(G);
   vPos = carryWorld(tv.xy, tv.z);
   vNor = t2.xyz;
-  // (ambient occlusion: the base corners', bilinear across the cell, so two cells agree along their side)
   vec2 f = G - vec2(c);
   vAO = mix(mix(aoAt(c), aoAt(c + ivec2(1, 0)), f.x), mix(aoAt(c + ivec2(0, 1)), aoAt(c + ivec2(1, 1)), f.x), f.y);
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
@@ -895,7 +895,6 @@ void main() {
   int M = uN - 1;
   int tri = gl_VertexID / 3, k = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % M, cell / M);
-  // (uRefOn 1: a cell with levels is left to the refined draw)
   if (uRefOn == 1 && lvRaw(c) != 0) return;
   vec4 t0, t1, t2;
   if (!keptTri(c, hf, t0, t1, t2)) return;
