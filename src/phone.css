@@ -698,6 +698,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .viewstack { transition: bottom 150ms var(--ease-out); }
 /* (the message eases with the keys it stands over in portrait, so the two move in step) */
 :root.ph.sv #toastHost[data-placed="phone-plot"] { transition: bottom 150ms var(--ease-out); }
+/* (a state message the landscape plane under the tall bar has no room for is kept out of sight until the room returns, placeToasts) */
+#toastHost[data-no-room] { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { :root.ph.sv .viewstack, :root.ph.sv #toastHost[data-placed="phone-plot"] { transition: none; } }
 /* A sheet gives up the message's row as the planes do: it ends above the message (placeToasts sets --ph-toast-h to the message's height, a
    second row of buttons making it 76 to 94 px instead of 56), so a message covers no row of it (a message such as "Added f₃ …  Show alone  Undo" would lie across the chain sheet's list, hiding f₂); the safe area is under the message then */

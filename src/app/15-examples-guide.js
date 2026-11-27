@@ -923,7 +923,7 @@
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
-    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('right'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    const clear = () => { toastLift(null); host.removeAttribute('data-no-room'); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('right'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
     const phone = document.documentElement.classList.contains('ph');
     if (!host.firstElementChild) { if (phone) clear(); return; }
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
@@ -960,7 +960,14 @@
       const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
       if (refit()) return;
-      toastLift(Math.round(mt.getBoundingClientRect().height));   // (the plane's keys ride up above it)
+      // (under the tall construction bar a landscape plane can be too short to hold the message: it would rise over the tour's lane or
+      // the head above the plane. The construction is the next step and the message old news: it goes at once, with no fade and nothing
+      // said, and its Undo stays on the rail and ⌘Z (rvE's call, as dropToasts for a dialog). A state message (sticky: the Play gate's)
+      // is still true: it is only kept out of sight while there is no room, data-no-room, and shows again when the room returns)
+      const noRoom = land && document.documentElement.classList.contains('ph-ctx-tall') && foot - mt.getBoundingClientRect().height < pl.top;
+      if (noRoom && !mt.hasAttribute('data-sticky')) { dropToasts(); clear(); return; }
+      host.toggleAttribute('data-no-room', noRoom);
+      toastLift(noRoom ? null : Math.round(mt.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
     // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
@@ -1079,7 +1086,7 @@
     const host = $('toastHost');
     if (!host) return;
     host.innerHTML = '';
-    const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null }, h('span', null, msg));
+    const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null, 'data-sticky': o && o.sticky ? '' : null }, h('span', null, msg));
     if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { closeToast(t); action(); } }, actionLabel));
     // (the classic phone's timed message keeps its bar's room for the words and goes by itself; a press on the words closes any)
     const rt = document.documentElement.classList;
