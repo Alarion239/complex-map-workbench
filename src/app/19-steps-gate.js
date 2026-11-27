@@ -224,6 +224,13 @@
       g.shown = true;
       if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
     } else if (g.sayAgain && SV.els.live) { g.sayAgain = false; SV.els.live.textContent = $t('Preparing the glide…'); }
+    // (the message is gone without the wait ending. Closed or replaced by another, it stays gone and the plane's note
+    // is drawn again; taken away by a dialog that opened (dropToasts), it is raised again once no dialog is open, since
+    // it says what the wait is)
+    if (g.toast && !g.toast.isConnected) {
+      if (!g.toast.hasAttribute('data-dropped')) { g.toast = null; requestRender('L'); }
+      else if (!document.querySelector('.modal-bg')) { g.toast = null; g.hung = false; }
+    }
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
       g.toast = toast(svGateStill(svGateMissing()), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true, fit: true });
@@ -235,10 +242,8 @@
       }
       requestRender('L');   // (the plane's "Compiling…" note goes while the message names the programs)
     }
-    // (the message is gone without the wait ending, closed or replaced by another: the plane's note is drawn again)
-    if (g.toast && !g.toast.isConnected) { g.toast = null; requestRender('L'); }
     // (the message names what is missing now: when a part is done while it is up, its words give way to the next part's)
-    else if (g.toast) { const words = g.toast.querySelector('span'), s = svGateStill(svGateMissing()); if (words && words.textContent !== s) words.textContent = s; }
+    if (g.toast && g.toast.isConnected) { const words = g.toast.querySelector('span'), s = svGateStill(svGateMissing()); if (words && words.textContent !== s) words.textContent = s; }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
   }

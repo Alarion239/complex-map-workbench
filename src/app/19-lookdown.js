@@ -177,7 +177,7 @@
   ];
   const LD_TUBE_KEY = [{ kind: 'tube', text: () => $t('tube of a piece') }, { kind: 'strand', text: () => $t('critical point to its value') }];
   const ldSwatch = (kind) => h('span', { class: `ld-sw ld-${kind}`, 'aria-hidden': 'true' });
-  function syncLookKey(on, stack = false, tubes = false) {
+  function syncLookKey(on, stack = false, tubes = false, why = '') {
     const host = $('plotL');
     if (!host) return;
     if (!lookKey) {
@@ -190,7 +190,7 @@
       // (and when it has ridden up or down with the plane's other keys: the Stack's rooms, stackMeasureRooms)
       lookKey.addEventListener('transitionend', () => requestAnimationFrame(fitLookKey));
     }
-    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}|${stack}|${tubes}` : '';
+    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}|${stack}|${tubes}|${why}` : '';
     // (the same key keeps its elements: the connectors' switch shows the kind drawn, which a load or an undo may have
     // changed, and keeps the focus a key press on it left there)
     if (lookKey.dataset.sig === sig) { const sw = lookKey.querySelector('.ld-links'); if (sw) setSeg(sw, linkMode()); return; }
@@ -207,7 +207,9 @@
     const title = stack ? $t('Stack') : $t('Look down');
     const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': stack && tubes ? 'ldList ldLinks' : 'ldList', onclick: () => fold(!lookKeyOpen) }, title) : h('span', { class: 'ld-ttl' }, title);
     // (the marks are a list, so a screen reader says them one by one)
-    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.concat(tubes ? LD_TUBE_KEY : []).map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
+    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.concat(tubes ? LD_TUBE_KEY : []).map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text())),
+      // (on the Stack, no tubes where the pieces are not counted: the card's words, which say why)
+      ...(why ? [h('span', { class: 'ld-it ld-why', role: 'listitem' }, why)] : [])));
     // (with the tubes, the switch between the Stack's two kinds of connector, after the marks)
     if (stack && tubes) lookKey.append(stackLinksSwitch());
     lookKey.classList.toggle('folded', ph && !lookKeyOpen);
