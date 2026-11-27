@@ -596,12 +596,13 @@ html:not(.ph) .ph-only { display: none !important; }
    left, 44 px each with 8 px between. Fit view's right edge is 112 px in: 8 + 44 + 8 + 44 + 8, the two keys at its right and the gaps; the
    construction chip stops 172 px short of the plane's right edge: 112 + 44 + 16, Fit view's lane and a gap each side. The row comes down
    toward the bar where the plane above it is shorter still, so its top stays 4 px under the plane's top (100cqh - 44 - 4: the plane is a
-   size container). The colour key card, 74 px tall, cannot stand beside the row and lies over it while it is open) */
+   size container; Fit view's group is 46 px with its border, 100cqh - 46 - 4), the colour key card's top. The card, 74 px tall, cannot
+   stand beside the row and lies over it while it is open, with no edge of a key showing above it) */
 :root.ph.ph-land .plot { container-type: size; }
 :root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] > .ph-col { flex-direction: row; bottom: min(calc(8px + var(--ph-lift)), calc(100cqh - 48px)); }
 :root.ph.ph-land.view-land .pane:not(.ph-inset) .plot[data-keys="row"] > .ph-col { bottom: min(calc(8px + var(--ruler) + var(--ph-lift)), calc(100cqh - 48px)); }
-:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] .viewstack { right: 112px; bottom: min(calc(8px + var(--ph-lift)), calc(100cqh - 48px)); }
-:root.ph.ph-land.view-land .pane:not(.ph-inset) .plot[data-keys="row"] .viewstack { bottom: min(calc(8px + var(--ruler) + var(--ph-lift)), calc(100cqh - 48px)); }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] .viewstack { right: 112px; bottom: min(calc(8px + var(--ph-lift)), calc(100cqh - 50px)); }
+:root.ph.ph-land.view-land .pane:not(.ph-inset) .plot[data-keys="row"] .viewstack { bottom: min(calc(8px + var(--ruler) + var(--ph-lift)), calc(100cqh - 50px)); }
 :root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] > .draft-chip.cm-on { max-width: calc(100% - 172px); }
 /* (on the Stack, whose column has the Tilt key too, left of Display: where Sphere stands left of Display ("side") and where the keys stand in one
    row, the three keys of the column stand in one row, Tilt, Sphere, Display from the left, so the colour key and the construction chip move
@@ -682,6 +683,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land.sv.ph-toast-on:not(.ph-sheet-on) { --ph-lift: var(--ph-bar); }
 /* (a landscape phone's tall bar leaves a message little room beside the construction chip, so the chip steps aside while a message shows: the bar's title says its prompt too) */
 :root.ph.ph-land.ph-ctx-tall.ph-toast-on .plot > .draft-chip.cm-on { visibility: hidden; }
+/* (and where the plane above the tall bar is too short to hold the chip whole: it would run under the bar, cut at the bar's top. The bar says its
+   sentence and holds its ⌫ and ×; 04-chip-overlay.js measures the chip and marks it cm-under) */
+:root.ph.ph-land.ph-ctx-tall .plot > .draft-chip.cm-on.cm-under { visibility: hidden; }
 /* (the plane's keys ride up above a message with its 150 ms ease, and at once under reduced motion) */
 :root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: bottom 150ms var(--ease-out); }
 /* (the message eases with the keys it stands over in portrait, so the two move in step) */

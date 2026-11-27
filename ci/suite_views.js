@@ -241,6 +241,7 @@ const VIEWS = {
   'phone_legend_clear_cmd.js': steps(),
   'phone_legend_keys_cmd.js': steps({ pin: true }),
   'phone_legend_fit_cmd.js': steps({ pin: true }),
+  'phone_tall_bar_keys_cmd.js': steps({ pin: true }),
   'classic_chain_box_cmd.js': classic('the classic view\'s empty chain box under the plane (#2269), which goes with the classic view'),
   'phone_keys_room_cmd.js': steps(),
   'head_pop_relayout_cmd.js': classic('the classic X → Y view\'s Regions pop-up in a pane head (#2432), which only the classic view has'),
