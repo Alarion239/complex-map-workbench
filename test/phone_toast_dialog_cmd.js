@@ -1,4 +1,4 @@
-// A phone's message when a dialog opens over it (#2538). 390 × 844 with touch, the steps view, in en, ru and it: an example
+// A phone's message when a dialog opens over it. 390 × 844 with touch, the steps view, in en, ru and it: an example
 // is opened (its "Opened …" message with Undo is up) and the export dialog is opened over it.
 //  - from the dialog's first frame (two animation frames after its backdrop is added) no message lies over the dialog, and
 //    none does once the dialog is built: a message that was up when it opened is old news, and its Undo stays on the bar;
