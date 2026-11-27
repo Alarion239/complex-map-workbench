@@ -403,6 +403,7 @@ const VIEWS = {
   'export_cmd.js': steps({ pin: true }),
   'export_deform_cmd.js': steps({ pin: true }),
   'export_fit_cmd.js': steps({ pin: true }),
+  'export_hint_room_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
   'figure_wait_cmd.js': steps({ pin: true }),

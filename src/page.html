@@ -1572,7 +1572,13 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-chip { display: none; }
   .xf-scroll { height: 38svh; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
-  .xf-hint { white-space: normal; font-size: 11px; line-height: 13px; }
+  /* (the preview's bar is a row of its own above the page, not over it: the buttons on its first line at its right end (a
+     button that does not fit wraps under them, still at the right), the page label on the next line across the bar's
+     width, so a label that wraps grows the bar and never reaches the page) */
+  .xf-bar { position: static; flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; padding: 8px 10px 0; }
+  .xf-bar .xf-sp { display: none; }
+  .xf-bar .xf-hint { order: 1; flex: 1 1 100%; white-space: normal; font-size: 11px; line-height: 13px; }
+  .xf-scroll { padding-top: 12px; }
   .xf-foot .xf-sp { display: none; }
   /* (touch targets of 44 px: the destinations, and Cancel while a video is made; the progress row has the name row's place,
      a row of its own, so its meter is not squeezed beside the destinations) */
