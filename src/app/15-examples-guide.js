@@ -963,8 +963,9 @@
       // (under the tall construction bar a landscape plane can be too short to hold the message: it would rise over the tour's lane or
       // the head above the plane. The construction is the next step and the message old news: it goes at once, with no fade and nothing
       // said, and its Undo stays on the rail and ⌘Z (rvE's call, as dropToasts for a dialog). A state message (sticky: the Play gate's)
-      // is still true: it is only kept out of sight while there is no room, data-no-room, and shows again when the room returns)
-      const noRoom = land && document.documentElement.classList.contains('ph-ctx-tall') && foot - mt.getBoundingClientRect().height < pl.top;
+      // is still true: it is only kept out of sight while there is no room, data-no-room, and shows again when the room returns. Judged once the
+      // message has picked its rows at this width (toastFitW; fitToastRows places it again): before that it can stand taller than it will)
+      const noRoom = land && toastFitW.has(mt) && document.documentElement.classList.contains('ph-ctx-tall') && foot - mt.getBoundingClientRect().height < pl.top;
       if (noRoom && !mt.hasAttribute('data-sticky')) { dropToasts(); clear(); return; }
       host.toggleAttribute('data-no-room', noRoom);
       toastLift(noRoom ? null : Math.round(mt.getBoundingClientRect().height));   // (the plane's keys ride up above it)
