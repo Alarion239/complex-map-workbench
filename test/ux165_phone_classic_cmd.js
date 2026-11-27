@@ -234,7 +234,7 @@ await grab();
 
 // ---------------- one fixed column of keys at the bottom right ----------------
 await fresh('keys', 412, 860, false, true);
-const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.ph-col .ph-key, .viewstack .vbtn')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-both-key') ? 'both' : e.classList.contains('ph-sph') ? 'sphere' : e.classList.contains('ph-dsp') ? 'display' : 'fit'] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
+const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.viewstack .vbtn')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-both-key') ? 'both' : e.classList.contains('vb-sph') ? 'sphere' : e.classList.contains('ph-dsp') ? 'display' : 'fit'] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
 const kv = {};
 kv.xy = await keys();
 await ev(`__cmwSetMain('phase'); 1`); await settle(); kv.phase = await keys();
@@ -256,8 +256,8 @@ info.landWidth = [(x1 - x0) / im.width];
 ok('the Landscape surface spans most of a portrait phone plane', (x1 - x0) / im.width > 0.8 && x0 > 0 && x1 < im.width - 1, [x0, x1, im.width]);
 await ev(`__cmwSetMain('xy'); 1`); await settle();
 await view(915, 412, false, true); await settle();
-const k915 = await ev(`[...document.querySelectorAll('.ph-col')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(), p = e.closest('.plot').getBoundingClientRect(); return Math.round(p.bottom - b.bottom); })`);
-ok('915 × 412: the plane\'s column sits at most 64 px above the bottom', k915.length === 1 && k915[0] <= 64, k915);
+const k915 = await ev(`[...document.querySelectorAll('.pane:not(.ph-inset) .ph-dsp')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(), p = e.closest('.plot').getBoundingClientRect(); return Math.round(p.bottom - b.bottom); })`);
+ok('915 × 412: the plane\'s Display key sits at most 64 px above the bottom', k915.length === 1 && k915[0] <= 64, k915);
 await grab();
 
 // ---------------- the Shapes list, the ⋯ sheet, the long-press tips ----------------
