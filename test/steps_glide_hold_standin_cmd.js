@@ -17,8 +17,9 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'standin_kit.js'), 'utf8'));
 // (the bounds: HUE_MIN, the stand-in's plot is coloured over nearly all the pane (0.96 measured) and an empty pane
-// about 0.003; APART_MAX, the held frame is the same picture as at rest; HOLD_READS, two reads inside the hold)
-const HUE_MIN = 0.5, APART_MAX = 0.02, HOLD_READS = [1000, 3000];
+// about 0.003; APART_MAX, the held frame is the same picture as at rest; HOLD_READS, two reads inside the hold;
+// REST_MS, the longest wait for the pane to show the finished stand-in job's plot, read every REST_POLL ms)
+const HUE_MIN = 0.5, APART_MAX = 0.02, HOLD_READS = [1000, 3000], REST_MS = 10000, REST_POLL = 200;
 const loaded = "typeof __cmwSteps === 'function' && !!window.GLR";
 await view(1200, 800, false, false);
 const ns = 'ghs' + Date.now();
@@ -27,9 +28,10 @@ await seed(ns, { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: '
 if (!(await go(`http://localhost:${PORT}/test.html?ns=${ns}&glhold&view=steps`))) throw new Error('no load event');
 await settled({ max: 30000, panes: false, until: loaded });
 const si = await settled({ only: true, max: 30000, panes: false, until: "!!__cmwStandIn() && __cmwStandIn().end !== null" });
-await sleep(500);
-const rest = await K.look();
-info.rest = { wait: si, hue: +rest.hue.toFixed(3), unlike: +rest.unlike.toFixed(3), pending: await ev('GLR.frameStatus().pending'), standIn: await ev('__cmwStandIn()') };
+// (the job ending is not the pane drawing it: the pane read until it shows the stand-in's colour, at most REST_MS)
+let rest = await K.look(), restMs = 0;
+for (const t0 = Date.now(); !(rest.hue > HUE_MIN) && Date.now() - t0 < REST_MS; restMs = Date.now() - t0) { await sleep(REST_POLL); rest = await K.look(); }
+info.rest = { wait: si, drawnMs: restMs, hue: +rest.hue.toFixed(3), unlike: +rest.unlike.toFixed(3), pending: await ev('GLR.frameStatus().pending'), standIn: await ev('__cmwStandIn()') };
 ok(`control: at rest, the links held, plane z is the stand-in's colour plot (hue over ${HUE_MIN}), still pending`, si.ok && rest.hue > HUE_MIN && info.rest.pending === true, info.rest);
 await ev('__cmwSteps({ play: true }), 1');
 const gate = await settled({ only: true, max: 10000, panes: false, until: '!!document.querySelector(".sv-play[aria-busy]")' });
