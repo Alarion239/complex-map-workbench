@@ -1234,11 +1234,11 @@
   }
   // ‹ › on a phone's chain row: the stage that rightStage() names glides from the plane after one step to the next or
   // the one before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way
-  // turns round with no jump); the frame loop moves it (frame(), 08), and nothing is drawn for it. In Phase, Landscape or
-  // with Y a sphere ‹ › do nothing.
+  // turns round with no jump); the frame loop moves it (frame(), 08), and nothing is drawn for it. In Phase or Landscape
+  // ‹ › do nothing.
   function glideStep(d) {
     if (S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
-    const L = S.view.main === 'xy' && rImage() && peekSteps();
+    const L = S.view.main === 'xy' && peekSteps();
     if (L) {
       if (!trans.glide) { trans.glide = true; trans.at = -1; glide.set(L.length); }
       glide.nudge(d, L.length);

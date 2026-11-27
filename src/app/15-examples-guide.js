@@ -463,10 +463,7 @@
   // Plane | Sphere switches in their heads (Shift 1, 2: the left or only panel, X or the portrait; Shift 3, 4: Y),
   // and the Deformation toggle (M), which modifies the active view. The preimages and the integrals are parts of every
   // view.
-  const SURF = {
-    L: [['plane', $t('Plane'), '⇧1'], ['sphere', $t('Sphere'), '⇧2']],
-    R: [['plane', $t('Plane'), '⇧3'], ['sphere', $t('Sphere'), '⇧4']],
-  };
+  const SURF = [['plane', $t('Plane'), '⇧1'], ['sphere', $t('Sphere'), '⇧2']];
   const VIEW_ICONS = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], phase: MODE_ICONS.color, xy: MODE_ICONS.xy };
   // the globes' static programs, started in the background when a switch to Sphere is coming (the pointer or focus on
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
@@ -474,11 +471,11 @@
   // shows until a globe frame asks for them. Not at start-up: compiles there compete with the first scene's own
   // (example settle times)
   function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS, true); } catch (e) { /* the frame links them */ } }
-  // side 'L': X's surface in the active view (X → Y's left pane or the phase panel); 'R': Y's (X → Y)
+  // side 'L': X's surface in the active view (X → Y's plane or the phase panel); Y ('R') has none, as no view draws it
   function setView(side, surf) {
-    if (side === 'L' && lLand()) return;
-    const v = side === 'L' ? xView() : S.view.R;
-    if (!v || v.surf === surf || !(side === 'L' ? Views.SURF_L : Views.SURF_R).includes(surf)) return;
+    if (side !== 'L' || lLand()) return;
+    const v = xView();
+    if (!v || v.surf === surf || !Views.SURF_L.includes(surf)) return;
     if (surf === 'sphere') prestartGlobe();
     v.surf = surf;
     viewChanged(side);

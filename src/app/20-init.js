@@ -2,8 +2,7 @@
   // the figure: the saved state without the panels the viewer chose
   function figureState() {
     if (S.homRange) HR.resolve(S, true);
-    const out = Object.assign({}, S, { rightView: S.rightView || null });
-    const o = JSON.parse(JSON.stringify(out, cmSaveReplacer(out)));
+    const o = JSON.parse(JSON.stringify(S, cmSaveReplacer(S)));
     delete o.hideLeft; delete o.hideRight;
     // (the steps view's place on screen, as a save writes it: S.sv is written only by a save and an undo entry)
     const sv = svPlace();
@@ -292,9 +291,6 @@
           // focus returns to the control that switched: Settings, or the phone's More button
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
-        // (rightView: the camera of Y Plane that a save or a link may carry; no view draws Y, so it is kept as read and
-        // written back by a save and a link; a Y sphere has none)
-        if (!rImage()) setOpt('rightView', null);
         if (loadDropped) toast($tn('{n} saved item could not be restored by this version and was left out.', '{n} saved items could not be restored by this version and were left out.', loadDropped));
       } catch (err) {
         // never a dead app on every reload: fall back to the first example

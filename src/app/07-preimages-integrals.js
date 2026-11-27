@@ -4,9 +4,6 @@
   // of F(z) = p in view are found on the CPU (Calc.zerosPoles: cells, argument principle, Newton) and marked z₁, z₂, …
   const isTarget = (s) => !!s && Array.isArray(S.targets) && S.targets.includes(s);
   const hasTargets = () => !!(S.targets && S.targets.some((s) => s.visible !== false));
-  // targets are drawn and edited in the right plane of Image mode (not while it shows a deformation)
-  // (and on the w-globe, P3b: panels.md 9)
-  const targetsEditable = () => (rImage() || rGlobe()) && solo() !== 'L';
   const findShape = (id) => S.shapes.find((x) => x.id === id) || (S.targets || []).find((x) => x.id === id) || null;
   function targetLabel(s, i) { return s.label || (i < 6 ? 'pqrstu'[i] : 'p' + sub(i + 1)); }
   const paneBox = (pane, v) => ({ x0: v.cx - pane.w / 2 / v.s, x1: v.cx + pane.w / 2 / v.s, y0: v.cy - pane.h / 2 / v.s, y1: v.cy + pane.h / 2 / v.s });
@@ -893,7 +890,7 @@
     if (draft && draft.pending) dropPending();   // (a two-click shape's snapped start binds nothing)
     draft = null;
     Construct.cancel();
-    requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
+    requestRender('L', 'OL', 'OR');
     return true;
   }
   // a right-click that did not pan: it cancels a drawing, else opens the plane menu there
@@ -981,7 +978,7 @@
         if (roots.err) rows.push(`<div class="cn err">${roots.err}</div>`);
       }
       // over the w-globe the chip keeps to its headings, so the scene stays visible
-      const compact = rGlobe();
+      const compact = false;
       html = (compact ? rows.filter((r) => r.startsWith('<div class="ch">') || r.includes('cn err')) : rows).join('');
     }
     if (html !== calcChipState.html) { calcChipState.html = html; el.innerHTML = html; }
@@ -1006,7 +1003,7 @@
     return {
       C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
       integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project,
-      rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
+      requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
       sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed,
       // (the w-plane targets' fills, outlines and calculator chip: kept for the preimage view to come, #1723)
       fillTargets2D, strokeTargets, updateCalcChip,
