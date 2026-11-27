@@ -33,7 +33,9 @@
 //     more than TOL px: (vi) reads the refinement;
 // (vii) a still frame is refined once: a redraw of B held at u = .5 makes no new levels pass;
 // (viii) a frame that moves is never refined: a glide of A played live (clock) from w₁ back to z makes no levels pass at a
-//     place between the two planes.
+//     place between the two planes;
+// (ix) a pause shorter than the still wait (CARRY_STILL_MS, 350 ms) is not refined: B's thread placed at six places
+//     PAUSE_MS apart and then left makes no levels pass at the first five, and does at the last.
 // The controls (iii) and (iv') read the base grids' chords: their frames are drawn with the carried refinement off.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
@@ -57,9 +59,10 @@ const LIM = 300000;
 const chord = (o = '') => evJson(`JSON.stringify(__cmwLandChordPx(${o}))`, LIM);
 // the carried refinement's record (__cmwLandRf: {passes, pending, trace, grids}), null without the hook; reset: a new trace
 const rfOf = (reset = false) => evJson(`JSON.stringify(window.__cmwLandRf ? __cmwLandRf(${reset}) : null)`);
-// (a still frame's refinement lands a frame or two after rfLater's 180 ms: its levels are read back fenced)
+// (a still frame's refinement lands a frame or two after the still wait, 350 ms: its levels are read back fenced)
 const RF_WAIT = 30000;
 const RF_SHARE = 0.05;                 // (vi): the share of the unrefined frame's off triangles a refined frame may keep
+const PAUSE_MS = 250, PAUSES = [0.3, 0.32, 0.34, 0.36, 0.38, 0.4];   // (ix): a scrub's pauses, shorter than the still wait
 const refined = () => settled({ max: RF_WAIT, until: '!!window.__cmwLandRf && !__cmwLandRf().pending && __cmwLandRf().passes > 0' });
 // the grids with triangles off by more than TOL px: {name: {off, offL, worst, at, atL}}; and the triangles off in all
 const offGrids = (rows) => Object.fromEntries(Object.entries(rows || {}).filter(([, r]) => r.off > 0).map(([k, r]) => [k, { off: r.off, offL: r.offL, worst: r.worst, at: r.at, atL: r.atL }]));
@@ -190,6 +193,19 @@ for (const u of [0.25, 0.5, 0.75]) {
     await redraw(null);
   }
   await letGo();
+}
+
+// (ix) B's thread placed at PAUSES, PAUSE_MS apart (each a frame of its own), then left at the last
+await ev(`__cmwSteps({ x: ${PAUSES[0]} }); 1`);
+await settled({ max: 60000, until: '!!window.__cmwLandRf && !__cmwLandRf().pending' });
+await rfOf(true);
+await ev(`(${JSON.stringify(PAUSES.slice(1))}).forEach((x, k) => setTimeout(() => __cmwSteps({ x }), ${PAUSE_MS} * (k + 1))), 1`);
+await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${PAUSES[PAUSES.length - 1]}) < 1e-6 && !__cmwLandRf().pending && __cmwLandRf().passes > 0` });
+{
+  const rf = await rfOf(), at = (x) => (rf ? rf.trace.filter((t) => Math.abs(t.u - x) < 1e-4).length : null);
+  const early = PAUSES.slice(1, -1).map(at), last = at(PAUSES[PAUSES.length - 1]);
+  info.B.pauses = { early, last, trace: rf && rf.trace.map((t) => +t.u.toFixed(4)) };
+  ok(`B (ix): a scrub's pauses of ${PAUSE_MS} ms make no levels pass, and the place it is left at does`, !!rf && early.every((n) => n === 0) && last > 0, info.B.pauses);
 }
 
 // ---- C: z³ parked on w₁, coloured from z: a carry with no jump

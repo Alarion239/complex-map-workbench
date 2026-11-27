@@ -375,7 +375,9 @@
   // one is refined once, its redraws drawing what was built (rkey). Not an export's or a figure's frame (rf.full): those
   // draw the base grids. carryRfStats: the levels passes made, and with trace on, the glide place and grid of each (the
   // tests' __cmwLandRf)
-  const CARRY_STILL_MS = 180;
+  // (longer than a pause in a scrub that goes on, so stopping and going neither refines nor frees on each pause: what
+  // shows and the memory held change once, when the thread has stopped)
+  const CARRY_STILL_MS = 350;
   let carryStillKey = null, carryStillT = 0;
   const carryRfStats = { passes: 0, trace: null, pending: false };
   // (true once the frame's carried state, key, has stood CARRY_STILL_MS; else a redraw is asked for then)
