@@ -93,6 +93,7 @@ const VIEWS = {
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_plots_keep_cmd.js': steps({ pin: true }),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
+  'steps_glide_sheet_seams_cmd.js': steps({ pin: true }),   // (its page asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_glide_mesh_wait_cmd.js': steps(),
   'steps_glide_cut_dash_cmd.js': steps(),
@@ -379,6 +380,7 @@ const VIEWS = {
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
   'steps_cauchy_cmd.js': steps(),
+  'steps_key_caption_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
   'steps_cauchy_carry_cmd.js': steps(),
   'steps_plane_key_cmd.js': steps({ pin: true }),   // (its page, in test/lib/plane_key_kit.js, asks ?view=steps itself)
