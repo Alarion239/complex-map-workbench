@@ -105,24 +105,24 @@ const Phone = (() => {
     // a message (a toast, with its Undo) takes that row for as long as it shows; the planes give it up when no finger is down
     const th = $('toastHost');
     if (th) new MutationObserver(() => barLayout()).observe(th, { childList: true });
-    // the plane's key column and view stack ride up above the context bar and a message, and a message eases to its place over the plane,
+    // the plane's view stack rides up above the context bar and a message, and a message eases to its place over the plane,
     // each with a transition on `bottom`: the labels and the plane's note keep off them where they stop, so one full placement follows
     // the move (liftSettled asks where there is no transition)
-    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.ph-col, .viewstack, #toastHost')) A.relabel(); }, true);
+    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.viewstack, #toastHost')) A.relabel(); }, true);
     document.addEventListener('pointerdown', () => { fingers++; }, true);
     for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
-    // each plane: Sphere and Display at the right; the inset's swap cover
+    // each plane: the keys the phone adds to the plane's view stack (Both, Display options), and the inset's swap cover
     for (const side of ['L', 'R']) {
       const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
       if (!plot || !pane) continue;   // (Y's pane is not in the page: no keys for it)
-      const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
-      const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
-      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
-      plot.append(h('div', { class: 'ph-col ph-only' }, bt, sph, dsp));
-      els['sph' + side] = sph;
+      const stack = plot.querySelector(':scope > .viewstack');
+      const bt = h('button', { class: 'vbtn ph-only ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
+      const dsp = h('button', { class: 'vbtn ph-only ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
+      stack.prepend(bt);
+      stack.append(dsp);
       els['both' + side] = bt;
       const sw = h('button', { class: 'ph-swap ph-only', type: 'button', onclick: () => swap() },
         h('span', { class: 'ph-tag', html: side === 'L' ? '<i>X</i>' : '<i>Y</i>' }), h('span', { class: 'ph-swic', html: SWAP }));
@@ -264,29 +264,12 @@ const Phone = (() => {
     for (const side of ['L', 'R']) { const bb = els['both' + side]; if (!bb) continue; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
     for (const side of ['L', 'R']) { const pn = $(side === 'L' ? 'paneL' : 'paneR'); if (pn) pn.classList.toggle('ph-inset', !mg && !split && side !== b); }
     for (const side of ['L', 'R']) {
-      const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs'), sph = els['sph' + side];
-      if (!sph) continue;
-      const sb = tabs && tabs.querySelector('button[data-mode="sphere"]');
-      sph.hidden = !sb || tabs.offsetParent === null && !tabs.closest('.pane-head');
-      const svS = side === 'L' && A.svOnSphere ? A.svOnSphere() : null;
-      const onS = svS != null ? svS : !!(sb && sb.classList.contains('on'));
-      sph.setAttribute('aria-pressed', String(onS));
-      sph.setAttribute('aria-label', onS ? $t('Plane') : $t('Sphere'));
+      if (!els['swap' + side]) continue;
       const other = side === 'L' ? 'Y' : 'X';
       els['swap' + side].setAttribute('aria-label', $t('Show {x} large', { x: side === 'L' ? 'X' : 'Y' }));
       els['swap' + side].title = '';
       void other;
     }
-  }
-  function toggleSphere(side) {
-    // (the steps view keeps its own surface, which its view writes over the tabs: the key goes to it)
-    if (A.svSphere && A.svSphere() != null) { setTimeout(syncPanes, 0); return; }
-    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-    if (!tabs) return;
-    const sb = tabs.querySelector('button[data-mode="sphere"]'), pb = tabs.querySelector('button[data-mode="plane"]');
-    const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
-    if (t) t.click();
-    setTimeout(syncPanes, 0);
   }
   // The inset swaps with the large plane, and each plane keeps its own view (build/phone-swap.md). A plane's
   // own view is its large view: the saved state and the desktop get that one (largeView). The inset draws it smaller,

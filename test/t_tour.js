@@ -3,7 +3,7 @@
 // first-run rules and the step order. DOM-free; the browser side is test/tour_cmd.js. Run: node test/t_tour.js
 const fs = require('fs');
 const path = require('path');
-const { Tour } = require('../src/tour.js');
+const { Tour } = require('./src_text').loadSplit('tour.js', 'Tour');   // (src/tour/'s parts, joined)
 const T = Tour._t;
 let fails = 0, n = 0;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
