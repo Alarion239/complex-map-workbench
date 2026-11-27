@@ -212,9 +212,8 @@
     landRP: { chain: false, vs: () => LAND_RP_VS, fs: () => TF_FS, tf: true },
     landRA: { chain: false, vs: () => LAND_RA_VS, fs: () => TF_FS, tf: true },
     landNrm: { chain: false, vs: () => LAND_NRM_VS, fs: () => TF_FS, tf: true },
-    // (the edge pass, one program per kind: S the stages' sheets, H a deformation's, 2 bisection; LAND_EDGE_VS)
+    // (the edge pass, one program per kind: S the stages' sheets, 2 bisection; LAND_EDGE_VS)
     landEdgeS: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_EDGE_VS('S'), fs: () => TF_FS, tf: true },
-    landEdgeH: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + LAND_EDGE_VS('H'), fs: () => TF_FS, tf: true },
     landEdge2: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_EDGE_VS('2'), fs: () => TF_FS, tf: true },
     // (the base cells: the base's fragment stage, F at the fragment and no fade, so a formula's first Landscape compiles
     // as a Landscape without walls does)
@@ -316,7 +315,7 @@ float wabs(vec2 w) {
   // the cut kind landTF's own edge pass handles for chain version ch in map mode `mode`, so that the
   // surface's heights and its edge pass are one program: 'S' in map mode 0 when every cut a step of the chain can make
   // is one the stages' sheets continue (cutModeOf's mode 1, chainSheetRange), else 'N': the plain heights (mapF), no
-  // edge pass compiled in, and the frames with cuts use the separate edge program (landEdgeS / landEdgeH / landEdge2).
+  // edge pass compiled in, and the frames with cuts use the separate edge program (landEdgeS / landEdge2).
   // (D3D11 links the edge loop around the inlined chain slowly: the deformation's landTF of Mobius then z^3 took 18 to
   // 30 s of link time-share on an Intel Iris Xe, against under 1.7 s for the plain one; glprof runs 40964003719 and
   // 40998168010)
@@ -423,10 +422,8 @@ float wabs(vec2 w) {
   // start compiling for these map modes too, in the background, so the homotopy's first frames find them (MAP compiles
   // a mode at its first draw). Never without KHR_parallel_shader_compile (that would link synchronously here).
   // -> the number started
-  // (the Landscape's edge passes are left to edgeAhead, which knows the ones a deformation draws, in aheadMode: the
-  // last deformation mode asked for here)
-  let aheadMode = 1;
-  const EDGE_PROGS = ['landEdgeS', 'landEdgeH', 'landEdge2'];
+  // (the Landscape's edge passes are started by landHeights alone, in the map mode it draws)
+  const EDGE_PROGS = ['landEdgeS', 'landEdge2'];
   // The steps view (setStepsView): it draws the Landscape's heights, surface and floor (LAND_MODE0) in map mode 0 only, at
   // rest and under a glide's carry (whose own programs are landCarry*), so they are planned in no other map mode
   const LAND_MODE0 = ['landTF', 'land', 'floor'];
@@ -448,8 +445,6 @@ float wabs(vec2 w) {
     return out;
   }
   function prestartModes(modes) {
-    const dm = modes.map((m) => modeOf({ mode: m })).find((m) => m === 1 || m === 3);
-    if (dm) aheadMode = dm;
     if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
     let n = 0;
     for (const q of modesPlan(modes)) {

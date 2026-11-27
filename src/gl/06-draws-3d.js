@@ -168,43 +168,10 @@
     if (!cut) return 0;
     return other || mode === 2 ? 2 : 1;
   }
-  const edgeName = (cm, m) => (cm === 2 ? 'landEdge2' : m && (m.mode === 1 || m.mode === 3) ? 'landEdgeH' : 'landEdgeS');
+  const edgeName = (cm) => (cm === 2 ? 'landEdge2' : 'landEdgeS');
   // landTF of chain version ch in map mode `mode` runs the edge pass of cut mode cm itself (uPass 3): then
   // no edge program is compiled or first drawn for it
   const ownEdge = (ch, mode, cm) => cm === 1 && tfKind(ch, mode) === 'S';
-  // A deformation at t = 0 has no cut yet: the edge pass its t > 0 will need starts compiling now, and is first drawn
-  // (a pass that writes nothing) at rest once it has settled, before the play that needs it
-  function edgeAhead(P1, em, st, rf, cmNow, P3now) {
-    if (P1.ch !== cur) return;
-    if (!(em.mode === 1 || em.mode === 3)) {
-      // (no deformation shown: the edge passes a deformation of each step would use start compiling in the background,
-      // at rest once this surface has been drawn, so that opening the deformation, which plays at once, finds them
-      // linked; nothing is drawn with them here)
-      // (after this surface's own passes have been taken into use: the refinement's programs and the edge pass it
-      // draws now, so that the cold open's links are not delayed by it)
-      if (st.motion || !rf || !rf.Lp || !rf.Lp.drawnOnce || !rfWarmAll || !Array.isArray(P1.ch.info.cutKinds)) return;
-      if (cmNow && !(P3now && P3now.used1)) return;
-      // (in the map mode the app's deformation draws, aheadMode: each step's own path, 1, or all steps at once, 3)
-      const all = aheadMode === 3, n = P1.ch.sigs.length;
-      for (const c of P1.ch.info.cutKinds) {
-        if (!c || c.h === 'none' || c.h === 'deriv') continue;
-        const hm = all ? { mode: 3, base: 0, a: 0, b: n, t: 0.5 } : { mode: 1, base: 0, hi: c.k, t: 0.5 }, ca = cutModeOf(P1.ch.info, hm);
-        // (its settle clock starts when its link lands, not at the open)
-        const P = ca && !ownEdge(cur, hm.mode, ca) ? getProg(edgeName(ca, hm), cur, true, hm) : null;
-        if (P && !P.used1) settled(P);
-      }
-      return;
-    }
-    const ca = cutModeOf(P1.ch.info, Object.assign({}, em, { t: 0.5 }));
-    if (!ca || ownEdge(cur, em.mode || 0, ca)) return;
-    const P = getProg(edgeName(ca, em), cur, true, em);
-    if (!P || P.used1 || (st.motion && !st.full) || !settled(P)) return;
-    use(P, st.map);
-    u1i(P, 'uN', 2); u1i(P, 'uSteps', 0); u1i(P, 'uTwo', 0); u1i(P, 'uDir', 0);
-    gl.activeTexture(gl.TEXTURE15);
-    if (!rfWarmTex) rfWarmTex = floatTex();
-    runTF(P, empty(), gl.POINTS, 1, 0, 16, rfWarmTex, 1, 1, gl.RGBA32F, gl.RGBA);
-  }
   function landHeights(st, N, mode, H, mu, aspect, rf) {
     const b = st.box;
     const P1 = program('landTF', st.map), P2 = program('landNrm');
@@ -218,17 +185,12 @@
     // surface is drawn at once by the fallback rule (a triangle across a height step over 0.3 H left out: cuts -1), and
     // with its real cuts when the pass is ready (the block would stay empty for seconds otherwise)
     // (once it has settled; a figure, a film or an export takes it as soon as it has compiled)
-    // (never first drawn while something moves: the deformation's edge pass, first drawn 0.9 s into a play, held a
-    // frame 90 to 250 ms; at rest then)
-    const own = ownEdge(P1.ch, P1.mode, cm);
-    const P3r = cm && !own ? program(edgeName(cm, em), em) : null;
-    // (a deformation's own pass, once it has settled, is first drawn even while it plays: the play starts at the open,
-    // and waiting for a rest frame would leave the whole play, every loop, with torn walls; one first-draw
-    // at the play's start when the pass was compiled ahead (edgeAhead))
-    const defo = em.mode === 1 || em.mode === 3;
-    const P3 = own ? P1 : P3r && (rf && rf.full || (settled(P3r) && (P3r.used1 || defo || !(st.motion && !st.full)))) ? P3r : null;
+    // (never first drawn while something moves: an edge pass's first draw held a frame 90 to 250 ms; at rest then)
+    // (a deformation's map, modes 1 and 3, has no edge program: its surface keeps the fallback rule)
+    const own = ownEdge(P1.ch, P1.mode, cm), defo = em.mode === 1 || em.mode === 3;
+    const P3r = cm && !own && !defo ? program(edgeName(cm), em) : null;
+    const P3 = own ? P1 : P3r && (rf && rf.full || (settled(P3r) && (P3r.used1 || !(st.motion && !st.full)))) ? P3r : null;
     if (P3r && !P3 && st.motion) rfLater();
-    if (!cm || !defo) edgeAhead(P1, em, st, rf, cm, P3r);
     const cuts = cm && (!P3 || P3.ch !== P1.ch || P3.mode !== P1.mode) ? -1 : cm;
     const key = [P1.ch.key, P1.ch.hash, mapKeyOf(mapIn(P1, st.map)), b.x0, b.x1, b.y0, b.y1, N, mode, H, mu, landHComp, cuts].join('|');
     if (land && land.key === key) { lastLand = land; landRefine(st, land, P1, N, mode, H, mu, aspect, rf); return land; }

@@ -159,15 +159,12 @@ float levels2(vec4 h, float m0, float m1, float m2, float m3, float m4) {
   // program, the edge pass (uPass 3, LAND_EDGE_VS's work for the cut kind this program was built for): one
   // call site of the chain, evalAt, in one loop whose trip count is a uniform, so the program stays about the size of
   // the height pass's and the edge pass costs no second program's link and first draw. kind 'P': the principal map
-  // (mapF), for the cuts the sheets cannot continue (kind 2, bisection on the height step); 'S' / 'H': the
-  // continuation of the stages' sheets (chainSheetRange) or the deformation's (chainSheetHom), for a chain whose every
-  // cut is one the sheets continue (kind 1): the principal value at z is the continuation at its own centre, so the
-  // heights come from the same call. (No return inside a loop: ANGLE's Metal translation lost results, LAND_EDGE_VS.)
+  // (mapF), for the cuts the sheets cannot continue (kind 2, bisection on the height step); 'S': the continuation of
+  // the stages' sheets (chainSheetRange), for a chain whose every cut is one the sheets continue (kind 1): the principal
+  // value at z is the continuation at its own centre, so the heights come from the same call. (No return inside a loop: ANGLE's Metal translation lost results, LAND_EDGE_VS.)
   // 'N': mapF, no edge pass, its code compiled out (tfKind: the landTF the app builds unless it is 'S'; D3D11 links
   // the edge loop slowly)
-  const LAND_TF_VS = (kind = 'P') => (kind === 'H' ? `
-vec2 evalAt(vec2 zc, vec2 z) { return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }
-` : kind === 'S' ? `
+  const LAND_TF_VS = (kind = 'P') => (kind === 'S' ? `
 uniform int uSheetA; uniform int uSheetB;
 vec2 evalAt(vec2 zc, vec2 z) { return chainSheetRange(zc, z, uSheetA, uSheetB, 0); }
 ` : `
@@ -390,7 +387,7 @@ void main() {
   // one. Per grid edge p -> p + d (uDir 0: d = (1, 0), 1: (0, 1), 2: (1, 1)) one transform-feedback texel
   // (t, height on p's side, height on the far side, jump): jump 1 when a cut crosses the edge at t, with the one-sided
   // heights of the two banks there; else (0.5, 0, 0, 0).
-  // kind 'S' / 'H' (uCutMode 1; S the stages a..b, chainSheetRange; H a deformation, chainSheetHom): values are
+  // kind 'S' (uCutMode 1: the stages a..b, chainSheetRange): values are
   // compared with the continuation of p's branch along the edge (the cuts opposite p, combo 0, uSheetW = 0), at the
   // far end (its principal value read from the height pass) and at the midpoint (a cut crossed twice comes back to the
   // same branch at the far end); a different value is a cut, located by bisection with the same test. The principal
@@ -404,9 +401,6 @@ void main() {
   const LAND_EDGE_VS = (kind) => (kind === '2' ? `
 vec2 princAt(vec2 z) { return mapF(z); }
 vec2 contAt(vec2 zc, vec2 z) { return z; }
-` : kind === 'H' ? `
-vec2 princAt(vec2 z) { return z; }
-vec2 contAt(vec2 zc, vec2 z) { return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }
 ` : `
 uniform int uSheetA; uniform int uSheetB;
 vec2 princAt(vec2 z) { return z; }
