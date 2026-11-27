@@ -5,7 +5,6 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const U = `http://localhost:${PORT}/test.html`;
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
-const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const cur = async () => { const c = await ev('Tour.current()'); return c ? c.chapter + '/' + c.id : null; };
 const lit = () => ev('Tour.lit()');
 // (typeset maths reads w1 where the plain-text fallback reads w₁: a line is compared with its subscripts as digits)
@@ -16,7 +15,11 @@ const open = async (ns, w, h, dark, mobile, lang) => {
   await nav(U + '?ns=' + ns + (lang ? '&lang=' + lang : ''));
   await ev('Tour.dismissSuggestion()');
 };
-const startAt = async (chapter, step) => { await ev(`Tour.start({ chapter: '${chapter}', step: ${step} })`); await settle(1500); };
+// (the tour is on the step, its shade is drawn and the page is quiet: the planes' frames done, no animation running)
+const startAt = async (chapter, step) => {
+  await ev(`Tour.start({ chapter: '${chapter}', step: ${step} })`);
+  await settled({ max: 15000, until: `(() => { const c = Tour.current(), s = document.querySelector('.tour-shade'); return !!c && c.chapter === ${JSON.stringify(chapter)} && c.step === ${step} && !!s && !!s.getAttribute('d'); })()` });
+};
 const until = async (expr, max = 8000, poll = 40) => { const r = await settled({ until: expr, max, only: true, poll }); return r.at >= 0 ? r.at : null; };
 const mdrag = async (x0, y0, x1, y1) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }); for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 10, y: y0 + (y1 - y0) * i / 10, button: 'left', buttons: 1 }); await sleep(16); } await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }); };
 const center = (sel) => ev(`(() => { const e = [...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => x.getClientRects().length && x.offsetParent !== null); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
@@ -25,7 +28,17 @@ const plane = async () => { for (let i = 0; i < 40; i++) { const L = await lit()
 const where = (id) => ev(`(() => { for (const c of Tour._t.CHAPTERS) { const i = c.steps.findIndex((s) => s.id === ${JSON.stringify(id)}); if (i >= 0) return [c.id, i]; } return null; })()`);
 const l2 = () => ev(`(() => { const e = document.querySelector('.ts-l2'); return e ? { text: e.textContent, done: e.classList.contains('done') } : null; })()`);
 const goStep = async (id) => { const w = await where(id); if (!w) throw new Error('no step ' + id); await startAt(w[0], w[1]); return w; };
-const ticks = async (ms = 2500) => until(`document.querySelector('.ts-l2').classList.contains('done')`, ms, 15);
+// (the result line is the task line's text at the moment the task ticks, read by an observer in the page: the step moves on CD_MS later,
+// and a runner that is slow to ask reads the next step's line. `then` is the last task's)
+let then = null;
+const watchThen = () => ev(`(() => {
+  window.__then = null; if (window.__thenObs) window.__thenObs.disconnect();
+  window.__thenObs = new MutationObserver(() => { const e = document.querySelector('.ts-l2'); if (e && e.classList.contains('done') && window.__then == null) window.__then = e.textContent; });
+  window.__thenObs.observe(document.querySelector('.tour-strip'), { subtree: true, childList: true, characterData: true, attributes: true });
+  return 1;
+})()`);
+// (the tick is the observer's latch, not the line's class now: the step moves on CD_MS after it, and a poll that is late sees the next step's line)
+const ticks = async (ms = 2500) => until('window.__then != null', ms, 15);
 // (a task whose input starts a glide ticks when the glide arrives: how long that takes is the renderer's, so the tick's window
 // opens when the glide has ended, and is the same 2500 ms after it)
 const ARRIVE_MAX_MS = 60000;
@@ -38,16 +51,17 @@ const task = async (id, text, fn, ready, glides = false) => {
   try {
     await goStep(id);
     // (a step's scene can take a few seconds to load on a software renderer: the input waits for what it acts on)
-    if (ready) { check(`${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settle(2500); }
+    if (ready) { check(`${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settled({ max: 20000 }); }
     const a = await l2();
     check(`${id}: the task line is "${text}"`, a && flat(a.text).endsWith(flat(text)) && !a.done, a);
-    await sleep(1800);
+    await sleep(1800);   // (a negative control: the time the task has to tick on its own, and does not)
     check(`${id}: nothing ticks without input`, !(await l2()).done);
+    await watchThen();
     await fn();
     if (glides) check(`${id}: the glide its input starts ends`, (await arrived()) != null);
     const t = await ticks();
     check(`${id}: real input ticks it`, t != null, [await cur(), await l2()]);
-    if (t != null) await sleep(200);
+    then = t != null ? await ev('window.__then') : null;
     return t;
   } catch (e) { check(`${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } return null; }
 };
@@ -61,13 +75,13 @@ const task = async (id, text, fn, ready, glides = false) => {
     const b = await ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
     await mdrag(b[0] + 200, b[1] + 200, b[0] + 280, b[1] + 260);
   };
-  const press = async (sel) => { const c = await center(sel); await mdrag(c[0], c[1], c[0], c[1]); await settle(1200); };
+  const press = async (sel) => { const c = await center(sel); await mdrag(c[0], c[1], c[0], c[1]); await settled({ max: 15000 }); };
   await task('targets', 'On w₁, draw a disc, then click ‹ (or press ←).', async () => {
     await drawDisc();
     check('targets: a disc alone does not tick it', !(await l2()).done, await l2());
     await press('#svStrip .sv-prev');
   }, null, true);
-  check('targets: the result line says z shows where the disc comes from', /z shows where the disc comes from/.test((await l2()).text), await l2());
+  check('targets: the result line says z shows where the disc comes from', /z shows where the disc comes from/.test(then), then);
   await goStep('targets');
   await press('#svStrip .sv-prev'); await drawDisc(); await press('#svStrip .sv-next'); await press('#svStrip .sv-prev');
   check('targets: a disc drawn on z, then › and ‹, does not tick it', !(await l2()).done, await l2());
@@ -79,12 +93,12 @@ const task = async (id, text, fn, ready, glides = false) => {
     const f = await center('#svStrip .sv-wholemap');
     await mdrag(f[0], f[1], f[0], f[1]);
   });
-  check('domain: the result line names the Inspector', /Inspector lists where every step is defined/.test((await l2()).text), await l2());
+  check('domain: the result line names the Inspector', /Inspector lists where every step is defined/.test(then), then);
   await task('deriv', 'Click the chip d/dz.', async () => {
     const c = await center('#svStrip .sv-step[data-k="2"] .sv-fchip');
     await mdrag(c[0], c[1], c[0], c[1]);
   });
-  check('deriv: the result line says what the step is', /Inspector shows the step that differentiates/.test((await l2()).text), await l2());
+  check('deriv: the result line says what the step is', /Inspector shows the step that differentiates/.test(then), then);
 }
 
 // Add function and Reorder steps
@@ -96,11 +110,12 @@ const task = async (id, text, fn, ready, glides = false) => {
   await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await task('reorder', 'In the ⋯ menu of f₂, choose Move left.', async () => {
     const m = await center('#svStrip .sv-step[data-k="2"] .sv-more');
-    await mdrag(m[0], m[1], m[0], m[1]); await settle(400);
+    await mdrag(m[0], m[1], m[0], m[1]);
+    await until(`[...document.querySelectorAll('#popHost [role="menuitem"], #popHost button, .menu button')].some((x) => /^Move left/.test(x.textContent.trim()))`, 5000, 25);
     const it = await ev(`(() => { const e = [...document.querySelectorAll('#popHost [role="menuitem"], #popHost button, .menu button')].find((x) => /^Move left/.test(x.textContent.trim())); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
     await mdrag(it[0], it[1], it[0], it[1]);
   });
-  check('reorder: the result line says the planes changed with the order', /changed with the order/.test((await l2()).text), await l2());
+  check('reorder: the result line says the planes changed with the order', /changed with the order/.test(then), then);
 }
 
 // cauchy: drag the circle gamma (Select is on); a fresh page, as the focus the clicks above left on the thread is no part of it
@@ -109,7 +124,7 @@ await task('cauchy', 'Drag the circle γ.', async () => {
   const p = await px('L', Math.SQRT1_2, Math.SQRT1_2);
   await mdrag(p[0], p[1], p[0] + 40, p[1] - 30);
 }, `__cmwShapes().shapes.some((x) => x.kind === 'circle') && __cmwView().main === 'phase'`);
-check('cauchy: the result line says the integral is worked out again', /worked out again/.test((await l2()).text), await l2());
+check('cauchy: the result line says the integral is worked out again', /worked out again/.test(then), then);
 
 
 const T = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ x: p[0], y: p[1], id: 1, radiusX: 4, radiusY: 4, force: 1 })) });
@@ -120,12 +135,13 @@ const tap = async (x, y) => { await T('touchStart', [[x, y]]); await sleep(50); 
 await open('tt3', 390, 844, false, true);
 const taskT = async (id, text, fn, ready) => {
   try {
-    await goStep(id); await settle(2500);   // (a phone's scene takes longer to settle)
-    if (ready) { check(`phone ${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settle(2500); }
+    await goStep(id);
+    if (ready) { check(`phone ${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settled({ max: 20000 }); }
     const a = await l2();
     check(`phone ${id}: the task line is "${text}"`, a && flat(a.text).endsWith(flat(text)) && !a.done, a);
-    await sleep(1500);
+    await sleep(1500);   // (a negative control, as above)
     check(`phone ${id}: nothing ticks without input`, !(await l2()).done);
+    await watchThen();
     await fn();
     const t = await ticks(4000);
     check(`phone ${id}: a finger ticks it`, t != null, [await cur(), await l2()]);
@@ -143,7 +159,8 @@ const taskT = async (id, text, fn, ready) => {
 await open('tt4', 390, 844, false, true);
 await taskT('cauchy', 'Tap the circle γ, then drag it.', async () => {
   const p = await px('L', Math.SQRT1_2, Math.SQRT1_2);
-  await tap(p[0], p[1]); await sleep(700);   // (a bare drag of an unselected curve pans the plane: the touch line says tap first)
+  await tap(p[0], p[1]);   // (a bare drag of an unselected curve pans the plane: the touch line says tap first, and the curve is selected before the drag)
+  await until('!!__cmwShapes().selected', 5000, 25);
   await tdrag(p[0], p[1], p[0] + 30, p[1] - 20);
 }, `__cmwShapes().shapes.some((x) => x.kind === 'circle') && __cmwView().main === 'phase'`);
 
