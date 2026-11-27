@@ -1,12 +1,13 @@
-// Phone landscape, the tall construction bar (#2569): the steps view on example 1, opened after example 2, its "Opened …" message with Undo up, then the
-// Hyperbolic tool picked so the bar opens at its tall height. Where the plane above the bar is too short to hold the message clear of
-// the tour's lane (568 × 320 and 600 × 320), the message goes at once: from the bar's second frame, and a second later, no message
-// lies over the lane or the bar, and none is left in the host. A message raised while the bar is open answers what was just done and
-// stays: the rail's Undo key, pressed under the bar, still undoes the example's opening and shows its "Undid … Redo" message, whose
-// Redo (the phone's only one) brings the example back; a message raised under the bar is still up a second later. At 640 × 360
-// (control) the message fits in the plane, clear of the lane, and stays. A state message (sticky, as the Play gate's) is not dropped: it is kept
-// out of sight while there is no room and shows again once the bar closes. In en, ru and it, light and dark. In the steps view
-// (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// Phone landscape, the tall construction bar: no message over the tour's lane. The steps view on example 1, opened after example 2,
+// its "Opened …" message with Undo up, then the Hyperbolic tool picked so the bar opens at its tall height. Where the plane above the
+// bar is too short to hold the message clear of the tour's lane (568 × 320 and 600 × 320), the message goes at once: from the bar's
+// second frame, and a second later, no message lies over the lane or the bar, and none is left in the host. A message raised while
+// the bar is open answers what was just done and stays: the rail's Undo key, pressed under the bar, still undoes the example's
+// opening and shows its "Undid … Redo" message, whose Redo (the phone's only one) brings the example back; a message raised under the
+// bar is still up a second later. At 640 × 360 (control) the message fits in the plane, clear of the lane, and stays. A state message
+// (sticky, as the Play gate's) is not dropped: it is kept out of sight while there is no room and shows again once the bar closes. In
+// en, ru and it, light and dark. In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints
+// { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };

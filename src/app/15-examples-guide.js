@@ -923,7 +923,10 @@
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
-    const clear = () => { toastLift(null); host.removeAttribute('data-no-room'); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('right'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    // (a sticky message kept out of sight for want of room, data-no-room, is judged afresh at every placement: only the landscape
+    // phone's case below sets it again, in the same task)
+    host.removeAttribute('data-no-room');
+    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('right'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
     const phone = document.documentElement.classList.contains('ph');
     if (!host.firstElementChild) { if (phone) clear(); return; }
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
