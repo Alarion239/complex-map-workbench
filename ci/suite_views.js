@@ -369,6 +369,7 @@ const VIEWS = {
   'inspector_parse_hint_cmd.js': steps(),
   'ux165_palette_cmd.js': steps({ pin: true }),
   'guide_nav_cmd.js': steps({ pin: true }),
+  'guide_probe_keys_cmd.js': steps(),
   'i18n_cmd.js': steps({ pin: true }),
   'i18n_classic_cmd.js': classic('the Deformation\'s keys on a Russian layout (Ь, З), the digit keys that pick X → Y, Phase and Landscape, and the classic Landscape title of the logarithm\'s example: the steps view has none of those keys (its play and Paths keys and its plane head\'s sheets are in i18n_cmd)'),
   'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; the steps view\'s own walk is i18n_walk_steps_cmd'),
