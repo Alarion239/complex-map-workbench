@@ -672,6 +672,36 @@
     for (const r of Object.values(out)) { r.maxCont = +r.maxCont.toFixed(2); r.minJump = Number.isFinite(r.minJump) ? +r.minJump.toFixed(2) : null; }
     return out;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // The carried All sheets' places read back with GLR._lw.cpDump (LAND_CARRY_PLACE_S_TF_VS: each sheet's cells' own four
+  // corners), the box's and each patch's, against cut 2's jump rule (LAND_CARRY_NRM_VS): an edge of a cell on a sheet,
+  // along x, y or the diagonal, steps over the rule's floor w and over J times the larger of the same edges of the cells
+  // beside it along that line on that sheet. Per slot (0 the box, i + 1 the patch i): {edges: the edges read (both
+  // corners finite), over: those the rule would flag, maxRatio: the largest ratio of an edge with a finite neighbour},
+  // or null with no read-back
+  window.__cmwLandSheetStretch = () => (GLR._cpDump ? Object.fromEntries(Object.entries(GLR._cpDump).map(([slot, D]) => [slot, landSheetStretch(D)])) : null);
+  function landSheetStretch(D) {
+    const { d, texW, N, K, tileC, J, w } = D, M = N - 1, T = 2 * M;
+    const at = (k, i, j, ci, cj) => { const o = 4 * (((Math.floor(k / tileC) * T) + 2 * j + cj) * texW + (k % tileC) * T + 2 * i + ci); return d[o + 3] > 0.5 ? [d[o], d[o + 1]] : null; };
+    const edge = (k, i, j, di, dj) => {
+      if (i < 0 || j < 0 || i >= M || j >= M) return -1;
+      const a = at(k, i, j, 0, 0), b = at(k, i, j, di, dj);
+      return a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : -1;
+    };
+    let edges = 0, over = 0, maxRatio = 0;
+    for (let k = 0; k < K; k++) for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) for (const [di, dj] of [[1, 0], [0, 1], [1, 1]]) {
+      const s = edge(k, i, j, di, dj);
+      if (s < 0) continue;
+      edges++;
+      const m = Math.max(edge(k, i - di, j - dj, di, dj), edge(k, i + di, j + dj, di, dj));
+      if (m > 0) maxRatio = Math.max(maxRatio, s / m);
+      if (m >= 0 && s > w && s > J * m) over++;
+    }
+    return { edges, over, maxRatio: +maxRatio.toFixed(2) };
+  }
   // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
   // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there
   window.__cmwLandHeightAt = (x, y) => {

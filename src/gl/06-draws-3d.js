@@ -412,6 +412,16 @@
       u1i(PS, 'uSheetA', sp.a); u1i(PS, 'uSheetB', sp.b); u1i(PS, 'uSheetK', sp.K); u1i(PS, 'uSheetW', sp.W); u1i(PS, 'uTileC', sh.tileC); u1i(PS, 'uTexW', texW); u1iv(PS, 'uSheetMap', sp.map);
       gl.activeTexture(gl.TEXTURE15);
       runTF(PS, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, landCP[slot], texW, texH, gl.RGBA32F, gl.RGBA);
+      // TEST-HOOK (dropped from the published page by build.py)
+      // (sheets tests) api._lw.cpDump: the places read back, the box's (slot 0) and each patch's, api._cpDump[slot]
+      // {d: (x, y, 0, finite) per texel, texW, N, K, tileC, J, w: the jump rule and its floor, carryJump}
+      // (test/sv_land_sin_sheets_cmd.js)
+      if (api._lw && api._lw.cpDump) {
+        const d = new Float32Array(texW * texH * 4);
+        gl.bindBuffer(gl.COPY_READ_BUFFER, scratch); gl.getBufferSubData(gl.COPY_READ_BUFFER, 0, d); gl.bindBuffer(gl.COPY_READ_BUFFER, null);
+        (api._cpDump || (api._cpDump = {}))[slot] = { d, texW, N, K: sp.K, tileC: sh.tileC, J: CARRY_JUMP_J, w: carryJump.w };
+      }
+      // TEST-HOOK
       gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
       return CP_SHEETS;
     }
