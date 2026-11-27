@@ -2,11 +2,13 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions, and Everywhere: a homotopy inverted by Newton, every point over w), the Mountain King Everywhere (the
-// whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions and Everywhere, and the logarithm Everywhere, of an annulus and its sheets (its glide's inverse a
-// branch of a power and an affine map); the zeros of the zeta function Inside regions, for the parked camera alone; and,
-// Everywhere over a disc, the steps whose glide is inverted by a closed form (an n-th root, a complex power, cos, cosh,
-// arccos, arcosh, a rational formula of degree 5: their ops have no NEWT op), a polynomial of degree 5 and a recurrence
-// whose map is a polynomial of degree 8 (every root by Aberth's iteration). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the
+// exponential Inside regions and Everywhere, and the logarithm Everywhere, of an annulus and its sheets (its glide's
+// inverse a branch of a power and an affine map); the zeros of the zeta function Inside regions, for the parked camera
+// alone; and, Everywhere over a disc, the steps whose glide is inverted by a closed form (an n-th root, a complex
+// power, cos, cosh, arccos, arcosh, a rational formula of degree 5: their ops have no NEWT op), a polynomial of degree
+// 5 and a recurrence whose map is a polynomial of degree 8 (every root by Aberth's iteration). Paths are off: the
+// glide's paths are drawn over the colour, which is what is read.
 // Each case checks these things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U, or a case's lookU) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
