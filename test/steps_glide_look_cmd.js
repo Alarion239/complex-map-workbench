@@ -2,11 +2,11 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions, and Everywhere: a homotopy inverted by Newton, every point over w), the Mountain King Everywhere (the
-// whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions, and the logarithm Everywhere, of an annulus and its sheets (its glide's inverse a
+// whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions and Everywhere, and the logarithm Everywhere, of an annulus and its sheets (its glide's inverse a
 // branch of a power and an affine map); the zeros of the zeta function Inside regions, for the parked camera alone; and,
 // Everywhere over a disc, the steps whose glide is inverted by a closed form (an n-th root, a complex power, cos, cosh,
-// arccos, arcosh, a rational formula of degree 5: their ops have no NEWT op) and a polynomial of degree 5 (every root
-// by Aberth's iteration). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// arccos, arcosh, a rational formula of degree 5: their ops have no NEWT op), a polynomial of degree 5 and a recurrence
+// whose map is a polynomial of degree 8 (every root by Aberth's iteration). Paths are off: the glide's paths are drawn over the colour, which is what is read.
 // Each case checks these things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U, or a case's lookU) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
@@ -124,6 +124,10 @@ const CASES = [
   // H_u(z) = w, those in Newton's fractal basins included; its step's own path moves a point by u |p(z) - z|, up to
   // 0.05 at the square's corners at u = 0.001, some pixels, so its ends are a tenth as far from the planes: end)
   { tag: 'Partial sum of the exponential', example: 'Partial sums of the exponential', scope: 'in', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], end: 1e-4 },
+  // (and Everywhere: the whole plane carried, every root of H_u(z) = w at each pixel. Over the whole window |p(z) - z|
+  // reaches the hundreds, so a frame a pixel from plane 0 is at u near 1e-5: its ends at 2e-6, a few times the steps
+  // view's rest band, and its look at the default u, the first frame at 0.002 being far from both planes here)
+  { tag: 'Partial sum of the exponential, Everywhere', example: 'Partial sums of the exponential', scope: 'all', end: 2e-6 },
   // (the logarithm's image of the window narrows with u: every 5 px, step; dots: plane z marks the cut's branch point 0
   // with a dot, which H_u's inverse spreads over many pixels near H_u(0), where the frame draws it small)
   { tag: 'Logarithm, Everywhere', example: 'Logarithm of an annulus', scope: 'all', cover: true, step: 5, dots: [{ re: 0, im: 0 }] },
@@ -146,6 +150,10 @@ const CASES = [
     ['arcosh, Everywhere', { type: 'arcosh', params: {} }, 90, { noNewt: true, step: 5 }],
     ['polynomial of degree 5, Everywhere', { type: 'poly', params: { co: '1, 0, -1, 0.5i, 0, 1' } }, 270, { step: 5, end: 1e-4 }],
     ['rational of degree 5, Everywhere', { type: 'custom', params: { expr: '(z^5+z)/(z^2+2)' } }, 270, { noNewt: true, step: 5, end: 1e-4 }],
+    // (a recurrence whose map is a polynomial of degree 8, u_3 with u_0 = z and u_{k+1} = u_k^2 + z: every root by
+    // Aberth's iteration (NEWT^8), as the polynomial's; its path moves a point by u |p(z) - z|, near 30 at the window's
+    // corners, so its ends are at 2e-6, a few times the steps view's rest band)
+    ['recurrence of degree 8, Everywhere', { type: 'recurrence', params: { u0: 'z', g: 'u^2+z', N: 3, cut: 180 } }, 270, { step: 5, end: 2e-6 }],
   ].map(([tag, step, s, o]) => Object.assign({ tag, scope: 'all', state: { v3: true, v4: true, v5: true, v6: true, nextId: 10, focus: 0, srcView: { cx: 0, cy: 0, s },
     shapes: [{ id: 's1', kind: 'disc', c: [0.5, 0.3], r: 0.6, ci: 0, visible: true }], steps: [Object.assign({ on: true }, step)] } }, o)),
   // (zeta Inside regions: the parked camera alone. The regions' image is a thin strip, where the exact picture finds
