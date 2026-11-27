@@ -137,8 +137,9 @@ const Export = (() => {
   }
   // renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
   // Direct3D 11 takes seconds, which would freeze the tab. So the panels are first drawn small with nothing waiting (renderOff's
-  // warm), and the programs are awaited here, polled, while the export's progress shows; renderOff then finds them linked (or links the odd one still missing). Awaited: the ones this
-  // warm-up started and the current chain's; not the others compiling meanwhile (the idle warm-up's, the gallery's).
+  // warm), and the programs are awaited here, polled, while the export's progress shows; renderOff then finds them linked
+  // (or links the odd one still missing). Awaited: the ones this warm-up started and the current chain's; not the others
+  // compiling meanwhile (the idle warm-up's, the gallery's).
   async function warmExport(alive) {
     if (!GLR.ok || !GLR.pending) return true;
     const before = new Set(GLR.pending().map((p) => p.id));
