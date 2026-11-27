@@ -71,7 +71,7 @@
   // the glide tile (#1533): shown, its box and the plane's (page px), what it keeps clear of, the spot it takes for
   // its size now (svTileSpot), or null, and the morph it shows (#2409), or null
   // (sync: laid out at once, as svTileLater's job does; trace: true starts a record of each layout and typesetting, with
-  // whether it was made where a layout may be (now), false ends it; the record so far is the result's trace)
+  // whether it was made where a layout may be (now) and when (t, performance.now()), false ends it; the record so far is the result's trace)
   window.__cmwTile = (sync, trace) => {
     if (trace != null) svTile.trace = trace ? [] : null;
     if (sync) svTileSync(true, true);
