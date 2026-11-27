@@ -184,38 +184,15 @@
       const own = fi.ownWin ? ' ' + note : '';
       return $t('The planes along %{chain}.', { chain: svChain(fi.frames) }) + own;
     }
-    // (a globe figure's points on the far side are not in its list of what it shows)
-    const c = A.capParts({ letters: !!PRESET[o.for].named, skip: (fi.globePaths || fi.film === 'globe') && fi.hidden && fi.hidden.length ? fi.hidden.map((x) => x.z) : null });
+    const c = A.capParts({ letters: !!PRESET[o.for].named });
     // (round 3) F's formula is displayed, not inline: the caption names F (MAPTOK), and displayF sets
     // F(z) = ... as a displayed equation after the sentence that names F first
     const map = c.raw ? MAPTOK : c.mapTex ? `$${c.mapTex}$` : `$${c.Fname}$`;
     // Phase and Landscape of the deformation: the picture is H_t at the current t
     const hm = c.hm && (view === 'phase' || view === 'land' || view === 'xyL');
-    if (fi.film || fi.globePaths) {
+    if (fi.film) {
       const ts = joinL(fi.ts ? fi.ts.map((t, k) => $t('(%{letter}) $t=%{t}$', { letter: ru ? RU_LETTERS[k] : String.fromCharCode(97 + k), t: fi.labs[k] })) : []);
       const along = homSentence(c, map);
-      const list = c.shapeListGen ? A.segsTex(us(c.shapeListGen)) : A.segsTex(us(c.shapeList));
-      // (the points a globe figure marks are named; a listed point on the far side is said to be hidden)
-      const marks = [$t('dot'), $t('square'), $t('triangle'), $t('diamond')];
-      const named = (fi.pts || []).map((q, k) => `$${cxTexL(q.z)}$ (${marks[k % 4]})`);
-      const hp = (h2) => `$${h2.lab ? `${h2.lab}=` : ''}${cxTexL(h2.z)}$`;
-      const hidden = (fi.hidden || []).length ? (fi.hidden.length === 1 ? $t(' The point %{p} is on the far side of the sphere and is not shown.', { p: hp(fi.hidden[0]) }) : $t(' The points %{list} are on the far side of the sphere and are not shown.', { list: joinL(fi.hidden.map(hp)) })) : '';
-      const dashed = fi.open ? $t(' Dashed: boundary not included.') : '';
-      const plainN = (fi.pts || []).map((q) => `$${cxTexL(q.z)}$`);
-      const qT = A.pathTimesTex ? A.pathTimesTex(fi.m || 1) : ['1/4', '1/2', '3/4'];
-      const mx = A.pathMarksTex ? A.pathMarksTex(fi.m || 1) : { seq: false };
-      // (steps one after another: an arrowhead in the middle of each step, a bar where the steps meet)
-      const marksS = !mx.seq ? $t(' Small dots mark $t=%{a}$ and $t=%{c}$, an arrowhead $t=%{b}$.', { a: qT[0], b: qT[1], c: qT[2] }) : mx.nodes ? $t(' Arrowheads mark $t=%{a}$, the middle of each step, and bars $t=%{n}$, where one step ends and the next begins.', { a: mx.arrows, n: mx.nodes }) : $t(' An arrowhead marks $t=%{a}$.', { a: mx.arrows });
-      // the other point shapes, named by their marker; the frames where one is on the
-      // far side ((a) and (d))
-      const fl = (i) => (ru ? `\\textit{${RU_LETTERS[i]}}` : `(${String.fromCharCode(97 + i)})`);
-      const markS = (fi.marks || []).map((x) => (fi.globePaths ? $t(' The %{mark} is the image of the point %{p} under $%{F}$.', { mark: marks[x.mk], p: hp(x), F: c.Fname })
-        : x.hiddenIn && x.hiddenIn.length ? $t(' The %{mark} is the image of the point %{p}; in %{frames} it is on the far side of the sphere.', { mark: marks[x.mk], p: hp(x), frames: joinL(x.hiddenIn.map(fl)) })
-          : $t(' The %{mark} is the image of the point %{p}.', { mark: marks[x.mk], p: hp(x) }))).join('');
-      // (verify-editor-13) the sentence that names F is short, so its display follows it at once ("..., where \[ F(z) = ... \]")
-      const dq = A.defo ? A.defo() : null, z0 = dq && dq.qp ? `H_0(z)=${dq.qpz}` : 'z';   // (a bracket's start)
-      if (fi.globePaths) return (dq && dq.qp ? $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over the boundary of its image at $t=0$ (gray).', { QP: dq.qp, list, map, m: tnum(fi.m), F: c.Fname }) + wDefS(dq) : $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over its boundary at $t=0$ (gray).', { list, map, m: tnum(fi.m), F: c.Fname })) + (plainN.length ? (plainN.length === 1 ? $t(' The curve is the path $t\\mapsto H_t(z)$ of the point %{p}, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { p: plainN[0], F: c.Fname, z0 }) : plainN.length <= 3 ? $t(' Curves are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { list: joinL(plainN), F: c.Fname, z0 }) : $t(' Curves are the paths $t\\mapsto H_t(z)$ of %{n} points, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { n: String(plainN.length), F: c.Fname, z0 })) + marksS : '') + markS + hidden + dashed;
-      if (fi.film === 'globe') return (dq && dq.qp ? $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.', { QP: dq.qp, map, m: tnum(fi.m), ts, list }) + wDefS(dq) : $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.', { map, m: tnum(fi.m), ts, list })) + (named.length === 1 ? $t(" Solid: the path $t\\mapsto H_t(z)$ of the point %{p} up to the frame's $t$; dotted: the rest of the path; gray: the boundary at $t=0$.", { p: named[0] }) : named.length ? $t(" Solid: the paths $t\\mapsto H_t(z)$ of the points %{list} up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.", { list: joinL(named) }) : $t(' Gray: the boundary at $t=0$.')) + markS + hidden + dashed;
       if (fi.film === 'phaseGlobe') return $t('Phase portraits of $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, at %{ts}: the color shows $\\arg H_t$ (key at right).', { ts }) + (fi.outline ? $t(' Black: the boundary of $X$.') : '') + along;
       if (fi.film === 'land') {
         const ht = { log: '\\log|H_t|', abs: '|H_t|', re: '\\operatorname{Re} H_t', im: '\\operatorname{Im} H_t' }[c.height || 'log'];
@@ -279,61 +256,28 @@
       s += shc ? sheetsTex(shc) : c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
       return s + homDef();
     }
-    if (view === 'morph') {
-      // (the paths figure keeps the morph figure's own caption: its inline F(z) = ... is displayed as everywhere)
-      if (body.captionTex) {
-        let cap = c.raw && c.mapTex ? body.captionTex.split(`$${c.mapTex}$`).join(MAPTOK) : body.captionTex;
-        // (the steps it names are defined in the display that ends the homotopy's sentence)
-        const hi = c.chain && c.raw && c.hom ? cap.indexOf(c.hom.tex) : -1;
-        if (hi >= 0) cap = cap.slice(0, hi + c.hom.tex.length) + CHAINTOK + cap.slice(hi + c.hom.tex.length);
-        return cap;
-      }
-      const i = body.info, ts = i.ts.map((t, k) => $t('(%{letter}) $t=%{t}$', { letter: ru ? RU_LETTERS[k] : String.fromCharCode(97 + k), t: i.labs[k] }));
-      const dq = A.defo ? A.defo() : null;
-      let s = dq && dq.qp ? $t('The deformation $H_t$ from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$), at %{ts}.', { QP: dq.qp, map, m: tnum(i.m), ts: joinL(ts) }) + wDefS(dq) : $t('The deformation $H_t$ from the identity ($t=0$) to %{map} ($t=%{m}$), at %{ts}.', { map, m: tnum(i.m), ts: joinL(ts) });
-      s += i.tracked.length ? $t(" Solid: the paths $t\\mapsto H_t(z)$ of the marked points up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.") : $t(' Gray: the boundary at $t=0$.');
-      if (i.open) s += $t(' Dashed: boundary not included.');
-      return s;
-    }
     // the shape list in the genitive («образ круга»): the app gives it as shapeListGen; English has one form
     const genOf = () => (c.shapeListGen ? A.segsTex(us(c.shapeListGen)) : A.segsTex(us(c.shapeList)));
-    // one merged panel: the deformation H_t (on the globe, or over a d/dz step), or Phase on the Riemann sphere
+    // Phase in one panel, in the plane or on the Riemann sphere
     const g = A.state();
-    if (view === 'xyR' && c.hom) {
-      const list0 = A.segsTex(us(c.shapeList));
-      return $t('The deformation $H_t$%{choice}%{choice2}', {
-        choice: g.rGlobe ? $t(' on the Riemann sphere, with $\\infty$ at the north pole') : '',
-        choice2: list0 ? $t(': the image of %{list0} under $H_t$.', { list0: genOf() }) : '.' }) + $t(' Shown at $t=%{t}$.', { t: tnum(c.hom.T.toFixed(2)) }) + homSentence(c, map);
-    }
     // (the steps view's plane surface draws the phase portrait in the plane, not on the sphere)
     if (view === 'xyL' && g.main === 'phase' && A.svOn() && !g.lGlobe) return $t('Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}', { choice: c.hm ? '$H_t$' : map, choice2: c.hm ? 'H_t' : c.Fname, homDef: homDef() });
     if (view === 'xyL' && g.main === 'phase') return $t('Phase portrait of %{choice} on the Riemann sphere, with $\\infty$ at the north pole: the color shows $\\arg %{choice2}$.%{homDef}', { choice: c.hm ? '$H_t$' : map, choice2: c.hm ? 'H_t' : c.Fname, homDef: homDef() });
-    // X -> Y
-    const i = body.info, two = i.panels.length === 2;
+    // X's plane: the shapes in it, or past the steps view's colour plane the images of the shapes carried there
+    const i = body.info;
     const list = A.segsTex(us(c.shapeList));
     const cap1 = list ? list.charAt(0).toUpperCase() + list.slice(1) : '';
     const many = c.nShapes > 1, lvar = c.lvar;
     if (o.for === 'homework' || o.for === 'slides') {
       if (o.for === 'slides') return '';
-      const wmap = c.raw ? MAPTOK : c.formula ? `$${A.panelVar('R')}=${c.formula}$` : map;
-      let s = list ? (many ? $t('Left: %{list}. Right: their images under %{wmap}.', { list, wmap }) : $t('Left: %{list}. Right: its image under %{wmap}.', { list, wmap })) : $t('The map %{wmap}.', { wmap });
-      if (!two) s = list ? (i.panels[0] === 'L' && !c.carried ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map: wmap, pat: '' }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map: wmap, pat: '' })) : $t('The map %{wmap}.', { wmap });
-      if (i.named && two) { const n = c.nPoints; const L = (k) => String.fromCharCode(65 + k); s += n === 1 ? $t(" The point $A$ goes to $A'$.") : $t(" The points $%{first}$--$%{n}$ go to $%{first}'$--$%{n}'$.", { first: L(0), n: L(n - 1) }); }
+      const wmap = c.raw ? MAPTOK : map;
+      let s = list ? (!c.carried ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map: wmap, pat: '' }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map: wmap, pat: '' })) : $t('The map %{wmap}.', { wmap });
       if (i.open && PRESET[o.for].dashOpen) s += $t(' Dashed: boundary not included.');
       if (i.chevrons) s += $t(' Arrowheads: orientation.');
       return s;
     }
-    const pat0 = A.segsTex(us(c.pattern)), pat = pat0 ? ' ' + pat0 : '';
-    // (a) and (b): in Russian «а — круг …; б — образ …», the list in lower case after the dash
-    const head = ru ? list : cap1;
-    // (the shapes of a plane after (a)'s, which (b) shows by their images: named with their own plane)
-    const laterS = (c.later || []).map((pl) => (pl.n > 1 ? $t(' Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.', { list: A.segsTex(us(pl.gen)), p: pl.p }) : $t(' Panel (b) also shows the image of %{list}, drawn in the $%{p}$-plane.', { list: A.segsTex(us(pl.gen)), p: pl.p }))).join('');
-    // (F, which (b)'s labels name at a focused step, defined as the whole map)
-    const defS = c.defF ? $t(' Here $%{F}$ is the whole map.', { F: c.defF }) : '';
-    if (two) return (list ? (many ? $t('(a) %{head} in the $%{lvar}$-plane. (b) Their images under %{map}.%{pat}', { head, lvar, map, pat }) : $t('(a) %{head} in the $%{lvar}$-plane. (b) Its image under %{map}.%{pat}', { head, lvar, map, pat })) : $t('(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}', { lvar, map, pat })) + laterS + defS;
-    // (the steps view past its colour plane: the left panel shows the shapes carried there, their images)
-    if (i.panels[0] === 'L' && !c.carried) return list ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : $t('The $%{lvar}$-plane.', { lvar });
-    return list ? (many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map, pat }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map, pat })) : $t('The image under %{map}.%{pat}', { map, pat });
+    if (!c.carried) return list ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : $t('The $%{lvar}$-plane.', { lvar });
+    return list ? (many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map, pat: '' }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map, pat: '' })) : $t('The image under %{map}.%{pat}', { map, pat: '' });
   }
   // a Russian caption as LaTeX: Russian notation (tg, sh, ln), no-break spaces (GLOSSARY 3.6) written as ~
   // (first the closing comma a shape list left open (U+2063, app.js pcTidy): a comma before more
@@ -367,17 +311,17 @@
   const plainOf = (tex, lang) => segsOf(tex, lang).map((s) => (s.d != null ? ` ${plainMath(s.d.replace(/\\displaystyle\s*/g, ''))} ` : s.m != null ? plainMath(s.m) : s.b != null ? s.b : s.i != null ? s.i : s.t)).join('').replace(/ {2,}/g, ' ');
   const plainMath = XD.plain;
   // (the steps view: the stage's window, As on screen, unless a crop is asked for)
-  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
+  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, deform: 'film' });
   // the default file name and \label: the scene, the view and the kind of figure, so two
   // different figures never share a file or a label (strip-to-disk-phase-film, strip-to-disk-globe-paths, ...); the
   // name stays the same for the same figure, so a new export overwrites only its own file
   function defaultName(view, deform, fmt) {
     // (the app's scene name ends with the tag of the view on screen: the base is the scene alone)
-    const sn = (A && A.sceneName()) || 'figure', suf = { phase: '-phase', land: '-landscape', morph: '-deformation' }[A.viewKind()];
+    const sn = (A && A.sceneName()) || 'figure', suf = { phase: '-phase', land: '-landscape' }[A.viewKind()];
     const base = suf && sn.endsWith(suf) ? sn.slice(0, -suf.length) : sn;
-    const defo = defoOf(view), tag = { plane: 'deformation', deriv: 'deformation', globe: 'globe', phase: 'phase', phaseGlobe: 'phase-sphere', land: 'landscape' }[defo];
+    const defo = defoOf(view), tag = { phase: 'phase', phaseGlobe: 'phase-sphere', land: 'landscape' }[defo];
     if (fmt === 'video') return defo ? `${base}-${tag}-video` : base;
-    if (defo) return `${base}-${tag}-${deform === 'paths' && PATHS_OK.has(defo) ? 'paths' : deform === 'frame' && defo !== 'plane' ? 'frame' : 'film'}`;
+    if (defo) return `${base}-${tag}-${deform === 'frame' ? 'frame' : 'film'}`;
     if (view === 'svFilm' || view === 'svNumFilm') return `${base}-filmstrip`;
     if (view === 'svTwo') return `${base}-two-planes`;
     if (view === 'svPaths') return `${base}-paths`;
@@ -394,13 +338,9 @@
     if (fi.numFilm) return numFilmSentence(fi);
     if (fi.svTwo) return svTwoSentence(fi);
     const at = c.hom ? `$t=${tnum(c.hom.T.toFixed(2))}$` : '';
-    if (fi.globePaths) return $t('Paths of the deformation $H_t$ on the Riemann sphere.');
-    if (fi.film === 'globe') return $t('The deformation $H_t$ on the Riemann sphere at %{ts}.', { ts });
     if (fi.film === 'phaseGlobe') return $t('Phase portraits of $H_t$ on the Riemann sphere at %{ts}.', { ts });
     if (fi.film === 'land') return $t('Landscapes of $H_t$ at %{ts}.', { ts });
     if (fi.film === 'phase') return $t('Phase portraits of $H_t$ at %{ts}.', { ts });
-    if (view === 'morph') return fi.labs ? $t('The deformation $H_t$ at %{ts}.', { ts }) : $t('Paths of the deformation $H_t$.');
-    if (view === 'xyR' && c.hom) return A.state().rGlobe ? $t('The deformation $H_t$ on the Riemann sphere at %{ts}.', { ts: at }) : $t('The deformation $H_t$ at %{ts}.', { ts: at });
     if (c.hm && c.hom && view === 'phase') return $t('Phase portrait of $H_t$ at %{ts}.', { ts: at });
     if (c.hm && c.hom && view === 'land') return $t('Landscape of $H_t$ at %{ts}.', { ts: at });
     if (c.hm && c.hom && view === 'xyL') return $t('Phase portrait of $H_t$ on the Riemann sphere at %{ts}.', { ts: at });
@@ -408,7 +348,7 @@
     if (view === 'land') return $t('Landscape of $%{F}$.', { F: c.Fname });
     return $t('The image under $%{F}$.', { F: c.Fname });
   }
-  // build(o): the figure for the current view. o: {for, cols, sizeId, customPt, text, ink, crop, axes, panels, deform,
+  // build(o): the figure for the current view. o: {for, cols, sizeId, customPt, text, ink, crop, axes, deform,
   // name, captionTex (an edited caption), capInImage, view, alive}. -> {svg, W, H, boxes, lines, glyphs, meta,
   // captionTex, name, view, Wtex, ...} or null when cancelled
   // a pass that met a range of MathJax's STIX2 font not yet loaded (XD.waits, 01-composer.js) is built again
@@ -447,7 +387,7 @@
     // (round 3) the deformation is exported as a deformation in every view: the filmstrip, the paths (plane, globe),
     // or the frame at the current t (o.deform 'frame', the one-panel figure)
     const defo = defoOf(view);
-    if (defo && defo !== 'plane' && o.deform !== 'frame') body = null;
+    if (defo && o.deform !== 'frame') body = null;
     else if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
     else if (view === 'svNumFilm') body = await figNumFilm(o, P, W, T);
     else if (view === 'svTwo') body = await figSvTwo(o, P, W, T);
@@ -455,17 +395,16 @@
     else if (view === 'phase') body = await figPhase(o, P, W, T);
     else if (view === 'land') body = await figLand(o, P, W, T);
     if (body) { /* made */ }
-    else if (view === 'morph') body = o.deform === 'paths' ? await figPaths(o, P, W, T) : await figFilm(o, P, W, T);
-    else if (defo && o.deform !== 'frame') body = defo === 'globe' && o.deform === 'paths' ? await figGlobePaths(o, P, W, T) : defo === 'phase' ? await figFilmPhase(o, P, W, T) : defo === 'deriv' ? await figFilm(o, P, W, T) : await figFilmPic(o, P, W, T, defo);
-    else body = await figXY(view === 'xyL' || view === 'xyR' ? Object.assign({}, o, { panels: view === 'xyL' ? 'L' : 'R' }) : o, P, W, T, view);
+    else if (defo && o.deform !== 'frame') body = defo === 'phase' ? await figFilmPhase(o, P, W, T) : await figFilmPic(o, P, W, T, defo);
+    else body = await figXY(o, P, W, T, view);
     if (!body || (o.alive && !o.alive())) return null;
     const autoCap = polish(using(lang, () => { const cp = A.capParts(); return displayF(captionFor(o, view, body), cp, 0.88 * W, T[2], view === 'land' && !cp.hm && !!cp.sheets); }), lang);
     const shortCap = polish(using(lang, () => shortFor(view, body)), lang);
-    const cp = using(lang, () => A.capParts()), Fn = view === 'morph' || (cp.hm && (view === 'phase' || view === 'land')) ? 'H_t' : cp.Fname;
-    const film = view === 'morph' || (body.info && (body.info.film || body.info.globePaths));
+    const cp = using(lang, () => A.capParts()), Fn = cp.hm && (view === 'phase' || view === 'land') ? 'H_t' : cp.Fname;
+    const film = !!(body.info && body.info.film);
     // a slide names F: in its title when the formula is short, else displayed under the figure
     const slideF = cp.raw ? `${cp.Fname}(${cp.lvar})=${tidyTex(cp.raw)}` : null, slideFin = !!slideF && slideF.length <= 48;
-    const slideTitle = polish(using(lang, () => (film ? (slideFin ? $t('The deformation $H_t$ to $%{F}$', { F: slideF }) : $t('The deformation $H_t$')) : view === 'phase' ? $t('Phase portrait of $%{Fn}$', { Fn }) : view === 'land' ? $t('Landscape of $%{Fn}$', { Fn }) : view === 'morph' ? $t('The deformation $H_t$') : cp.mapTex && cp.mapTex.length < 60 ? $t('The map $%{mapTex}$', { mapTex: cp.mapTex }) : $t('The map $%{Fn}$', { Fn }))), lang);
+    const slideTitle = polish(using(lang, () => (film ? (slideFin ? $t('The deformation $H_t$ to $%{F}$', { F: slideF }) : $t('The deformation $H_t$')) : view === 'phase' ? $t('Phase portrait of $%{Fn}$', { Fn }) : view === 'land' ? $t('Landscape of $%{Fn}$', { Fn }) : cp.mapTex && cp.mapTex.length < 60 ? $t('The map $%{mapTex}$', { mapTex: cp.mapTex }) : $t('The map $%{Fn}$', { Fn }))), lang);
     const captionTex = o.captionTex != null ? o.captionTex : autoCap;
     let H = body.H;
     const items = body.items.slice();
@@ -478,7 +417,7 @@
     const meta = { app: 'Complex Map Workbench', name, preset: o.for, ink: o.ink, view, width: `${Wtex}pt`, scene: A.sceneMeta() };
     const fig = XD.svg({ W, H, items, defs: body.defs, lines: body.lines, meta, ...svTwoWords(body.info, lang) });
     // (box: the picture's world window, a plane panel's, for a check against the screen)
-    return Object.assign(fig, { box: (body.info && (body.info.box || (body.info.boxes && body.info.boxes.L))) || null, name, captionTex, autoCaption: autoCap, shortCap, slideTitle, slideF: slideF && !(film ? slideFin : cp.mapTex && cp.mapTex.length < 60) ? polish(slideF, lang) : null, view, for: o.for, Wtex, size, T, star: !!size.star, cols: o.cols, ink: o.ink, ms: Math.round(performance.now() - t0), info: body.info, opts: o, lang });
+    return Object.assign(fig, { box: (body.info && body.info.box) || null, name, captionTex, autoCaption: autoCap, shortCap, slideTitle, slideF: slideF && !(film ? slideFin : cp.mapTex && cp.mapTex.length < 60) ? polish(slideF, lang) : null, view, for: o.for, Wtex, size, T, star: !!size.star, cols: o.cols, ink: o.ink, ms: Math.round(performance.now() - t0), info: body.info, opts: o, lang });
   }
   // the caption typeset alone, as LaTeX would set it under the figure ("Figure 1." in bold), for the paper preview
   // (round 3) a caption's words typeset ahead, in slices with a yield once 8 ms have passed: the cache then serves

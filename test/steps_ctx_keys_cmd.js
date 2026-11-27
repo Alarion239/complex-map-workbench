@@ -119,7 +119,7 @@ const foldedHides = (legendId, readoutSel) => ev(`(() => {
 // the smallest landscape phones
 const LONG_READOUT = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';   // (the longest text the readout holds)
 let gaveBack = 0;   // (the cases where the unfolded key took the readout's place: the give-back row's subjects)
-const CASES = [[740, 360, 'en', 'plane'], [667, 375, 'en', 'plane'], [844, 390, 'en', 'plane'], [568, 320, 'ru', 'plane'], [568, 320, 'it', 'plane'], [600, 320, 'ru', 'plane'],
+const CASES = [[740, 360, 'en', 'plane'], [667, 375, 'en', 'plane'], [844, 390, 'en', 'plane'], [568, 320, 'ru', 'plane'], [568, 320, 'it', 'plane'], [600, 320, 'ru', 'plane'], [568, 320, 'en', 'plane'], [600, 320, 'en', 'plane'],
   [740, 360, 'en', 'sphere'], [667, 375, 'en', 'sphere'], [667, 375, 'ru', 'sphere'], [740, 360, 'it', 'sphere'], [568, 320, 'ru', 'sphere'], [600, 320, 'ru', 'sphere'], [640, 360, 'ru', 'sphere'], [640, 360, 'ru', 'plane']];
 // (focus events, and so :focus-visible, reach a page only while it has focus: a headless page is made to, until the rows end)
 await send('Emulation.setFocusEmulationEnabled', { enabled: true });
@@ -240,12 +240,25 @@ for (const [w, h, lang, surf] of CASES) {
       // given its longest text and no cap, set before the key is unfolded again so that the page places the card with it, is met by the card at the
       // 320 px tall sizes, where the card runs up under the bar; it takes the readout's place, and gives it back the same way)
       if (surf === 'plane') {
-        await ev(`(() => { const e = document.getElementById('leftReadout'), c = document.getElementById('leftLegend'); window.__roHtml = e.innerHTML;
-          e.textContent = ${JSON.stringify(LONG_READOUT)}; e.style.maxWidth = 'none'; if (!c.classList.contains('collapsed')) c.click(); c.click(); return 1; })()`);
-        await settled({ max: 10000, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
-        await placed('leftLegend');
-        const long = await foldedHides('leftLegend', '#leftReadout');
-        await ev(`(() => { const e = document.getElementById('leftReadout'); if (window.__roHtml != null) e.innerHTML = window.__roHtml; e.style.maxWidth = ''; return 1; })()`);
+        // (the premise of this case, at the 320 px tall sizes: the readout, given its longest text under its width cap, stops short of the unfolded card, so the
+        // card does not meet it; at 360 px tall and over the cap leaves room for the card to meet a long readout, which the card there, not pushed under the bar,
+        // does not take the place of)
+        if (h < 340) {
+          const cap = await ev(`(() => { const e = document.getElementById('leftReadout'), c = document.getElementById('leftLegend'), html = e.innerHTML; e.textContent = ${JSON.stringify(LONG_READOUT)};
+            const r = e.getBoundingClientRect(), b = c.getBoundingClientRect(); e.innerHTML = html; return { ro: [r.left, r.top, r.right, r.bottom].map(Math.round), card: [b.left, b.top, b.right, b.bottom].map(Math.round) }; })()`);
+          info[`${name} capped readout against the unfolded key`] = cap;
+          ok(`${name}: the readout, given its longest text under its width cap, stops short of the unfolded colour key (the card does not meet it)`, !meet(cap.ro, cap.card), cap);
+        }
+        let long = null;
+        try {
+          await ev(`(() => { const e = document.getElementById('leftReadout'), c = document.getElementById('leftLegend'); window.__roHtml = e.innerHTML;
+            e.textContent = ${JSON.stringify(LONG_READOUT)}; e.style.maxWidth = 'none'; if (!c.classList.contains('collapsed')) c.click(); c.click(); return 1; })()`);
+          await settled({ max: 10000, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
+          await placed('leftLegend');
+          long = await foldedHides('leftLegend', '#leftReadout');
+        } finally {
+          await ev(`(() => { const e = document.getElementById('leftReadout'); if (window.__roHtml != null) e.innerHTML = window.__roHtml; e.style.maxWidth = ''; return 1; })()`);
+        }
         info[`${name} uncapped readout, folded hides`] = long;
         ok(`${name}: a colour key that takes the place of a readout the width cap does not hold gives it back as soon as it is folded`, !long.had || !long.hides, long);
         if (long.had) gaveBack++;

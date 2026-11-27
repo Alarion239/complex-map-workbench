@@ -8,7 +8,7 @@
   // (export review r3, verify-editor-7) secs is the length of ONE step (the Length menu says "3 s per step"): a chain of
   // five steps is not rushed, a single map takes that long
   const VSECS = [2, 3, 4, 6];
-  const vdefaults = () => ({ size: '1920x1080', fps: 30, secs: 3, ends: 'once', paths: true, tlabel: true, look: 'light', win: 'screen' });
+  const vdefaults = () => ({ size: '1920x1080', fps: 30, secs: 3, ends: 'once', tlabel: true, look: 'light', win: 'screen' });
   // the frames' times (export review r3, editor-7, a lecture's pace): each step eased on its own (t = k + ease(u)) over
   // secs seconds, a hold of 0.6 s at every whole t inside, holds of 1.2 s at both ends. stops (a glide's plan,
   // A.svGlide): the whole t inside where it holds, the others crossed in one ease with the steps either side (an
@@ -36,8 +36,8 @@
   const tOf = (e) => (typeof e === 'number' ? e : null);
   // the window of a plane kind at the video's aspect: the screen's (As on screen), else the union of what the frames
   // draw (Fit the motion; Phase: its zeros and poles)
-  async function videoBox(side, kind, asp, m, o, v) {
-    const scr = A.screenBox(side);
+  async function videoBox(kind, asp, m, o, v) {
+    const scr = A.screenBox('L');
     let cb = null;
     if (v.win === 'fit') {
       if (kind === 'phase') {
@@ -45,7 +45,7 @@
         if (cb) { const sp = Math.max(cb.x1 - cb.x0, cb.y1 - cb.y0, 1); cb = { x0: cb.x0 - 0.6 * sp, x1: cb.x1 + 0.6 * sp, y0: cb.y0 - 0.6 * sp, y1: cb.y1 + 0.6 * sp }; }
       } else {
         for (const t of [0, m / 3, 2 * m / 3, m]) {
-          const q = await A.art(side, { box: scr, wpt: 120, dpi: 72, ink: printInkFor(o, A.state().alpha), T: t, alive: o.alive });
+          const q = await A.art({ box: scr, wpt: 120, dpi: 72, ink: printInkFor(o, A.state().alpha), T: t, alive: o.alive });
           if (!q) return null;
           cb = unionBox(cb, contentBox(q, scr));
         }
@@ -74,17 +74,17 @@
   }
   // (export review r3, video-11, editor-8) a globe or a relief fills the frame: the union of what four frames draw,
   // widened to the frame's aspect, as a crop [u0, u1, v0, v1] of the pane's picture (fractions), at most 1.6 x zoom
-  async function videoCrop(side, plan, o) {
+  async function videoCrop(plan, o) {
     const { W, H, m } = plan;
     let c = null;
     const w0 = 240, h0 = w0 * H / W;
     for (const t of [0, m / 3, 2 * m / 3, m]) {
-      const r = await A.art(side, { wpt: w0, hpt: h0, dpi: 72, ink: printInkFor(o, A.state().alpha), T: t, alive: o.alive, landBox: plan.landBox });
+      const r = await A.art({ wpt: w0, hpt: h0, dpi: 72, ink: printInkFor(o, A.state().alpha), T: t, alive: o.alive, landBox: plan.landBox });
       if (!r) return null;
       const b = inkBounds(r, plan.kind === 'land' ? 232 : 246), add = (f) => { c = c ? [Math.min(c[0], f[0]), Math.max(c[1], f[1]), Math.min(c[2], f[2]), Math.max(c[3], f[3])] : f; };
       if (b) add([b[0] / r.w, (b[1] + 1) / r.w, b[2] / r.h, (b[3] + 1) / r.h]);
       // (verify-editor-8) the globe's labels, with their size (about 3 % of H, infinity 4 %) and air: never cut by the edge
-      if (plan.kind === 'globe' || plan.kind === 'phaseGlobe') for (const q of globeLabelSpots(r.globe)) add([q.u - 0.04 * H / W, q.u + 0.04 * H / W, q.v - 0.04, q.v + 0.04]);
+      if (plan.kind === 'phaseGlobe') for (const q of globeLabelSpots(r.globe)) add([q.u - 0.04 * H / W, q.u + 0.04 * H / W, q.v - 0.04, q.v + 0.04]);
       // (the relief's floor, where the light look prints its grid and labels: its corners through the camera, with air)
       const L = r.land;
       if (L && L.MVP && GLR.M4) {
@@ -116,7 +116,7 @@
     // (the key stands in a column at the right, beside the picture as in the still, so it never covers it)
     const picW = key ? W - keyColumn(H) : W;
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m, gl.stops), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
+    return { o, v: Object.assign({}, v, { look: 'light' }), kind: 'glide', gl, W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m, gl.stops), name, key };
   }
   // the app's hue ring as a canvas of the frame's own scale (0.14 H across), drawn once and kept for every frame
   function ringCanvas(Hpx) {
@@ -132,7 +132,7 @@
     kx.putImageData(id, 0, 0);
     return kc;
   }
-  // the plan of a video: what is drawn, where, the tracked points
+  // the plan of a video: what is drawn, and where
   async function videoPlan(opts) {
     const o = Object.assign(defaults(), opts || {}), v = Object.assign(vdefaults(), o.video || {});
     const gl = !o.view && A.svOn && A.svOn() && A.svGlide ? A.svGlide() : null;
@@ -141,54 +141,18 @@
     if (!kind) throw new Error('The deformation is off');
     const [Wpx, Hpx] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'];
     const d = A.defo(), m = d.m;
-    const side = kind === 'plane' || kind === 'deriv' || kind === 'globe' ? 'R' : 'L';
-    const pic = kind === 'globe' || kind === 'phaseGlobe' || kind === 'land';
+    const pic = kind === 'phaseGlobe' || kind === 'land';
     // (the screen's line widths at a retina scale; a globe or a relief: the art layer's own labels at about 3 % of the
     // frame's height, export review r3, editor-8)
     const dpr = pic ? Math.max(PIC_DPR_MIN, Hpx / PIC_H_PX) : Math.max(1, Math.min(Wpx, Hpx) / 720);
-    const plan = { o, v, kind, side, W: Wpx, H: Hpx, dpr, m, pic, times: videoTimes(v, m), name: (o.name || defaultName(view, null, 'video') || 'deformation').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'deformation' };
+    const plan = { o, v, kind, W: Wpx, H: Hpx, dpr, m, pic, times: videoTimes(v, m), name: (o.name || defaultName(view, null, 'video') || 'deformation').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'deformation' };
     if (o.trace) plan.trace = o.trace;
     if (kind === 'land') {
       const lb = planLandBox();
       if (lb) plan.landBox = lb;
     }
-    if (!pic) { plan.box = await videoBox(side, kind, Wpx / Hpx, m, o, v); if (!plan.box) return null; }
-    else { plan.crop = await videoCrop(side, plan, o); if (!plan.crop) return null; }
-    // the marked points: the point shapes, else three points of the first boundary (as the filmstrip)
-    const shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3);
-    let tracked = shapes.filter((s) => kindType(s) === 'point' && s.p).slice(0, 4).map((s) => C(s.p[0], s.p[1]));
-    if (!tracked.length && (kind === 'plane' || kind === 'globe')) {
-      const a = shapes.find((s) => kindType(s) !== 'point');
-      if (a) { let cs = []; try { cs = Region.curvesOf(a, srcWin) || []; } catch (e) { cs = []; } const c = cs.find((q) => typeof q.f === 'function'); if (c) tracked = [0.3, 0.5, 0.7].map((s) => c.f(s)).filter(fin); }
-    }
-    plan.tracked = kind === 'plane' || kind === 'globe' || kind === 'deriv' ? tracked : [];
-    plan.Hs = new Map();
-    plan.Hof = (t) => { const key = t.toFixed(6); if (!plan.Hs.has(key)) { if (plan.Hs.size > 400) plan.Hs.clear(); plan.Hs.set(key, A.homF(t)); } return plan.Hs.get(key); };
-    // (editor-5) the screen's own paths while it shows them (X -> Y on the plane), as on screen
-    const sp = kind === 'plane' && v.paths && A.screenPaths ? A.screenPaths() : null;
-    plan.screen = sp ? sp.map((p) => C(p[0], p[1])) : [];
-    // the paths t -> H_t(z), sampled once (97 times over [0, m]); a frame draws the part up to its t
-    plan.us = [...Array(97).keys()].map((j) => j * m / 96);
-    const zs = v.paths ? [...plan.tracked, ...plan.screen] : [];
-    plan.paths = zs.map(() => []);
-    let tq = performance.now();
-    for (const u of plan.us) {
-      const Hu = plan.Hof(u);
-      zs.forEach((z, k) => plan.paths[k].push(Hu(z)));
-      if (performance.now() - tq > 8) { await breathe(); tq = performance.now(); }
-    }
-    // (the print look draws the boundaries: their source curves are found once, a formula's on a 360 x 360 grid, so no
-    // frame waits for them)
-    plan.cs = new Map();
-    if (v.look === 'print' && plan.box && kind !== 'phase') for (const s of shapes) {
-      if (kindType(s) === 'point') continue;
-      let cs = [];
-      try { cs = Region.curvesOf(s, srcWin) || []; } catch (e) { cs = []; }
-      if (!cs.length && kindType(s) === 'area' && !(Region.KINDS[s.kind] && Region.KINDS[s.kind].boundary)) cs = levelBoundary(s, srcWin, 360);
-      plan.cs.set(s, cs);
-      await breathe();
-    }
-    plan.shapes = shapes; plan.srcWin = srcWin;
+    if (!pic) { plan.box = await videoBox(kind, Wpx / Hpx, m, o, v); if (!plan.box) return null; }
+    else { plan.crop = await videoCrop(plan, o); if (!plan.crop) return null; }
     // (the frames' fonts are matched here, once: the first frame's text otherwise took 20-45 ms of its task)
     { const fc = document.createElement('canvas').getContext('2d'); for (const it of ['', 'italic ']) { fc.font = `${it}${Math.round(0.04 * Hpx)}px "Latin Modern Roman", "CMU Serif", "Times New Roman", serif`; fc.measureText('t = 0.00 −1234567890'); } }
     await breathe();
@@ -262,15 +226,15 @@
   // one frame of the video at time t, drawn into the 2D context ctx (W x H device px)
   async function videoFrame(plan, t, ctx) {
     // (W: the picture's width, the frame's but for the glide's key column at the right; Wf: the frame's)
-    const { o, v, kind, side, H, dpr } = plan, W = plan.picW || plan.W, Wf = plan.W, st = A.state();
+    const { o, v, kind, H, dpr } = plan, W = plan.picW || plan.W, Wf = plan.W, st = A.state();
     const look = v.look === 'print' ? 'print' : 'light';
-    const base = { dpi: 96 * dpr, T: t, alive: o.alive, raw: true, look: look === 'light' ? 'light' : null, ink: printInkFor(o, st.alpha), noGlobeLabels: kind === 'globe' || kind === 'phaseGlobe' };
+    const base = { dpi: 96 * dpr, T: t, alive: o.alive, raw: true, look: look === 'light' ? 'light' : null, ink: printInkFor(o, st.alpha), noGlobeLabels: kind === 'phaseGlobe' };
     let r;
     if (kind === 'glide') r = await A.svGlideArt(plan.gl.lo + t, Object.assign(base, plan.pic ? { wpt: W / dpr * 72 / 96, hpt: H / dpr * 72 / 96, landBox: plan.landBox, landRound: roundLandBox } : { box: plan.box, wpt: W / dpr * 72 / 96 }));
-    else if (plan.box) r = await A.art(side, Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
+    else if (plan.box) r = await A.art(Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
     else {
       const [u0, u1, v0, v1] = plan.crop, zx = 1 / (u1 - u0), zy = 1 / (v1 - v0);
-      r = await A.art(side, Object.assign(base, { wpt: W * zx / dpr * 72 / 96, hpt: H * zy / dpr * 72 / 96, landBox: plan.landBox }));
+      r = await A.art(Object.assign(base, { wpt: W * zx / dpr * 72 / 96, hpt: H * zy / dpr * 72 / 96, landBox: plan.landBox }));
     }
     if (!r) return false;
     const s0 = performance.now();
@@ -282,10 +246,9 @@
     // (the off-screen canvas is let go at once: a frame's 8 MB backing store would otherwise wait for the collector)
     r.cv.width = 1; r.cv.height = 1;
     const lw = Math.max(1, Math.min(W, H) / 720);
-    // the vector marks: plane kinds in world coordinates, the globe through its camera
+    // the axes' marks on a plane, in world coordinates
     let P = null;
     if (plan.box) { const b = plan.box; P = (w) => (fin(w) ? [(w.re - b.x0) / (b.x1 - b.x0) * W, (b.y1 - w.im) / (b.y1 - b.y0) * H] : null); }
-    else if (kind === 'globe' && r.globe) { const pj = globeProj(r.globe, { w: W / (cr[1] - cr[0]), h: H / (cr[3] - cr[2]) }, [cr[0] * W / (cr[1] - cr[0]), 0, cr[2] * H / (cr[3] - cr[2]), 0], 0, 0, 1); P = (w) => pj(w); }
     const line = (pts, color, width, dash) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.lineCap = dash ? 'butt' : 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); let pen = false; for (const p of pts) { if (!p) { pen = false; continue; } if (pen) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); pen = true; } ctx.stroke(); ctx.setLineDash([]); };
     const fs = Math.round(0.028 * H);
     // (editor-6) the print look's axes, and tick numbers in both looks: the window is fixed, so they are too
@@ -306,41 +269,9 @@
         vText(ctx, [[lab, false]], lx, py + 0.35 * fs, fs, 'right');
       }
     }
-    // print look on a plane: the boundaries as vectors (the art layer draws fills only); X's boundary as a thin gray
-    // line for t > 0; an open set's boundary dashed (a dash means "not included", editor-9)
-    if (look === 'print' && plan.box && kind !== 'phase') {
-      const wpt = W, Ht = plan.Hof(t);
-      for (const s of plan.shapes) {
-        if (kindType(s) === 'point') continue;
-        const cs = plan.cs.get(s) || [];
-        if (t > 0 && kindType(s) === 'area') for (const seg of mapCurves(cs, A.defo().qp ? plan.Hof(0) : (z) => z, plan.box, wpt / 2)) line(seg.map((p) => P(C(p[0], p[1]))), '#999999', 1 * lw);
-        const tn = tonesOf(s, o), open = kindType(s) === 'area' && Region.isOpen && Region.isOpen(s);
-        for (const seg of mapCurves(cs, Ht, plan.box, wpt / 2)) line(seg.map((p) => P(C(p[0], p[1]))), tn.edge, 2 * lw, open ? [7 * lw, 5 * lw] : null);
-      }
-    }
-    // the paths t -> H_t(z): the marked points (solid in their colour, a dot at H_t(z)) and the screen's paths (thin,
-    // dark, a head at H_t(z)); each sampled once, drawn up to t
-    if (v.paths && P && plan.paths.length) {
-      const nT = plan.tracked.length;
-      plan.paths.forEach((ws, k) => {
-        const mine = k < nT, col = mine ? PTS[k % 4][1] : '#1a1a1a', end = plan.Hof(t)(mine ? plan.tracked[k] : plan.screen[k - nT]);
-        const pts = [];
-        for (let j = 0; j < plan.us.length && plan.us[j] < t; j++) pts.push(P(ws[j]));
-        pts.push(P(end));
-        if (t > 0 && pts.length > 1) { line(pts, '#ffffff', (mine ? 4 : 2.6) * lw); line(pts, col, (mine ? 2 : 1.1) * lw); }
-        const e = P(end);
-        if (!e) return;
-        if (mine) { ctx.fillStyle = col; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5 * lw; ctx.beginPath(); ctx.arc(e[0], e[1], 5 * lw, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); }
-        else if (t > 0) {
-          let q = pts.length - 2; while (q > 0 && (!pts[q] || Math.hypot(pts[q][0] - e[0], pts[q][1] - e[1]) < 3 * lw)) q--;
-          const p0 = pts[Math.max(0, q)];
-          if (p0) { const th = Math.atan2(e[1] - p0[1], e[0] - p0[0]), L = 9 * lw, c2 = Math.cos(th), s2 = Math.sin(th); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(e[0] - L * c2 + 0.36 * L * s2, e[1] - L * s2 - 0.36 * L * c2); ctx.lineTo(e[0] - 0.72 * L * c2, e[1] - 0.72 * L * s2); ctx.lineTo(e[0] - L * c2 - 0.36 * L * s2, e[1] - L * s2 + 0.36 * L * c2); ctx.closePath(); ctx.fill(); }
-        }
-      });
-    }
     // (export review r3, verify-editor-8) the globe's labels in both looks, drawn here (the art layer leaves its own out):
     // dark on a white halo, about 3 % of H; infinity half as large again, its glyph being only x-height tall
-    if ((kind === 'globe' || kind === 'phaseGlobe') && r.globe) {
+    if (kind === 'phaseGlobe' && r.globe) {
       plan.labelBoxes = [];
       for (const q of globeLabelSpots(r.globe)) {
         const x = (q.u - cr[0]) / (cr[1] - cr[0]) * W, y = (q.v - cr[2]) / (cr[3] - cr[2]) * H, inf = q.lab === '∞', f = inf ? Math.round(1.5 * fs) : fs;
@@ -571,7 +502,7 @@
   async function videoScreenCheck(opts) {
     const plan = await videoPlan(opts);
     if (!plan) return null;
-    const side = plan.side, scr = A.screenBox(side), t = A.defo().T;
+    const scr = A.screenBox('L'), t = A.defo().T;
     const c = document.createElement('canvas'); c.width = plan.W; c.height = plan.H;
     await videoFrame(plan, t, c.getContext('2d', { alpha: false }));
     return { box: plan.box, screen: scr, t, frame: c.toDataURL('image/png') };
