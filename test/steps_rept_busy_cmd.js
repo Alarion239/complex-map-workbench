@@ -137,8 +137,9 @@ const landHeld = async (releaseMs) => {
 const reptFrames = (log) => { const c = log.find((e) => e.compiling), t0 = c ? c.t : Infinity; return log.filter((e) => e.rept).map((e) => Object.assign({ since: e.t - t0 }, e)); };
 const release = async () => {
   await ev('GLR.holdLinks(false); __cmwRept({ holdB: false }); 1');
-  return settled({ max: 120000, until: DRAWN });
+  const r = await settled({ max: 120000, until: DRAWN });
   await ev('__cmwRept({ fast: 0, tiles: 0 }); 1');
+  return r;
 };
 // a long compile: held until the "Compiling…" note has been drawn
 {
