@@ -1068,7 +1068,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   let reptProg = null;
   // the tile account (GLR.reptTiles): calls, walks (searches) and the tiles of each pass of the draws a plane keeps (a
   // glide frame's walks counted apart: glides, the frames, and glideTiles, their tiles of both passes), the most tiles
-  // of one call and root solves of one tile, the composites, and the draws with no signature (uncached)
+  // of one call and root solves of one tile of the plane's draws (a glide frame walks its whole frame in one call, and
+  // is in neither), the composites, and the draws with no signature (uncached)
   const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0, glides: 0, glideTiles: 0 };
   const reptTileOf = () => GLChain.reptTile();
   const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
@@ -1198,9 +1199,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         gl.flush();
         E.next++; k++;
         reptStat.searches++; reptStat[glide ? 'glideTiles' : pass === 1 ? 'tilesA' : 'tilesB']++;
-        reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * (pass === 1 ? fast : t.nodes));
+        if (!glide) reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * (pass === 1 ? fast : t.nodes));
       } while (many && E.next < list.length);
-      reptStat.maxTilesPerCall = Math.max(reptStat.maxTilesPerCall, k);
+      if (!glide) reptStat.maxTilesPerCall = Math.max(reptStat.maxTilesPerCall, k);
       gl.bindVertexArray(null);
       invDraws++;
     };
