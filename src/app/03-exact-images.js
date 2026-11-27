@@ -750,7 +750,7 @@
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   const NOTE_GAP = 4;   // the room a note keeps from a message above which it stands
   const NOTE_ROOM_MIN = 160;   // the least room, in px, a note is laid out in beside the chips over its plane (narrower, it keeps its centred place)
-  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
+  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.viewstack and .vbtn in phone.css) + 4 px
   // where a message standing over the plane begins, in the pane's CSS px from its top (Infinity: none over it)
   function messageTop(pane) {
     const msg = document.querySelector('#toastHost .toast');
@@ -878,11 +878,12 @@
   const sumDrop = (pane) => { const r = sumRuns.get(pane); if (r && r.timer) clearTimeout(r.timer); sumRuns.delete(pane); };
   // the pane's note for it: '' when the sample found no point that did not converge or took more than the budget
   const sumNote = (pane) => { const r = sumRuns.get(pane); return r && (r.hit || r.spent) ? sumSay(r) : ''; };
-  // whether each screen pane's "Compiling…" note is drawn: its LED says so (updateLeds), where a screen reader hears it
-  const compileShown = { L: false, R: false };
-  function setCompileShown(role, on) {
-    if (compileShown[role] === on) return;
-    compileShown[role] = on;
+  // whether each screen pane's frames stand in for a compiling program: its LED says so (updateLeds) from the first such frame,
+  // where a screen reader hears it, while the "Compiling…" note on the canvas waits for 300 ms
+  const compileBusy = { L: false, R: false };
+  function setCompileBusy(role, on) {
+    if (compileBusy[role] === on) return;
+    compileBusy[role] = on;
     updateLeds();
   }
   const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
@@ -919,7 +920,8 @@
       const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
       if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
     }
-    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileShown(role, false); return; }
+    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileBusy(role, false); return; }
+    setCompileBusy(role, true);
     const t0 = compileT.get(pane);
     if (t0 === undefined) {
       compileT.set(pane, now);
@@ -927,7 +929,6 @@
     } else if (now - t0 >= 300) {
       // (not while the Play gate's message is up: it says the programs are not ready, and the note would lie under it)
       if (svGateMessageUp()) compileBox = null; else compileNote(pane);
-      setCompileShown(role, true);
     }
   }
   // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)

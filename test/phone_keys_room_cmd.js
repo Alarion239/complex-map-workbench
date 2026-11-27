@@ -29,7 +29,7 @@ const SETTLE_MAX = 20000;     // how long the page may take to start, the exampl
 const geometry = () => ev(`(() => {
   const r = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }, shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
   const plot = document.getElementById('plotL'), bar = document.querySelector('.ph-ctx.in:not(.under)'), lg = document.getElementById('leftLegend');
-  const keys = [...plot.querySelectorAll(':scope > .ph-col > .ph-key, :scope > .viewstack .vbtn')].filter(shown).map((e) => {
+  const keys = [...plot.querySelectorAll(':scope > .viewstack .vbtn')].filter(shown).map((e) => {
     const b = r(e), x = (b.l + b.r) / 2, y = (b.t + b.b) / 2, top = document.elementFromPoint(x, y);
     return { id: e.id || e.className.replace(/\\s+/g, '.'), ...b, onTop: !!top && (top === e || e.contains(top)), over: top && !(top === e || e.contains(top)) ? (top.id || top.className || top.tagName) + '' : '' };
   });

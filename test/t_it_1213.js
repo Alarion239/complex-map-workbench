@@ -14,7 +14,7 @@ let n = 0;
 const ok = (name, cond, got) => { n++; if (!cond) fails.push({ name, got }); };
 
 // the English string is the tour's source literal
-ok('the string is in src/tour.js', read('src/tour.js').includes(`'${KEY}'`), null);
+ok('the string is in src/tour.js', require('./src_text').source('tour.js').includes(`'${KEY}'`), null);
 
 // the shipped table, as the app loads it
 const m = read('src/i18n_it.js').match(/I18N\.define\('it', ("(?:[^"\\]|\\.)*")\);/);
