@@ -1002,8 +1002,9 @@
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
   // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
   // column. What still runs under the bar then is cut off the chip's height: the colour key with its ring is drawn compact to
-  // the room left (keyCompact: rvE's calls on #2433), the others scroll, so all of the key stays in reach; placeKeyPopReadout gives
-  // the chip its whole height back, and the key its full drawing)
+  // the room left (keyCompact: a smaller ring without i and −i, beside it the plane the colour is carried from or the strip's
+  // column, and no caption), the others scroll, so all of the key stays in reach; placeKeyPopReadout gives the chip its
+  // whole height back, and the key its full drawing)
   function clearContextBar(box) {
     const side = box.id === 'leftLegend' ? 'L' : box.id === 'rightLegend' ? 'R' : null, st = side && legendState[side];
     if (st && st.fitH) { st.fitH = 0; drawLegendSide(side); }
@@ -1227,7 +1228,7 @@
     st.ring = !noRing;
     // (the colour key with its ring can be drawn compact, in a card shorter than the key, st.fitH: clearContextBar; see
     // keyCompact. The carried key's lines become one, "from w₂"; the plane's own key keeps its strip's column whole beside a
-    // 38 px ring and leaves its caption out, which the card's description still says: rvE's call on #2433)
+    // 38 px ring and leaves its caption out rather than cut it; the card's description still says it)
     const carried = kind === 'color' && svCarriedKey();
     st.compactable = !noRing && kind === 'color';
     st.compactMin = carried ? KEY_MIN_H : KEY_MIN_H_STRIP;

@@ -5,7 +5,7 @@
 // the card 46 px, less than the key's 72: the key is drawn compact to that height, a smaller ring with "1" and "−1", with
 // nothing to scroll and nothing cut: the card's content height is its own, the key's picture lies inside the card, and the
 // card inside the plane above the bar. Its description still says the whole key. On z the plane it is carried from stands in
-// one line beside the ring. On w₂ (rvE's call) the ring is 38 px across and the strip's column stands whole beside it, clear of
+// one line beside the ring. On w₂ the ring is 38 px across and the strip's column stands whole beside it, clear of
 // the ring's "1", inside the card, its parts apart, and «на полосу яркости» narrowed no further than in the whole key; the
 // caption is left out of the drawing, not cut. At 640 × 360 and 740 × 360 (controls) the key is drawn whole, 72 px, its
 // caption drawn. Closing the bar gives the key its whole drawing back.
@@ -24,7 +24,7 @@ const card = () => ev(`(() => {
     fitH: k.fitH, compactLines: k.compactLines, caption: k.caption, capDrawn: k.capDrawn, geo: k.geo, oneEnd: k.oneEnd, stripInk: k.stripInk, wordK: k.wordK, say: (document.getElementById('leftLegendSay') || {}).textContent || '', tall: document.documentElement.classList.contains('ph-ctx-tall') };
 })()`);
 const OWN_W = 136;     // the plane's own key's width, px (LEG.W)
-const OWN_R = 19;      // the compact own key's ring radius, px (38 across: rvE's call)
+const OWN_R = 19;      // the compact own key's ring radius, px (38 across)
 const meets = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 for (const plane of [0, 2]) for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[568, 320], [600, 320], [640, 360], [740, 360]]) {
   if (dark && (w > 600 || lang === 'it')) continue;
