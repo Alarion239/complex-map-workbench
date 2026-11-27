@@ -1,9 +1,10 @@
 // Phone landscape, the tall construction bar (#2569): the steps view on example 1, opened after example 2, its "Opened …" message with Undo up, then the
 // Hyperbolic tool picked so the bar opens at its tall height. Where the plane above the bar is too short to hold the message clear of
 // the tour's lane (568 × 320 and 600 × 320), the message goes at once: from the bar's second frame, and a second later, no message
-// lies over the lane or the bar, and none is left in the host. The example's opening is still undone by the rail's Undo key once the tool is put away (the bar's ×).
-// At 640 × 360 (control) the
-// message fits in the plane, clear of the lane, and stays. A state message (sticky, as the Play gate's) is not dropped: it is kept
+// lies over the lane or the bar, and none is left in the host. A message raised while the bar is open answers what was just done and
+// stays: the rail's Undo key, pressed under the bar, still undoes the example's opening and shows its "Undid … Redo" message, whose
+// Redo (the phone's only one) brings the example back; a message raised under the bar is still up a second later. At 640 × 360
+// (control) the message fits in the plane, clear of the lane, and stays. A state message (sticky, as the Play gate's) is not dropped: it is kept
 // out of sight while there is no room and shows again once the bar closes. In en, ru and it, light and dark. In the steps view
 // (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -44,7 +45,8 @@ for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (co
   await ev(`__cmwExample(1); 1`);
   const shown = await settled({ only: true, max: 10000, until: `!!document.querySelector('#toastHost .toast[data-undo]')` });
   ok(`${tag}: opening the example shows its message with Undo (control)`, shown.ok, null);
-  ok(`${tag}: example 1's shapes are not example 2's (control)`, before !== await ev('JSON.stringify(__cmwKeys().shapeIds)'), before);
+  const after = await ev('JSON.stringify(__cmwKeys().shapeIds)');
+  ok(`${tag}: example 1's shapes are not example 2's (control)`, before !== after, before);
   await hyper();
   const m0 = info[tag + ' at once'] = await read();
   await sleep(SETTLE_MS); await frames();
@@ -55,13 +57,26 @@ for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (co
   if (short) ok(`${tag}: the example's message, which the plane cannot hold, is gone`, m.inHost === 0, m.msgs);
   else ok(`${tag}: the example's message fits in the plane and stays (control)`, m.msgs.length === 1, m.msgs);
   if (!short) continue;
-  // (the tool put away, the rail's Undo key still undoes the example's opening: the drop leaves the history as it was)
-  await barX();
+  // (under the bar, the rail's Undo key still undoes the example's opening, the drop having left the history as it was; its message, raised
+  // under the bar, stays, and its Redo brings the example back)
   const at = await ev(`(() => { const b = [...document.querySelectorAll('.ph-undo, .ph-hundo')].find((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden'); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-  ok(`${tag}: the phone shows an Undo key (control)`, !!at, at);
+  ok(`${tag}: the phone shows an Undo key beside the open bar (control)`, !!at, at);
   if (at) await click(at[0], at[1]);
   const undone = await settled({ only: true, max: 10000, until: `JSON.stringify(__cmwKeys().shapeIds) === ${JSON.stringify(before)}` });
-  ok(`${tag}: the Undo key still undoes the example's opening`, undone.ok, { before, after: await ev('JSON.stringify(__cmwKeys().shapeIds)') });
+  ok(`${tag}: the Undo key, pressed under the bar, still undoes the example's opening`, undone.ok, { before, now: await ev('JSON.stringify(__cmwKeys().shapeIds)') });
+  await frames(); await sleep(SETTLE_MS); await frames();
+  const u = info[tag + ' undo under the bar'] = await read();
+  const redo = await ev(`(() => { const b = [...document.querySelectorAll('#toastHost .toast .toast-act')].find((e) => e.getClientRects().length && getComputedStyle(e).visibility === 'visible'); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, b.textContent]; })()`);
+  ok(`${tag}: the Undo's message, raised under the bar, is still up a second later with its Redo`, u.msgs.length === 1 && !!redo, { msgs: u.msgs, redo });
+  if (redo) await click(redo[0], redo[1]);
+  const redone = await settled({ only: true, max: 10000, until: `JSON.stringify(__cmwKeys().shapeIds) === ${JSON.stringify(after)}` });
+  ok(`${tag}: its Redo brings the example back`, !!redo && redone.ok, { after, now: await ev('JSON.stringify(__cmwKeys().shapeIds)') });
+  // (a message raised under the bar is the answer to what was just done: it stays for its time)
+  await ev(`__cmwToast('A fresh message raised under the bar'); 1`);
+  await frames(); await sleep(SETTLE_MS); await frames();
+  const f = info[tag + ' fresh under the bar'] = await read();
+  ok(`${tag}: a message raised under the bar is still up a second later`, f.inHost === 1 && f.msgs.length === 1 && /fresh message/.test(f.msgs[0].words), f);
+  await barX();
   if (dark || lang !== 'en') continue;
   // (a state message is kept out of sight while there is no room, and shows again once the bar closes)
   await ev(`__cmwToast('Still preparing the glide', 'Retry', { sticky: true }); 1`);

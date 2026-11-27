@@ -961,14 +961,17 @@
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
       if (refit()) return;
       // (under the tall construction bar a landscape plane can be too short to hold the message: it would rise over the tour's lane or
-      // the head above the plane. The construction is the next step and the message old news: it goes at once, with no fade and nothing
-      // said, and its Undo stays on the rail and ⌘Z (rvE's call, as dropToasts for a dialog). A state message (sticky: the Play gate's)
-      // is still true: it is only kept out of sight while there is no room, data-no-room, and shows again when the room returns. Judged once the
-      // message has picked its rows at this width (toastFitW; fitToastRows places it again): before that it can stand taller than it will)
+      // the head above the plane. A message that was up before the bar opened is old news once the construction has begun: it goes at
+      // once, with no fade and nothing said, and its Undo stays on the rail and ⌘Z, as dropToasts does for a dialog. A state message
+      // (sticky: the Play gate's) is still true: it is only kept out of sight while there is no room, data-no-room, and shows again when
+      // the room returns. A message raised under the bar (data-under-bar: an Undo's "Undid … Redo", whose Redo the phone's rail does not
+      // have) answers what was just done: it keeps its place above the bar, over the lane, for its time. Judged once the message has picked
+      // its rows at this width (toastFitW; fitToastRows places it again): before that it can stand taller than it will)
       const noRoom = land && toastFitW.has(mt) && document.documentElement.classList.contains('ph-ctx-tall') && foot - mt.getBoundingClientRect().height < pl.top;
-      if (noRoom && !mt.hasAttribute('data-sticky')) { dropToasts(); clear(); return; }
-      host.toggleAttribute('data-no-room', noRoom);
-      toastLift(noRoom ? null : Math.round(mt.getBoundingClientRect().height));   // (the plane's keys ride up above it)
+      if (noRoom && !mt.hasAttribute('data-sticky') && !mt.hasAttribute('data-under-bar')) { dropToasts(); clear(); return; }
+      const hide = noRoom && mt.hasAttribute('data-sticky');
+      host.toggleAttribute('data-no-room', hide);
+      toastLift(hide ? null : Math.round(mt.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
     // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
@@ -1087,7 +1090,9 @@
     const host = $('toastHost');
     if (!host) return;
     host.innerHTML = '';
-    const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null, 'data-sticky': o && o.sticky ? '' : null }, h('span', null, msg));
+    // (data-under-bar: raised while the tall construction bar is open, placeToasts)
+    const underBar = !!document.querySelector('.ph-ctx.tall:not([hidden])');
+    const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null, 'data-sticky': o && o.sticky ? '' : null, 'data-under-bar': underBar ? '' : null }, h('span', null, msg));
     if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { closeToast(t); action(); } }, actionLabel));
     // (the classic phone's timed message keeps its bar's room for the words and goes by itself; a press on the words closes any)
     const rt = document.documentElement.classList;
