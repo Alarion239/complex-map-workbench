@@ -1126,14 +1126,14 @@
     if (!want) return;
     const st = legendState[side];
     // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
-    const compact = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    const compact = SV.on && kind === 'color' && keyDc() === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     const { dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H, W = kind === 'color' && svCarriedKey() ? LEG.Wk : LEG.W;
     if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.closest('.legend-chip').parentElement.style.setProperty('--lg-w', W + 'px'); st.drawn = ''; }
     st.h = Hh; st.w = W;
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, plasterKey(kind), keyDc(), compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1169,6 +1169,8 @@
   }
   // the modulus key's facts, shared by the pane and the export's still and video: the bands' light and dark ends, the
   // factor per band, and the caption words around the plane's variable
+  // the style the left key shows: the style asked for, but while the pane holds the picture it had (GLR.drawColorPlot's st.hold) that style's
+  const keyDc = () => (paneL.dcHeld && paneL.dcLast ? paneL.dcLast.style : S.dc);
   const keyStops = (dark) => (dark ? ['#3a4650', '#c9d2d8'] : ['#9aa4ab', '#eef2f4']);
   const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
   const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
@@ -1206,7 +1208,7 @@
       return;
     }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
-    const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    const cauchyOff = SV.on && kind === 'color' && keyDc() === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
     const noRing = cauchyOff || plasterKey(kind);
     st.ring = !noRing;
@@ -1262,7 +1264,7 @@
       const KEY_TOP = 22;    // baseline of the first line
       const KEY_STEP = 13;   // line step (10.5 px text)
       const maxW = W - KEY_PAD - KEY_X,
-        words = (svT() === 0 && S.dc === 'cauchy' && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
+        words = (svT() === 0 && keyDc() === 'cauchy' && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
@@ -1279,13 +1281,13 @@
     // the Phase style has no modulus bands: no strip
     const Fl = SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     // the landscape paints Tiles unless the style is Plain (P10)
-    const plainL = S.dc === 'phase';
+    const plainL = keyDc() === 'phase';
     if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
     // (the steps view's Cauchy style with no picture on this plane: the reason, no bands that are not drawn)
-    if (SV.on && kind === 'color' && S.dc === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(cauchyOff ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
+    if (SV.on && kind === 'color' && keyDc() === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(cauchyOff ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
     // modulus strip
-    st.strip = !(kind === 'color' && S.dc === 'classic');
-    if (kind === 'color' && S.dc === 'classic') {
+    st.strip = !(kind === 'color' && keyDc() === 'classic');
+    if (kind === 'color' && keyDc() === 'classic') {
       const g = ctx.createLinearGradient(sx, 0, sx + sw, 0);
       g.addColorStop(0, '#000000'); g.addColorStop(0.5, '#8a8f93'); g.addColorStop(1, '#ffffff');
       ctx.fillStyle = g; ctx.fillRect(sx, sy, sw, sh);
@@ -1310,7 +1312,7 @@
     }
     // (the steps view's Height key names what the height reads on the shown plane, svHeightName)
     const Fn = SV.on ? (kind === '3d' ? svHeightName('text') : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
-    if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
+    if (SV.on && kind === 'color' && keyDc() === 'cauchy') { caption($t('Cauchy integral')); return; }
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
   // ‹ › on a phone's chain row: the stage that rightStage() names glides from the plane after one step to the next or
