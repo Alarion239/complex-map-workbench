@@ -205,10 +205,11 @@
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 #ifdef IX_REPT
-  // a REPT plan's member maps to the pixel's own w through its stages (uIxA, uIxB] (certified, InvOps' REPT section),
-  // so a colour plane at or after them reads w, not z carried forward (the copies' float32 error grows by the chain's
-  // expansion, up to 1 / |dz/dw|)
-  if (uGs <= uIxA && uGt >= uIxB) {
+  // a REPT plan whose map is its step's own (ixRepOwn): its member maps to the pixel's own w through its stages (uIxA,
+  // uIxB] (certified, InvOps' REPT section), so a colour plane at or after them reads w, not z carried forward (the
+  // copies' float32 error grows by the chain's expansion, up to 1 / |dz/dw|). A glide frame's member maps to w by the
+  // copies' homotopy, not by the stages, and is carried forward as any other plan's
+  if (ixRepOwn && uGs <= uIxA && uGt >= uIxB) {
     if (uIxB >= uGt) return dcolorD(ixRepW, ixDwX, ixDwY);
     vec2 v = chainRange(ixRepW, uIxB, uGt), vx = chainRange(ixRepW + ixDwX, uIxB, uGt) - v;
     return dcolorD(v, vx, uGan ? cmul(cdiv(vx, ixDwX), ixDwY) : chainRange(ixRepW + ixDwY, uIxB, uGt) - v);
@@ -818,8 +819,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const map = st.map || {};
     // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
     // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
-    // (a REPT program draws in tiles through its accumulation target, reptDraw: never at half resolution)
-    const isRept = !!P.loc.uIxRepHatch;
+    // (a REPT plan draws in tiles through its accumulation target, reptDraw: never at half resolution. A plan with no REPT
+    // op draws as any other, by a program that may hold one for another range, Inverse.rangeOpts: its walker leaves
+    // that op inactive)
+    const isRept = !!P.loc.uIxRepHatch && st.plan.ops.some((o) => o.kind === 'REPT');
     let half = !!st.half && !globe && !isRept;
     // (st.saturate: a flat draw at full resolution, not REPT, blended by SRC_ALPHA_SATURATE, in front of what the frame
     // holds: it adds its straight colour times min(its alpha, 1 - the frame's alpha), so passes drawn front to back into
@@ -857,6 +860,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
     u1i(P, 'uIxRepHatch', st.rept || 0);
+    // (a draw outside reptDraw reads no earlier pass's target: uIxRepPass 0, whatever a REPT draw of the program last set)
+    if (!isRept) u1i(P, 'uIxRepPass', 0);
     u1i(P, 'uIxStopOp', d.stopOp);
     u4f(P, 'uIxStopMob', ...d.stopMob);
     if (P.loc.uIxStopT) gl.uniform4fv(P.loc.uIxStopT, d.stopT);
@@ -1062,6 +1067,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // set, shadowUniforms), the texture bound to each of its samplers with its contents' version, the viewport, the rect
   // and the context's generation; a sampler bound to a texture whose version is not known makes the draw uncacheable,
   // and it then draws whole. st.whole (an export) draws every tile in the one call, pass B over every tile (no query).
+  // A glide frame's REPT op (its map the copies' homotopy, not its step's own: InvOps.opRept's own false) is drawn once,
+  // at its u: it is walked whole and composited in the same call, as an uncacheable draw is, and keeps no target (one
+  // per frame would push the parked planes' walks out of REPT_ACC_KEEP, and a frame answering 'pending' would stand in
+  // over the frames after it).
   // A region mask's pass (st.rept 1): the walk writes its unresolved pixels as the mark (1, 0, 0, 0), which the
   // composite leaves out of the picture and marks 1 in the stencil (cleared at the frame's first mark) for
   // reptHatchFill. st.direct (a test's read-back of raw values): one pass at the whole budget straight into the caller's
@@ -1072,7 +1081,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // a REPT draw answered 'pending' since the last GLR.reptPendingTake (a pane's frame begins and ends several GL frames,
   // and each begin clears frameStatus().pending: the pane's status takes this once a frame)
   let reptPendFlag = false;
-  const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0 };
+  // the tile account (GLR.reptTiles): calls, walks (searches) and the tiles of each pass of the draws a plane keeps (a
+  // glide frame's walks counted apart: glides, the frames, and glideTiles, their tiles of both passes), the most tiles
+  // of one call and root solves of one tile, the composites, and the draws with no signature (uncached)
+  const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0, glides: 0, glideTiles: 0 };
   const reptTileOf = () => GLChain.reptTile();
   const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
   // the uniform setters record the values set on a REPT program (its WebGLProgram's reptShadow: location -> value)
@@ -1159,8 +1171,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       return 'drawn';
     }
     const t = reptTileOf(), S = reptTileSolves || t.solves, fast = Math.min(reptFastNodes || t.fast, t.nodes);
-    const sig = reptSig(P, st, rect, mark), whole = !!st.whole || sig === null;
-    if (sig === null) reptStat.uncached++;
+    const op0 = st.plan && st.plan.ops && st.plan.ops[0], glide = !!(op0 && op0.kind === 'REPT' && op0.p && op0.p.own === false);
+    const sig = glide ? null : reptSig(P, st, rect, mark), whole = !!st.whole || sig === null;
+    if (glide) reptStat.glides++;
+    else if (sig === null) reptStat.uncached++;
     // (an uncacheable draw is walked whole and composited in the same call: while the composite's program links it is
     // pending, with nothing walked or allocated)
     if (sig === null && !(ok && program('reptAcc'))) { restoreSc(); framePending = true; reptPendFlag = true; reptKick(); return 'pending'; }
@@ -1198,7 +1212,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.flush();
         E.next++; k++;
-        reptStat.searches++; reptStat[pass === 1 ? 'tilesA' : 'tilesB']++;
+        reptStat.searches++; reptStat[glide ? 'glideTiles' : pass === 1 ? 'tilesA' : 'tilesB']++;
         reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * (pass === 1 ? fast : t.nodes));
       } while (many && E.next < list.length);
       reptStat.maxTilesPerCall = Math.max(reptStat.maxTilesPerCall, k);
