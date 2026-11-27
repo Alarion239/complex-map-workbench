@@ -27,11 +27,11 @@
 //     the outer ring's columns crowd toward them (svLandFarWalls), so the frame is the fine-ring frame's;
 // (vii) A parked on w₁: its far rings keep triangles, and no cell is off by more than 3 px from the surface (geo, in the
 //     frame's world space at depth, both ways: a kept triangle against the surface over it, and the surface over a
-//     triangle the height step left out against the kept ones). A wall narrower than its cell leaves a chord parametrically
-//     far from the points of its z (off, info), while the surface it draws is the exact one's; the fins of (vi) left the
-//     wall's surface out.
+//     triangle the height step left out against the kept ones, where no jump of the height explains the gap: geoCut). A
+//     wall narrower than its cell leaves a chord parametrically far from the points of its z (off, info), while the surface
+//     it draws is the exact one's; the fins of (vi) left the wall's surface out.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc, geo,
-// geoWorst, geoAt, stepped}), its
+// geoWorst, geoAt, stepped, geoCut}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
 // a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
 // kept triangle may bridge one: a lower J would come within reach of the continuous edges' ratios), and its pixel row:

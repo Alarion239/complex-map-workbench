@@ -580,10 +580,14 @@
   // covers (not counted); geo: the cells off by more than tol on the screen from the exact surface, in the frame's world
   // space at each point's depth (landGeo), both ways: a kept triangle's chord and the exact surface over it, and a triangle
   // the height step left out (stepped: their count), the exact surface over it against the grid's kept triangles;
-  // geoWorst, geoAt: its centroid's [w.re, w.im, z.re, z.im]}, or null with no carried frame. A kept triangle's geo is read
-  // when it is over tol by the samples above, the others being within tol of the surface at those samples: a chord across
-  // a wall narrower than its cell is parametrically far from the points of the same z, and geometrically close to the
-  // surface it draws
+  // geoWorst, geoAt: its centroid's [w.re, w.im, z.re, z.im]; geoCut: the left-out triangles a jump of the height explains
+  // (landHeightJump on an edge that steps), counted apart from geo, their reading being the slit's width}, or null with no
+  // carried frame. A kept triangle's geo is read when the samples above are over tol apart in 3D (the chord's point and the
+  // exact one, at the larger of their points' stretches), the nearest point of the surface being no farther than the one of
+  // the same z; between the samples the chord is taken to follow the surface. A chord across a wall narrower than its cell
+  // is parametrically far from the points of the same z, and geometrically close to the surface it draws. A left-out
+  // triangle is measured against its own grid's kept triangles only: where another grid draws its surface (the inner
+  // ring's overlap with the box, a pole patch's disc), it reads high
   window.__cmwLandChordPx = ({ tol = 3, where = null } = {}) => {
     const c = render3D.carried, f = render3D.floor;
     if (!c || !c.map || c.sheets || !f) return null;
@@ -595,7 +599,7 @@
     const out = {};
     const SAMPLES = [[1 / 3, 1 / 3, 1 / 3], [0.5, 0.5, 0], [0, 0.5, 0.5], [0.5, 0, 0.5]];
     const geo = landGeo(f, F, hgt), kept = {};
-    const row = (name) => out[name] || (out[name] = { tris: 0, off: 0, worst: 0, at: null, place: 0, height: 0, inDisc: 0, geo: 0, geoWorst: 0, geoAt: null, stepped: 0 });
+    const row = (name) => out[name] || (out[name] = { tris: 0, off: 0, worst: 0, at: null, place: 0, height: 0, inDisc: 0, geo: 0, geoWorst: 0, geoAt: null, stepped: 0, geoCut: 0 });
     // a triangle's place in plane s (k: barycentric -> its point), its centroid's, and whether it is counted
     const cell = ({ name, n, place }, vs, r) => {
       const ij = vs.map((v) => [v % n, Math.floor(v / n)]), zAt = (k) => place(...[0, 1].map((m) => k[0] * ij[0][m] + k[1] * ij[1][m] + k[2] * ij[2][m]));
@@ -615,20 +619,24 @@
       const cl = cell(gr, vs, r);
       if (!cl) return;
       const { zAt, zc } = cl;
-      let e = 0, ep = 0, eh = 0, atW = null;
+      let e = 0, ep = 0, eh = 0, e3 = 0, atW = null;
       for (const k of SAMPLES) {
         const z = zAt(k), zz = C(z[0], z[1]), w = F(zz), hx = hgt(zz);
         if (!CX.isFin(w) || !Number.isFinite(hx)) continue;
         const cx = k[0] * P[2 * vs[0]] + k[1] * P[2 * vs[1]] + k[2] * P[2 * vs[2]], cy = k[0] * P[2 * vs[0] + 1] + k[1] * P[2 * vs[1] + 1] + k[2] * P[2 * vs[2] + 1];
         const ch = k[0] * hs[0] + k[1] * hs[1] + k[2] * hs[2], q = px(w.re, w.im, hx);
         e = Math.max(e, d(px(cx, cy, ch), q)); ep = Math.max(ep, d(px(cx, cy, hx), q)); eh = Math.max(eh, d(px(w.re, w.im, ch), q));
+        const c3 = geo.world(cx, cy, ch), q3 = geo.world(w.re, w.im, hx);
+        e3 = Math.max(e3, Math.hypot(c3[0] - q3[0], c3[1] - q3[1], c3[2] - q3[2]) * Math.max(geo.scale(c3), geo.scale(q3)));
         if (!atW) atW = [w.re, w.im];
       }
       r.tris++;
-      if (e > tol) { r.off++; if (ep > tol) r.place++; if (eh > tol) r.height++; geoRow(r, geo.chord(zAt, corners), [...(atW || [wx, wy]), ...zc]); }
+      if (e > tol) { r.off++; if (ep > tol) r.place++; if (eh > tol) r.height++; }
+      if (e3 > tol) geoRow(r, geo.chord(zAt, corners), [...(atW || [wx, wy]), ...zc]);
       if (e > r.worst) { r.worst = e; r.at = [...(atW || [wx, wy]), ...zc].map((v) => +v.toFixed(3)); }
     };
-    // a triangle the height step left out: the exact surface over it against the grid's kept triangles
+    // a triangle the height step left out: across a jump of the height (geoCut), or the exact surface over it against the
+    // grid's kept triangles
     const stepped = (gr, ...vs) => {
       const r = row(gr.name), cl = cell(gr, vs, r);
       if (!cl) return;
@@ -636,6 +644,8 @@
       if (!pts.length) return;
       const w = F(C(cl.zc[0], cl.zc[1]));
       r.stepped++;
+      const edges = [[0, 1], [1, 2], [2, 0]].filter(([m, k]) => Math.abs(gr.Hv[vs[m]] - gr.Hv[vs[k]]) > step);
+      if (edges.some(([m, k]) => landHeightJump(gr, vs[m], vs[k], hgt, step))) { r.geoCut++; return; }
       geoRow(r, geo.toKept(pts, kept[gr.name] || []), [...(CX.isFin(w) ? [w.re, w.im] : [NaN, NaN]), ...cl.zc]);
     };
     landKeptTris(c, F, visit, { step, hgt, stepped });
@@ -644,7 +654,8 @@
   };
   // __cmwLandChordPx's geometric reading, in css px, for the frame f (its floor camera; F, the carry's map; hgt, a plane
   // point's height): the frame's world space is its x, y over the box f.box at its aspect, and the height, and a distance
-  // counts at the projection's largest stretch of a unit step at the point (css px per world unit, its depth). The exact
+  // counts at the projection's largest stretch of a unit step at the point (scale: css px per world unit, its depth, the
+  // largest singular value of the projection's Jacobian there, from its columns at GEO_EPS steps). The exact
   // surface over a triangle's place in plane s (zAt: barycentric k -> its point) is sampled on a GEO_G-step barycentric
   // grid (exact: its world points, null where F or the height is not finite), as a mesh of the grid's small triangles.
   // chord(zAt, corners): two-sided, the drawn triangle (its corners' world points) against that surface: the chord's points
@@ -659,7 +670,15 @@
     const scale = (p) => {
       const q = scr(p);
       if (!q) return 0;
-      return Math.max(...[0, 1, 2].map((k) => { const pk = p.slice(); pk[k] += GEO_EPS; const s = scr(pk); return s ? Math.hypot(s[0] - q[0], s[1] - q[1]) / GEO_EPS : 0; }));
+      let a = 0, bc = 0, d = 0;
+      for (let k = 0; k < 3; k++) {
+        const pk = p.slice(); pk[k] += GEO_EPS;
+        const s = scr(pk);
+        if (!s) return 0;
+        const x = (s[0] - q[0]) / GEO_EPS, y = (s[1] - q[1]) / GEO_EPS;
+        a += x * x; bc += x * y; d += y * y;
+      }
+      return Math.sqrt((a + d) / 2 + Math.hypot((a - d) / 2, bc));
     };
     const at = (a, bb) => a * (GEO_G + 1) - (a * (a - 1)) / 2 + bb, K = [];
     for (let a = 0; a <= GEO_G; a++) for (let bb = 0; a + bb <= GEO_G; bb++) K.push([a / GEO_G, bb / GEO_G, 1 - (a + bb) / GEO_G]);
@@ -698,7 +717,22 @@
       }
       return g;
     };
-    return { world, exact, chord, box, toKept };
+    return { world, scale, exact, chord, box, toKept };
+  }
+  // whether the height jumps on the grid g's edge between vertices a and e: bisected along the edge (GEO_BISECT halvings,
+  // keeping the half whose ends' heights hgt are farther apart), its ends still more than step / 2 apart. A steep wall's
+  // ends come together; a cut's stay apart by the jump
+  const GEO_BISECT = 48;
+  function landHeightJump({ n, place }, a, e, hgt, step) {
+    const pa = [a % n, Math.floor(a / n)], pe = [e % n, Math.floor(e / n)];
+    const at = (t) => { const z = place(pa[0] + t * (pe[0] - pa[0]), pa[1] + t * (pe[1] - pa[1])); return hgt(C(z[0], z[1])); };
+    let t0 = 0, t1 = 1, h0 = at(0), h1 = at(1);
+    for (let i = 0; i < GEO_BISECT; i++) {
+      const tm = (t0 + t1) / 2, hm = at(tm);
+      if (!Number.isFinite(hm)) return true;
+      if (Math.abs(hm - h0) >= Math.abs(h1 - hm)) { t1 = tm; h1 = hm; } else { t0 = tm; h0 = hm; }
+    }
+    return Math.abs(h1 - h0) > step / 2;
   }
   // the distance in 3D from point p to triangle t ([a, b, c], each [x, y, z]): to its nearest point (Ericson's region test)
   function ptTriDist(p, [a, b, c]) {
