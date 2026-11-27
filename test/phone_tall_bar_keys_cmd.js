@@ -2,7 +2,7 @@
 // tall height and says the tool's sentence ("Pick the boundary: a line or a circle"), with its ⌫ and ×. The plane's own construction chip
 // says the same: where the plane above the bar is too short to hold it whole (568 × 320, 600 × 320, and 640 × 360 and 740 × 360, where it
 // ran 3 px under the bar), it steps aside rather than be cut at the bar's top; at 800 × 390 (control) it stands whole above the bar. With the
-// colour key unfolded over the plane's keys, no key's edge shows above the card: no key (Fit view's group, Sphere, Display) stands higher
+// colour key unfolded over the plane's keys, no key's edge shows above the card: no key (Fit view and Sphere's group, the keys, Display) stands higher
 // than 4 px under the plane's top, the card's top. The chip is read once the example's message has gone (a message hides the chip by
 // itself, phone.css). In en, ru and it, light and dark. In the steps view
 // (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -16,10 +16,10 @@ const SAYS = { en: 'Pick the boundary', ru: 'Выберите границу', i
 const read = () => ev(`(() => {
   const R = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null; };
   const bar = document.querySelector('.ph-ctx.in'), chip = document.querySelector('#plotL > .draft-chip.cm-on'), lg = document.getElementById('leftLegend');
-  const vg = [...document.querySelectorAll('#plotL .viewstack > .vgroup')].map(R).find(Boolean) || null;
+  const fit = document.getElementById('leftFit');
   return { plotTop: document.getElementById('plotL').getBoundingClientRect().top, toast: !!(document.getElementById('toastHost') || {}).firstElementChild, tall: document.documentElement.classList.contains('ph-ctx-tall'), barTop: bar ? bar.offsetTop : null, barText: bar ? bar.textContent : '',
     chip: R(chip), partsB: chip ? Math.max(...[...chip.querySelectorAll('.cm-chip > *')].map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0).map((r) => r.bottom)) : null, chipShown: !!chip && getComputedStyle(chip).visibility === 'visible', keys: document.getElementById('plotL').dataset.keys || '',
-    card: lg && !lg.classList.contains('collapsed') ? R(lg) : null, fit: vg, sph: R(document.querySelector('#plotL > .ph-col > .ph-sph')), dsp: R(document.querySelector('#plotL > .ph-col > .ph-dsp')) };
+    card: lg && !lg.classList.contains('collapsed') ? R(lg) : null, fit: R(fit), grp: fit ? R(fit.parentElement) : null, sph: R(document.querySelector('#plotL .viewstack .vb-sph')), dsp: R(document.querySelector('#plotL .viewstack .ph-dsp')) };
 })()`);
 for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[568, 320], [600, 320], [640, 360], [740, 360], [800, 390]]) {
   if (dark && (w > 600 || lang === 'it')) continue;
@@ -46,8 +46,8 @@ for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (co
   await settled({ max: 10000, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
   await frames(); await frames();
   const k = info[tag + ' key open'] = await read();
-  const under = [k.fit, k.sph, k.dsp].filter((b) => b && k.card && b.l < k.card.r && k.card.l < b.r && b.t < k.card.b && k.card.t < b.b);
+  const under = [k.grp, k.fit, k.sph, k.dsp].filter((b) => b && k.card && b.l < k.card.r && k.card.l < b.r && b.t < k.card.b && k.card.t < b.b);
   ok(`${tag}: no key under the open card shows an edge above it`, !!k.card && under.every((b) => b.t >= k.card.t - SLACK), { card: k.card, fit: k.fit, sph: k.sph, dsp: k.dsp });
-  ok(`${tag}: no key stands higher than ${KEY_TOP} px under the plane's top`, [k.fit, k.sph, k.dsp].every((b) => !b || b.t >= k.plotTop + KEY_TOP - SLACK), { plotTop: k.plotTop, fit: k.fit, sph: k.sph, dsp: k.dsp, keys: k.keys });
+  ok(`${tag}: no key stands higher than ${KEY_TOP} px under the plane's top`, [k.grp, k.fit, k.sph, k.dsp].every((b) => !b || b.t >= k.plotTop + KEY_TOP - SLACK), { plotTop: k.plotTop, grp: k.grp, fit: k.fit, sph: k.sph, dsp: k.dsp, keys: k.keys });
 }
 return { pass: fails.length === 0, fails: fails.slice(0, 60), info };

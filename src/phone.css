@@ -111,33 +111,34 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
 :root.ph .chip.readout > .rln { grid-column: 2; }
-/* the right column: Sphere, Display; Fit bottom-right; the zoom buttons give way to the pinch */
-.ph-col { display: none; }
-:root.ph .pane:not(.ph-inset) .ph-col { position: absolute; z-index: 13; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; }
-:root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(64px + var(--ph-lift)); }
-/* on the Stack the column also holds the Tilt key (19-stack.js), first. On a landscape phone, where the column's two keys
-   already reach up to the head, it stands to the left of the column's second key (Display) instead of above them, so the
-   column is no taller; left of the first key is the folded colour key's place (the legend chip) */
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) { display: grid; grid-template-columns: 44px 44px; }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col:has(> .ph-tilt:not([hidden])) > :not(.ph-tilt) { grid-column: 2; }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .ph-col > .ph-tilt { grid-column: 1; grid-row: 2; }
-/* (the column takes no press itself, its keys do: the gaps between them and an empty cell of the Stack's grid, left of Sphere, where
-   the folded colour key stands, pass a tap to what is under them) */
-:root.ph .pane:not(.ph-inset) .ph-col { pointer-events: none; }
-:root.ph .pane:not(.ph-inset) .ph-col > * { pointer-events: auto; }
-.ph-key { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--overlay); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-1); }
-.ph-key[hidden] { display: none; }
-.ph-key svg { width: 18px; height: 18px; }
-.ph-key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-:root.ph .viewstack > .vgroup:first-child, :root.ph #leftSph, :root.ph #rightSph { display: none !important; }
+/* the plane's keys are its view stack (.viewstack): Sphere, Display options and Fit view, the Tilt key on the Stack, and the Both key beside two
+   planes (the zoom buttons give way to the pinch). Its grid is one column of 44 px cells with 8 px between, Tilt (or Both), Sphere, Display and
+   Fit view from the top; a key a view lacks is not in it, so the others close up. On a landscape phone's Stack the Tilt key stands left of
+   Display, so the column is no taller. The stack takes no press itself, its keys do: the gaps between them and an empty cell of its grid pass a
+   tap to what is under them */
+:root.ph .pane:not(.ph-inset) .viewstack { z-index: 13; display: grid; grid-template-columns: 44px; grid-auto-rows: 44px; gap: 8px; pointer-events: none; }
+:root.ph .viewstack .vgroup { display: contents; }
+:root.ph .viewstack .ph-tilt, :root.ph .viewstack .ph-both-key { order: 0; }
+:root.ph .viewstack .vb-sph { order: 1; }
+:root.ph .viewstack .ph-dsp { order: 2; }
+:root.ph .viewstack .vb-fit { order: 3; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:not([data-keys]) > .viewstack:has(> .ph-tilt:not([hidden])) { grid-template-columns: 44px 44px; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:not([data-keys]) > .viewstack:has(> .ph-tilt:not([hidden])) .vb-sph { grid-column: 2; grid-row: 1; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:not([data-keys]) > .viewstack:has(> .ph-tilt:not([hidden])) .ph-tilt { grid-column: 1; grid-row: 2; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:not([data-keys]) > .viewstack:has(> .ph-tilt:not([hidden])) .ph-dsp { grid-column: 2; grid-row: 2; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:not([data-keys]) > .viewstack:has(> .ph-tilt:not([hidden])) .vb-fit { grid-column: 2; grid-row: 3; }
+:root.ph .viewstack .vbtn { pointer-events: auto; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--overlay); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-1); }
+:root.ph .viewstack .vbtn[hidden] { display: none; }
+:root.ph .viewstack .vbtn svg { width: 18px; height: 18px; }
+:root.ph .viewstack .vbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+:root.ph .viewstack > .vgroup:first-of-type { display: none !important; }
 :root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
-:root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
 :root.ph .plot > .options { display: none !important; }
 :root.ph .legend-chip { top: 44px; right: 60px; }
 /* (a landscape phone's key stands level with the globe key: its 30 px glyph is centred on the 44 px key at the top of the column, which stands 60 px above the plane's foot and rises with --ph-lift: the column is the globe key and the options key, 96 px; 7 px is half the 14 px the glyph is short of 44. Where the column runs up past the plane's top, 12 px under it, the 4 px gap and the 8 px hit area that must stay inside the plane; the Landscape has no globe key, and keeps the key's place) */
-:root.ph.ph-land:not(.view-land) .plot:has(> .ph-col) > .legend-chip { top: max(12px, calc(100% - 149px - var(--ph-lift))); }
+:root.ph.ph-land:not(.view-land) .plot:has(> .viewstack) > .legend-chip { top: max(12px, calc(100% - 149px - var(--ph-lift))); }
 /* the key stands left of the button column's 44 px lane (right: 8 + 44 + 8), folded or open, so it never meets a button; the
    folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, which test/steps_phone_key_cmd.js reads back as its PAD, so the chip stops clipping) */
 /* (an open key that takes the plane's top over the readout, to show all its lines under the tall bar: the readout gives way until the key folds, by a tap, Escape or the bar going away) */
@@ -224,7 +225,6 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-nums > .ph-na { font: italic 600 15px/1 var(--f-math); }
 .ph-nums > .ph-nn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/13px var(--f-ui); color: var(--muted); }
 .ph-nums > .ph-nn i { font: italic 500 12px/13px var(--f-math); color: var(--ink-2); }
-:root.ph.view-land .ph-sph { display: none; }
 
 /* ---------- the tool row: Undo · Select · Point · Disc · Polygon · More ---------- */
 :root.ph #secDraw {
@@ -476,7 +476,7 @@ html:not(.ph) .ph-only { display: none !important; }
 
 :root.ph.ph-land .ph-grab { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .ph-sheet, :root.ph .pipe-wrap, .ph-ctx, :root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: none !important; }
+  .ph-sheet, :root.ph .pipe-wrap, .ph-ctx, :root.ph .viewstack, :root.ph .panes > .pane.ph-inset { transition: none !important; }
 }
 
 /* ---------- fixes from the interface review ---------- */
@@ -507,7 +507,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet #propsPanel .icon-btn.zp-del, :root.ph .ph-sheet #propsPanel .params .icon-btn.argand { width: 44px; height: 44px; }
 :root.ph .ph-sheet #propsPanel .params .pair > .inp:has(+ .argand) { padding-right: 48px; }
 /* design-11, russian-12: with a sheet open the two small planes keep their title chips only, Y's chip names w alone */
-:root.ph.ph-split:not(.ph-land) :is(.ph-col, .viewstack, .legend-chip) { display: none !important; }
+:root.ph.ph-split:not(.ph-land) :is(.viewstack, .legend-chip) { display: none !important; }
 :root.ph.ph-split:not(.ph-land) .chip.readout { max-width: calc(100% - 16px); }
 /* (the legend chip is hidden there, so its 72 px are not kept: Russian's "w 2 / дел." would be cut by a pixel in the right plane) */
 :root.ph.ph-split:not(.ph-land) .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 16px); }
@@ -542,38 +542,37 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet .shape-name { flex-wrap: wrap; align-items: baseline; row-gap: 0; padding: 4px 0; white-space: normal; -webkit-mask-image: none; mask-image: none; }
 :root.ph .ph-sheet .shape-name .k { font-size: 13px; line-height: 18px; }
 :root.ph .ph-sheet .shape-name .d { flex: 1 0 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; line-height: 16px; }
-/* the plane's keys in one fixed column at the bottom right, in every view: Sphere, Display, then Fit (a key a view
-   lacks leaves its slot empty, so the others never move, except on a landscape plane too short for the column, below); keys and
-   legends of the picture stay at the top right.
-   (Both sits on top of this column.) */
-:root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(60px + var(--ph-lift)); right: 8px; }
+/* the plane's keys in one fixed column at the bottom right, in every view: Sphere, Display, then Fit view (Tilt, or Both, on top; a key a view lacks is
+   not in the column, so the others close up, except on a landscape plane too short for the column, below); keys and legends of the picture stay at the
+   top right */
 :root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
 /* (Landscape draws no rulers: its plot reaches the ruler's 14 px further down; the column keeps its place on screen) */
 :root.ph.view-land .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
-:root.ph.view-land .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler) + var(--ph-lift)); }
-/* (a landscape plane that leaves the keys less room than the column over Fit view, 60 + 96 px over the foot (phone.js marks it data-keys,
-   from the plane's height less the keys' lift): Sphere stands left of Display, in Display's own slot, so the column is one key high
-   ("side"); Fit view keeps its corner. The folded colour key stays level with the globe key, left of it (8 + 44 + 8 + 44 + 8 px in): 97 px
+/* (a landscape plane that leaves the keys less room than the column, 8 + 148 px over the foot (phone.js marks it data-keys, from the plane's
+   height less the keys' lift): Sphere stands left of Display, in Display's own slot, so the column is two keys high ("side"); Fit view keeps its corner. The folded colour key stays level with the globe key, left of it (8 + 44 + 8 + 44 + 8 px in): 97 px
    over the foot is half the 30 px glyph under the key's centre, 22 px under the row's top, which is 60 + 44 px over the foot. Its card
    opens there too, left of every key, and the construction chip stops 162 px short of the plane's right edge, 52 px further in than beside
    the column (the Landscape has no globe key: its Display key keeps its slot, and the colour key its place) */
-:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] > .ph-col { flex-direction: row; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] > .viewstack { grid-template-columns: 44px 44px; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] > .viewstack .vb-sph { grid-column: 1; grid-row: 1; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] > .viewstack .ph-dsp { grid-column: 2; grid-row: 1; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] > .viewstack .vb-fit { grid-column: 2; grid-row: 2; }
 :root.ph.ph-land:not(.view-land) .pane:not(.ph-inset) .plot[data-keys="side"] > .legend-chip { top: max(12px, calc(100% - 97px - var(--ph-lift))); right: 112px; }
 :root.ph.ph-land:not(.view-land) .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on { max-width: calc(100% - 162px); }
 /* (and the Look down key, open at the plane's foot from its left, stops short of the colour key's hit area: 112 + 30 + 8 px from the
    plane's right edge, and on the Stack, where the colour key is a lane further in for the Tilt key, 164 + 30 + 8) */
 :root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="side"] .ld-key { max-width: min(calc(100% - var(--ruler) - 6px - 150px), 320px); }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key { max-width: min(calc(100% - var(--ruler) - 6px - 202px), 320px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) .ld-key { max-width: min(calc(100% - var(--ruler) - 6px - 202px), 320px); }
 /* (but the Stack's open key, with its connector switch, needs the width of the plane up to the keys' row to show all it holds (#2418): it
    stops 6 px short of the row, 148 + 8 + 6 px from the plane's right edge, and the folded colour key in its way is hidden while it is open,
    out of sight and out of the tab order, and back when it folds: one key open at a time (19-lookdown.js folds an open colour key as
    this one opens). Where it still does not show all it holds at that width (fitLookKey): narrow, its title squeezed by the switch, the
    switch's visible name gives way (the switch keeps its name for assistive technology); tight, its marks past its foot, the gaps above
    and below the marks close 2 px each, to 2 and 4 px) */
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key:not(.folded):has(> .ld-links-row) { max-width: min(calc(100% - var(--ruler) - 6px - 162px), 460px); }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])):has(> .ld-key:not(.folded) > .ld-links-row) > .legend-chip.collapsed { visibility: hidden; }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key.narrow:not(.folded) > .ld-links-row > .ld-links-l { display: none; }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) .ld-key.tight:not(.folded) { row-gap: 2px; padding-bottom: 4px; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) .ld-key:not(.folded):has(> .ld-links-row) { max-width: min(calc(100% - var(--ruler) - 6px - 162px), 460px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])):has(> .ld-key:not(.folded) > .ld-links-row) > .legend-chip.collapsed { visibility: hidden; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) .ld-key.narrow:not(.folded) > .ld-links-row > .ld-links-l { display: none; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) .ld-key.tight:not(.folded) { row-gap: 2px; padding-bottom: 4px; }
 /* (under the tall bar and in the one row of keys the Stack's open key reaches past the folded colour key, which stands at the keys' level
    left of them: there too the colour key is hidden while the Stack's key is open, and back when it folds (#2481)) */
 :root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]):has(> .ld-key:not(.folded) > .ld-links-row) > .legend-chip.collapsed { visibility: hidden; }
@@ -582,9 +581,10 @@ html:not(.ph) .ph-only { display: none !important; }
    moves up to the top row, clear of the construction chip below it and of Fit view, and the readout stops short of it, except the
    globe's hint card, which keeps its own column; the construction chip stops short of Fit view's lane, 8 + 8 + 44 + 60 px
    from the plane's right edge, so its Cancel × never lies over Fit view. The same where the keys stand in one row, below) */
-:root.ph.ph-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]) .viewstack { right: 60px; }
-:root.ph.ph-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]) > .ph-col { bottom: calc(8px + var(--ph-lift)); }
-:root.ph.ph-land.view-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]) > .ph-col { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="low"] > .viewstack { grid-template-columns: 44px 44px; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="low"] > .viewstack .vb-sph { grid-column: 2; grid-row: 1; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="low"] > .viewstack .ph-dsp { grid-column: 2; grid-row: 2; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="low"] > .viewstack .vb-fit { grid-column: 1; grid-row: 2; }
 :root.ph.ph-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]) > .legend-chip { top: 4px; }
 :root.ph.ph-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]) > .draft-chip.cm-on { max-width: calc(100% - 120px); }
 /* (the construction chip keeps its place, top: 40px as the plane's chips have, when the colour key unfolds: the key stands in the top row at the right
@@ -596,25 +596,36 @@ html:not(.ph) .ph-only { display: none !important; }
    left, 44 px each with 8 px between. Fit view's right edge is 112 px in: 8 + 44 + 8 + 44 + 8, the two keys at its right and the gaps; the
    construction chip stops 172 px short of the plane's right edge: 112 + 44 + 16, Fit view's lane and a gap each side. The row comes down
    toward the bar where the plane above it is shorter still, so its top stays 4 px under the plane's top (100cqh - 44 - 4: the plane is a
-   size container; Fit view's group is 46 px with its border, 100cqh - 46 - 4), the colour key card's top. The card, 74 px tall, cannot
-   stand beside the row and lies over it while it is open, with no edge of a key showing above it) */
+   size container). The colour key card, 74 px tall, cannot stand beside the row and lies over it while it is open) */
 :root.ph.ph-land .plot { container-type: size; }
-:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] > .ph-col { flex-direction: row; bottom: min(calc(8px + var(--ph-lift)), calc(100cqh - 48px)); }
-:root.ph.ph-land.view-land .pane:not(.ph-inset) .plot[data-keys="row"] > .ph-col { bottom: min(calc(8px + var(--ruler) + var(--ph-lift)), calc(100cqh - 48px)); }
-:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] .viewstack { right: 112px; bottom: min(calc(8px + var(--ph-lift)), calc(100cqh - 50px)); }
-:root.ph.ph-land.view-land .pane:not(.ph-inset) .plot[data-keys="row"] .viewstack { bottom: min(calc(8px + var(--ruler) + var(--ph-lift)), calc(100cqh - 50px)); }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] > .viewstack { grid-template-columns: repeat(3, 44px); bottom: min(calc(8px + var(--ph-lift)), calc(100cqh - 48px)); }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] > .viewstack .vb-fit { grid-column: 1; grid-row: 1; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] > .viewstack .vb-sph { grid-column: 2; grid-row: 1; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] > .viewstack .ph-dsp { grid-column: 3; grid-row: 1; }
+:root.ph.ph-land.view-land .pane:not(.ph-inset) .plot[data-keys="row"] > .viewstack { bottom: min(calc(8px + var(--ruler) + var(--ph-lift)), calc(100cqh - 48px)); }
 :root.ph.ph-land .pane:not(.ph-inset) .plot[data-keys="row"] > .draft-chip.cm-on { max-width: calc(100% - 172px); }
 /* (on the Stack, whose column has the Tilt key too, left of Display: where Sphere stands left of Display ("side") and where the keys stand in one
    row, the three keys of the column stand in one row, Tilt, Sphere, Display from the left, so the colour key and the construction chip move
-   52 px further in ("side"), and Fit view, left of the row, does too ("row"); under the tall bar ("low") Fit view stands left of Tilt, 112 px in) */
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:is([data-keys="side"], [data-keys="row"]) > .ph-col:has(> .ph-tilt:not([hidden])) { grid-template-columns: repeat(3, 44px); }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot:is([data-keys="side"], [data-keys="row"]) > .ph-col:has(> .ph-tilt:not([hidden])) > * { grid-column: auto; grid-row: 1; }
-:root.ph.ph-land.sv-stack:not(.view-land) .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])) > .legend-chip { right: 164px; }
-:root.ph.ph-land.sv-stack:not(.view-land) .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .ph-col > .ph-tilt:not([hidden])):has(> .legend-chip:not([hidden])) > .draft-chip.cm-on { max-width: calc(100% - 214px); }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .ph-col > .ph-tilt:not([hidden])) .viewstack { right: 112px; }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .ph-col > .ph-tilt:not([hidden])) > .draft-chip.cm-on { max-width: calc(100% - 172px); }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .ph-col > .ph-tilt:not([hidden])) .viewstack { right: 164px; }
-:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .ph-col > .ph-tilt:not([hidden])) > .draft-chip.cm-on { max-width: calc(100% - 224px); }
+   52 px further in ("side"), and Fit view, left of the row, does too ("row"); under the tall bar ("low") Fit view stands left of Tilt) */
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack { grid-template-columns: repeat(3, 44px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .ph-tilt { grid-column: 1; grid-row: 1; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .vb-sph { grid-column: 2; grid-row: 1; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .ph-dsp { grid-column: 3; grid-row: 1; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .vb-fit { grid-column: 3; grid-row: 2; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack { grid-template-columns: repeat(3, 44px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .vb-sph { grid-column: 3; grid-row: 1; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .ph-dsp { grid-column: 3; grid-row: 2; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .ph-tilt { grid-column: 2; grid-row: 2; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .vb-fit { grid-column: 1; grid-row: 2; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack { grid-template-columns: repeat(4, 44px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .vb-fit { grid-column: 1; grid-row: 1; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .ph-tilt { grid-column: 2; grid-row: 1; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .vb-sph { grid-column: 3; grid-row: 1; }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .viewstack > .ph-tilt:not([hidden])) > .viewstack .ph-dsp { grid-column: 4; grid-row: 1; }
+:root.ph.ph-land.sv-stack:not(.view-land) .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])) > .legend-chip { right: 164px; }
+:root.ph.ph-land.sv-stack:not(.view-land) .pane:not(.ph-inset) .plot[data-keys="side"]:has(> .viewstack > .ph-tilt:not([hidden])):has(> .legend-chip:not([hidden])) > .draft-chip.cm-on { max-width: calc(100% - 214px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .viewstack > .ph-tilt:not([hidden])) > .draft-chip.cm-on { max-width: calc(100% - 172px); }
+:root.ph.ph-land.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .viewstack > .ph-tilt:not([hidden])) > .draft-chip.cm-on { max-width: calc(100% - 224px); }
 /* (in the steps view, where the keys stand two keys high under the tall bar ("low") or in one row, the folded colour key stands left of them,
    at the row's level, a 44 px target 8 px clear of the row's first key: Fit view's lane's right edge 60 px in, 121 px with the key's own 16 px
    of hit area and gap, a pixel over for the row's half pixels; in one row, where Fit view is 112 px in, 173 px. Its bottom is the row's and 7 px
@@ -629,10 +640,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land.sv .pane:not(.ph-inset) .plot[data-keys="row"] > .legend-chip.collapsed { right: 173px; bottom: calc(min(calc(8px + var(--ph-lift)), calc(100cqh - 48px)) + 7px); }
 :root.ph.ph-land.sv.view-land .pane:not(.ph-inset) .plot[data-keys="row"] > .legend-chip.collapsed { bottom: calc(min(calc(8px + var(--ruler) + var(--ph-lift)), calc(100cqh - 48px)) + 7px); }
 :root.ph.ph-land.sv .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .legend-chip:not([hidden])) > :is(.draft-chip.cm-on, .chip.readout:not(:has(> .rglobe:not([hidden])))) { max-width: calc(100% - 227px); }
-:root.ph.ph-land.sv.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .ph-col > .ph-tilt:not([hidden])) > .legend-chip.collapsed { right: 173px; }
-:root.ph.ph-land.sv.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .ph-col > .ph-tilt:not([hidden])):has(> .legend-chip:not([hidden])) > :is(.draft-chip.cm-on, .chip.readout:not(:has(> .rglobe:not([hidden])))) { max-width: calc(100% - 227px); }
-:root.ph.ph-land.sv.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .ph-col > .ph-tilt:not([hidden])) > .legend-chip.collapsed { right: 225px; }
-:root.ph.ph-land.sv.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .ph-col > .ph-tilt:not([hidden])):has(> .legend-chip:not([hidden])) > :is(.draft-chip.cm-on, .chip.readout:not(:has(> .rglobe:not([hidden])))) { max-width: calc(100% - 279px); }
+:root.ph.ph-land.sv.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .viewstack > .ph-tilt:not([hidden])) > .legend-chip.collapsed { right: 173px; }
+:root.ph.ph-land.sv.sv-stack .pane:not(.ph-inset) .plot[data-keys="low"]:has(> .viewstack > .ph-tilt:not([hidden])):has(> .legend-chip:not([hidden])) > :is(.draft-chip.cm-on, .chip.readout:not(:has(> .rglobe:not([hidden])))) { max-width: calc(100% - 227px); }
+:root.ph.ph-land.sv.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .viewstack > .ph-tilt:not([hidden])) > .legend-chip.collapsed { right: 225px; }
+:root.ph.ph-land.sv.sv-stack .pane:not(.ph-inset) .plot[data-keys="row"]:has(> .viewstack > .ph-tilt:not([hidden])):has(> .legend-chip:not([hidden])) > :is(.draft-chip.cm-on, .chip.readout:not(:has(> .rglobe:not([hidden])))) { max-width: calc(100% - 279px); }
 /* (a landscape phone under 390 px tall: the classic view's plane is half the screen, and the chip's words lack room: 52 to 172 px wide beside the keys'
    row at 320 px tall, a letter or two a line; at 360 and 375 px, planes 276 to 326 px wide, two lines that lose the tool's name, their end. The context bar
    says the same sentence whole, so the words fold away and the chip keeps its × and ?. From 390 px tall, and in the steps view's wide plane, they fit) */
@@ -647,7 +658,7 @@ html:not(.ph) .ph-only { display: none !important; }
    folds it, and those are under it only while it is open. A key that takes keyboard focus rises over it, and a control of the chip under it folds it
    as it takes focus (05-panes-rulers.js): the focus is never hidden under the card) */
 :root.ph.ph-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]) > .legend-chip:not(.collapsed) { z-index: 14; background: var(--surface); }
-:root.ph.ph-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]):has(:is(.ph-col, .viewstack) :focus-visible) > .legend-chip:not(.collapsed) { z-index: auto; }
+:root.ph.ph-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]):has(.viewstack :focus-visible) > .legend-chip:not(.collapsed) { z-index: auto; }
 :root.ph.ph-land .pane:not(.ph-inset) .plot:is([data-keys="low"], [data-keys="row"]):has(> .legend-chip:not([hidden])) > .chip.readout:not(:has(> .rglobe:not([hidden]))) { max-width: calc(100% - 124px); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
@@ -673,7 +684,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph { --ph-cbelow: var(--ph-chain); --ph-bar: 0px; --ph-lift: var(--ph-bar); }
 :root.ph:has(.ph-ctx.in:not(.under)) { --ph-bar: 56px; }
 :root.ph:has(.ph-ctx.in.tall:not(.under)) { --ph-bar: 104px; }
-:root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
+:root.ph .viewstack, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
 :root.ph.sv { --ph-cbelow: 62px; }
 :root.ph.ph-toast-on { --ph-ctx: 56px; }
 /* (the steps view's message floats over the plot, above the context bar when one is open (placeToasts): no row is given up for it unless a sheet is open, and the controls at the plane's foot ride up above the bar and the message) */
@@ -687,10 +698,10 @@ html:not(.ph) .ph-only { display: none !important; }
    sentence and holds its ⌫ and ×; 04-chip-overlay.js measures the chip and marks it cm-under) */
 :root.ph.ph-land.ph-ctx-tall .plot > .draft-chip.cm-on.cm-under { visibility: hidden; }
 /* (the plane's keys ride up above a message with its 150 ms ease, and at once under reduced motion) */
-:root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: bottom 150ms var(--ease-out); }
+:root.ph.sv .viewstack { transition: bottom 150ms var(--ease-out); }
 /* (the message eases with the keys it stands over in portrait, so the two move in step) */
 :root.ph.sv #toastHost[data-placed="phone-plot"] { transition: bottom 150ms var(--ease-out); }
-@media (prefers-reduced-motion: reduce) { :root.ph.sv .viewstack, :root.ph.sv .ph-col, :root.ph.sv #toastHost[data-placed="phone-plot"] { transition: none; } }
+@media (prefers-reduced-motion: reduce) { :root.ph.sv .viewstack, :root.ph.sv #toastHost[data-placed="phone-plot"] { transition: none; } }
 /* A sheet gives up the message's row as the planes do: it ends above the message (placeToasts sets --ph-toast-h to the message's height, a
    second row of buttons making it 76 to 94 px instead of 56), so a message covers no row of it (a message such as "Added f₃ …  Show alone  Undo" would lie across the chain sheet's list, hiding f₂); the safe area is under the message then */
 :root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + var(--ph-toast-h, 56px)); padding-bottom: 0; }
