@@ -1063,6 +1063,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // a REPT draw answered 'pending' since the last GLR.reptPendingTake (a pane's frame begins and ends several GL frames,
   // and each begin clears frameStatus().pending: the pane's status takes this once a frame)
   let reptPendFlag = false;
+  // the tiles of the second pass a pending REPT draw has done and has in all ({ done, total }), taken with the flag; null
+  // while its second pass's tiles are not known yet (the first pass, the queries)
+  let reptProg = null;
   // the tile account (GLR.reptTiles): calls, walks (searches) and the tiles of each pass of the draws a plane keeps (a
   // glide frame's walks counted apart: glides, the frames, and glideTiles, their tiles of both passes), the most tiles
   // of one call and root solves of one tile, the composites, and the draws with no signature (uncached)
@@ -1159,7 +1162,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     else if (sig === null) reptStat.uncached++;
     // (an uncacheable draw is walked whole and composited in the same call: while the composite's program links it is
     // pending, with nothing walked or allocated)
-    if (sig === null && !(ok && program('reptAcc'))) { restoreSc(); framePending = true; reptPendFlag = true; reptKick(); return 'pending'; }
+    if (sig === null && !(ok && program('reptAcc'))) { restoreSc(); framePending = true; reptPendFlag = true; reptProg = null; reptKick(); return 'pending'; }
     const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = gl.getParameter(gl.VIEWPORT), blend = gl.isEnabled(gl.BLEND);
     gl.activeTexture(gl.TEXTURE15);
     const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
@@ -1266,7 +1269,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!Q) {
       // (an entry no signature keeps is freed here: the next call starts its own)
       if (sig === null) reptAccFree(E);
-      restoreSc(); framePending = true; reptPendFlag = true; reptKick(); return 'pending';
+      restoreSc(); framePending = true; reptPendFlag = true;
+      reptProg = E.phase === 'B' ? { done: E.next, total: E.tilesB.length } : null;
+      reptKick();
+      return 'pending';
     }
     use(Q);
     gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, E.src.tex);
@@ -1575,8 +1581,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, layerKeep, layerInto, layerDraw, layerDrop, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    // whether a REPT draw answered 'pending' since the last call, reset by it (the pane's status, glStatusNote)
-    reptPendingTake: () => { const r = reptPendFlag; reptPendFlag = false; return r; },
+    // whether a REPT draw answered 'pending' since the last call: { prog } (its second pass's tiles { done, total }, or
+    // null), else null; reset by it (the pane's status, glStatusNote)
+    reptPendingTake: () => { const r = reptPendFlag ? { prog: reptProg } : null; reptPendFlag = false; reptProg = null; return r; },
     // (tests: the tile bound and the first pass's budget, 0 for their own; pass B held; the tile account since the last
     // read, reset by it)
     setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : 0; }, setReptFastNodes: (n) => { reptFastNodes = n > 0 ? n : 0; },
@@ -1619,7 +1626,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, IX_TIE_ORDER, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
-    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES, SEAM_EPS, SEAM_RINGS, CARRY_DISCS, CARRY_DISC_IN, CARRY_FAR_N,
+    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES, SEAM_EPS, SEAM_RINGS, CARRY_DISCS, CARRY_DISC_IN, CARRY_FAR_N, CARRY_JUMP_J, CARRY_JUMP_PX,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // the steps a map applies, [lo, hi] (1-based; none when lo > hi)
     stepsOf,

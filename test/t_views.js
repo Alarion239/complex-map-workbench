@@ -1,7 +1,8 @@
 // Merged views (notes/ui-design/merged-views.md, revising U-b): the saved-state migration to the top bar's views
 // (X → Y · Phase · Landscape) from the single right-pane view of the first builds (rightMode, sphereMode, leftSphere,
 // material, spherePlane) and from U-b's pane views (view.L = {surf: plane | sphere | land, phase, eq}), plus the legacy
-// round trip the test hooks use, the pane the perf suite drags and the merged pane. Run: node test/t_views.js
+// round trip the test hooks use, the pane the perf suite drags and the merged pane. A view of Y (an old Y Sphere,
+// view.R) is dropped: no view draws Y. Run: node test/t_views.js
 const { Views } = require('../src/view.js');
 let fails = 0, n = 0;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -10,8 +11,8 @@ function check(name, got, want) {
   if (!eq(got, want)) { fails++; console.log('FAIL', name, '\n  got ', JSON.stringify(got), '\n  want', JSON.stringify(want)); }
 }
 const sv = (surf = 'plane', e = false) => ({ surf, eq: e });
-// a view: main, X → Y's panes, the phase panel's surface, the landscape's colouring
-const V = (main, o = {}) => ({ main, L: o.L || sv(), R: o.R || sv(), P: o.P || sv(), D: { phase: o.D === undefined ? true : o.D } });
+// a view: main, X → Y's X, the phase panel's surface, the landscape's colouring
+const V = (main, o = {}) => ({ main, L: o.L || sv(), P: o.P || sv(), D: { phase: o.D === undefined ? true : o.D } });
 const mig = (o) => Views.migrate(Object.assign({}, o));
 
 // the first builds' single view (panels.md 10), row by row
@@ -26,9 +27,9 @@ check('3d phase material: Plain relief, dc kept', mig({ rightMode: '3d', materia
 check('3d no material (the default, phase): Plain relief, dc kept', mig({ rightMode: '3d', dc: 'enhanced' }), { dc: 'enhanced', view: V('land'), landPlain: true });
 for (const dc of ['grid', 'cauchy', 'modulus', 'classic']) check(`3d with dc ${dc}: dc kept`, mig({ rightMode: '3d', dc }).dc, dc);
 check('3d phase material with Plain: no override needed', mig({ rightMode: '3d', material: 'phase', dc: 'phase' }), { dc: 'phase', view: V('land'), landPlain: false });
-check('sphere image', mig({ rightMode: 'sphere', sphereMode: 'image' }).view, V('xy', { R: sv('sphere') }));
-check('sphere image + plane + leftSphere', mig({ rightMode: 'sphere', sphereMode: 'image', spherePlane: true, leftSphere: true }).view, V('xy', { L: sv('sphere'), R: sv('sphere', true) }));
-check('sphere (no sphereMode: image)', mig({ rightMode: 'sphere' }).view, V('xy', { R: sv('sphere') }));
+check('sphere image: X → Y, its Y Sphere dropped', mig({ rightMode: 'sphere', sphereMode: 'image' }).view, V('xy'));
+check('sphere image + plane + leftSphere: X Sphere kept', mig({ rightMode: 'sphere', sphereMode: 'image', spherePlane: true, leftSphere: true }).view, V('xy', { L: sv('sphere') }));
+check('sphere (no sphereMode: image)', mig({ rightMode: 'sphere' }).view, V('xy'));
 check('sphere color: the phase sphere', mig({ rightMode: 'sphere', sphereMode: 'color' }).view, V('phase', { P: sv('sphere') }));
 check('sphere color + plane', mig({ rightMode: 'sphere', sphereMode: 'color', spherePlane: true, leftSphere: true }).view, V('phase', { L: sv('sphere'), P: sv('sphere', true) }));
 for (const old of ['preimage', 'integral', 'nonsense', undefined]) check(`old mode ${old}`, mig({ rightMode: old }).view, V('xy'));
@@ -45,8 +46,8 @@ check('no solo stays absent', 'solo' in mig({ rightMode: 'color' }), false);
 // U-b's pane views (v6) -> the top bar's views
 const L6 = (surf, phase = false, e = false) => ({ surf, phase, eq: e });
 check('v6 X Plane, Y Plane', mig({ view: { L: L6('plane'), R: sv() } }).view, V('xy'));
-check('v6 X Sphere, Y Sphere', mig({ view: { L: L6('sphere'), R: sv('sphere', true) } }).view, V('xy', { L: sv('sphere'), R: sv('sphere', true) }));
-check('v6 X Plane + Phase: Phase', mig({ view: { L: L6('plane', true), R: sv('sphere') } }).view, V('phase', { R: sv('sphere') }));
+check('v6 X Sphere, Y Sphere: Y dropped', mig({ view: { L: L6('sphere'), R: sv('sphere', true) } }).view, V('xy', { L: sv('sphere') }));
+check('v6 X Plane + Phase: Phase', mig({ view: { L: L6('plane', true), R: sv('sphere') } }).view, V('phase'));
 check('v6 X Sphere + Phase: the phase sphere', mig({ view: { L: L6('sphere', true, true), R: sv() } }).view, V('phase', { L: sv('sphere', true), P: sv('sphere', true) }));
 check('v6 Landscape, Phase on', mig({ view: { L: L6('land', true), R: sv() }, landPlain: true, dc: 'grid' }), { view: V('land'), landPlain: true, dc: 'grid' });
 check('v6 Landscape, plaster', mig({ view: { L: L6('land', false), R: sv() } }).view, V('land', { D: false }));
@@ -55,7 +56,8 @@ check('a Y landscape is not a view', mig({ view: { L: L6('land', true), R: { sur
 check('v6 keeps its solo', mig({ view: { L: L6('plane'), R: sv() }, solo: 'R' }).solo, 'R');
 // v7 (merged views)
 check('no view, no rightMode: the default', mig({}).view, Views.blank());
-check('a v7 view is kept', mig({ view: V('phase', { L: sv('sphere'), R: sv('sphere', true), P: sv('sphere', true), D: false }) }).view, V('phase', { L: sv('sphere'), R: sv('sphere', true), P: sv('sphere', true), D: false }));
+check('a v7 view is kept', mig({ view: V('phase', { L: sv('sphere'), P: sv('sphere', true), D: false }) }).view, V('phase', { L: sv('sphere'), P: sv('sphere', true), D: false }));
+check('a v7 view\'s Y is dropped', mig({ view: Object.assign(V('xy'), { R: sv('sphere', true) }) }).view, V('xy'));
 check('rightMode wins over a stale view', mig({ rightMode: 'color', view: V('land') }).view, V('phase'));
 check('clean junk', Views.clean({ main: 'cube', L: { surf: 'cube', phase: 1 }, R: 7 }), V('phase'));
 check('clean junk v7', Views.clean({ main: 'land', L: 3, P: { surf: 'land' }, D: 'x' }), V('land'));
@@ -63,14 +65,12 @@ check('clean junk v7', Views.clean({ main: 'land', L: 3, P: { surf: 'land' }, D:
   const o = mig({ rightMode: 'sphere', sphereMode: 'color', leftSphere: true, material: 'tiles', spherePlane: true, dc: 'grid' });
   check('legacy fields removed', Views.LEGACY.filter((k) => k in o), []);
 }
-// toLegacy -> migrate keeps the picture (the hooks' __cmwSet('rightMode', ...)); X → Y's own surfaces may differ only
-// where the old fields cannot say them
-for (const v of [V('xy'), V('xy', { L: sv('sphere') }), V('phase'), V('land', { D: false }), V('land'), V('xy', { R: sv('sphere', true) }),
-  V('xy', { L: sv('sphere'), R: sv('sphere') }), V('phase', { P: sv('sphere', true) })]) for (const dc of ['enhanced', 'phase', 'grid']) {
+// toLegacy -> migrate keeps the picture (the hooks' __cmwSet('rightMode', ...))
+for (const v of [V('xy'), V('xy', { L: sv('sphere') }), V('phase'), V('land', { D: false }), V('land'), V('phase', { P: sv('sphere', true) })]) for (const dc of ['enhanced', 'phase', 'grid']) {
   const o = Object.assign(Views.toLegacy(v, dc), { dc });
   Views.migrate(o);
-  check(`round trip ${JSON.stringify(v)} ${dc}`, { x: Views.xOf(o.view), main: o.view.main, R: o.view.main === 'xy' ? o.view.R : null, dc: o.dc, landPlain: o.landPlain },
-    { x: Views.xOf(v), main: v.main, R: v.main === 'xy' ? v.R : null, dc, landPlain: false });
+  check(`round trip ${JSON.stringify(v)} ${dc}`, { x: Views.xOf(o.view), main: o.view.main, dc: o.dc, landPlain: o.landPlain },
+    { x: Views.xOf(v), main: v.main, dc, landPlain: false });
 }
 {
   const o = Object.assign(Views.toLegacy(V('land'), 'grid', true), { dc: 'grid' });
