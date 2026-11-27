@@ -135,22 +135,24 @@
   // the words on a halo plate. Each label's plate lies inside the room R the box is fitted in ([x0, y0, x1, y1], css px:
   // stackRoom), clear of the labels placed before it and of the marks drawn ([x, y] css px: the tubes', the strands' and
   // Look down's), counted on a grid of TUBE_CELL px. It first tries the place it had at the last frame (tubeKept), sliding
-  // within TUBE_NUDGE steps of it where that is blocked; failing that it takes the first of TUBE_SPOTS beside its dot (the dot
+  // within TUBE_NUDGE steps of it where that is blocked (a place whose leader crosses the card is not kept, unless the dot lies under the card); failing that it takes the first of TUBE_SPOTS beside its dot (the dot
   // at the plate's end or corner) that is clear, on one line and then on two (broken at the space nearest the middle); where
-  // none is, the clear spot nearest the dot, TUBE_STEP px apart over the room, with a leader from the dot to the plate when
-  // the plate is a plate height or more away (nearer, a leader would read as a dash after the words);
+  // none is, the clear spot over the room, TUBE_STEP px apart, whose leader runs the least way through the key card (keyPts: its box
+  // as points, counted among the marks) and then nearest the dot, with a leader from the dot to the plate when the plate is a
+  // plate height or more away (nearer, a leader would read as a dash after the words): a leader that crosses the card is worse than
+  // a farther plate, and where the dot itself lies under the card the leader leaves it by the shortest way;
   // where there is none, the spot beside the dot over the fewest marks. Each label's box [x0, y0, x1, y1] (css px, the
   // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it. A label with oneLine is never
   // broken in two (the off-view count: "+1 off view" mid-phrase); one with dot false has no dot
   const TUBE_SPOTS = ['right', 'left', 'above right', 'above left', 'below right', 'below left'];
-  const TUBE_CELL = 4, TUBE_STEP = 6;
+  const TUBE_CELL = 4, TUBE_STEP = 6, TUBE_LEADER_STEP = 2;
   // A label that was clear at the last frame (covering no mark) keeps that place (an offset of its plate from its dot): where
   // it is blocked now it slides to the nearest clear place within TUBE_NUDGE steps of it in TUBE_NUDGE_DIRS directions, if that
   // stays within TUBE_NEAR plate heights of its dot, so that it does not hop across the plane as the camera turns; a label
   // that was not clear keeps none. tubeKept: the places kept, by the label's kind and words, the TUBE_KEPT_MAX most recent
   const TUBE_NUDGE = 10, TUBE_NUDGE_DIRS = 8, TUBE_NEAR = 3, TUBE_KEPT_MAX = 8;
   const tubeKept = new Map();
-  function drawStackLabels(ctx, labels, fade, R, marks = []) {
+  function drawStackLabels(ctx, labels, fade, R, marks = [], keyPts = []) {
     ctx.save();
     ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle';
     const width = (lines) => Math.max(...lines.map((t) => ctx.measureText(t).width)), lh = TUBE_FONT + 2, P = TUBE_PLATE, g = TUBE_LABEL_DX;
@@ -159,6 +161,24 @@
     const cell = new Float64Array(nx * ny), sat = new Float64Array((nx + 1) * (ny + 1));
     const put = (x, y, n) => { const i = Math.floor((x - R[0]) / TUBE_CELL), j = Math.floor((y - R[1]) / TUBE_CELL); if (i >= 0 && i < nx && j >= 0 && j < ny) cell[j * nx + i] += n; };
     for (const [x, y] of marks) put(x, y, 1);
+    // (the key card's cells, for the leaders: how far a leader runs through it)
+    const keyCell = new Uint8Array(nx * ny);
+    for (const [x, y] of keyPts) {
+      put(x, y, 1);
+      const i = Math.floor((x - R[0]) / TUBE_CELL), j = Math.floor((y - R[1]) / TUBE_CELL);
+      if (i >= 0 && i < nx && j >= 0 && j < ny) keyCell[j * nx + i] = 1;
+    }
+    const keyed = keyPts.length > 0;
+    // (the samples, TUBE_LEADER_STEP px apart, of the segment from (x0, y0) to (x1, y1) that lie in the card's cells)
+    const throughKey = (x0, y0, x1, y1) => {
+      const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / TUBE_LEADER_STEP);
+      let c = 0;
+      for (let k = 0; k <= n; k++) {
+        const i = Math.floor((x0 + (x1 - x0) * k / (n || 1) - R[0]) / TUBE_CELL), j = Math.floor((y0 + (y1 - y0) * k / (n || 1) - R[1]) / TUBE_CELL);
+        if (i >= 0 && i < nx && j >= 0 && j < ny && keyCell[j * nx + i]) c++;
+      }
+      return c;
+    };
     const sum = () => { for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) sat[(j + 1) * (nx + 1) + i + 1] = cell[j * nx + i] + sat[j * (nx + 1) + i + 1] + sat[(j + 1) * (nx + 1) + i] - sat[j * (nx + 1) + i]; };
     sum();
     const over = (b) => {
@@ -178,7 +198,7 @@
         for (let k = 0; k <= TUBE_NUDGE && !best; k++) for (let a = 0; a < (k ? TUBE_NUDGE_DIRS : 1) && !best; a++) {
           const x0 = x + kept.off[0] + k * TUBE_STEP * Math.cos(a * TAU / TUBE_NUDGE_DIRS), y0 = y + kept.off[1] + k * TUBE_STEP * Math.sin(a * TAU / TUBE_NUDGE_DIRS), b = [x0, y0, x0 + w, y0 + h];
           const cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
-          if (inRoom(b) && dd <= TUBE_NEAR * h && over(b) === 0) best = { b, lines: held, hits: 0, leader: dd >= h ? [cx, cy] : null };
+          if (inRoom(b) && dd <= TUBE_NEAR * h && over(b) === 0 && (!keyed || dd < h || throughKey(x, y, cx, cy) === 0 || throughKey(x, y, x, y) > 0)) best = { b, lines: held, hits: 0, leader: dd >= h ? [cx, cy] : null };
         }
       }
       for (const lines of best ? [] : options) {
@@ -199,7 +219,9 @@
         const [w, h] = size(lines);
         for (let y0 = R[1]; y0 + h <= R[3]; y0 += TUBE_STEP) for (let x0 = R[0]; x0 + w <= R[2]; x0 += TUBE_STEP) {
           const b = [x0, y0, x0 + w, y0 + h], cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
-          if ((!best || dd < best.dd) && over(b) === 0) best = { b, lines, hits: 0, leader: dd >= h ? [cx, cy] : null, dd };
+          if (over(b) !== 0 || (best && best.cross === 0 && dd >= best.dd)) continue;
+          const cross = keyed && dd >= h ? throughKey(x, y, cx, cy) : 0;
+          if (!best || cross < best.cross || (cross === best.cross && dd < best.dd)) best = { b, lines, hits: 0, leader: dd >= h ? [cx, cy] : null, dd, cross };
         }
       }
       if (!best) best = near || (() => { const [w, h] = size([L.text]), x0 = Math.max(R[0], Math.min(R[2] - w, x + g - P)), b = [x0, y - h / 2, x0 + w, y + h / 2]; return { b, lines: [L.text], hits: over(b), leader: null }; })();
