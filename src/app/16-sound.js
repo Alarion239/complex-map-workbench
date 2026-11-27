@@ -52,9 +52,9 @@
   // reassign as getters (and setters for the state they write)
   function soundHooksApi() {
     return {
-      C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText,
+      C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, curvePieces, derivIn, drawProbe, exOk, fnText,
       focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn,
-      morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts,
+      morphState, nSteps, pickLand, pickSphereLeft, rangeF, rangeKey, rangeParts,
       render3D, requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, svName, toast, touchUI, tourEmit,
       tourL, tourSndMine, updateDraftChips, zerosPolesTimed,
       get S() { return S; },

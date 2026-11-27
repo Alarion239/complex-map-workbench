@@ -188,8 +188,8 @@
       // the drag in progress; ending it without its release; back to the last undo step (Esc, a second
       // finger: the press state, no step); a sound cue
       drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
-      leftStage, planeShapes, lFlat, targetsEditable, zpStep,
-      yWhole: () => S.focus === 0 && rImage(),
+      leftStage, planeShapes, lFlat, zpStep,
+      yWhole: () => S.focus === 0,
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, nextPointNum, targetLabel,
       nextCi: (target, k = 0) => (target ? TARGET_CI[(S.targets.length + k) % TARGET_CI.length] : (S.shapes.length + k) % 8),   // (the colour newShape will give; k shapes later)
       capPhrase: (s, cs) => shapePhrase(s, 0, cs),   // (a curve named by its maths in a caption)
