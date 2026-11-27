@@ -1,6 +1,7 @@
 // The guide's Keys list names the arrows that move the sound probe on a focused plane: in the classic view the plain ← → ↑ ↓ (the probe moves
 // with them there), in the steps view Alt with them (its plain arrows go to the thread), in en, ru and it. A command file for a CDP daemon
-// (test/cdp_kit README); prints { pass, fails, info }.
+// (test/cdp_kit README); prints { pass, fails, info }. The row for ← → (previous or next plane) is there in the steps view only: the classic
+// view's plain arrows do not step the planes.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [], info = {};
