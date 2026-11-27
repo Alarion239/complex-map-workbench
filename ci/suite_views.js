@@ -334,6 +334,7 @@ const VIEWS = {
   'steps_pullback_mask_cmd.js': steps({ pin: true }),
   'top_bar_focus_cmd.js': steps({ pin: true }),
   'ux165_fix_cmd.js': steps({ pin: true }),
+  'p9b_no_right_pane_cmd.js': steps({ pin: true }),
   'ux165_merge_cmd.js': steps({ pin: true }),
   'ux165_plane_classic_cmd.js': classic('the classic readout (two lines on a laptop and a phone, F(z) read in X, the chip below it, the key\'s three marks), a finger drag from a disc panning the plane, and the names of X and Y (titles, canvas names, Shapes headings, Plane | Sphere in the two heads, the phone chip\'s X tag, in English and Russian): a finger drag on a steps-view plane scrubs the thread, and it has one plane and no X or Y'),
   'ux165_plane_cmd.js': steps({ pin: true }),

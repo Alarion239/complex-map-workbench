@@ -980,8 +980,6 @@
         if (shown > 6) rows.push($tn('<div class="cm">and {n} more</div>', '<div class="cm">and {n} more</div>', shown - 6));
         if (roots.err) rows.push(`<div class="cn err">${roots.err}</div>`);
       }
-      // (what the area and curve targets show is a note in Y's pane head, or on a phone in Y's title
-      // chip, never a row over the plane: targetNote)
       // over the w-globe the chip keeps to its headings, so the scene stays visible
       const compact = rGlobe();
       html = (compact ? rows.filter((r) => r.startsWith('<div class="ch">') || r.includes('cn err')) : rows).join('');
@@ -991,43 +989,9 @@
     if (el.hidden === show) el.hidden = !show;
     targetNote(want);
   }
-  // the one-time note of the area and curve targets: in Y's pane head on a desktop ("Preimage shaded
-  // in X"); on a phone in Y's title chip ("Shaded in X (the inset)", idleRight), and the inset pulses once when a
-  // preimage first appears in it
-  function targetText(o) {
-    const vis = S.targets.filter((s) => s.visible !== false && s.kind !== 'point');
-    if (!vis.length) return '';
-    const na = vis.filter((s) => kindType(s) === 'area').length, nc = vis.length - na;
-    const ph = document.documentElement.classList.contains('ph'), inset = ph && $('paneL') && $('paneL').classList.contains('ph-inset');
-    if (o && o.phone) return na && nc ? (inset ? $t('Shaded and drawn in X (the inset)') : $t('Shaded and drawn in X')) : nc ? (inset ? $t('Drawn in X (the inset)') : $t('Drawn in X')) : inset ? $t('Shaded in X (the inset)') : $t('Shaded in X');
-    // (a desktop's head note is short, so it keeps its place beside the title: what is shaded or drawn is its tooltip)
-    return $t('Preimage in X');
-  }
-  // (it runs at the end of every Y render, a deformation or a pan frame: keyed on what it says,
-  // it returns at once while that is unchanged)
-  let targetNoteKey = '';
+  // a phone's inset X pulses once when an area or curve target's preimage first appears in it
   function targetNote(want) {
     const ph = document.documentElement.classList.contains('ph');
-    let nv = 0, na = 0;
-    if (want) for (const s of S.targets) if (s.visible !== false && s.kind !== 'point') { nv++; if (kindType(s) === 'area') na++; }
-    const key = `${want ? 1 : 0}|${ph ? 1 : 0}|${nv}|${na}|${I18N.lang}|${S.focus}|${chainSig[nSteps()]}|${!!$('rightNote')}`;
-    if (key === targetNoteKey) return;
-    targetNoteKey = key;
-    const head = document.querySelector('#paneR .pane-head');
-    let el = $('rightNote');
-    const txt = want && !ph ? targetText() : '';
-    if (!el && txt && head) { el = h('span', { class: 'head-note', id: 'rightNote', role: 'status' }); const g = head.querySelector(':scope > .grow'); head.insertBefore(el, g ? g.nextSibling : null); }
-    if (el) {
-      // (areas are shaded, curves drawn: the tip says only what the targets are)
-      const tip = !txt ? '' : !na ? $t('The curves that {x} maps onto the targets of Y are drawn in X.', { x: fnText() })
-        : na === nv ? $t('Where {x} lands in the targets of Y is shaded in X.', { x: fnText() })
-        : $t('Where {x} lands in the targets of Y is shaded in X; the curves it maps onto them are drawn there.', { x: fnText() });
-      let fit = false;
-      if (el.textContent !== txt || el.dataset.tip !== tip) { el.textContent = txt; el.dataset.tip = tip; fit = true; }
-      if (el.hidden === !!txt) { el.hidden = !txt; fit = true; }
-      if (fit) fitTitle('R');
-    }
-    // (a phone: the inset X pulses once when a preimage first appears in it)
     const n = want ? S.targets.filter((s) => s.visible !== false && s.kind !== 'point').length : 0;
     const was = calcChipState.nOthers || 0;
     calcChipState.nOthers = n;

@@ -192,14 +192,7 @@ await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`);
   ok('regress-4: the line is gone after 8 s', !/Удерживайте/.test(await ev(`document.getElementById('leftReadout').textContent`)));
   await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`);
   ok('regress-4: not again in the same session', !/Удерживайте/.test(await ev(`document.getElementById('leftReadout').textContent`))); }
-// user-3: Orthogonal on the phone: Y's view stays
-await view(412, 860, false, true);
-await nav(`${BASE}/test.html?ns=${NS}u3`);
-{ const yv = () => ev(`(() => { const a = __cmwW2S('R', 0, 0), b = __cmwW2S('R', 1, 0); return Math.round((b[0] - a[0]) * 100) / 100; })()`);
-  const y0 = await yv(); await tool('perp');
-  for (const d of [200, 250, 300]) { const p = await A(d); await tap(p[0], p[1]); await settle(300); }
-  await settle(600);
-  ok('user-3: Y keeps its view after an orthogonal circle', Math.abs((await yv()) - y0) < 0.5, [y0, await yv()]); }
+// (standards-ok: the page has no Y pane; user-3, Y keeping its view after an orthogonal circle on the phone, has no view left to check)
 const lg = (await logs()).filter((x) => /EXC|error/.test(x.t) && !/Failed to load/.test(x.m));
 ok('no exception or console error', !lg.length, lg.slice(0, 5));
 return { checks, failed: fails.length, fails };

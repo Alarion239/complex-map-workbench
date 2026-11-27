@@ -304,7 +304,7 @@
     if (mfDrawn) for (const h of mfDrawn.heads) { const q = P(Fat(mfDrawn.T)(C(h[2], h[3]))); heads = Math.max(heads, mDist(q, h)); }
     return { ownLine, arrowMin: sel.arrowMin, kinkStep, minLen, retrace: retr, endLine, ringLine, ringEnd, sepLong, ink: sel.ink, cap: sel.budget, n: sel.kept.length, nSeg, seg, jump, ang, kink, turnP99: turns.length ? turns[Math.floor(0.99 * (turns.length - 1))] : 0, turnMax: turns.length ? turns[turns.length - 1] : 0, sep, heads, nHeads: mfDrawn ? mfDrawn.heads.length : 0, T: mfDrawn ? mfDrawn.T : null, kinds: sel.kept.reduce((a, q) => { a[q.sp.kind] = (a[q.sp.kind] || 0) + 1; return a; }, {}) };
   };
-  window.__cmwMorphCache = () => ({ ready: !!(mfCache.sel && mfCache.key === mfScreenKey(paneR).key && (mfCache.vkey === mfScreenKey(paneR).vkey || mfViewOk(paneR, classicSource()))), job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null, rej: mfCache.sel ? mfCache.sel.rej : null, away: mfCache.sel ? mfCache.sel.away : null, prev: mfCache.prev ? mfCache.prev.sel.kept.length : 0 });
+  window.__cmwMorphCache = () => ({ job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null, rej: mfCache.sel ? mfCache.sel.rej : null, away: mfCache.sel ? mfCache.sel.away : null, prev: mfCache.prev ? mfCache.prev.sel.kept.length : 0 });
   window.__cmwLastFigure = () => Figure.last();
   window.__cmwFigPathsSel = () => (mfFigCache.sel ? { n: mfFigCache.sel.kept.length, nCands: mfFigCache.sel.nCands, cap: mfFigCache.sel.budget, rej: mfFigCache.sel.rej } : null);
   window.__cmwFig = Figure;
@@ -316,7 +316,7 @@
   // (test/ux165_plane_cmd.js) the open draft, the handle size in use
   window.__cmwDraft = () => (draft ? { kind: draft.kind, pts: (draft.pts || []).map((p) => p.slice()) } : null);
   window.__cmwHandles = () => ({ size: fingerNow() ? 12 : 7, touch: ptrTouch });
-  window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
+  window.__cmwW2S = (side, re, im) => { if (side !== 'L') throw new Error('only X (side L) is drawn'); const p = paneL; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
   // TEST-HOOK
 
   // TEST-HOOK (dropped from the published page by build.py)
@@ -399,7 +399,7 @@
   // label's box (labelBox, null with no ring), and the carried key's line: its lines, its room and its widest word
   // in the font the key draws it in
   const legendWidest = (side) => { const st = legendState[side], c = document.createElement('canvas').getContext('2d'); c.font = st.ui; return st.words ? Math.max(...st.words.map((w) => c.measureText(w).width)) : 0; };
-  window.__cmwLegend = () => { drawLegend(); const st = legendState.L; return { kind: legendKind('L'), caption: st.caption || null, ring: st.ring, lines: st.lines || 0, room: st.room, widest: legendWidest('L'), capBox: st.capBox || null, capK: st.capK ?? null, labelBox: st.labelBox || null }; };
+  window.__cmwLegend = () => { drawLegend(); const st = legendState.L; return { kind: legendKind(), caption: st.caption || null, ring: st.ring, lines: st.lines || 0, room: st.room, widest: legendWidest('L'), capBox: st.capBox || null, capK: st.capK ?? null, labelBox: st.labelBox || null }; };
   // The camera of the steps view's Landscape (the source plane's view) and its mirror V.left: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy).
   // { zoom: f } runs the app's own zoom of the left plane (zoomPane, the wheel's), about its centre, so the steps view must be showing the plane (not the
   // Landscape); { leftScale } multiplies the mirror's s first (the control: the glide's box does not follow the mirror's history)

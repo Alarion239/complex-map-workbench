@@ -70,7 +70,8 @@
   // ---------------- panes ----------------
   // (paneR: Y's pane, which the page does not have; null, for the readers of it still to go: sound's, the phone's and test
   // hooks', each asked only for Y)
-  let paneL, paneR = null;
+  let paneL;
+  const paneR = null;
   let cutHandlesL = [];
   let cutMarksL = [];   // the cuts' handles on a frame between two planes: drawn like the editable ones, never hit-tested
 
@@ -147,7 +148,7 @@
     drawPoints(pane, F, { primes: k, domain: k === 0, k, editK: k });
     updatePre('L', pane, k); drawPre(pane, 'L', k);
     if (hasTargets()) { updateRoots(); drawRoots(pane); }
-    drawRulers(paneL, 'L');
+    drawRulers(paneL);
     // overlays are drawn once per frame, after both planes (frame)
   }
   // probes, handles, drafts, gauges: the only things redrawn on hover
@@ -157,13 +158,12 @@
   function updateDraftChips() {
     syncModeChips();
     const poly = !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
-    const cl = $('draftChipL'), cr = $('draftChipR');
+    const cl = $('draftChipL');
     const cmSide = Construct.chipSide();   // (a construction tool's chip)
     if (cl) { const on = (poly && !draft.target) || cmSide === 'L'; if (cl.hidden === on) cl.hidden = !on; }
-    if (cr) { const on = (poly && !!draft.target) || cmSide === 'R'; if (cr.hidden === on) cr.hidden = !on; }
     // how to close and back up, in the words of the pointer in use (a finger has no Enter)
     if (poly) {
-      const sp = (draft.target ? cr : cl) && (draft.target ? cr : cl).firstElementChild;
+      const sp = !draft.target && cl && cl.firstElementChild;
       const txt = fingerNow() ? $t('Tap the first point to close · Undo removes the last point') : $t('Click the first point or press Enter to close · ⌫ removes the last point');
       if (sp && sp.textContent !== txt) sp.textContent = txt;
     }
@@ -258,15 +258,15 @@
     if (hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
     // the globe's handles, polygon vertices and snap ring (P3b)
     if (lGlobe() && globeEdit('L')) drawGlobeEdit('L');
-    if (!sphL) drawRulers(paneL, 'L', true);
+    if (!sphL) drawRulers(paneL, true);
   }
   // ---- rulers: ticks and labels along the bottom and left edges, plus cursor markers ----
   // Ruler sizes come from a ResizeObserver, never from a layout read per frame, and the static layer (ticks and
   // labels) lives in an offscreen canvas, so a probe move costs one blit plus the two markers.
-  const rulerCache = { L: null, R: null };
-  const rulerOff = { L: null, R: null };
+  const rulerCache = { L: null };
+  const rulerOff = { L: null };
   const rulerSize = new Map(); // ruler canvas -> [w, h] of its content box in CSS px (the CSS border is the edge line)
-  const rulerSeen = { L: { vis: null, corner: null }, R: { vis: null, corner: null } };
+  const rulerSeen = { vis: null, corner: null };
   let rulerRO = null;
   function rulerDims(cv) {
     let s = rulerSize.get(cv);
@@ -305,11 +305,11 @@
     ctx.font = fi; ctx.fillText('i', x0 + wn + (num ? 0.5 : 0), 0); ctx.font = f0;
     ctx.textAlign = 'center';
   }
-  function drawRulers(pane, side, markersOnly) {
+  function drawRulers(pane, markersOnly) {
     if (artMode) return;
-    const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
+    const rx = $('rulerLX'), ry = $('rulerLY');
     if (!rx || !ry) return;
-    const seen = rulerSeen[side];
+    const seen = rulerSeen;
     const show = lFlat();
     if (seen.vis !== show) { rx.style.visibility = ry.style.visibility = show ? '' : 'hidden'; seen.vis = show; }
     const corner = $('cornerL');
@@ -399,23 +399,19 @@
     // the static part is drawn once per view into offscreen canvases; every call then blits it
     const fontsOk = document.fonts ? document.fonts.status : '';
     const key = `${v.cx},${v.cy},${v.s},${pane.w},${pane.h},${xw},${yw},${xh},${yh},${dpr},${TH.panel},${TH.label},${fontsOk}`;
-    let off = rulerOff[side];
-    if (!off) off = rulerOff[side] = { x: document.createElement('canvas'), y: document.createElement('canvas') };
-    if (!rulerCache[side] || rulerCache[side].key !== key) {
+    let off = rulerOff.L;
+    if (!off) off = rulerOff.L = { x: document.createElement('canvas'), y: document.createElement('canvas') };
+    if (!rulerCache.L || rulerCache.L.key !== key) {
       fit(off.x, xw, xh); fit(off.y, yw, yh);
       draw(off.x, xw, xh, true); draw(off.y, yw, yh, false);
-      rulerCache[side] = { key };
+      rulerCache.L = { key };
     }
     fit(rx, xw, xh); fit(ry, yw, yh);
     const cx = rx.getContext('2d'), cy = ry.getContext('2d');
     cx.setTransform(1, 0, 0, 1, 0, 0); cy.setTransform(1, 0, 0, 1, 0, 0);
     cx.drawImage(off.x, 0, 0); cy.drawImage(off.y, 0, 0);
-    // cursor markers: the probe in the left plane, its image in the right
-    let mk = null;
-    if (probe) {
-      if (side === 'L') mk = probe;
-      else if (rImage()) { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
-    }
+    // the cursor's markers: the probe's place
+    const mk = probe;
     if (mk) {
       const px = pane.w / 2 + (mk.re - v.cx) * v.s, py = pane.h / 2 - (mk.im - v.cy) * v.s;
       cx.setTransform(dpr, 0, 0, dpr, 0, 0); cy.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -425,25 +421,25 @@
       if (py >= 0 && py <= yh) { cy.beginPath(); cy.moveTo(yw - 4, py - 2.5); cy.lineTo(yw - 4, py + 2.5); cy.lineTo(yw, py); cy.fill(); }
     }
   }
-  function setLed(side, state, tip) {
-    const el = $(side === 'L' ? 'leftLed' : 'rightLed');
+  function setLed(state, tip) {
+    const el = $('leftLed');
     if (!el) return;
     el.className = 'led ' + state;
     el.setAttribute('data-tip', tip || { ok: $t('Up to date'), busy: $t('Refining near cuts and poles'), err: $t('Evaluation failed') }[state]);
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
-    ledSay(side, state, el.getAttribute('data-tip'));
+    ledSay(state, el.getAttribute('data-tip'));
   }
   // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
   // with its pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
   // to date says nothing, and a state that comes and goes within the wait is not said
   const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
   let ledSayT = 0;
-  function ledSay(side, state, tip) {
+  function ledSay(state, tip) {
     // (what is said again is a different state, or a different error: busy is one state whatever its tip)
     const key = state === 'err' ? 'err|' + tip : state;
-    const same = !!ledNow[side] && ledNow[side].key === key;
-    ledNow[side] = { key, tip };
+    const same = !!ledNow.L && ledNow.L.key === key;
+    ledNow.L = { key, tip };
     if (same) return;
     clearTimeout(ledSayT);
     ledSayT = setTimeout(ledFlush, LED_SAY_MS);
@@ -476,15 +472,15 @@
     setHairline(!!busy);
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 the plane cannot show its regions: its LED reports the failure (spec 5.14)
-    if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
+    if (!GLR.ok) { setLed('err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
     // frames stand in for a compiling program is busy from its first such frame, and its LED says so: the notes are canvas text,
     // which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
     const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : undefined);
     // (its LED also reports a step that fails to build)
-    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileBusy.L ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'));
+    if (note('L') || errTip) setLed('err', note('L') || errTip);
+    else setLed(busy || colourPending() || compileBusy.L ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -565,7 +561,7 @@
     if (cauchyWhy) paneNote(pane, cauchyWhy);
     else if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     else if (cz && cz.plan && cz.plan.why === 'onCurve') paneNote(pane, $t('Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.'));
-    drawRulers(pane, 'L');
+    drawRulers(pane);
     return handles;
   }
   function dcGridStep() { return S.dcGrid || 0.5; }
@@ -1508,11 +1504,11 @@
       if (leftStage() > 0) leftAuto = true;
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
-    // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (on a 356 px plot the key covers a third of the landscape);
+    // On a touch phone X's legend chip starts folded to its colour wheel and a tap unfolds it (on a 356 px plot the key covers a third of the landscape);
     // a tap on a folded or unfolded chip toggles
-    for (const id of ['leftLegend', 'rightLegend']) {
-      const el = $(id);
-      if (!el) continue;
+    const legKey = $('leftLegend');
+    if (legKey) {
+      const el = legKey;
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !/** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
       // (the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));

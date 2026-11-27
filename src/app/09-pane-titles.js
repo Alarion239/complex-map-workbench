@@ -2,18 +2,18 @@
   // Each pane says what it shows after its view control (icon-only below 520px): the whole title when it fits the
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
-  function fitTitle(side, noDisp) {
-    const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && /** @type {HTMLElement | null} */ (t.nextElementSibling);
+  function fitTitle(noDisp) {
+    const t = $('leftTitle'), pane = $('paneL'), grow = t && /** @type {HTMLElement | null} */ (t.nextElementSibling);
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
     // (the head's Regions button shows its caret unless the title needs that room: then its swatch alone)
     const disp = pane.querySelector('.pane-head .pat-btn');
     if (disp && !noDisp) disp.classList.remove('tight');
-    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    const tabs = $('leftTabs');
     // ("Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (a head at 1024
     // px beside the Inspector), folds its key chip to the glyph first, then the head packs closer (the tabs' padding,
     // its gaps), and last its status light goes (Russian at 1024 px)
-    const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+    const hd = pane.querySelector('.pane-head'), leg = $('leftLegend');
     const legIn = !!(leg && hd && leg.parentNode === hd);
     const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
     // (the steps view's head fit folds the chip itself, sv-lg: it stays folded)
@@ -31,7 +31,7 @@
       // then the plane's "X · " tag gives way, before the title itself
       const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
       if (!(tag && ptw - tw <= room)) {
-        if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, true); return; }
+        if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(true); return; }
         pane.classList.add('tiny'); return;
       }
       t.classList.add('notag'); ptw -= tw;
@@ -47,13 +47,13 @@
     t.classList.add('terse');
   }
   // (a title that changed width changes the room for the head's controls: they are laid out again first)
-  // (a title in a pane head is fitted by its strip's layout, layoutFootSide, only when what it depends on changed;
+  // (a title in a pane head is fitted by its strip's layout, layoutFoot, only when what it depends on changed;
   // the others, a phone's, are fitted here. force: the fonts settled, which no key can see)
   function fitRightTitle(force) {
     if (paneL) layoutFoot(force);
     // (whether the strip is in a head now, not as of its last layout: a switch to the phone layout moves it out first)
     const f = $('leftFoot'), headed = !!(f && f.parentElement && f.parentElement.classList.contains('pane-head'));
-    if (!paneL || !headed) fitTitle('L');
+    if (!paneL || !headed) fitTitle();
   }
   // the words of the landscape's height (S.height)
   const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `${I18N.fnName('log')}|${Fh}|`);
@@ -289,11 +289,9 @@
   // Mode options (spec 5.8): one 32px row. Controls that do not fit beside the view stack move, in order, behind
   // a sliders button into a popover; on a phone all of them do.
   const phoneMQ = matchMedia('(max-width: 767px)');
-  // one options strip per pane (panels.md 4): foot.L in X, foot.R in Y
-  const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null, pat: null });
-  const foot = { L: footOf(), R: footOf() };
+  // X's options strip (panels.md 4)
+  const foot = { kids: [], widths: null, n: -1, w: -1, phone: null, pop: null, pat: null };
   phoneMQ.addEventListener('change', () => { if (S && paneL) layoutFoot(true); });
-  function layoutFoot(force) { layoutFootSide('L', force); }
   // on a desktop the unit circle's check (page.html's #unitBox) sits in X's pane head; a phone's Display sheet lends it
   // itself. The classic X → Y view puts the regions' button in the head too
   // (the steps view has one head and one colour panel on every plane: its ⋯ pop-up holds the regions' display)
@@ -305,9 +303,9 @@
     const u = $('unitBox'), home = $('regionsHome');
     if (u && home && f && f.contains(u)) home.append(u);
   }
-  function unitKid(side) {
+  function unitKid() {
     const u = $('unitBox');
-    if (!u || side !== 'L') return null;
+    if (!u) return null;
     // (its icon and toggle look, once: the word stays its name and the tooltip's)
     const l = u.querySelector('label.check');
     if (l && !l.classList.contains('ic-tg')) {
@@ -320,18 +318,17 @@
   }
   const headRO = new WeakSet();   // (the pane heads observed for their width)
   // (a strip is laid out once per task, after the handler that asked for it and before the frame: opening the
-  // Deformation asked for it five times a side (buildFoot, placeKeys, fitRightTitle, each through layoutFoot), and each
+  // Deformation asked for it five times (buildFoot, placeKeys, fitRightTitle, each through layoutFoot), and each
   // pass forced two to four layouts reading the head and fitting its title. The asks are gathered and laid out in one
   // microtask, force if any asked for it; nothing paints in between)
-  const footDue = { L: 0, R: 0 };
-  let footFlush = false;
-  function layoutFootSide(side, force) {
-    footDue[side] = Math.max(footDue[side], force ? 2 : 1);
+  let footDue = 0, footFlush = false;
+  function layoutFoot(force) {
+    footDue = Math.max(footDue, force ? 2 : 1);
     if (footFlush) return;
     footFlush = true;
     queueMicrotask(() => {
       footFlush = false;
-      for (const s of ['L', 'R']) { const d = footDue[s]; footDue[s] = 0; if (d) layoutFootNow(s, d === 2); }
+      const d = footDue; footDue = 0; if (d) layoutFootNow(d === 2);
     });
   }
   // the strip's children made exactly `list`, in that order. A control already in the strip is moved where it belongs with
@@ -343,16 +340,16 @@
     while (f.children.length > list.length) f.lastElementChild.remove();
   }
   // (a browser without moveBefore blurs the strip's focused control when it is laid out: the control that had it takes it again)
-  function layoutFootNow(side, force) {
-    const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
-    layoutFootRun(side, force);
+  function layoutFootNow(force) {
+    const f = $('leftFoot'), a = document.activeElement;
+    layoutFootRun(force);
     // (an open Regions pop-up follows the head's button whether or not the row changed: the head's right edge moves with the window, and a layout that finds the same controls returns before it)
-    const pat = f && f.querySelector(':scope > .pat-btn'), pop = foot[side].pop;
+    const pat = f && f.querySelector(':scope > .pat-btn'), pop = foot.pop;
     if (pat && pop && pop.isConnected && pop.dataset.of === 'pattern') placeFootPop(pop, pat);
     if (f && a && a !== document.body && a.isConnected && document.activeElement !== a && f.contains(a)) /** @type {HTMLElement} */ (a).focus({ preventScroll: true });
   }
-  function layoutFootRun(side, force) {
-    const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
+  function layoutFootRun(force) {
+    const f = $('leftFoot'), ft = foot, pane = paneL;
     // (a landscape phone is wider than the query, but its options are the Display sheet's too: all of them, none inline)
     const phone = phoneMQ.matches || document.documentElement.classList.contains('ph');
     // (on a desktop the strip sits in the pane head, placeKeys, so no bar lies over the plot. There its
@@ -373,10 +370,10 @@
         for (const e of es) { const w = e.contentRect.width; if (!(Math.abs(w - (lastW.has(e.target) ? lastW.get(e.target) : -1)) < 1)) { lastW.set(e.target, w); moved = true; } }
         // (the widths the observer reports are the layout's key, read with no forced layout)
         ft.roW = [...lastW.values()].map((w) => Math.round(w)).join(',');
-        if (moved && f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side);
+        if (moved && f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFoot();
       });
       ro.observe(f.parentElement);
-      const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+      const leg = $('leftLegend');
       if (leg) ro.observe(leg);
     }
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
@@ -384,7 +381,7 @@
     // and the toggles, so the plane's title keeps its room)
     // (the steps view's head is the same on every plane: the style row stays inline and every other control is behind ⋯,
     // whatever the title's width, so no control comes and goes as the shown plane changes)
-    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf') || (SV.on && !e.classList.contains('seg'));
+    const unit = inHead ? unitKid() : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf') || (SV.on && !e.classList.contains('seg'));
     const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit && !isNote(unit) ? [unit] : []), ...ft.kids.filter(isNote), ...(unit && isNote(unit) ? [unit] : [])] : ft.kids;
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
@@ -395,7 +392,7 @@
     // its widths first, several forced layouts a click)
     let pre = null;
     if (inHead) {
-      const hd = f.parentElement, t = $(side === 'L' ? 'leftTitle' : 'rightTitle');
+      const hd = f.parentElement, t = $('leftTitle');
       pre = [phone, kids.length, pane.w, S.view.main, ft.roW || '', t ? t.innerHTML : '', [...hd.children].map((c) => (/** @type {HTMLElement} */ (c).hidden ? 0 : 1)).join(''), I18N.lang].join('|');
       if (!force && ft.roW && pre === ft.pre) return;
     }
@@ -404,20 +401,20 @@
     // (and its role's whole width, "phase of F(z) = …", which fitTitle shortens when the room runs out)
     let headW = 0, titleW = 0, roleW = 0, legW = 0;
     if (inHead) {
-      const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pt = t && t.querySelector('.ptitle'), pr = t && t.querySelector('.prole');
-      const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+      const t = $('leftTitle'), pt = t && t.querySelector('.ptitle'), pr = t && t.querySelector('.prole');
+      const leg = $('leftLegend');
       if (t) { t.classList.remove('terse', 'short', 'notag'); f.parentElement.parentElement.classList.remove('tiny'); }   // (fitTitle fits it after)
       headW = f.parentElement.clientWidth; titleW = pt ? pt.scrollWidth : 0; roleW = pr ? pr.scrollWidth + 8 : 0;
       legW = leg && leg.parentNode === f.parentElement ? Math.round(leg.getBoundingClientRect().width) : 0;
     }
-    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead && ft.headW === headW && ft.titleW === titleW && ft.roleW === roleW && ft.legW === legW && ft.nk === kids.length) { if (inHead) { fitTitle(side); ft.pre = pre; } return; }
+    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead && ft.headW === headW && ft.titleW === titleW && ft.roleW === roleW && ft.legW === legW && ft.nk === kids.length) { if (inHead) { fitTitle(); ft.pre = pre; } return; }
     ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
     // (the Regions button is the one its open pop-up hangs from, kept through this layout: a new one would read unpressed, and a
     // press on it would not be the anchor's re-click)
     const patHeld = !!(ft.pat && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === 'pattern' && ft.pat.getAttribute('aria-expanded') === 'true');
-    const pat = inHead && pushHome() ? (patHeld ? ft.pat : patternBtn(side)) : null;
+    const pat = inHead && pushHome() ? (patHeld ? ft.pat : patternBtn()) : null;
     if (patHeld && pat) drawPhaseSwatch(pat.firstChild);
     let n = kids.length;
     if (phone) n = 0;
@@ -436,7 +433,7 @@
       if (inHead) {
         // the head's room: what the title, the free space after it and the strip take now (the rest of the head is
         // fixed), less a title that stays readable (its whole width, at most 180 px) and the pattern button
-        const head = f.parentElement, t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), hs = getComputedStyle(head);
+        const head = f.parentElement, t = $('leftTitle'), hs = getComputedStyle(head);
         let room = head.clientWidth - parseFloat(hs.paddingLeft) - parseFloat(hs.paddingRight), shown = 0;
         for (const c of head.children) {
           if (!c.getClientRects().length) continue;
@@ -465,7 +462,7 @@
       if (inHead && n === 0 && kids.length && kids[0].classList.contains('seg')) n = 1;
     }
     ft.w = pane.w; ft.phone = phone;
-    if (n === ft.n && !force) { if (inHead) { fitTitle(side); ft.pre = pre; } return; }   // (the title's classes were cleared above: fitted again)
+    if (n === ft.n && !force) { if (inHead) { fitTitle(); ft.pre = pre; } return; }   // (the title's classes were cleared above: fitted again)
     ft.n = n;
     const rest = kids.slice(n);
     let b = null;
@@ -476,7 +473,7 @@
     if ((rest.length || (inHead && stepsRegions())) && !merged) {
       // (the controls that do not fit: in the pane head a ⋯ button, under the plot the sliders)
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: inHead ? ICONS.more : ICONS.sliders });
-      b.addEventListener('click', () => openFootPop(b, false, side));
+      b.addEventListener('click', () => openFootPop(b, false));
     } else if (inHead && kids.length && kids[0].id === 'dcSeg') {
       // the Phase head keeps the ⋯'s room whatever the style: a style with nothing behind ⋯ (Plain, Modulus)
       // leaves the slot empty, so the style row, at the head's right, never shifts as the style changes
@@ -490,23 +487,23 @@
     const inl = kids.slice(0, n), styl = inHead && inl.length && inl[0].id === 'dcSeg';
     setKids(f, [...(pat ? [pat] : []), ...(styl ? [...inl.slice(1), inl[0]] : inl), ...(b ? [b] : [])]);
     f.classList.toggle('collapsed', !n);
-    if (inHead) { fitTitle(side); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
+    if (inHead) { fitTitle(); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
     if (open) {
       // (the open pop-up follows its controls: the Regions pop-up while they are merged into it, else the ⋯'s)
-      if (ft.pop.dataset.of === 'pattern' && merged) openFootPop(pat, true, side, true);
-      else if (b) openFootPop(b, true, side); else closePalette();
+      if (ft.pop.dataset.of === 'pattern' && merged) openFootPop(pat, true, true);
+      else if (b) openFootPop(b, true); else closePalette();
     }
   }
   // (in the X → Y view the Regions button in the pane head, a swatch of the regions' fill (the
   // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
   // opacity), lent while it is open)
-  function patternBtn(side) {
+  function patternBtn() {
     const name = $t('Regions');
     const b = h('button', { class: 'btn opts-btn pat-btn', 'data-tip': name, 'aria-label': name, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
     drawPhaseSwatch(b.firstChild);
-    b.addEventListener('click', () => openFootPop(b, false, side, true));
-    foot[side].pat = b;
+    b.addEventListener('click', () => openFootPop(b, false, true));
+    foot.pat = b;
     return b;
   }
   // the pop-up's place by its button: the strip sits at the bottom of the plot, so it opens upward over the plot, below only when there
@@ -523,8 +520,8 @@
     pop.style.left = Math.max(12, Math.min(window.innerWidth - pw - 12, x0)) + 'px';
     pop.style.top = y + 'px';
   }
-  function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
-    const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
+  function openFootPop(btn, refresh, regionsOnly = false) {
+    const ft = foot, of = regionsOnly ? 'pattern' : 'opts';
     if (!refresh && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === of) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
     // (the ⋯ pop-up holds the head's controls that did not fit, with no title; the Regions button's, the regions'
@@ -707,20 +704,20 @@
     if (on) tourEmit('sheets-shown', {});
   }
   // X's options strip
-  function buildRightFoot() { buildFoot('L'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
+  function buildRightFoot() { buildFoot(); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
   // X's paint changed (style, sectors, grid step): X redraws
   const paintChanged = () => requestRender('L', 'T');
-  function buildFoot(side) {
-    const f = $(side === 'L' ? 'leftFoot' : 'rightFoot');
+  function buildFoot() {
+    const f = $('leftFoot');
     if (!f) return;
     unitHome(f);
     f.innerHTML = '';
     f.className = 'options';
-    const ft = foot[side];
+    const ft = foot;
     ft.kids = []; ft.widths = null; ft.n = -1;
     // (a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
     const headed = () => !!(f.parentElement && f.parentElement.classList.contains('pane-head'));
-    buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend();
+    buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFoot(true); drawLegend();
   }
   // a Paths toggle's state (the deformation's and the steps view's): pressed while the paths show, its tip saying what a
   // press does; off, with the reason, when there are no paths to draw (noPaths: a d/dz)
@@ -867,13 +864,13 @@
   const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8,
     Wk: 144 };   // Wk: the width of the carried-colour key, whose lines hold the widest word of any language (≤ 58 px) right of the wheel
   // X's legend chip (U-b): its colour key while Phase is on (wheel and modulus strip; the landscape's height).
-  // legendKind(side): 'color' | 'sphere' | '3d' | null
+  // legendKind(): 'color' | 'sphere' | '3d' | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false } };
   // the steps view on a plane other than the colour plane: the colour wheel, with the plane its colour is carried from
   const svCarriedKey = () => SV.on && !!svCarriedFrom();
   // the Landscape's key under Plaster: the height and the contours, with no hue
   const plasterKey = (kind) => kind === '3d' && !lPhase();
-  function legendKind(side) {
+  function legendKind() {
     if (!GLR.ok) return null;
     // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
     if (lLand()) return '3d';
@@ -886,7 +883,7 @@
   // hovered or after a click, so that nothing covers the work uninvited. The left plane's colour key while it shows
   // Phase or the Sphere (keyOnPlot) is the exception: it stays on the plot, top right. A phone keeps both on the plane,
   // where the key is a folded glyph and the options are in the Display sheet.
-  const keyOnPlot = () => { const k = legendKind('L'); return k === 'color' || k === 'sphere'; };
+  const keyOnPlot = () => { const k = legendKind(); return k === 'color' || k === 'sphere'; };
   function placeKeys() {
     const ph = document.documentElement.classList.contains('ph');
     let moved = false;
@@ -920,7 +917,7 @@
       }
       if (ft.parentNode !== plot) plot.insertBefore(ft, vs);
     }
-    if (foot.L.kids.length) layoutFoot(true);
+    if (foot.kids.length) layoutFoot(true);
     if (moved) drawLegend();   // (the chip's words, written when it is in the head)
   }
   // the key chip's words in the pane head: the grid's cell while the regions' grid lines are drawn, else their fill, the
@@ -1036,7 +1033,7 @@
     const box = $('leftLegend'), cv = $('legendCanvasL');
     if (!box || !cv) return;
     // no legend without WebGL: the plane shows nothing it could explain
-    const kind = legendKind('L');
+    const kind = legendKind();
     const want = !!kind;
     if (box.hidden === want) box.hidden = !want;
     // (the folded chip on a phone shows a glyph of its key: the hue wheel, arg increasing counterclockwise from red at

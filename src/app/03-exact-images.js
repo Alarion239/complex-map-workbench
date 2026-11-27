@@ -896,11 +896,11 @@
     if (!quiet) hatchNotes.delete(pane);
     // (a Cauchy plot that cannot be built says what to do: the plane has no other picture to show)
     const error = st && st.error && pane === paneL && lColor() && S.dc === 'cauchy' ? `${st.error} ${$t('Choose another colour style.')}` : st && st.error;
-    if (!quiet && error) { paneNote(pane, error); setLed(pane === paneL ? 'L' : 'R', 'err', error); }
+    if (!quiet && error) { paneNote(pane, error); if (pane === paneL) setLed('err', error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
     const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane) || hatched) : '';
-    if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
+    if (!quiet && note) { paneNote(pane, note); if (pane === paneL) setLed('err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';

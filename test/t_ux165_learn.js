@@ -45,9 +45,9 @@ ok('#34: Move on by itself is a checkbox in the chapters menu (no timer icon in 
 // ---- Russian (UX78, UX93 and every string of this piece)
 const RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../notes/i18n/ru/v165-ux-learn.json'), 'utf8'));
 const ents = Object.entries(RU).filter(([k]) => !k.startsWith('_'));
-// (58: the piece's strings the page ships; the classic transport's six, the classic tour's Phase key task, and the cell and
-// view-edge words of a key chip the page does not have are not among them)
-ok('the table has the piece\'s strings', ents.length >= 58, ents.length);
+// (50: the piece's strings the page ships; the classic transport's six, the classic tour's Phase key task, the cell and
+// view-edge words of a key chip, and the target notes of a Y pane head, none of which the page has, are not among them)
+ok('the table has the piece\'s strings', ents.length >= 50, ents.length);
 ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter(([, v]) => !(v.en && v.ru)).map(([k]) => k));
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
 // (V165_HERE is one set holding every piece's table, this one among them)

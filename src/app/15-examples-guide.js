@@ -566,7 +566,6 @@
     const main = S.view.main;
     document.documentElement.classList.toggle('view-land', main === 'land');
     setSeg($('leftTabs'), xView().surf);
-    setSeg($('rightTabs'), S.view.R.surf);
     // the landscape is its own surface: no Plane | Sphere in its head
     const lt = $('leftTabs'); if (lt && lt.parentElement.hidden !== lLand()) lt.parentElement.hidden = lLand();
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
@@ -694,7 +693,7 @@
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
     // (also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips, and the steps
     // view's colour button, whose tip says why it does nothing while the thread is parked between two planes)
-    const LP_SEL = '.tool[data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
+    const LP_SEL = '.tool[data-tip], #leftTabs [data-tip], .phbtn[data-tip], '
       + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip], .sv-cp[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
@@ -874,7 +873,7 @@
       const el = findByKey(lastFocus.key);
       if (el && el.getClientRects().length) el.focus({ preventScroll: true });
     });
-    for (const id of ['shapeList', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'propsPanel', 'tools']) {
+    for (const id of ['shapeList', 'leftFoot', 'leftTabs', 'propsPanel', 'tools']) {
       const el = $(id);
       if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-checked'] });
     }

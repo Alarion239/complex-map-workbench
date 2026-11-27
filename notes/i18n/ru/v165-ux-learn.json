@@ -135,41 +135,6 @@
   "ru": "Шкала цвета",
   "note": "X's chip in Phase."
  },
- "note.ph.both.inset": {
-  "en": "Shaded and drawn in X (the inset)",
-  "ru": "Закрашено и нарисовано в X (врезка)",
-  "note": "V01: Y's title chip on a phone."
- },
- "note.ph.both": {
-  "en": "Shaded and drawn in X",
-  "ru": "Закрашено и нарисовано в X",
-  "note": ""
- },
- "note.ph.curves.inset": {
-  "en": "Drawn in X (the inset)",
-  "ru": "Нарисовано в X (врезка)",
-  "note": ""
- },
- "note.ph.curves": {
-  "en": "Drawn in X",
-  "ru": "Нарисовано в X",
-  "note": ""
- },
- "note.ph.area.inset": {
-  "en": "Shaded in X (the inset)",
-  "ru": "Закрашено в X (врезка)",
-  "note": "V01"
- },
- "note.ph.area": {
-  "en": "Shaded in X",
-  "ru": "Закрашено в X",
-  "note": ""
- },
- "note.tip": {
-  "en": "Where {x} lands in the targets of Y is shaded in X; the curves it maps onto them are drawn there.",
-  "ru": "Там, где %{x} попадает в цели в Y, плоскость X закрашена; кривые, которые она переводит в них, нарисованы там же.",
-  "note": "Tooltip of the note."
- },
  "listen.it": {
   "en": "Listen along it",
   "ru": "Слушать вдоль неё",
@@ -291,10 +256,5 @@
   "en": "All steps at once · {p} %",
   "ru": "Все шаги сразу · %{p} %",
   "note": "UX103: the readout when the steps deform all at once."
- },
- "note.head": {
-  "en": "Preimage in X",
-  "ru": "Прообраз в X",
-  "note": "UX20, V01: Y's pane-head note on a desktop once a target is drawn (its tooltip says what is shaded and drawn)."
  }
 }

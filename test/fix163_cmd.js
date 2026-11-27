@@ -122,11 +122,14 @@ await view(1440, 900, false, false);
   await click(q[0], q[1]); await settle(200);
   d = (await CI()).draft;
   ok('U5 with both tangents made, a click off C starts the next circle (it is the new P)', d && d.picks.length === 1 && d.picks[0].role === 'P' && Math.abs(d.picks[0].z[0] + 1.5) < 0.05, d);
-  // U11: a click in Y's empty space keeps the draft
-  const y = await W(0.2, 3.3, 'R');
-  await click(y[0], y[1]); await settle(200);
-  const d2 = (await CI()).draft;
-  ok('U11 a click in the other plane on no curve keeps the draft (its curve and P)', d2 && d2.side === 'L' && d2.curve1 && d2.picks.length === 1, d2);
+  // U11: a click in Y's empty space keeps the draft; the steps view's Y is its last plane
+  // (standards-ok: the page has no Y pane; the classic view has no other plane to click in)
+  if (await ev(`document.documentElement.classList.contains('sv')`)) {
+    const y = await W(0.2, 3.3, 'R');
+    await click(y[0], y[1]); await settle(200);
+    const d2 = (await CI()).draft;
+    ok('U11 a click in the other plane on no curve keeps the draft (its curve and P)', d2 && d2.side === 'L' && d2.curve1 && d2.picks.length === 1, d2);
+  }
   // U3: dark mode, the rings (a shot)
   await view(1440, 900, true, false); await settle(500);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 700, y: 880 }); await settle(150);

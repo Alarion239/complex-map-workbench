@@ -1,4 +1,4 @@
-// Y's pane is gone (#995, the classic removal's P9b): in the steps view and the classic view, on a desktop and a phone, the page
+// The page has no Y pane: in the steps view and the classic view, on a desktop and a phone, the page
 // has no #paneR, #gutterCol or any of Y's controls; it boots with no console error; X's readout follows a hover; with the
 // Inspector hidden at 1280 px its overlay opens and closes; and at 767 px wide (the phone layout's widest) X fills the stage
 // with no second pane beside or under it. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.

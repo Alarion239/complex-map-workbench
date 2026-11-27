@@ -696,8 +696,8 @@
     }
     return '';
   }
-  function globeChip(side, s) {
-    const el = $(side === 'L' ? 'leftReadout' : 'rightReadout');
+  function globeChip(s) {
+    const el = $('leftReadout');
     if (!el || el.classList.contains('copied')) return;
     let t = s ? capSetHtml(s) : '';
     if (s && !t) {
@@ -868,7 +868,7 @@
     // its overlay); a stored shape that changes updates the lists and both panes
     const changed = (s) => {
       if (d.mode !== 'gdraw') { if (d.target) targetsChanged(false); else shapesChanged(false); }
-      globeChip(side, s);
+      if (side === 'L') globeChip(s);
       requestRender(side, 'O' + side);
     };
     if (d.mode === 'gdraw' && draft) {
@@ -1526,7 +1526,7 @@
       if (typing) return;
       // Tab on a focused plane steps through its shapes (Shift+Tab backwards); past the last one Tab leaves the plane as usual
       if (e.key === 'Tab' && !mod && !e.altKey && t.matches('.plot > canvas.overlay')) {
-        const list = t.id === 'overlayR' ? S.targets : S.shapes;
+        const list = S.shapes;
         const i = list.findIndex((x) => x.id === selected), n = i + (e.shiftKey ? -1 : 1);
         if (list.length && n >= 0 && n < list.length && !(i < 0 && e.shiftKey)) {
           e.preventDefault(); selected = list[n].id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'P'); return;
