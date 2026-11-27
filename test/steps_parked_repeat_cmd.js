@@ -28,7 +28,8 @@
 //   call, its own submission, and the pane reports its frame pending until the picture is complete: the gallery plane
 //   draws in one tile of the first pass and none of the second; with the first pass's budget at FAST_TEST_NODES and the
 //   bound at TILE_TEST_SOLVES its second pass takes more than one tile, one a call, none past the bound (a glide frame
-//   drawn between, as the glide warm-up can, walks its whole frame in one call and is counted apart), and the finished
+//   drawn between, as the glide warm-up can, walks its whole frame in one call and is counted apart; control: one was
+//   drawn), and the finished
 //   picture is pixel-identical to the same plane drawn with each pass in one tile (the bound at ONE_TILE_SOLVES); with
 //   the second pass held the frame stays pending; a redraw of the finished picture walks nothing (a cache hit), and a
 //   look setting changed (the region's colour) or a lost context walks again (__cmwRept({ tiles, fast, holdB, lose,
@@ -284,6 +285,7 @@ const hatchCount = () => ev(`(() => {
     await ev('__cmwSteps({ x: 0.5 }); 1'); await frames(2); await settled({ max: SETTLE_LONG, panes: true });
     await ev('__cmwSteps({ go: 1, now: true }); 1'); await settled({ max: SETTLE_LONG, until: '!__cmwSteps().anim && !__cmwSteps().play' }); await settled({ max: SETTLE_LONG, panes: true });
     const tiled = await ev('__cmwRept({ tileStats: true })'), p2 = await picture();
+    ok('control: a glide frame was drawn inside the tiled row\'s window (its walks counted apart, glides)', tiled.glides > 0, tiled);
     ok(`in tiles of ${TILE_TEST_SOLVES} root solves: more than one tile, one a call, none past the bound`, tiled.tilesB > 1 && tiled.maxTilesPerCall === 1 && tiled.maxTileSolves <= TILE_TEST_SOLVES, tiled);
     ok('while tiles remain, the pane reports its frame as pending', pend === true, pend);
     ok('the tiled picture is pixel-identical to the one-tile picture', p1.hash === p2.hash && p1.pixels === p2.pixels, [p1, p2]);
