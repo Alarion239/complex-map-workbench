@@ -39,7 +39,7 @@ const LONG_CHAIN = [{ type: 'custom', params: { expr: 'z^2+1/z' }, on: true }, {
 const OBSTACLES = `(() => {
   const vis = (e) => { if (!e || !e.isConnected || e.id === 'svTile') return null; if (e.checkVisibility && !e.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return null; const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1 ? r : null; };
   const CONTROL = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=link], [role=tab], [role=radio], [role=checkbox], [role=switch], [role=menuitem], [role=option], [role=slider], [role=spinbutton], [role=combobox]';
-  const MORE = '.chip, .legend-chip, .empty-chip, .dim-chip, .ld-key, .sv-empty, .options, .viewstack, #toastHost > *, .ph-col, .ph-ctx, .ph-keys, .ph-sheet, .sv-sheet, #svStrip, .sv-bandx, #paneL .pane-head, .pop, dialog[open]';
+  const MORE = '.chip, .legend-chip, .empty-chip, .dim-chip, .ld-key, .sv-empty, .options, .viewstack, #toastHost > *, .ph-ctx, .ph-keys, .ph-sheet, .sv-sheet, #svStrip, .sv-bandx, #paneL .pane-head, .pop, dialog[open]';
   const out = [];
   for (const e of document.querySelectorAll(CONTROL + ', ' + MORE)) { if (e.closest('#svTile')) continue; const r = vis(e); if (r) out.push({ what: (e.id ? '#' + e.id : '') + '.' + String(e.className && e.className.baseVal != null ? e.className.baseVal : e.className).split(' ')[0], l: r.left, t: r.top, r: r.right, b: r.bottom }); }
   const nb = __cmwNoteBox('L'), cv = document.getElementById('canvasL');

@@ -24,8 +24,8 @@ const measure = () => ev(`(() => {
   const hits = (root) => root ? [...root.querySelectorAll('button')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { t: b.textContent.trim() || b.getAttribute('aria-label') || b.className, hit: !!at && (at === b || b.contains(at)) }; }) : [];
   return { toast: rect(t), bar: bar && !bar.hidden && bar.classList.contains('in') ? rect(bar) : null, tall: !!bar && bar.classList.contains('tall'), strip: rect(document.getElementById('svStrip')), plot: rect(document.getElementById('plotL')),
     placed: document.getElementById('toastHost').dataset.placed || null, barHits: hits(bar), toastHits: hits(t),
-    keys: [...document.querySelectorAll('.viewstack, .ph-col')].filter((e) => e.getClientRects().length).map(rect),
-    keyBtns: [...document.querySelectorAll('.viewstack button, .ph-col button')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { name: b.getAttribute('aria-label') || b.className.split(' ')[0], l: r.left, t: r.top, r: r.right, b: r.bottom, hit: !!at && (at === b || b.contains(at)) }; }),
+    keys: [...document.querySelectorAll('.viewstack .vbtn')].filter((e) => e.getClientRects().length).map(rect),
+    keyBtns: [...document.querySelectorAll('.viewstack button')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { name: b.getAttribute('aria-label') || b.className.split(' ')[0], l: r.left, t: r.top, r: r.right, b: r.bottom, hit: !!at && (at === b || b.contains(at)) }; }),
     chip: rect(document.querySelector('#plotL > .draft-chip.cm-on')), q: rect(document.querySelector('#plotL .cm-q')),
     legend: legendHit(), words: wordsOf(t), rows: t && t.dataset.rows || null,
     // (the chip's prompt and its ×, whether the page finds it; the bar's title; every button of the message inside its box and the screen)
