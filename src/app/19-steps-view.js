@@ -16,6 +16,7 @@
     poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
+    glideSat: 1,     // (a test hook's) 0: a glide frame with the other sheets' copies draws them in painter's order, not front to back (colour())
     glideStencil: 0, // (a test hook's) 1: the sphere draws a glide's sheet copies only where the principal sheet is not opaque (drawSphere's sheetCut)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
     plotsKeep: 1,    // (a test hook's) 0: a glide frame draws the plots under its carried colour itself, never from the kept layer (svPlotsUnder)
@@ -1110,7 +1111,8 @@
   // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
   // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's; pane.warm, the
   // warm job's stand-in svWarmPane: a pass of its own, which the shapes' pass does not read)
-  // (alphaOf, edgeOf: svInvArg's; b, a: the frame's planes, a = b - 1 unless given: svCarryAlpha's glide)
+  // (alphaOf, edgeOf: svInvArg's; b, a: the frame's planes, a = b - 1 unless given: svCarryAlpha's glide; gl.sat: each
+  // draw blended front to back, drawInverse's saturate)
   function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf, b, a = b - 1) {
     const carry = svCarryStyle(T), p0 = paths[0];
     let nr = 0;
@@ -1124,7 +1126,7 @@
     for (let i = 0; i < list.length; i++) {
       let res = 'error';
       try {
-        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { a, b, u: t } : null), { nr }));
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { a, b, u: t } : null), { nr, saturate: !!gl.sat }));
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -2107,10 +2109,16 @@
   const SV_PLOTS = 'svPlots';
   let svPlotsKey = null;
   const svPlotsUse = { drawn: 0, kept: 0 };
-  function svPlotsUnder(pane, frame, a, b, draw) {
-    if (frame.open || SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) { draw(); return; }
-    const key = [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
+  // (the key of what the plots read, or null when this frame draws them itself: a frame of another size than the left
+  // pane's, or SV.plotsKeep 0)
+  function svPlotsKeyOf(pane, a, b) {
+    if (SV.plotsKeep === 0 || pane.pw !== paneL.pw || pane.ph !== paneL.ph) return null;
+    return [a, b, pane.pw, pane.ph, pane.dpr, JSON.stringify(pane.view), chainSig[nSteps()], svT(), S.dc, S.sectors || 12, dcGridStep(),
       GLR.palette(), TH.planeRGB, TH.inkRGB, TH.dark, SV.restPaint, svColoured(a), svColoured(b)].join('|');
+  }
+  function svPlotsUnder(pane, frame, a, b, draw) {
+    const key = frame.open ? null : svPlotsKeyOf(pane, a, b);
+    if (key === null) { draw(); return; }
     GLR.begin(pane.pw, pane.ph);
     frame.open = true;
     if (key === svPlotsKey && GLR.layerDraw(SV_PLOTS)) { svPlotsUse.kept++; return; }
@@ -2167,12 +2175,62 @@
     // one copy into cc at the end)
     const frame = { open: false };
     // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
-    const plot = (k, al, noValue) => {
+    // (under: under what the frame holds, drawColorPlot's under)
+    const plot = (k, al, noValue, under) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue });
+      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue, under });
+    };
+    // (the glide's record, svGlideRec, of a frame that drew (drew) or not, why not (why.r), its span and its sheet copies;
+    // sat: drawn front to back, colour())
+    const record = (drew, why, span, sheets, sat) => {
+      const kp = !drew ? null : span ? invSpanPath(SV_ALL, 0, span.a, b, u, span.stepT, () => svSheetKey(b).sing) : invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
+      // (sheets: the sheet combos drawn, svGlideSheets, the window of an infinitely sheeted step's, and each combo's
+      // offsets, one per multivalued step up to b in chain order, the chain as it is first)
+      // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
+      // farthest opaque (svCarryLook at base 1))
+      const hl = drew ? svHomPaths(b, u, span).h : null, look = hl ? svCarryLook(1, hl.list[0], { a: span ? span.a : b - 1, b, u }, T) : null;
+      svGlideRec = { b, u, all: !!span, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, per: kp && kp.prep && kp.prep.per ? [kp.prep.per.re, kp.prep.per.im] : null, ops: kp && kp.plan ? kp.plan.ops.map((o) => o.kind) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: sheets.length ? svSheetMemo.W : null, sheetKs: sheets.length ? [sheets[0].offs.map(() => 0), ...sheets.map((v) => v.offs)] : null,
+        sat, ...(look && { alpha: look.alpha }) };
     };
     const colour = () => {
+      // (the other sheets' copies, svGlideSheets, nearest the principal sheet first)
+      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+      // (front to back, when the inverse pass draws the frame and its copies into a frame still empty: the principal sheet
+      // and then the copies, nearest first, each blended by SRC_ALPHA_SATURATE (drawInverse's saturate), then the
+      // planes' plots under them (drawColorPlot's under), plane a's no-value colour first so that it stays over plane
+      // b's. Two copies that meet along a cut's image each cover part of its pixels: saturate makes those parts the whole
+      // pixel, where painter's order leaves the plots showing through as a line (#2069). Where copies overlap, the first
+      // drawn wins, as the last drawn does in painter's order, so each pixel's winner is painter's. A pass that cannot
+      // draw sends the frame back to painter's order below, from a fresh frame. SV.glideSat 0 (a test hook's) keeps
+      // painter's order; not with a repeat's plan (REPT), whose pass writes marks, not colours)
+      // (the plots under them as svPlotsUnder keeps them: drawn back from the kept layer under the copies (layerDraw's
+      // under); with no layer of their key, drawn into the layer first (GLR.layerInto), not into the frame)
+      if (sheets.length && !frame.open && SV.glideSat !== 0 && svExactGlide(b, u, null) && !svHomPaths(b, u, null).h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'REPT'))) {
+        const key = svPlotsKeyOf(pane, a, b);
+        GLR.begin(pane.pw, pane.ph); frame.open = true;
+        let kept = key !== null && key === svPlotsKey, fresh = false;
+        if (key !== null && !kept && GLR.layerInto(SV_PLOTS)) {
+          try { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); } finally { GLR.layerInto(null); }
+          svPlotsUse.drawn++;
+          // (a plot whose program still links drew a stand-in or nothing: not a picture to keep)
+          svPlotsKey = !GLR.frameStatus().pending ? key : null;
+          fresh = kept = svPlotsKey !== null;
+        }
+        let drew = false;
+        frame.sat = true;
+        try { drew = svCarryExactHom(pane, b, u, T, frame, { r: null }, null) && sheets.every((v) => svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }))); } finally { frame.sat = false; }
+        if (drew) {
+          if (kept && GLR.layerDraw(SV_PLOTS, true)) { if (!fresh) svPlotsUse.kept++; }
+          else {
+            plot(a, 1, true, true);
+            if (SV.restPaint !== 0) plot(b, 1, false, true);
+          }
+          record(true, { r: null }, null, sheets, true);
+          return;
+        }
+        GLR.begin(pane.pw, pane.ph, undefined, true);
+      }
       // (between planes, under the carried colour, which covers both wherever a point of the glide arrives, so that a
       // pixel no point reaches shows them: what plane b draws there at rest, its own colour when it is a coloured plane
       // (no blank, and at the arrival plane b's parked picture), and over it the departure plane's
@@ -2183,20 +2241,12 @@
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan, or, all at
       // once, each step of the span at its own time (svSpanPaths): the exact picture of the map at u, with nothing
       // blended in; else the carried meshes below, with the planes' plots)
-      // (the other sheets' copies first, svGlideSheets, the farthest from the principal sheet first: where they meet, a
-      // nearer sheet is drawn over a farther one, and the principal one over them all)
-      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
+      // (painter's order: the copies first, the farthest from the principal sheet first: where they meet, a nearer sheet
+      // is drawn over a farther one, and the principal one over them all)
       for (const v of sheets.slice().reverse()) svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }) || svCarryRegions(pane, map, T, b, frame, null));
       if (!still && (map.mode === 1 || map.mode === 3) && !isDeriv(b)) {
         const span = svSpanPaths(bt), why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why, span);
-        const kp = !drew ? null : span ? invSpanPath(SV_ALL, 0, span.a, b, u, span.stepT, () => svSheetKey(b).sing) : invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
-        // (sheets: the sheet combos drawn, svGlideSheets, the window of an infinitely sheeted step's, and each combo's
-        // offsets, one per multivalued step up to b in chain order, the chain as it is first)
-        // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
-        // farthest opaque (svCarryLook at base 1))
-        const hl = drew ? svHomPaths(b, u, span).h : null, look = hl ? svCarryLook(1, hl.list[0], { a: span ? span.a : b - 1, b, u }, T) : null;
-        svGlideRec = { b, u, all: !!span, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, per: kp && kp.prep && kp.prep.per ? [kp.prep.per.re, kp.prep.per.im] : null, ops: kp && kp.plan ? kp.plan.ops.map((o) => o.kind) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: sheets.length ? svSheetMemo.W : null, sheetKs: sheets.length ? [sheets[0].offs.map(() => 0), ...sheets.map((v) => v.offs)] : null,
-          ...(look && { alpha: look.alpha }) };
+        record(drew, why, span, sheets, false);
         if (drew) return;
       }
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
