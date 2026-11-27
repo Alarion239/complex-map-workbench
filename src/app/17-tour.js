@@ -5,7 +5,6 @@
   let tourSplit = false;   // the tour's stop shows the Inspector's split offer (its scene sets split: true)
   let tourHold = false;   // the autosave is paused while a tour borrows the canvas: writeState writes nothing
   let tourDrawer = false; // the tour opened the left drawer for a step (a narrow desktop): the next step closes it
-  let tourPics = null;    // the chain's Pictures | Names and height before a tour step turned its pictures on
   let tourPhGeo = null;   // (r3) the phone sheet geometry on the root before the tour: [--ph-hp, --ph-ride]
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
   const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
@@ -97,7 +96,7 @@
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }
   // the persisted state, as writeState saves it
-  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
+  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: S.rightView || null }), noRuntime));
   function tourSnapshot() {
     phHold();
     if (typeof svStore === 'function') svStore();   // (S.sv holds the steps view's place: the tour moves it, and the restore puts it back)
@@ -109,7 +108,7 @@
       mem: {
         hist: hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })), hi, hideLeft: S.hideLeft, hideRight: S.hideRight,
         tool, selected, currentExample, exLabel: xl ? xl.textContent : null,
-        V: JSON.parse(JSON.stringify(V)), leftAuto, rightAuto, clipWin: Object.assign({}, clipWin),
+        V: JSON.parse(JSON.stringify(V)), leftAuto, clipWin: Object.assign({}, clipWin),
         viewMem: JSON.parse(JSON.stringify(viewMem)), cams: [cam, camL, camS].map(camKeys), cell: [cellBase, cellKey],
         phBig: tourPhone() ? Phone.big() : null,
       },
@@ -148,7 +147,7 @@
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
     if (m) {
       setTool(TOOLS.some((t) => t[0] === m.tool) ? m.tool : 'select');
-      Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto; rightAuto = m.rightAuto;
+      Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto;
       [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
       hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
       currentExample = m.currentExample;
@@ -158,7 +157,6 @@
       if (m.phBig && tourPhone() && Phone.big() !== m.phBig) Phone.setBig(m.phBig);
     } else {
       setTool('select');
-      if (S.rightView && autoFit()) { Object.assign(V.right, S.rightView); rightAuto = false; }
       hist = [snap()]; hi = 0;
     }
     updateUndo();
@@ -209,32 +207,6 @@
     sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; tourSplit = false; save(); } return true; },
     // the current stop shows the Inspector's split offer (its split: true); every other stop hides it
     splitOffer: (on) => { if (tourSplit !== !!on) { tourSplit = !!on; requestRender('P'); } return true; },
-    // a step about the cards' pictures shows them: Pictures rather than Names, and a chain shorter than
-    // Pictures needs (140 px, the gutter's own rule) at Pictures' 188 px; off, the user's setting comes back (unless they
-    // changed it meanwhile). True while the tour holds the pictures on. A phone's chain bar always shows its pictures
-    chainPictures: (on) => {
-      const root = document.documentElement;
-      if (on) {
-        if (tourPics) return true;
-        if (tourPhone()) return false;
-        const hNow = root.style.getPropertyValue('--chain-h'), short = (parseFloat(getComputedStyle($('stage')).getPropertyValue('--chain-h')) || 188) < 140;
-        if (!S.compact && !short) return false;
-        tourPics = { compact: !!S.compact, h: hNow };
-        setOpt('compact', false);
-        if (short) root.style.setProperty('--chain-h', '188px');
-        applyLayout();
-        return true;
-      }
-      if (!tourPics) return false;
-      const p = tourPics;
-      tourPics = null;
-      if (!S.compact) {
-        setOpt('compact', p.compact);
-        if (p.h) root.style.setProperty('--chain-h', p.h); else root.style.removeProperty('--chain-h');
-        applyLayout();
-      }
-      return false;
-    },
     loadScene: tourLoadScene,
     setLook: tourSetLook,
     // (notes/tour/INTEGRATION.md 9) where the tour's strip goes ('stage': the first row of the stage, or on a
