@@ -18,7 +18,7 @@
   const touches = new Map(); // pointerId -> [x, y] for pinch zoom
   let pinched = null;         // a pinch in progress zoomed ('zoom') or turned a globe ('orbit')
   // a pane that orbits a camera: X Landscape (cam), X Sphere (camL), Y Sphere (camS)
-  const is3DSide = (side) => (side === 'L' ? lLand() || lGlobe() : rGlobe());
+  const is3DSide = (side) => side === 'L' && (lLand() || lGlobe());
   const camOf = (side) => (side === 'R' ? camS : lLand() ? cam : stackOn() ? stackCam : leftCam());
   const camBaseOf = (c) => (c === camS ? CAMS : c === cam ? CAM3 : c === stackCam ? STACK_CAM : leftCamBase());
   // the orbit camera of the left plane's sphere view (renderSphereLeft keeps it fitted, like camS)
@@ -856,7 +856,7 @@
     if (!drag || !/^g(draw|handle|move)$/.test(drag.mode)) return;
     const had = !!probe;
     probe = null;
-    if (had) { setReadouts(null); requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null); }
+    if (had) { setReadouts(null); requestRender('L', 'OL', 'OR'); }
   }
   // a pointer move of a globe gesture (draw, handle, move)
   function globeMove(pane, side, e, x, y) {
@@ -1194,11 +1194,11 @@
       if (!z && !probe) return;
       probe = z;
       setReadouts(probe);
-      requestRender('L', 'OR', rGlobe() ? 'R' : null);
+      requestRender('L', 'OR');
       return;
     }
     // the Point and Polygon tools over the 10 px around ∞ of an editable globe: not-allowed (panels.md 9.7)
-    if ((side === 'L' ? lGlobe() : rGlobe()) && (gInf[side] || ((tool === 'point' || tool === 'polygon') && globeEdit(side)))) {
+    if (side === 'L' && lGlobe() && (gInf[side] || ((tool === 'point' || tool === 'polygon') && globeEdit(side)))) {
       const gc = globeCam(side);
       setGInf(pane, side, !!gc && (tool === 'point' || tool === 'polygon') && globeEdit(side) && nearInf(gc, x, y));
     }
@@ -1219,7 +1219,7 @@
       if (!z && !probe) return;
       probe = z;
       setReadouts(probe);
-      requestRender('L', 'OR', rGlobe() ? 'R' : null);
+      requestRender('L', 'OR');
       return;
     }
     // (the Stack: the point of the level under the pointer, 19-stack-pick.js)
@@ -1238,7 +1238,7 @@
       setReadouts(probe);
       sndMove(x, y, probe, 'pointer');
       // the w-globe's probe ring and projection ray are drawn by GL with the globe
-      requestRender('OL', 'OR', rGlobe() ? 'R' : null);
+      requestRender('OL', 'OR');
     }
   }
   // number formatting for readouts: 4 decimals in [1e-3, 1e4), otherwise a ×10ⁿ form; real minus signs
@@ -1378,21 +1378,17 @@
     const w = wOnce !== undefined ? wOnce : focusF()(z);
     copyValue.R = CX.isFin(w) ? CX.fmt(w, 6).replace(/\s/g, '') : '';
     const vout = yHtml();
-    if (rImage()) {
-      // F' at the current probe (never a cached value from an earlier pointer position)
-      const F = focusF(), hh = 1e-6 * Math.max(1, CX.abs(z));
-      const d = CX.scale(CX.sub(F(C(z.re + hh, z.im)), F(C(z.re - hh, z.im))), 1 / (2 * hh));
-      const fd = CX.isFin(d) ? (CX.abs(d) < 1e-9 ? $t('critical point') : `${fmtR(CX.abs(d))} ∠ ${fmtR(Math.atan2(d.im, d.re) / DEG).replace(/0+$/, '').replace(/[.,]$/, '')}°`) : '—';
-      let clamp = '';
-      if (tool === 'select' && CX.isFin(d) && paneL && paneR) {
-        const rimg = CX.abs(d) * (10 / paneL.view.s) * V.right.s;
-        const factor = rimg > 120 ? 120 / rimg : rimg < 3 && rimg > 0 ? 3 / rimg : 1;
-        if (factor !== 1) clamp = rk($t('gauge'), '×' + I18N.num(CX.fmtNum(factor, 3)));
-      }
-      ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`${fnHtml()}′`, fd) + clamp;
-    } else {
-      ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`|${vout}|`, fmtR(CX.abs(w)));
+    // F' at the current probe (never a cached value from an earlier pointer position)
+    const F = focusF(), hh = 1e-6 * Math.max(1, CX.abs(z));
+    const d = CX.scale(CX.sub(F(C(z.re + hh, z.im)), F(C(z.re - hh, z.im))), 1 / (2 * hh));
+    const fd = CX.isFin(d) ? (CX.abs(d) < 1e-9 ? $t('critical point') : `${fmtR(CX.abs(d))} ∠ ${fmtR(Math.atan2(d.im, d.re) / DEG).replace(/0+$/, '').replace(/[.,]$/, '')}°`) : '—';
+    let clamp = '';
+    if (tool === 'select' && CX.isFin(d) && paneL && paneR) {
+      const rimg = CX.abs(d) * (10 / paneL.view.s) * V.right.s;
+      const factor = rimg > 120 ? 120 / rimg : rimg < 3 && rimg > 0 ? 3 / rimg : 1;
+      if (factor !== 1) clamp = rk($t('gauge'), '×' + I18N.num(CX.fmtNum(factor, 3)));
     }
+    ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`${fnHtml()}′`, fd) + clamp;
   }
   // the phase colour of w as a CSS colour (the legend wheel's, arg 0 = red at 1)
   function phaseCss(w) {
@@ -1433,7 +1429,7 @@
     if (!draft || !draft.pending) return;
     if (!draft.globe) Construct.drawEnd(null, !!draft.target);   // (its snapped start binds nothing)
     draft = null;
-    requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
+    requestRender('L', 'OL', 'OR');
   }
   function pendingHover(pane, side, e, x, y) {
     if (draft.globe) {
@@ -1557,7 +1553,7 @@
       if (e.key === 'Escape') {
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
-        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (stackUnpin()) { /* unpinned the glass's point, or put out the floor's lit twins */ } else if (landPickOff()) { /* put out the lit twins on the Landscape's sheets */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (stackUnpin()) { /* unpinned the glass's point, or put out the floor's lit twins */ } else if (landPickOff()) { /* put out the lit twins on the Landscape's sheets */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR'); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
         else if (tool !== 'select') setTool('select');
         else if (escSound) { /* the sound was this Esc's level */ }
         else if (modeNext()) modeClose(modeNext());

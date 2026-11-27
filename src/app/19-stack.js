@@ -22,7 +22,7 @@
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
   const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'levels', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
-  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time, and labelMs: their labels' placement time), levels, mids, why, picks}
+  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time, and labelMs: their labels' placement time), off (the "+n off view" counts: {text, n, at, box, hits, lines}), levels, mids, why, picks}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
   // On a phone the box fits the plane's room that is left in sight: above the context bar, and beside Look down's key
   // while it is open (above it, right of it or below it, whichever lets the box be largest), STACK_ROOM_GAP css px clear
@@ -273,7 +273,7 @@
     // to the target rise along them, through the levels' maps at their heights, as far as the tubes stand up (tubeFade),
     // and inside the box only: straight down they are the lines from the floor to the glass that Look down draws, as they
     // are straight)
-    let tubes = null, picks = null, mids = [];
+    let tubes = null, picks = null, mids = [], off = [];
     const ln = mk ? stackLinks(s, linkMode(), mk.zsZ, mk.critZ) : null, up = tubeFade(tilt), chain = mk ? stackChain(s) : null;
     linkShown = ln;
     // (a line's runs inside the box (stackClipPath), each a polyline in the canvas's css px)
@@ -305,10 +305,14 @@
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
       picks: () => { picks = drawStackPicks(pane, ctx, F, G); },
       labels: () => {
-        if (!tubes || !tubes.labels.length) return;
+        // (the flat plane's "+n off view" counts, upright at the places the floor's map gives them, with the tubes' labels: the flat draw
+        // does not place them on the Stack, where its picture is turned with the floor)
+        off = pullOffDrawn.map((e) => ({ text: e.text, kind: 'off', dot: false, oneLine: true, n: e.n, at: lv.floor.at(e.x, e.y) }));
+        const all = (tubes ? tubes.labels : []).concat(off);
+        if (!all.length) return;
         const t0 = performance.now();
-        drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera), tubes.marks.concat(lookPts(), stackLevelPts(mids)));
-        tubes.labelMs = performance.now() - t0;
+        drawStackLabels(ctx, all, tubes ? tubes.fade : 1, stackRoom(pane, camera), (tubes ? tubes.marks : []).concat(lookPts(), stackLevelPts(mids), stackKeyPts(pane)));
+        if (tubes) tubes.labelMs = performance.now() - t0;
       },
     };
     const order = ['floor'];
@@ -316,7 +320,15 @@
     // (the chain's levels: each one's stage, height and pieces, their parents, the centre's preimages in them and inks)
     const xy = (z) => [z.re, z.im];
     const levels = chain ? chain.levels.map((L) => ({ stage: L.stage, up: L.up, pieces: L.pieces.map((P) => ({ parent: P.parent, covers: P.covers, ink: P.ink, roots: P.roots.map(xy) })) })) : null;
-    return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk, tubes, levels, mids, why: chain ? chain.why : null, links: ln ? ln.mode : null, picks, plane: TH.plane };
+    return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk, tubes, off: off.map((L) => ({ text: L.text, n: L.n, at: L.at, box: L.box, hits: L.hits, lines: L.lines })), levels, mids, why: chain ? chain.why : null, links: ln ? ln.mode : null, picks, plane: TH.plane };
+  }
+  // the open key card's box as points TUBE_CELL apart in the overlay's css px, for the labels to keep clear of: on a desk the labels'
+  // room is the whole pane and the card a DOM chip over it; a phone's rooms leave the key out (stackMeasureRooms)
+  function stackKeyPts(pane) {
+    if (document.documentElement.classList.contains('ph') || !lookKey || lookKey.hidden) return [];
+    const b = lookKey.getBoundingClientRect(), o = pane.ocanvas.getBoundingClientRect(), out = [];
+    for (let y = b.top - o.top; y <= b.bottom - o.top + 1e-9; y += TUBE_CELL) for (let x = b.left - o.left; x <= b.right - o.left + 1e-9; x += TUBE_CELL) out.push([x, y]);
+    return out;
   }
   // the middle levels' marks (drawStackLevels' mids) as points in the canvas's css px, for the labels to keep clear of: their
   // pieces' outlines and their names' plates
@@ -332,7 +344,7 @@
     if (!stackOn()) return false;
     stackDrawn = stackMarks(pane, pane.octx, stackCam);
     stackSyncControls();
-    syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes);
+    syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes, stackDrawn.marks && !stackDrawn.tubes ? tubesWhy(findShape(selected), stackCam) : '');
     return true;
   }
   // TEST-HOOK (dropped from the published page by build.py): the Stack's state, its last frame and the glass's hovered or

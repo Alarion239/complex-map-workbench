@@ -95,8 +95,7 @@
     const left = SV.on ? ((tp) => T(tp.name, tp.role))(svTitleParts()) : T(XT + xName, roleL, shortL);
     let right;
     // (the right titles carry the "Y · " tag)
-    if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
-    else if (S.focus === 0) {
+    if (S.focus === 0) {
       // (Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
       const j = parkedAt(), steps = j >= 0 ? j : n;
       const pf = j === 0 ? '<i>z</i>' : j === 1 ? `<i>f</i>${sub(1)}(<i>z</i>)` : `<i>f</i>${sub(j)}(…<i>f</i>${sub(1)}(<i>z</i>))`;
@@ -151,7 +150,6 @@
     if (Views.merged(S.view) !== layoutMg) applyLayout();
     syncViewControls();
     fitRightTitle();
-    $('paneR').classList.toggle('no-rulers', !rImage());
     buildRightFoot();
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
@@ -313,12 +311,10 @@
   };
   const idleLeft = () => (lGlobe() ? `<span class="rhint rglobe">${globeHint('L')}</span>`
     : lLand() ? `<span class="rhint">${tool === 'pick' && landPickOn() && document.documentElement.classList.contains('ph') ? landPickPhrases($t('Tap to pick · hold and slide to read · drag to orbit · pinch to zoom')) : tool !== 'select' && tool !== 'formula' && !(tool === 'pick' && landPickOn()) ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
-  // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
+  // the idle right readout: the scale, or on a phone the targets' line (a short hint in the UI face)
   function idleRight() {
-    // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
-    const v = rGlobe() ? { hint: globeHint('R') }
-      : document.documentElement.classList.contains('ph') && hasTargets() && targetText() ? { hint: targetText({ phone: true }) }
-        : targetsEditable() && tool !== 'select' && tool !== 'formula' ? { hint: $t('Draw a target in Y (the {x}-plane)', { x: yHtml() }) } : scaleText(paneR);
+    const v = document.documentElement.classList.contains('ph') && hasTargets() && targetText() ? { hint: targetText({ phone: true }) }
+      : scaleText(paneR);
     return v && v.hint ? `<span class="rhint">${v.hint}</span>` : rk('', v);
   }
   function scaleText(pane) { return pane ? $t('{x} / div', { x: I18N.num(CX.fmtNum(Axes.niceStep(110 / pane.view.s), 4).replace('-', '−')) }) : ''; }
@@ -923,7 +919,7 @@
   const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
     if (!GLR.ok) return null;
-    if (side === 'R') return rImage() ? 'image' : null;
+    if (side === 'R') return 'image';
     // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
     if (lLand()) return '3d';
     if (svCarriedKey()) return 'color';
@@ -1371,11 +1367,11 @@
   }
   // ‹ › on a phone's chain row: the stage that rightStage() names glides from the plane after one step to the next or
   // the one before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way
-  // turns round with no jump); the frame loop moves it (frame(), 08), and nothing is drawn for it. In Phase, Landscape or
-  // with Y a sphere ‹ › do nothing.
+  // turns round with no jump); the frame loop moves it (frame(), 08), and nothing is drawn for it. In Phase or Landscape
+  // ‹ › do nothing.
   function glideStep(d) {
     if (S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
-    const L = S.view.main === 'xy' && rImage() && peekSteps();
+    const L = S.view.main === 'xy' && peekSteps();
     if (L) {
       if (!trans.glide) { trans.glide = true; trans.at = -1; glide.set(L.length); }
       glide.nudge(d, L.length);
