@@ -128,7 +128,7 @@
   // whole set once the job runs, and during play the paths would pop between sets): a selection stays while the view is
   // within a pan of 30 % of the panel and a zoom of 1.5x of the view it was chosen in, at the same panel size; the
   // frame re-projects its paths. A larger pan or zoom chooses again.
-  // (src: the deformation source; a kept start's place is the one the choice tested, its image under H_0, pathsGen)
+  // (src: the deformation source; a kept start is tested where it starts, startOf, as the choice tested it)
   function mfViewOk(pane, src) {
     const a = mfCache.v0, v = pane.view;
     if (!a || a.w !== pane.w || a.h !== pane.h || !(v.s > 0)) return false;
@@ -137,10 +137,10 @@
     // (a scrub's auto-fit or a pan that leaves more than one kept start out of view chooses again, cross-faded; one such
     // path is drawn clipped meanwhile, with the chevron where it comes in, drawMorphPaths)
     let off = 0;
-    const H0 = src && !src.startId ? src.Fat(0) : null;
     if (mfCache.sel && !pane.globeSel) {
+      const start = startOf(src);
       for (const k of mfCache.sel.kept) {
-        const w = H0 ? H0(k.sp.z) : k.sp.z, p = CX.isFin(w) ? pane.w2s(w) : null;
+        const w = start(k.sp.z), p = w ? pane.w2s(w) : null;
         if (!(p && p[0] >= 0 && p[1] >= 0 && p[0] <= pane.w && p[1] <= pane.h) && ++off > 1) return false;
       }
     }
@@ -300,11 +300,11 @@
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
     const sel = morphSelScreen(mfGlobe.vp, src);
-    // (a kept start's place is the one the choice tested: its image under H_0 (pathsGen), the start itself when H_0 is
-    // the identity; its place under a camera that stands still never turns away, so it never chooses again)
+    // (a kept start is tested where it starts, startOf, as the choice tested it; under a camera that stands still that
+    // place never turns away, so it never chooses again)
     if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp, src).key) {
-      const P = globeSelP(cam, pane.w, pane.h, 0.2), H0 = src.startId ? null : src.Fat(0);
-      const off = sel.kept.filter((q) => { const w = H0 ? H0(q.sp.z) : q.sp.z; return !(CX.isFin(w) && P(w)); }).length;
+      const P = globeSelP(cam, pane.w, pane.h, 0.2), start = startOf(src);
+      const off = sel.kept.filter((q) => { const w = start(q.sp.z); return !(w && P(w)); }).length;
       if (off > Math.max(1, 0.25 * sel.kept.length)) mfGlobe.epoch++;
     }
     return sel;
@@ -376,6 +376,7 @@
   const MP = /** @type {any} */ (MorphPaths);
   function pathMarkTimes(...args) { return MP.pathMarkTimes(...args); }
   function pathsGen(...args) { return MP.pathsGen(...args); }
+  function startOf(...args) { return MP.startOf(...args); }
   function retraceShare(...args) { return MP.retraceShare(...args); }
   function pathRetrace(...args) { return MP.pathRetrace(...args); }
   function drawMorphPathsX(...args) { return MP.drawMorphPathsX(...args); }
