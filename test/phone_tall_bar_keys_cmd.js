@@ -1,4 +1,4 @@
-// Phone landscape under the tall construction bar (#2570): the steps view on example 1, the Hyperbolic tool picked so the bar is open at its
+// Phone landscape under the tall construction bar: the steps view on example 1, the Hyperbolic tool picked so the bar is open at its
 // tall height and says the tool's sentence ("Pick the boundary: a line or a circle"), with its ⌫ and ×. The plane's own construction chip
 // says the same: where the plane above the bar is too short to hold it whole (568 × 320, 600 × 320, and 640 × 360 and 740 × 360, where it
 // ran 3 px under the bar), it steps aside rather than be cut at the bar's top; at 800 × 390 (control) it stands whole above the bar. With the
@@ -15,7 +15,7 @@ const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestA
 const SAYS = { en: 'Pick the boundary', ru: 'Выберите границу', it: 'Scegli il bordo' };
 const read = () => ev(`(() => {
   const R = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null; };
-  const bar = document.querySelector('.ph-ctx.in'), chip = document.querySelector('#plotL > .draft-chip.cm-on'), lg = document.getElementById('leftLegend');
+  const bar = document.querySelector('.ph-ctx.tall'), chip = document.querySelector('#plotL > .draft-chip.cm-on'), lg = document.getElementById('leftLegend');
   const fit = document.getElementById('leftFit');
   return { plotTop: document.getElementById('plotL').getBoundingClientRect().top, toast: !!(document.getElementById('toastHost') || {}).firstElementChild, tall: document.documentElement.classList.contains('ph-ctx-tall'), barTop: bar ? bar.offsetTop : null, barText: bar ? bar.textContent : '',
     chip: R(chip), partsB: chip ? Math.max(...[...chip.querySelectorAll('.cm-chip > *')].map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0).map((r) => r.bottom)) : null, chipShown: !!chip && getComputedStyle(chip).visibility === 'visible', keys: document.getElementById('plotL').dataset.keys || '',
@@ -31,7 +31,7 @@ for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (co
   await settled({ max: 60000, until: '__cmwSteps().ready.ready' });
   await settled({ max: 20000, until: `!!document.querySelector('#constructTools .tool[data-tool="hyper"]')` });
   await ev(`document.querySelector('#constructTools .tool[data-tool="hyper"]').click(); 1`);
-  await settled({ max: 20000, until: `document.documentElement.classList.contains('ph-ctx-tall') && !!document.querySelector('.ph-ctx.in') && !!document.querySelector('#plotL > .draft-chip.cm-on')` });
+  await settled({ max: 20000, until: `document.documentElement.classList.contains('ph-ctx-tall') && !!document.querySelector('.ph-ctx.tall') && !!document.querySelector('#plotL > .draft-chip.cm-on')` });
   // (the example's message gone)
   await settled({ max: 20000, until: `!(document.getElementById('toastHost') || {}).firstElementChild` });
   await frames(); await frames();
