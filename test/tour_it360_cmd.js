@@ -9,7 +9,7 @@ const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stri
 // (the steps wait on the page's state, never a time: the strip is not busy and the spotlight's morph is over)
 const IDLE = `!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`;
 const waitFails = [];
-const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails: waitFails });
+const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails: waitFails, only: true });
 const settle = (cond) => until(cond ? `(${cond}) && (${IDLE})` : IDLE);
 const PROBE = `(() => {
   const s = document.querySelector('.tour-strip');
@@ -46,6 +46,24 @@ for (const [w, h, lang] of [[360, 780, 'it'], [360, 780, 'ru'], [390, 844, 'it']
   }
   ok(`${tag}: the walk saw the steps (at least 40)`, n >= 40, n);
   info[tag] = { steps: n, longest };
+  await ev('Tour.stop()'); await until('!Tour.isActive()');
+}
+// The same walk's first steps with motion on: the strip and the spotlight morph between steps (the reduced-motion walk above renders each
+// step at once), so a step is read only when the page says it has settled; read with no wait it is still morphing.
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+{
+  const tag = 'motion on, 360x780-it';
+  await view(360, 780, false, true);
+  await go(`http://localhost:${PORT}/test.html?ns=it360-motion&lang=it`); await until(`typeof Tour === 'object' && typeof Tour.dismissSuggestion === 'function'`);
+  await ev('Tour.dismissSuggestion()'); await ev('Tour.auto(false)');
+  await ev(`Tour.start({ chapter: 'basics' })`); await settle(`Tour.isActive() && Tour.current().chapter === 'basics'`);
+  for (let k = 1; k <= 3; k++) {
+    const before = JSON.stringify(await ev('Tour.current()'));
+    await ev('Tour.next()'); await settle(`!Tour.isActive() || JSON.stringify(Tour.current()) !== ${JSON.stringify(before)}`);
+    const g = await ev(PROBE), idle = await ev(IDLE);
+    ok(`${tag}, Next ${k}: the strip is not busy and the spotlight is not moving when the step is read`, idle, g);
+    if (g && g.mode === 'port') ok(`${tag}, Next ${k}: the strip is ${rowH('port', g.lines)} px tall`, g.h === rowH('port', g.lines), g);
+  }
   await ev('Tour.stop()'); await until('!Tour.isActive()');
 }
 ok('no wait timed out', !waitFails.length, waitFails);
