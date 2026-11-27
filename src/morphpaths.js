@@ -23,6 +23,15 @@ const MorphPaths = (() => {
     if (!arrows.length) arrows.push(0.5 * Tend);
     return { arrows, dots: [], nodes, seq: true };
   }
+  // a path's start in the plane: z -> H_0(z), the point where t -> H_t(z) begins (z itself when the source's H_0 is the
+  // identity, src.startId), or null where H_0(z) is not finite. The choice spaces its seeds at their starts (pathsGen),
+  // and a kept choice is tested where its starts are (the flat pane's view check mfViewOk, the globe's epoch
+  // morphSelGlobe), all by this one rule. (src: a deformation source, classicSource or svPathsSource; Fat: its H_T,
+  // pathsGen's cached one)
+  function startOf(src, Fat = src.Fat) {
+    const H0 = src.startId ? null : Fat(0);
+    return (z) => { const w = H0 ? H0(z) : z; return w && CX.isFin(w) ? w : null; };
+  }
   // t -> H_t(z), t in [0, Tend], as runs of samples {T, w, p}: N shared uniform times (H_T cached across paths), each
   // gap refined while its chord is over 1.5 px or its midpoint strays over 0.05 px from the chord (screen arclength and
   // turning: no kinks); a new run where H_T is not finite or very far off (a pole, infinity) or jumps (a cut: a chord
@@ -105,12 +114,12 @@ const MorphPaths = (() => {
     // binned by the screen point of H_0(z). With H_0 = id, the seeds are spaced at z, below)
     const startId = src.startId;
     if (!startId) {
-      const H0 = Fat(0);
+      const start = startOf(src, Fat);
       for (const o of outline) {
         if (X.areas.length && kindType(o.s) !== 'area') continue;
         let prev = null, rem = 0;
         for (let i = 0; i < o.l.length; i++) {
-          const q = o.l[i], z = C(q[0], q[1]), w = H0(z), pp = CX.isFin(w) ? P(w) : null;
+          const q = o.l[i], z = C(q[0], q[1]), w = start(z), pp = w ? P(w) : null;
           if (!pp) { prev = null; rem = 0; continue; }
           const L = prev ? mDist(prev.p, pp) : 0;
           if (prev && L > 0 && L <= 60 * k) {
@@ -135,8 +144,8 @@ const MorphPaths = (() => {
             if (++cnt % 512 === 0) yield;
             const z = C(W0.x0 + (i + 0.5) * (W0.x1 - W0.x0) / Ng, W0.y0 + (j + 0.5) * (W0.y1 - W0.y0) / Ng);
             if (!X.inside(z)) continue;
-            const w = H0(z);
-            if (!CX.isFin(w)) continue;
+            const w = start(z);
+            if (!w) continue;
             const pq = P(w);
             if (!pq || !inPanel(pq)) continue;
             const ci = Math.floor((pq[0] - inner.x0) / sep), cj = Math.floor((pq[1] - inner.y0) / sep), key2 = ci + ',' + cj;
@@ -720,7 +729,7 @@ const MorphPaths = (() => {
     A = api;
     ({ C, PATHS, SegGrid, allAtOnce, capT, kindType, classicSource, lenPx, mDist, mfCache, morph, morphOutline, morphRange, morphState, morphX, requestRender, resamplePx, segD } = api);
   }
-  return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, texSegs, inlineFrac, pathsSentence, morphAt };
+  return { init, pathMarkTimes, pathsGen, startOf, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, texSegs, inlineFrac, pathsSentence, morphAt };
 })();
 import { DEG, TAU } from './util.js';
 import { CX } from './cx.js';
