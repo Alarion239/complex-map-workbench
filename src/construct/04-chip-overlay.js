@@ -64,7 +64,7 @@
     if (!A || !isCTool(A.tool())) return null;
     const side = draftC ? draftC.side : hoverSide;
     if (side === 'L' && !(A.lFlat() || A.globeEdit('L'))) return null;
-    if (side === 'R' && !A.targetsEditable()) return null;
+    if (side === 'R') return null;
     return side;
   }
   function syncChip() {
@@ -552,7 +552,7 @@
     const tool = A.tool();
     if (isCTool(tool) && hoverSide !== side && !draftC) { hoverSide = side; A.requestRender('OL', 'OR'); }
     if (tool === 'select' || tool === 'formula' || tool === 'curve' || tool === 'lasso' || tool === 'cgrid' || tool === 'pgrid') { if (ring) setRing(null, null); return; }
-    if ((side === 'L' && !A.lFlat()) || (side === 'R' && !A.targetsEditable())) { if (ring) setRing(null, null); return; }
+    if (side === 'R' || !A.lFlat()) { if (ring) setRing(null, null); return; }
     const cl = classesFor(tool, 'draw');
     let t = cl ? snapAt(side, x, y, cl) : null;
     if (isCTool(tool)) {
