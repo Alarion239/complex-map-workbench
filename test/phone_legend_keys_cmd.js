@@ -19,7 +19,7 @@ const legend = async (tag, stack = false) => {
     const A = (o) => o && [o.l, o.t, o.r, o.b].map(Math.round);
     const lg = document.getElementById('leftLegend'), g = R(lg), c = g && [(g.l + g.r) / 2, (g.t + g.b) / 2];
     const hit = g && { l: g.l - ${HIT_PAD}, t: g.t - ${HIT_PAD}, r: g.r + ${HIT_PAD}, b: g.b + ${HIT_PAD} };
-    const keys = { fit: R(document.getElementById('leftFit')), tilt: R(document.querySelector('.ph-tilt')), sphere: R(document.querySelector('.ph-sph')), display: R(document.querySelector('.ph-dsp')) };
+    const keys = { fit: R(document.getElementById('leftFit')), tilt: R(document.querySelector('.ph-tilt')), sphere: R(document.getElementById('leftSph')), display: R(document.querySelector('.ph-dsp')) };
     const meets = hit ? Object.entries(keys).filter(([, k]) => k && hit.l < k.r && hit.r > k.l && hit.t < k.b && hit.b > k.t).map(([n, k]) => n + ' ' + A(k).join(',')) : null;
     const at = c ? document.elementFromPoint(c[0], c[1]) : null, fit = keys.fit, ro = R(document.querySelector('#plotL > .chip.readout')), chip = R(document.querySelector('#draftChipL.cm-on'));
     return { legend: A(g), collapsed: !!lg && lg.classList.contains('collapsed'), meets, centreFindsKey: !!at && (at === lg || lg.contains(at)), tall: document.documentElement.classList.contains('ph-ctx-tall'),

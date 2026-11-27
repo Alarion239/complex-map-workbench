@@ -28,13 +28,13 @@
 // - the Landscape's floor, Inside regions (#2400): the bite's footprint is drawn (the strokes change at least FLOOR_MIN
 //   pixels), the gallery's scattered boundary is not (at most NOISE_MAX of the canvas);
 // - a Repeat beside another step (#2457): the gallery's square under [Newton's map ×MIXED_N, then ×2], parked on
-//   plane 1, where the chain plans the repeat's copies, not a REPT op. Plane 1's map is the same as under [Newton's
-//   map ×MIXED_N] alone, which a REPT op draws, so its outline is the same: refined for the view, not the copies'
-//   scatter. Each chain's strokes on plane 1 have at most MATCH_MAX of their pixels with none of the other's within
-//   MATCH_R px. On the Landscape's floor both chains refine their outline to the same vertices (__cmwRept({ outline }),
-//   with at least one refinement run for the mixed chain), and the lone chain's floor strokes are all drawn on the
-//   mixed floor (at most MATCH_MAX missing). The mixed floor shows more of that outline than the lone one: the ×2
-//   changes the Landscape over the floor, so it hides other parts of it, and its extra strokes are no measure;
+//   plane 2, whose range holds the repeat and the ×2, so the chain plans the repeat's copies there, not a REPT op
+//   (Inverse.rangeOpts gives a range that holds the repeat alone, as plane 1's does, a REPT op of its own); its
+//   control: plane 2 is drawn by no REPT plan (__cmwRept({ ws }) lists none) and the reference's plane 1 is. The
+//   reference is [Newton's map for z³ − 8 ×MIXED_N] alone on the square [−4, 4]², plane 1, a REPT op: N₈(w) =
+//   2 N(w / 2), so its image is 2 N^MIXED_N of the gallery's square, plane 2's own. Both outlines are refined for the
+//   view (the mixed chain's at least once, __cmwRept({ outline }).runs), so each one's strokes have at most MATCH_MAX
+//   of their pixels with none of the other's within MATCH_R px, on the plane and on the Landscape's floor;
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the steps view (ci/suite_views.js). Prints
 // {pass, fails, info}.
 const fails = [], info = {};
@@ -234,19 +234,23 @@ const fg = await floorOf('FG', {});
 info.floorGallery = fg;
 ok(`gallery ×20, Landscape: the floor draws no scattered outline (the strokes change at most ${NOISE_MAX} of the canvas)`, fg.m / fg.of <= NOISE_MAX, fg);
 
-// ---- a Repeat beside another step: the copies plan it, and its outline is the one a REPT op's plane draws
+// ---- a Repeat beside another step: plane 2, which the copies plan, outlined as a REPT op's plane with its image
 const SQUARE = [{ id: 's1', kind: 'rect', a: [-2, -2], b: [2, 2], ci: 0, visible: true }, BITE_STATE.shapes[1]];
 const NEWTON = { type: 'custom', params: { expr: STEP_EXPR, cut: CUT_DEG }, on: true, repeat: { n: MIXED_N, len: 1 } };
 const TIMES2 = { type: 'mul', params: { c: '2' }, on: true };
-// the square under steps parked on plane 1 (on the Landscape when land): its stroke pixels, as indices into the
-// canvas's W columns (in the shape's ink on the plane; any change on the floor, whose footprint is grey)
-const strokes = async (tag, steps, land) => {
+// the reference: Newton's map for z³ − 8, N₈(w) = 2 N(w / 2), repeated alone on the square twice the gallery's
+const SQUARE4 = [{ id: 's1', kind: 'rect', a: [-4, -4], b: [4, 4], ci: 0, visible: true }, BITE_STATE.shapes[1]];
+const NEWTON8 = { type: 'custom', params: { expr: 'z-(z^3-8)/(3*z^2)', cut: CUT_DEG }, on: true, repeat: { n: MIXED_N, len: 1 } };
+// shapes under steps parked on plane (on the Landscape when land): their stroke pixels, as indices into the canvas's
+// W columns (in the shape's ink on the plane; any change on the floor, whose footprint is grey), the refinements run
+// (__cmwRept({ outline })) and the shapes the plane draws by a REPT plan (__cmwRept({ ws }))
+const strokes = async (tag, shapes, steps, plane, land) => {
   await view(DESK[0], DESK[1], false, false);
-  await loadView('steps', 'reptolm' + tag + Date.now(), Object.assign({}, BITE_STATE, { shapes: SQUARE, steps }));
-  await parkInside(SETTLE);
+  await loadView('steps', 'reptolm' + tag + Date.now(), Object.assign({}, BITE_STATE, { shapes, steps }));
+  await parkInside(SETTLE, plane);
   if (land) await ev("__cmwSteps({ surf: 'land' }), 1");
   await grabBoth(tag);
-  return ev(`(() => {
+  const px = await ev(`(() => {
     const K = window.__heldPx, D = K[${JSON.stringify(tag)}], D0 = K[${JSON.stringify(tag + '0')}], c = document.getElementById('canvasL');
     const W = c.width, H = c.height, idx = [];
     const ink = [0, 2, 4].map((k) => parseInt(__cmwLook('s1', 'L').edge.replace('#', '').slice(k, k + 2), 16));
@@ -256,6 +260,7 @@ const strokes = async (tag, steps, land) => {
     }
     return { W, idx };
   })()`);
+  return Object.assign(px, { runs: (await ev('__cmwRept({ outline: true })')).runs, rept: (await ev('__cmwRept({ ws: [[0.5, 0.5]] })') || []).length });
 };
 // the share of a's stroke pixels with none of b's within MATCH_R px
 const offShare = (a, b) => {
@@ -269,16 +274,16 @@ const offShare = (a, b) => {
   }
   return a.idx.length ? n / a.idx.length : 1;
 };
-{
-  const lone = await strokes('ML', [NEWTON], false), mixed = await strokes('MM', [NEWTON, TIMES2], false);
-  info.mixed = { lone: lone.idx.length, mixed: mixed.idx.length, mixedOff: offShare(mixed, lone), loneOff: offShare(lone, mixed) };
-  ok(`Newton ×${MIXED_N}, then ×2, plane 1: the outline is the one Newton ×${MIXED_N} alone draws (at most ${MATCH_MAX} of either's strokes off the other's)`,
-    lone.idx.length >= MIN_EDGE && info.mixed.mixedOff <= MATCH_MAX && info.mixed.loneOff <= MATCH_MAX, info.mixed);
-  const fl = await strokes('FL', [NEWTON], true), rl = await ev('__cmwRept({ outline: true })');
-  const fm = await strokes('FM', [NEWTON, TIMES2], true), rm = await ev('__cmwRept({ outline: true })');
-  info.floorMixed = { lone: fl.idx.length, mixed: fm.idx.length, loneOff: offShare(fl, fm), refined: { lone: rl, mixed: rm } };
-  ok(`Newton ×${MIXED_N}, then ×2, Landscape: the floor refines the outline Newton ×${MIXED_N} alone refines (the same vertices), and draws all of it (at most ${MATCH_MAX} missing)`,
-    fl.idx.length >= MIN_EDGE && rm.runs > 0 && rm.verts === rl.verts && info.floorMixed.loneOff <= MATCH_MAX, info.floorMixed);
+for (const land of [false, true]) {
+  const where = land ? 'on the Landscape floor' : 'on the plane';
+  const ref = await strokes(land ? 'FR' : 'MR', SQUARE4, [NEWTON8], 1, land);
+  const mix = await strokes(land ? 'FM' : 'MM', SQUARE, [NEWTON, TIMES2], 2, land);
+  const r = { ref: ref.idx.length, mixed: mix.idx.length, mixedOff: offShare(mix, ref), refOff: offShare(ref, mix),
+    runs: { ref: ref.runs, mixed: mix.runs }, rept: { ref: ref.rept, mixed: mix.rept } };
+  info[land ? 'floorMixed' : 'mixed'] = r;
+  if (!land) ok(`Newton ×${MIXED_N}, then ×2: plane 2 is drawn by the copies' ops, no REPT plan, and the reference's plane 1 by one (the rows below test the copies)`, mix.rept === 0 && ref.rept > 0, r.rept);
+  ok(`Newton ×${MIXED_N}, then ×2, plane 2, ${where}: the outline is refined (${mix.runs} runs) and is the one Newton ×${MIXED_N} for z³ − 8 alone draws on [−4, 4]² (at most ${MATCH_MAX} of either's strokes off the other's)`,
+    ref.idx.length >= MIN_EDGE && mix.runs > 0 && r.mixedOff <= MATCH_MAX && r.refOff <= MATCH_MAX, r);
 }
 
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));

@@ -93,6 +93,7 @@ const VIEWS = {
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_plots_keep_cmd.js': steps({ pin: true }),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
+  'steps_glide_sheet_seams_cmd.js': steps({ pin: true }),   // (its page asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_glide_mesh_wait_cmd.js': steps(),
   'steps_glide_cut_dash_cmd.js': steps(),
@@ -217,6 +218,7 @@ const VIEWS = {
   'steps_parked_repeat_catalog_cmd.js': steps(),
   'steps_parked_repeat_refusal_cmd.js': steps(),
   'steps_rept_rim_cmd.js': steps(),
+  'steps_repeat_glide_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
   'newt_poly_order_cmd.js': steps({ pin: true }),
   'series_limit_cmd.js': steps({ pin: true }),
@@ -241,6 +243,7 @@ const VIEWS = {
   'phone_legend_keys_cmd.js': steps({ pin: true }),
   'classic_chain_box_cmd.js': classic('the classic view\'s empty chain box under the plane (#2269), which goes with the classic view'),
   'phone_keys_room_cmd.js': steps(),
+  'steps_phone_stack_cmd.js': steps(),
   'head_pop_relayout_cmd.js': classic('the classic X → Y view\'s Regions pop-up in a pane head (#2432), which only the classic view has'),
   'head_pop_place_cmd.js': classic('the classic X → Y view\'s Regions pop-up in a pane head, which only the classic view has'),
   'phone_legend_said_cmd.js': steps(),
@@ -271,6 +274,8 @@ const VIEWS = {
   'steps_stage_handles_cmd.js': steps(),
   'steps_sphere_glide_cmd.js': steps(),
   'steps_sphere_depth_cmd.js': steps(),
+  'steps_globe_paths_still_cmd.js': steps(),
+  'steps_paths_pan_keep_cmd.js': steps(),
   'steps_sphere_carry_cmd.js': steps(),
   'steps_sphere_look_cmd.js': steps(),
   'steps_sphere_rest_cmd.js': steps(),
@@ -379,6 +384,7 @@ const VIEWS = {
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
   'steps_cauchy_cmd.js': steps(),
+  'steps_key_caption_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
   'steps_cauchy_carry_cmd.js': steps(),
   'steps_plane_key_cmd.js': steps({ pin: true }),   // (its page, in test/lib/plane_key_kit.js, asks ?view=steps itself)

@@ -1,6 +1,6 @@
 'use strict';
 // The app's source files as build.py joins them (issue #20, phase 2), for the tests and tools that read them as text.
-// src/app.js, src/gl.js, src/figure.js, src/sound.js and src/construct.js are kept as ordered parts: src/<name>/wrap.js holds the closure's first and last lines
+// src/app.js, src/gl.js, src/figure.js, src/sound.js, src/construct.js and src/tour.js are kept as ordered parts: src/<name>/wrap.js holds the closure's first and last lines
 // around an "// @parts" line, and the parts src/<name>/NN-*.js take that line's place, joined in file name order. The
 // joined text is the old single file byte for byte. tools/src_parts.py does the same for build.py and the Python.
 //   const { appText, glText, source, fnText, braced } = require('./src_text');
@@ -10,7 +10,7 @@ const path = require('path');
 const SRC = path.join(__dirname, '../src');
 const PARTS_RE = /^ *\/\/ @parts\b[^\n]*\n/m;   // ([^\n], not ., which stops at the \r of a CRLF checkout)
 // the files kept as parts
-const SPLIT = ['app.js', 'gl.js', 'figure.js', 'sound.js', 'construct.js'];
+const SPLIT = ['app.js', 'gl.js', 'figure.js', 'sound.js', 'construct.js', 'tour.js'];
 
 // the parts of a split file ('app.js' -> [.../src/app/01-core.js, ...]) in order, or null for a file kept whole;
 // dir: another copy of src/ (a snapshot of an older version holds app.js and gl.js whole)
@@ -80,4 +80,16 @@ function fnText(text, name, opts = {}) {
   }
 }
 
-module.exports = { SRC, SPLIT, PARTS_RE, parts, source, stripEsm, braced, fnText, appText: () => source('app.js'), glText: () => source('gl.js') };
+// a split module for a unit test: its joined text run as a script in this context (its import and export lines dropped),
+// once per process, and its top-level name's value; node sees src/<file>, a stand-in, without it
+//   const { Tour } = loadSplit('tour.js', 'Tour');
+const loaded = new Map();
+function loadSplit(file, name) {
+  if (!loaded.has(file)) {
+    require('vm').runInThisContext(`${source(file, { esm: 'strip' })}\n;globalThis[${JSON.stringify(name)}] = ${name};`, { filename: file });
+    loaded.set(file, globalThis[name]);
+  }
+  return { [name]: loaded.get(file) };
+}
+
+module.exports = { SRC, SPLIT, PARTS_RE, parts, source, stripEsm, braced, fnText, loadSplit, appText: () => source('app.js'), glText: () => source('gl.js') };

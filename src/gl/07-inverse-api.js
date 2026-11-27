@@ -205,10 +205,11 @@
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 #ifdef IX_REPT
-  // a REPT plan's member maps to the pixel's own w through its stages (uIxA, uIxB] (certified, InvOps' REPT section),
-  // so a colour plane at or after them reads w, not z carried forward (the copies' float32 error grows by the chain's
-  // expansion, up to 1 / |dz/dw|)
-  if (uGs <= uIxA && uGt >= uIxB) {
+  // a REPT plan whose map is its step's own (ixRepOwn): its member maps to the pixel's own w through its stages (uIxA,
+  // uIxB] (certified, InvOps' REPT section), so a colour plane at or after them reads w, not z carried forward (the
+  // copies' float32 error grows by the chain's expansion, up to 1 / |dz/dw|). A glide frame's member maps to w by the
+  // copies' homotopy, not by the stages, and is carried forward as any other plan's
+  if (ixRepOwn && uGs <= uIxA && uGt >= uIxB) {
     if (uIxB >= uGt) return dcolorD(ixRepW, ixDwX, ixDwY);
     vec2 v = chainRange(ixRepW, uIxB, uGt), vx = chainRange(ixRepW + ixDwX, uIxB, uGt) - v;
     return dcolorD(v, vx, uGan ? cmul(cdiv(vx, ixDwX), ixDwY) : chainRange(ixRepW + ixDwY, uIxB, uGt) - v);
@@ -552,6 +553,30 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the frame drawn so far (its fw x fh pixels at the viewport) into slot's texture -> true; false when it cannot be kept
   function layerKeep(slot) {
     if (!ok || lost || preActive) return false;
+    const L = layerOf(slot);
+    // (a multisampled drawing buffer is resolved by the blit; the scissor would clip it)
+    const sc = gl.isEnabled(gl.SCISSOR_TEST);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
+    gl.blitFramebuffer(vpX, vpY, vpX + fw, vpY + fh, 0, 0, fw, fh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (sc) gl.enable(gl.SCISSOR_TEST);
+    return true;
+  }
+  // the draws that follow go into slot's layer, cleared to transparent, not into the frame, until layerInto(null): a
+  // layer kept without a frame to copy it from (the steps view's front-to-back glide, whose frame starts empty) ->
+  // true; false when it cannot be kept (a frame of a stage's viewport included)
+  function layerInto(slot) {
+    if (slot === null) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return true; }
+    if (!ok || lost || preActive || vpX || vpY) return false;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, layerOf(slot).fbo);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    return true;
+  }
+  // (slot's layer of the frame's size, made anew when there is none of that size)
+  function layerOf(slot) {
     let L = layers.get(slot);
     if (!L || L.w !== fw || L.h !== fh) {
       if (L) { gl.deleteTexture(L.tex); gl.deleteFramebuffer(L.fbo); }
@@ -564,20 +589,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.tex, 0);
       layers.set(slot, L);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
-    // (a multisampled drawing buffer is resolved by the blit; the scissor would clip it)
-    const sc = gl.isEnabled(gl.SCISSOR_TEST);
-    gl.disable(gl.SCISSOR_TEST);
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
-    gl.blitFramebuffer(vpX, vpY, vpX + fw, vpY + fh, 0, 0, fw, fh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    if (sc) gl.enable(gl.SCISSOR_TEST);
-    return true;
+    return L;
   }
-  // slot's picture drawn into the frame in place of what is there (invUp at the frame's own size: each pixel its texel)
-  // -> true; false when there is none of the frame's size or the program cannot draw
-  function layerDraw(slot) {
+  // slot's picture drawn into the frame in place of what is there (invUp at the frame's own size: each pixel its texel),
+  // or with under, under what the frame holds (premultiplied destination-over, drawColorPlot's under) -> true; false
+  // when there is none of the frame's size or the program cannot draw
+  function layerDraw(slot, under) {
     const L = layers.get(slot);
     if (!ok || lost || preActive || !L || L.w !== fw || L.h !== fh) return false;
     const Q = program('invUp');
@@ -588,11 +607,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(Q, 'uHalf', 5);
     u4f(Q, 'uVp', vpX, vpY, fw, fh);
     u2f(Q, 'uHalfSz', 1, 1);
-    gl.disable(gl.BLEND);
+    if (under) gl.blendFunc(gl.ONE_MINUS_DST_ALPHA, gl.ONE);
+    else gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
-    gl.enable(gl.BLEND);
+    if (under) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    else gl.enable(gl.BLEND);
     return true;
   }
   function layerDrop(slot) {
@@ -780,9 +801,18 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const map = st.map || {};
     // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
     // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
-    // (a REPT program draws in tiles through its accumulation target, reptDraw: never at half resolution)
-    const isRept = !!P.loc.uIxRepHatch;
+    // (a REPT plan draws in tiles through its accumulation target, reptDraw: never at half resolution. A plan with no REPT
+    // op draws as any other, by a program that may hold one for another range, Inverse.rangeOpts: its walker leaves
+    // that op inactive)
+    const isRept = !!P.loc.uIxRepHatch && st.plan.ops.some((o) => o.kind === 'REPT');
     let half = !!st.half && !globe && !isRept;
+    // (st.saturate: a flat draw at full resolution, not REPT, blended by SRC_ALPHA_SATURATE, in front of what the frame
+    // holds: it adds its straight colour times min(its alpha, 1 - the frame's alpha), so passes drawn front to back into
+    // a transparent frame sum disjoint coverage exactly (two halves of a pixel make it whole) and the first opaque one
+    // wins. The 8-bit target clamps the alpha's sum at 1. A half-resolution draw is refused: its upsample composites
+    // premultiplied). A saturate draw reads a cut edge's colour inside the cut (uCutIn)
+    if (st.saturate && st.half && !globe && !isRept) return 'nohalf';
+    const sat = !!st.saturate && !globe && !isRept && !half;
     if (half && (!P.warmHalf || !invUpWarm)) { half = false; P.warmHalfWanted = true; P.warmHalf = P.warmHalf && invUpWarm; }
     // a pre-pass draw (beginHalfPre) is a half-resolution draw or none
     const pre = !!st.halfPre && preActive;
@@ -812,6 +842,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
     u1i(P, 'uIxRepHatch', st.rept || 0);
+    // (a draw outside reptDraw reads no earlier pass's target: uIxRepPass 0, whatever a REPT draw of the program last set)
+    if (!isRept) u1i(P, 'uIxRepPass', 0);
     u1i(P, 'uIxStopOp', d.stopOp);
     u4f(P, 'uIxStopMob', ...d.stopMob);
     if (P.loc.uIxStopT) gl.uniform4fv(P.loc.uIxStopT, d.stopT);
@@ -872,6 +904,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uKsat', Math.max(1, Math.min(64, invK(aDraw))));
     u1i(P, 'uKall', Math.abs(aDraw - aOwn) < 1e-6 ? 1 : 0);
     u1i(P, 'uLastOpaque', look.lastOpaque ? 1 : 0);
+    if (!globe) u1i(P, 'uStraight', sat ? 1 : 0);
+    u1i(P, 'uCutIn', sat ? 1 : 0);
     // shape
     uploadPack();
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, invTex);
@@ -973,7 +1007,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       }
     }
     gl.bindVertexArray(empty());
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (sat) gl.blendFuncSeparate(gl.SRC_ALPHA_SATURATE, gl.ONE, gl.ONE, gl.ONE);
+    try { gl.drawArrays(gl.TRIANGLES, 0, 3); } finally { if (sat) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
     invDraws++;
     if (half) invHalfDraws++;   // the batch stays open: flushHalf upsamples it
     else if (sc) {
@@ -1014,6 +1049,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // set, shadowUniforms), the texture bound to each of its samplers with its contents' version, the viewport, the rect
   // and the context's generation; a sampler bound to a texture whose version is not known makes the draw uncacheable,
   // and it then draws whole. st.whole (an export) draws every tile in the one call, pass B over every tile (no query).
+  // A glide frame's REPT op (its map the copies' homotopy, not its step's own: InvOps.opRept's own false) is drawn once,
+  // at its u: it is walked whole and composited in the same call, as an uncacheable draw is, and keeps no target (one
+  // per frame would push the parked planes' walks out of REPT_ACC_KEEP, and a frame answering 'pending' would stand in
+  // over the frames after it).
   // A region mask's pass (st.rept 1): the walk writes its unresolved pixels as the mark (1, 0, 0, 0), which the
   // composite leaves out of the picture and marks 1 in the stencil (cleared at the frame's first mark) for
   // reptHatchFill. st.direct (a test's read-back of raw values): one pass at the whole budget straight into the caller's
@@ -1024,7 +1063,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // a REPT draw answered 'pending' since the last GLR.reptPendingTake (a pane's frame begins and ends several GL frames,
   // and each begin clears frameStatus().pending: the pane's status takes this once a frame)
   let reptPendFlag = false;
-  const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0 };
+  // the tile account (GLR.reptTiles): calls, walks (searches) and the tiles of each pass of the draws a plane keeps (a
+  // glide frame's walks counted apart: glides, the frames, and glideTiles, their tiles of both passes), the most tiles
+  // of one call and root solves of one tile, the composites, and the draws with no signature (uncached)
+  const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0, glides: 0, glideTiles: 0 };
   const reptTileOf = () => GLChain.reptTile();
   const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
   // the uniform setters record the values set on a REPT program (its WebGLProgram's reptShadow: location -> value)
@@ -1111,8 +1153,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       return 'drawn';
     }
     const t = reptTileOf(), S = reptTileSolves || t.solves, fast = Math.min(reptFastNodes || t.fast, t.nodes);
-    const sig = reptSig(P, st, rect, mark), whole = !!st.whole || sig === null;
-    if (sig === null) reptStat.uncached++;
+    const op0 = st.plan && st.plan.ops && st.plan.ops[0], glide = !!(op0 && op0.kind === 'REPT' && op0.p && op0.p.own === false);
+    const sig = glide ? null : reptSig(P, st, rect, mark), whole = !!st.whole || sig === null;
+    if (glide) reptStat.glides++;
+    else if (sig === null) reptStat.uncached++;
     // (an uncacheable draw is walked whole and composited in the same call: while the composite's program links it is
     // pending, with nothing walked or allocated)
     if (sig === null && !(ok && program('reptAcc'))) { restoreSc(); framePending = true; reptPendFlag = true; reptKick(); return 'pending'; }
@@ -1150,7 +1194,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.flush();
         E.next++; k++;
-        reptStat.searches++; reptStat[pass === 1 ? 'tilesA' : 'tilesB']++;
+        reptStat.searches++; reptStat[glide ? 'glideTiles' : pass === 1 ? 'tilesA' : 'tilesB']++;
         reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * (pass === 1 ? fast : t.nodes));
       } while (many && E.next < list.length);
       reptStat.maxTilesPerCall = Math.max(reptStat.maxTilesPerCall, k);
@@ -1529,7 +1573,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, layerKeep, layerDraw, layerDrop, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
+    init, begin, viewport, blit, layerKeep, layerInto, layerDraw, layerDrop, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryResolveOrd: () => resOrd, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState, refuseChain: (msg) => { if (!sideMode) { chainRefused = String(msg); lastError = chainRefused; } },
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     // whether a REPT draw answered 'pending' since the last call, reset by it (the pane's status, glStatusNote)
     reptPendingTake: () => { const r = reptPendFlag; reptPendFlag = false; return r; },
@@ -1599,7 +1643,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key, offView: !!e.offView }); return out; },
     // bareMs(map, names): ms the current chain's draws of programs names (default its area draws) for map have had
     // nothing to draw (0: they draw), and the tests' hold on its links
-    bareMs, holdLinks, chainProgs, colorProgName,
+    bareMs, holdLinks, colourHeld: () => plotHeld, chainProgs, colorProgName,
     // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
     // waits for the final picture (the quality harness's settle, onReady's redraw) still waits
     markPending() { framePending = true; },

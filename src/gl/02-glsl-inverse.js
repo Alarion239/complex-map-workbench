@@ -82,6 +82,12 @@ uniform int uKsat; uniform int uKall;
 // uLastOpaque = 1: the farthest layer of the composite is opaque (alpha 1) and only the layers in front of it show
 // through, so a point covered once keeps its colour at any uAlpha
 uniform int uLastOpaque;
+// uCutIn = 1 (a flat pass blended by saturate, drawInverse's): a bound leaf within a pixel of its cut (L.lvl < 1) takes
+// its colour a pixel inside the cut (invLeaf), not at the pixel's centre. A centre past the cut reads a colour that
+// is not its branch's picture there, where the pass across the cut covers the rest of the pixel; every leaf within the
+// pixel reads on that one line, so the colour has no step where the coverage turns partial. Its coverage is unchanged,
+// and the twin merge (ixAdmit) compares the leaf's own point, not the shifted one
+uniform int uCutIn;
 // uIxTail = 1: the shape's coverage is monotone along the stop op's member lines (Inverse.prepare's tail flag): with
 // uKall and K > IX_B, a side whose members provably all cover and all lie behind the buffer ends in the tail closure
 uniform int uIxTail;
@@ -775,7 +781,7 @@ ${B >= 8 ? '  if (!fast) {\n' : ''}  for (int i = 0; i < IX_B; i++) if (i < nb &
   if (cv < 1.0 && ga < 50.0) {
     int tw = -1;
     for (int i = 0; i < IX_B; i++) {
-      if (tw < 0 && (i == pos - 1 || i == pos) && i < nb && bC[i] < 1.0 && bG[i] < 50.0 && cos(ga - bG[i]) < -0.5 && cx_abs(z - bZ[i]) <= fp) tw = i;
+      if (tw < 0 && (i == pos - 1 || i == pos) && i < nb && bC[i] < 1.0 && bG[i] < 50.0 && cos(ga - bG[i]) < -0.5 && cx_abs(tz - bZ[i]) <= fp) tw = i;
     }
     if (tw >= 0) {
       for (int i = 0; i < IX_B; i++) if (i == tw) { bC[i] = min(1.0, bC[i] + cv); U = max(U, bC[i]); }
@@ -897,6 +903,12 @@ float invLeaf(Lf L, out bool cov) {
     // line; P2 app review)
     // (only a partial candidate can merge with a twin, and only with a partial entry: a full one keeps no angle)
     float ga = bound && zf && cv < 1.0 ? carg(lgi) : 100.0;
+    // (uCutIn: the colour read a pixel inside the cut, along the level's gradient in the pixel's axes, lgi; tz keeps the
+    // leaf's own point)
+    if (uCutIn == 1 && bound && zf && L.lvl < 1.0) {
+      vec2 sh = (1.0 - L.lvl) * lgi, dz = sh.x * dX + sh.y * dY;
+      z += dz; pv += dz; plam += sh.x * pdLX + sh.y * pdLY;
+    }
     ixAdmit(D, tz, cv, ga, cx_abs(dX) + cx_abs(dY), z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, pdLX, pdLY);
   }
   IX_RECORD(L, D, cov)
@@ -909,9 +921,11 @@ float invLeaf(Lf L, out bool cov) {
   // B: compile-time buffer size; globe: Sphere view geometry (P3). A globe program's uOpaqueOnly = 1 discards a pixel the
   // composite does not cover opaquely, so the pass draws (and marks the stencil) only where it hides everything behind it
   // (sphereRegions' sheet copies under the principal sheet). Opaque: an alpha that rounds to 255 in the 8-bit target
-  // (a >= 1 - 0.5/255), so what a pass under it would add, at most 1 - a of full scale, is under half a level
+  // (a >= 1 - 0.5/255), so what a pass under it would add, at most 1 - a of full scale, is under half a level. A flat
+  // program's uStraight = 1 outputs straight colour (the composite's colour over its alpha, and its alpha), for a draw
+  // blended by SRC_ALPHA_SATURATE (drawInverse's saturate); 0, premultiplied
   const INV_MAIN = (globe) => glsl`
-${globe ? 'in vec3 vP; uniform vec3 uEye; uniform int uOpaqueOnly;' : ''}
+${globe ? 'in vec3 vP; uniform vec3 uEye; uniform int uOpaqueOnly;' : 'uniform int uStraight;'}
 void main() {
 ${globe ? glsl`  vec3 P = normalize(vP);
   // S = 0, N = infinity, the conjugate lift's inverse w = (P.x - i P.y) / (1 - P.z); near the north pole w = 1 / u
@@ -931,7 +945,7 @@ ${globe ? glsl`  vec3 P = normalize(vP);
   ixEdge = 0.0; ixEdgeC = 0.0; ixFill = 0.0;
 #endif
 #ifdef IX_REPT
-  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepRim = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepRim = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w; ixRepOwn = false;
   if (ixRepKeep()) discard;
 #endif
   invWalk(w);
@@ -974,7 +988,8 @@ ${globe ? `  float a = U * (1.0 - T);
   if (uOpaqueOnly == 1 && a < 1.0 - 0.5 / 255.0) discard;
   if (!(a > 0.0)) { o = vec4(0.0); return; }
   vec3 v = normalize(uEye - vP);
-  o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}
+  o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : `  float a = U * (1.0 - T);
+  o = uStraight == 1 ? (a > 0.0 ? vec4(C / (1.0 - T), a) : vec4(0.0)) : vec4(U * C, a);`}
 }
 `;
   // the carried colour's layers (GLR.carryLayers): uL's layers 0 .. uN-1 front to back, alpha 1 where a layer covers the pixel,

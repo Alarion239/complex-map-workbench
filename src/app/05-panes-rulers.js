@@ -482,13 +482,14 @@
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
-    // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
+    // frames stand in for a compiling program is busy from its first such frame, and its LED says so: the notes are canvas text,
+    // which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
-    const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
+    const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : undefined);
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
     if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
-    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
+    else setLed('L', busy || colourPending() || compileBusy.L ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'));
+    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileBusy.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -515,6 +516,9 @@
     // the Cauchy style (st.cauchy: the nodes of the selected closed curve, F inside, 0 outside)
     const cz = S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
     const cst = { map: S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    // (the Cauchy style, its program still linking: the plot the pane drew in the style before it, held on the pane until the Cauchy plot
+    // lands, GLR.drawColorPlot's st.hold; any other style is the pane's last, which a frame of it sets after its draw)
+    if (S.dc === 'cauchy') cst.hold = pane.dcLast || null;
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
@@ -544,6 +548,11 @@
     }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (S.dc !== 'cauchy' && !cauchyWhy) pane.dcLast = { map: cst.map, style: cst.style, sectors: cst.sectors, grid: cst.grid };
+    // (the frame's plot is the held one: the key and the LED's tip say what is shown, not the style asked for)
+    // (a frame that draws no plot, one that keeps the pane's picture, leaves it as it was)
+    const held = GLR.colourHeld();
+    pane.dcHeld = S.dc === 'cauchy' && !!cst.hold && (held === null ? !!pane.dcHeld : held);
     if (cauchyWhy) sumDrop(pane); else sumWatch(pane, cst.map);
     // (the grid under the pane's notes, which glStatusNote draws)
     if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)
@@ -584,7 +593,7 @@
     ctx.fillRect(0, 0, pane.w, pane.h);
     ctx.restore();
   }
-  // median |F| over the box (used to scale |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
+  // median |F| over the box (the scale of the |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
   // while morphing), or of map (a map spec of the left plane, with Fm its CPU twin): the steps view's planes. One
   // value cached per map
   const muCache = new Map();
@@ -1223,7 +1232,7 @@
         // dc line colour on a white casing)
         const sk = shapeStroke(s, pane.dpr, { still: true });
         if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
-        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8, cpu: () => cpuMap(sm) }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
@@ -1424,7 +1433,7 @@
     const cv = pane.ocanvas, host = cv && cv.parentElement;
     if (!host) return [];
     const c = cv.getBoundingClientRect(), out = [];
-    for (const e of host.querySelectorAll('.vbtn, .ph-key')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
     return out;
   }
   // the half-width a line centred at mid may take in the band top … bottom of a pane (CSS px) beside the view buttons
