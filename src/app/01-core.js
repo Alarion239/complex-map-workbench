@@ -398,7 +398,7 @@
     draft.pts.pop();
     if (draft.cmAt && typeof draft.cmAt === 'object') delete draft.cmAt[draft.pts.length];
     if (!draft.pts.length) draft = null;
-    requestRender('OL', 'OR', lGlobe() ? 'L' : null, rGlobe() ? 'R' : null);
+    requestRender('OL', 'OR', lGlobe() ? 'L' : null);
     updateUndo();
     return true;
   }
@@ -567,7 +567,7 @@
     // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
     // numbers, so the saved work comes back as it was written)
     numberPoints();
-    const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: S.rightView || null });
+    const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R });
     // (the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
     // build/phone-swap.md)
     if (Phone.largeView) {
@@ -736,7 +736,8 @@
     if (!isNum(st.dcGrid) || st.dcGrid <= 0) st.dcGrid = d0.dcGrid;
     const okView = (v) => v && isNum(v.cx) && isNum(v.cy) && isNum(v.s) && v.s > 0;
     if (!okView(st.srcView)) st.srcView = d0.srcView;
-    if (!okView(st.rightView)) st.rightView = null;
+    // (the camera of Y Plane an older save or link carries: no view draws Y)
+    delete st.rightView;
     const w = st.clipWin;
     if (w && !(isNum(w.x0) && isNum(w.x1) && isNum(w.y0) && isNum(w.y1) && w.x1 > w.x0 && w.y1 > w.y0)) delete st.clipWin;
     st.meshN = Math.max(MESH_MIN, Math.min(MESH_MAX, Math.round(+st.meshN) || 240));
@@ -877,12 +878,11 @@
   // the stage ‹ › rest Y on (whole chain, none focused), else -1; the map to it is named F_j, the first j steps' composite
   const parkedAt = () => (S.focus === 0 && trans.at >= 0 ? trans.at : -1);
   const fNameTex = () => (S.focus === 0 ? (parkedAt() >= 0 ? `F_{${parkedAt()}}` : 'F') : `f_{${S.focus}}`);
-  // ---- the panes' views (panels.md 2): X on the left, Y on the right ----
+  // ---- X's views (panels.md 2) ----
   // lPlain: X Plane with the shapes; lColor: X Plane + Phase (the phase
   // portrait); lGlobe: X Sphere (lPhase: with the portrait); lLand: X Landscape;
   // lFlat: X shows a plane in leftView() coordinates (drawing, rulers, flat overlays); the Stack's floor is a plane seen
-  // by its camera, not flat. rImage: Y Plane (the images,
-  // the targets); rGlobe: Y Sphere.
+  // by its camera, not flat.
   // (merged views, merged-views.md: X's picture follows the top bar's view: X → Y shows the shapes on X's Plane or
   // Sphere; Phase the portrait on its own Plane or Sphere (view.P); Landscape the relief, phase-coloured or plaster)
   const xSurf = () => { const v = S.view; return v.main === 'phase' ? v.P.surf : v.main === 'land' ? 'land' : v.L.surf; };
@@ -892,8 +892,6 @@
   const lColor = () => S.view.main === 'phase' && S.view.P.surf === 'plane';
   const lGlobe = () => xSurf() === 'sphere';
   const lLand = () => S.view.main === 'land';
-  const rImage = () => S.view.R.surf === 'plane';
-  const rGlobe = () => S.view.R.surf === 'sphere';
   // the Sphere's equatorial plane of X's globe (X → Y's z-sphere or the phase sphere)
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
   // the one pane shown: X ('L'), in the steps view and the classic view alike; Y's pane is not drawn, and its DOM stays,

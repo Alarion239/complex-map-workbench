@@ -308,7 +308,7 @@
     const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
     if (!rx || !ry) return;
     const seen = rulerSeen[side];
-    const show = side === 'R' ? rImage() : lFlat();
+    const show = side === 'R' || lFlat();
     if (seen.vis !== show) { rx.style.visibility = ry.style.visibility = show ? '' : 'hidden'; seen.vis = show; }
     const corner = $(side === 'L' ? 'cornerL' : 'cornerR');
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
@@ -412,7 +412,7 @@
     let mk = null;
     if (probe) {
       if (side === 'L') mk = probe;
-      else if (rImage()) { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
+      else { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
     }
     if (mk) {
       const px = pane.w / 2 + (mk.re - v.cx) * v.s, py = pane.h / 2 - (mk.im - v.cy) * v.s;
@@ -1482,15 +1482,15 @@
     requestRender('L', 'R'); save();
   }
   function setupViewControls() {
-    // the panes' Plane | Sphere radios (U4)
-    for (const side of ['L', 'R']) {
-      const el = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-      for (const [v, l, k] of SURF[side]) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView(side, v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
+    // X's Plane | Sphere radios (U4)
+    {
+      const el = $('leftTabs');
+      for (const [v, l, k] of SURF) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView('L', v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
       el.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const list = SURF[side], i = list.findIndex((x) => x[0] === (side === 'L' ? xView() : S.view.R).surf);
-        const j = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setView(side, list[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
+        const i = SURF.findIndex((x) => x[0] === xView().surf);
+        const j = Math.max(0, Math.min(SURF.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+        setView('L', SURF[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
       });
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
