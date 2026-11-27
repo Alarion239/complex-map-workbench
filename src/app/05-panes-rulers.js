@@ -584,7 +584,7 @@
     ctx.fillRect(0, 0, pane.w, pane.h);
     ctx.restore();
   }
-  // median |F| over the box (used to scale |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
+  // median |F| over the box (the scale of the |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
   // while morphing), or of map (a map spec of the left plane, with Fm its CPU twin): the steps view's planes. One
   // value cached per map
   const muCache = new Map();
