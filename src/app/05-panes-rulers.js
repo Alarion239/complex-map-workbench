@@ -496,12 +496,12 @@
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
-    // exact picture is still drawing in tiles, a REPT draw, is busy with the cue's words; the left pane's colour plot still
-    // a quick stand-in while its program links, colourPending, is busy too; one whose "Compiling…" note is drawn is busy,
-    // and its LED says so: the notes are canvas text, which a screen reader does not read)
+    // frames stand in for a compiling program is busy from its first such frame; one whose exact picture is still drawing in
+    // tiles, a REPT draw, is busy with the cue's words; the left pane's colour plot still a quick stand-in while its program
+    // links, colourPending, is busy too; and its LED says so: the notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
-    const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
-    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')] : busy || compileShown[r] ? ['busy', compTip(r)] : ['ok']);
+    const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : undefined);
+    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')] : busy || compileBusy[r] ? ['busy', compTip(r)] : ['ok']);
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
     if (note('L') || errTip) setLed('L', 'err', note('L') || errTip); else setLed('L', ...led('L'));
     if (errStep >= 0 || note('R')) setLed('R', 'err', errTip || note('R')); else setLed('R', ...led('R'));
@@ -1247,7 +1247,7 @@
         // dc line colour on a white casing)
         const sk = shapeStroke(s, pane.dpr, { still: true });
         if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
-        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8, cpu: () => cpuMap(sm) }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
@@ -1448,7 +1448,7 @@
     const cv = pane.ocanvas, host = cv && cv.parentElement;
     if (!host) return [];
     const c = cv.getBoundingClientRect(), out = [];
-    for (const e of host.querySelectorAll('.vbtn, .ph-key')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
     return out;
   }
   // the half-width a line centred at mid may take in the band top … bottom of a pane (CSS px) beside the view buttons

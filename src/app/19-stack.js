@@ -163,10 +163,10 @@
     if (!v && typeof camTweens !== 'undefined' && camTweens.some((t) => t.c === stackCam)) return;
     const now = v || stackViewNow(), key = `${on}|${now}|${stackSegs.length}`;
     document.documentElement.classList.toggle('sv-stack', on);
-    const col = document.querySelector('#plotL .ph-col');
-    if (col && !stackKey) {
-      stackKey = h('button', { class: 'ph-key ph-tilt', type: 'button', 'aria-label': $t('Tilt'), 'data-tip': $t('Tilt'), html: MODE_ICONS.stack, onclick: () => stackChoose(stackViewNow() === 'tilt' ? 'down' : 'tilt') });
-      col.prepend(stackKey);
+    const stack = document.querySelector('#plotL > .viewstack');
+    if (stack && !stackKey) {
+      stackKey = h('button', { class: 'vbtn ph-only ph-tilt', type: 'button', 'aria-label': $t('Tilt'), 'data-tip': $t('Tilt'), html: MODE_ICONS.stack, onclick: () => stackChoose(stackViewNow() === 'tilt' ? 'down' : 'tilt') });
+      stack.prepend(stackKey);
       stackSynced = '';
     }
     if (key === stackSynced) return;
