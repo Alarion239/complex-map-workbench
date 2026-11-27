@@ -1493,7 +1493,8 @@ float wabs(vec2 w) {
   // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms, ev (evaluations made)} (tests:
   // GLR.lineStandIns). The
   // budget is a time, so the size depends on how fast the machine runs the probe: ?glline=ms (tests) sets it, a large
-  // one fixes the size at M
+  // one fixes the size at M. A template point at a pole has no finite value here, as it has none from tfLine: the
+  // lines' cfin drops its piece either way, so on the globe a curve through ∞ is drawn as the chain draws it
   const CPU_LINE_MS = 25, CPU_LINE_PROBE = 8, CPU_LINE_LOG = 8, cpuLines = [];
   const cpuLineMs = (() => { try { const v = +new URLSearchParams(location.search).get('glline'); return v > 0 ? v : CPU_LINE_MS; } catch (err) { return CPU_LINE_MS; } })();
   const cpuLineNote = (n, m, t0, ev) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1), ev }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
