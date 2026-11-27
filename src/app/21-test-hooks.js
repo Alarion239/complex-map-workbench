@@ -327,8 +327,7 @@
   // o.fast its first pass's budget (GLR.setReptFastNodes; 0: its own), o.holdB its second pass held (GLR.holdReptB);
   // o.tileStats: the tile account since the last read (GLR.reptTiles); o.lose: the GL context lost, then restored at
   // the next task (WEBGL_lose_context); o.ci: the first shape's colour index (a look change, the cache's control);
-  // o.outline: the refinements of a REPT plan's outlines run so far, and the last one's vertices
-  // (outlineRes);
+  // o.outline: the refinements of a Repeat's outlines run so far, and the last one's vertices (outlineRes);
   // o.land: the Landscape mask's unresolved pixels (null: no mask) and the mask's pixels marked no-value (opaque and
   // dark, svLandMask); o.ws [[re, im]]: the CPU twin of the left plane's
   // REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the most and the total root
