@@ -8,11 +8,18 @@
 // extrapolates past it, which a busy machine stretches, so this page sets the budget to 1e6 ms (?glline) and the size
 // is the one the stand-in takes when it fits. An expensive series (about 2 ms an evaluation on the CI machines) gets
 // none under the real budget: the lines are refused within the budget and a segment, as GLR.lineStandIns records.
+// The globe (lineS) on the same chain, w₂ on the Sphere, the links held: its outlines are read as the pixels the
+// shapes' strokes change (the frame against __cmwHideStrokes'), outside the "Compiling…" note (__cmwCompileBox: the
+// held frame draws it as its lines' program links, and the frame with the strokes hidden, which waits on no lines,
+// does not). While the links are held the held frame's outlines are the linked frame's: at most GLOBE_MISS of either's
+// pixels with none of the other's within 2 px, each a stand-in at the lines' template size.
 // A command file for a CDP daemon; CI runs it in the views shard (ci/browser_shards.js). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const W = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const GLOBE_MISS = 0.05;   // the most of the linked globe's outline pixels the held frame may miss
 const base = 'http://localhost:' + ((/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1]);
 await view(1280, 800, false, false);
 const SHAPES = [{ kind: 'disc', c: [0.3, 0.2], r: 0.6, id: 's1' }, { kind: 'circle', c: [-0.5, -0.3], r: 0.4, id: 's2' }];
@@ -45,6 +52,50 @@ ok('while the links are held: the outlines on w₂ are the linked frame\'s (at l
 info.made = held.made;
 ok('while the links are held: each shape\'s outline is a stand-in at the lines\' template size (8)', held.made.length === SHAPES.length && held.made.every((r) => r.m === 8), info.made);
 ok('timing: each outline\'s stand-in takes at most the real budget here (25 ms; the page\'s own budget is set)', held.made.length === SHAPES.length && held.made.every((r) => r.ms <= 25), info.made);
+// the globe: the pixels the shapes' strokes change in the frame (against the frame with them hidden), as indices,
+// outside the compiling note's box (2 px wider each way) as the held frame drew it, which no outline crosses
+let compileBox = null;
+const globeStrokes = async (tag) => {
+  for (const hide of [false, true]) {
+    await ev(`__cmwHideStrokes(${hide}), 1`); await settled({ panes: false }); await grab(tag + (hide ? '0' : ''));
+    if (!hide && !compileBox) compileBox = await ev('__cmwCompileBox()');
+  }
+  await ev('__cmwHideStrokes(false), 1');
+  const px = await ev(`(() => { const K = window.__heldPx, D = K[${JSON.stringify(tag)}], D0 = K[${JSON.stringify(tag + '0')}], c = document.getElementById('canvasL');
+    const W = c.width, dpr = W / c.getBoundingClientRect().width, n = ${JSON.stringify(compileBox)}, idx = [];
+    const inNote = (j) => { if (!n) return false; const x = (j % W) / dpr, y = Math.floor(j / W) / dpr; return x >= n.x - 2 && x <= n.x + n.w + 2 && y >= n.y - 2 && y <= n.y + n.h + 2; };
+    for (let i = 0; i < D.length; i += 4) if (Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > 60 && !inNote(i / 4)) idx.push(i / 4);
+    return { W, idx }; })()`);
+  return px;
+};
+// (the share of a's pixels with none of b's within 2 px)
+const missOf = (a, b) => {
+  const set = new Set(b.idx);
+  let n = 0;
+  for (const j of a.idx) {
+    const x = j % a.W, y = (j - x) / a.W;
+    let f = false;
+    for (let dy = -2; dy <= 2 && !f; dy++) for (let dx = -2; dx <= 2 && !f; dx++) if (set.has((y + dy) * a.W + x + dx)) f = true;
+    if (!f) n++;
+  }
+  return a.idx.length ? n / a.idx.length : 1;
+};
+{
+  const nsg = 'slg' + Date.now();
+  await seed(nsg, { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'custom', params: { expr: 'z+1', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 2, T: 0, scope: 'all', surf: 'sphere' }, clipWin: CLIP_WIN });
+  await go(`${base}/test.html?ns=${nsg}&view=steps&glhold&glline=1e6`);
+  await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'function' && !!window.GLR && GLR.ok" });
+  await settled({ panes: false });
+  const g = { surf: await ev('__cmwSteps().surf'), x: await ev('__cmwSteps().x'), pending: await ev('GLR.frameStatus().pending'), tfLine: (await ev('GLR.chainProgs()')).includes('tfLine') };
+  const heldG = await globeStrokes('GH'), madeG = await ev('GLR.lineStandIns()');
+  ok('(the globe held: at rest on w₂ on the Sphere, the frame pending, the lines\' program among those held)', g.surf === 'sphere' && g.x === 2 && g.pending === true && g.tfLine, g);
+  await ev('GLR.holdLinks(false), 1');
+  const linkedG = await settled({ max: 30000 });
+  const relG = await globeStrokes('GL');
+  info.globe = Object.assign(g, { linked: linkedG.ok, heldPx: heldG.idx.length, linkedPx: relG.idx.length, missing: missOf(relG, heldG), extra: missOf(heldG, relG), compileBox, made: madeG });
+  ok(`the globe, while the links are held: its outlines are the linked frame's (at most ${GLOBE_MISS} of either's pixels off the other's)`, linkedG.ok && relG.idx.length >= 1000 && info.globe.missing <= GLOBE_MISS && info.globe.extra <= GLOBE_MISS, info.globe);
+  ok('the globe, while the links are held: each shape\'s outline is a stand-in at the lines\' template size (8)', madeG.length === SHAPES.length && madeG.every((r) => r.m === 8), madeG);
+}
 // an expensive series: its stand-in is refused (the first segment's evaluations show it would not fit), not made
 const ns2 = 'slx' + Date.now();
 await seed(ns2, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 }, on: true }], shapes: SHAPES, sv: { at: 1, T: 0, scope: 'all', surf: 'plane' }, clipWin: CLIP_WIN });
