@@ -22,8 +22,9 @@
 // - makes no inverse program, the roots pass's included;
 // - holds the main thread at most NEWT_TASK_MS in any one task from the press to the held frame (a PerformanceObserver's
 //   long tasks). On lavapipe the frame that makes both programs' first draws is about 0.9 s and more. With them made at
-//   rest, the first frame is still about 0.27-0.35 s: its roots pass has no seed (later frames start from the frame
-//   before's roots, nrLast, about 0.13 s), and that is the pass's own GPU work, which no warm draw removes.
+//   rest, the first frame's longest task is 0.27-0.30 s here and 0.345 s on CI: the roots pass has no seed (later frames
+//   start from the frame before's roots, nrLast, and take about 0.13 s), and that GPU work shows where GLR.blit's canvas
+//   copy waits for it. A warm draw does not remove it: the warm pass is 16 px square, and nrLast's key holds the size.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
