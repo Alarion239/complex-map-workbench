@@ -486,7 +486,7 @@
     const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
     if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
+    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'));
     setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
@@ -514,6 +514,9 @@
     // the Cauchy style (st.cauchy: the nodes of the selected closed curve, F inside, 0 outside)
     const cz = S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
     const cst = { map: S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    // (the Cauchy style, its program still linking: the plot the pane drew in the style before it, held on the pane until the Cauchy plot
+    // lands, GLR.drawColorPlot's st.hold; any other style is the pane's last, which a frame of it sets after its draw)
+    if (S.dc === 'cauchy') cst.hold = pane.dcLast || null;
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
@@ -543,6 +546,11 @@
     }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (S.dc !== 'cauchy' && !cauchyWhy) pane.dcLast = { map: cst.map, style: cst.style, sectors: cst.sectors, grid: cst.grid };
+    // (the frame's plot is the held one: the key and the LED's tip say what is shown, not the style asked for)
+    // (a frame that draws no plot, one that keeps the pane's picture, leaves it as it was)
+    const held = GLR.colourHeld();
+    pane.dcHeld = S.dc === 'cauchy' && !!cst.hold && (held === null ? !!pane.dcHeld : held);
     if (cauchyWhy) sumDrop(pane); else sumWatch(pane, cst.map);
     // (the grid under the pane's notes, which glStatusNote draws)
     if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)
@@ -583,7 +591,7 @@
     ctx.fillRect(0, 0, pane.w, pane.h);
     ctx.restore();
   }
-  // median |F| over the box (used to scale |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
+  // median |F| over the box (the scale of the |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
   // while morphing), or of map (a map spec of the left plane, with Fm its CPU twin): the steps view's planes. One
   // value cached per map
   const muCache = new Map();
