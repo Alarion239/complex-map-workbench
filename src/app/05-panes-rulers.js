@@ -482,13 +482,14 @@
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
-    // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
+    // frames stand in for a compiling program is busy from its first such frame, and its LED says so: the notes are canvas text,
+    // which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
-    const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
+    const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : undefined);
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
     if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'));
-    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
+    else setLed('L', busy || colourPending() || compileBusy.L ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'));
+    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileBusy.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -1231,7 +1232,7 @@
         // dc line colour on a white casing)
         const sk = shapeStroke(s, pane.dpr, { still: true });
         if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
-        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8, cpu: () => cpuMap(sm) }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
