@@ -10,12 +10,18 @@ await view(1440, 900, false, false);
 const ns = 'svar' + Date.now();
 await seed(ns, st);
 await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
-const idle = `__cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#paneL canvas')`;
-await settled({ max: 30000, until: idle });
+// (a key's glide waits behind the Play gate until the page's programs, warm draw and jobs are ready, which on a software renderer's cold
+// start can take longer than a fixed wait: the page is ready before the first key, and a step is given the time the gate may take)
+const READY_MS = 60000, STEP_MS = 60000;
+const idle = `__cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#paneL canvas') && __cmwSteps().ready.ready`;
+await settled({ max: READY_MS, until: idle });
 ok('the page is the steps view', await ev('!!__cmwSteps().on'), null);
 const press = async (key, modifiers = 0) => { const p = { key, code: key, modifiers, windowsVirtualKeyCode: key === 'ArrowRight' ? 39 : 37 }; await send('Input.dispatchKeyEvent', { type: 'keyDown', ...p }); await send('Input.dispatchKeyEvent', { type: 'keyUp', ...p }); };
 const at = () => ev('__cmwSteps().i');
-const keyTo = async (key, i) => { await press(key); await settled({ max: 8000, only: true, until: `__cmwSteps().i === ${i} && !__cmwSteps().moving` }); return at(); };
+const keyTo = async (key, i) => { await press(key); await settled({ max: STEP_MS, only: true, until: `__cmwSteps().i === ${i} && !__cmwSteps().moving` }); return at(); };
+// a slow first draw: the carried colour's warm draw is not made for 9 s, so the Play gate holds the first arrow's glide that long
+// (a slow runner's cold start; the rows below must wait for it to be over, not give up)
+await ev(`__cmwSteps({ holdWarm: true }), setTimeout(() => __cmwSteps({ holdWarm: false }), 9000), 1`);
 // the plot has focus: its canvas
 await ev(`(() => { const c = document.querySelector('#paneL canvas'); c.tabIndex = 0; c.focus(); })()`);
 ok('a plane canvas has focus', await ev(`document.activeElement && document.activeElement.tagName === 'CANVAS'`), null);
