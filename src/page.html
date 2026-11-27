@@ -1570,10 +1570,14 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-print[data-open="0"] { display: none; }
   .xf-print[data-open="1"] { display: grid; gap: 10px; }
   .xf-chip { display: none; }
-  .xf-scroll { height: 38svh; }
+  .xf-scroll { height: 38svh; padding-top: 12px; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
-  .xf-hint { white-space: normal; font-size: 11px; line-height: 13px; }
-  .xf-foot .xf-sp { display: none; }
+  /* (the preview's bar is a row of its own above the page, not over it: the buttons on its first line at its right end (a
+     button that does not fit wraps under them, still at the right), the page label on the next line across the bar's
+     width, so a label that wraps grows the bar and never reaches the page) */
+  .xf-bar { position: static; flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; padding: 8px 10px 0; }
+  .xf-bar .xf-hint { order: 1; flex: 1 1 100%; white-space: normal; font-size: 11px; line-height: 13px; }
+  .xf-bar .xf-sp, .xf-foot .xf-sp { display: none; }
   /* (touch targets of 44 px: the destinations, and Cancel while a video is made; the progress row has the name row's place,
      a row of its own, so its meter is not squeezed beside the destinations) */
   .btn.xf-dest { flex: 1 1 0; padding: 0 8px; height: 44px; }
@@ -1918,12 +1922,10 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="ru"] #meshPresets > button:is(:nth-child(2), :nth-child(4))::before { top: -24px; }
 :root[data-lang="ru"] .pal-label { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* the export dialog: the fine-tune labels ("Обрезка", "Панели") need a wider column; "Текст 10 пт" a wider select;
-   the caption-language switch (shown only outside English) sizes its options by their labels; on a phone the preview
-   bar keeps its two buttons and drops the hint (the facts line under the paper says the same) */
+   the caption-language switch (shown only outside English) sizes its options by their labels */
 :root[data-lang="ru"] .xf-fr { grid-template-columns: 64px minmax(0, 1fr); }
 :root[data-lang="ru"] .xf-pair { grid-template-columns: minmax(0, 1fr) 112px; }
 :root[data-lang="ru"] #xfCapLang > button { flex: 1 1 auto; }
-@media (max-width: 560px) { :root[data-lang="ru"] .xf-hint { display: none; } }
 /* the tour's chapter list: Russian chapter names are longer; durations and the step count carry Cyrillic («1,5 мин»,
    «4 из 10»), which stays out of mono (GLOSSARY 3.12) */
 :root[data-lang="ru"] .tour-menu .mi-label { white-space: normal; }

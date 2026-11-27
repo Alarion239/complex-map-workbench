@@ -206,7 +206,7 @@
     if (!A || ctx.surface !== 'flat') return [];
     const side = ctx.side;
     if (side === 'L' && ctx.plane !== 'X') return [];
-    if (side === 'R' && !A.targetsEditable()) return [];
+    if (side === 'R') return [];
     const touch = !!ctx.touch, items = [];
     const t = snapAt(side, ctx.x, ctx.y, { points: true, cross: true, curves: true, touch, disp: true });
     const target = side === 'R';

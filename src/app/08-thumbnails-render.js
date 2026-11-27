@@ -189,7 +189,7 @@
   }
   // one frame of the glide; true while it moves
   function stepPeek(ts) {
-    const L = S.view.main === 'xy' && rImage() && peekSteps();
+    const L = S.view.main === 'xy' && peekSteps();
     if (!L) { endPeek(); return false; }
     if (glide.target > L.length) glide.to(L.length, L.length);
     if (glide.moving()) {

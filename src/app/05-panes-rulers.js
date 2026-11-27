@@ -308,7 +308,7 @@
     const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
     if (!rx || !ry) return;
     const seen = rulerSeen[side];
-    const show = side === 'R' ? rImage() : lFlat();
+    const show = side === 'R' || lFlat();
     if (seen.vis !== show) { rx.style.visibility = ry.style.visibility = show ? '' : 'hidden'; seen.vis = show; }
     const corner = $(side === 'L' ? 'cornerL' : 'cornerR');
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
@@ -412,7 +412,7 @@
     let mk = null;
     if (probe) {
       if (side === 'L') mk = probe;
-      else if (rImage()) { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
+      else { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
     }
     if (mk) {
       const px = pane.w / 2 + (mk.re - v.cx) * v.s, py = pane.h / 2 - (mk.im - v.cy) * v.s;
@@ -464,11 +464,13 @@
     const live = $('ledLive');
     if (live && parts.length) live.textContent = parts.join('. ');
   }
-  // a hairline runs along the top of the plots when work takes longer than 300 ms
+  // a hairline runs along the top of the plots when work takes longer than CUE_DELAY_MS (a REPT draw's pane note on a
+  // phone waits as long)
+  const CUE_DELAY_MS = 300;
   let hairTimer = 0;
   function setHairline(on) {
     if (on) {
-      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, 300);
+      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, CUE_DELAY_MS);
     } else {
       clearTimeout(hairTimer); hairTimer = 0;
       $('hairL').hidden = true; $('hairR').hidden = true;
@@ -482,22 +484,37 @@
     ledFramed = true;
     updateLeds();
   }
+  // what a pane's LED says while its exact picture is still being drawn in tiles (a REPT draw; prog: its second pass's
+  // tiles { done, total }, or null before that pass's tiles are known)
+  function reptTip(prog) {
+    return prog && prog.total ? $tn('Drawing the exact picture… ({k}\u00a0of\u00a0{n} tile)', 'Drawing the exact picture… ({k}\u00a0of\u00a0{n} tiles)', prog.total, { k: prog.done, n: prog.total }) : $t('Drawing the exact picture…');
+  }
   function updateLeds() {
     const errStep = S.steps.findIndex((st, i) => st.on !== false && built[i] && built[i].error);
     const busy = fixJob.running || !!lineJob.running || sm.running;
-    setHairline(!!busy);
+    // a pane whose last frame left a REPT draw drawing its tiles (paneGl's rept): its LED busy and its plot aria-busy
+    // until the frame that draws the final picture
+    const rept = (r) => (paneGl[r] && paneGl[r].rept ? paneGl[r] : null);
+    for (const r of ['L', 'R']) {
+      const el = $(r === 'L' ? 'plotL' : 'plotR');
+      if (el) { if (rept(r)) el.setAttribute('aria-busy', 'true'); else el.removeAttribute('aria-busy'); }
+    }
+    setHairline(!!busy || !!rept('L') || !!rept('R'));
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
-    // frames stand in for a compiling program is busy from its first such frame, and its LED says so: the notes are canvas text,
-    // which a screen reader does not read)
+    // frames stand in for a compiling program is busy from its first such frame; one whose exact picture is still drawing in
+    // tiles, a REPT draw, is busy with the cue's words; the left pane's colour plot still a quick stand-in while its program
+    // links, colourPending, is busy too; and its LED says so: the notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
     const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : !ledFramed ? $t('Starting…') : undefined);
+    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')] : busy || compileBusy[r] || !ledFramed ? ['busy', compTip(r)] : ['ok']);
+    // (until a frame has run the states are shown and labelled, not said: the polite region's wait is for changes of a page that is up)
+    const showLed = (r) => { const [state, tip] = led(r); setLed(r, state, tip, !ledFramed); };
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
-    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
-    else setLed('L', busy || colourPending() || compileBusy.L || !ledFramed ? 'busy' : 'ok', colourPending() ? (paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')) : compTip('L'), !ledFramed);
-    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileBusy.R || !ledFramed ? 'busy' : 'ok', errTip || note('R') || compTip('R'), !ledFramed);
+    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip); else showLed('L');
+    if (errStep >= 0 || note('R')) setLed('R', 'err', errTip || note('R')); else showLed('R');
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -790,7 +807,7 @@
     // leaves it as the screen's last frame set it)
     const standing = !!(info && info.standIn);
     if (!offRender && standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets) { updateFocusUI(); svSync(); } }
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, step: info.step ?? null, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, step: info.step ?? null, jump: info.jump || null, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
@@ -1490,15 +1507,15 @@
     requestRender('L', 'R'); save();
   }
   function setupViewControls() {
-    // the panes' Plane | Sphere radios (U4)
-    for (const side of ['L', 'R']) {
-      const el = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-      for (const [v, l, k] of SURF[side]) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView(side, v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
+    // X's Plane | Sphere radios (U4)
+    {
+      const el = $('leftTabs');
+      for (const [v, l, k] of SURF) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView('L', v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
       el.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const list = SURF[side], i = list.findIndex((x) => x[0] === (side === 'L' ? xView() : S.view.R).surf);
-        const j = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setView(side, list[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
+        const i = SURF.findIndex((x) => x[0] === xView().surf);
+        const j = Math.max(0, Math.min(SURF.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+        setView('L', SURF[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
       });
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
