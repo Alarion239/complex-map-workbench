@@ -590,6 +590,7 @@ const bruteN = (o, L, w, copies) => {
 }
 
 // ---- 7. the GLSL
+let vals0own = null;   // (the parked plane's own flag, cell 0's y, read again in section 8)
 {
   const inv = GLChain.buildInverse(N20.steps, N20.built);
   check('the inverse program holds the REPT walker and its stack', inv.ok && /#define IX_REPT 1/.test(inv.lib) && /ix0_node\(/.test(inv.lib) && /ixRI\[/.test(inv.walker), inv.reason);
@@ -599,7 +600,116 @@ const bruteN = (o, L, w, copies) => {
   check('proxy for the Direct3D fault: the REPT walker has no stack index that can be negative (no ?: over the stack, every index under max(.., 0) or a level >= 0)', !/\?[^;]*ix(RI|RZ|RR|RJ)\[/.test(inv.walker) && !/ixRI\[[a-z]+\d* - 1\]/.test(inv.walker), inv.walker.match(/.*(\?|- 1\]).*/g));
   const vals = new Float32Array(4 * inv.slots);
   inv.fill(vals);
-  check('its cells: n, then P and Q', vals[0] === 20 && vals[4] === Math.fround(P20[0].re) && vals[11] === Math.fround(P20[3].im) && vals[14] === Math.fround(Q20[1].re), Array.from(vals.slice(0, 20)).join(','));
+  vals0own = vals[1];
+  check('its cells: n, then P and Q, then P and Q again (no head)', vals[0] === 20 && vals[4] === Math.fround(P20[0].re) && vals[11] === Math.fround(P20[3].im) && vals[14] === Math.fround(Q20[1].re) && vals.slice(4, 20).every((x, i) => x === vals[20 + i]), Array.from(vals.slice(0, 36)).join(','));
+}
+
+// ---- 8. a glide frame of the Repeat (#2510): H_s o R^j as one REPT op with a head
+{
+  const b20 = N20.built[0], sub = b20.rec.built;
+  // (the frame's map from the copies' own maps: R j times, then the gliding copy's homotopy at s)
+  const frameF = (b, x) => { const j = Math.min(b.rec.built.length - 1, Math.floor(x)), s = x - j; return (z) => { let u = z; for (let i = 0; i < j; i++) u = b.rec.built[i].f(u); return b.rec.built[j].hom(s)(u); }; };
+  const desc = (r) => (r.ok ? r.ops.map((o) => o.kind + (o.kind === 'REPT' ? `${o.p.n}${o.p.head ? 'h' : ''}` : '')).join('>') : 'X: ' + r.reason);
+  const GL_X = [[0.5, 'AFF>RAT3>AFF'], [1, 'RAT3'], [1.5, 'REPT2h'], [10, 'REPT10'], [10.5, 'REPT11h'], [19.98, 'REPT20h']];
+  for (const [x, want] of GL_X) {
+    const r = Inverse.homOps(b20, x / 20, { rept: true });
+    check(`Newton x 20 glides at x = ${x}: ${want}`, desc(r) === want, desc(r));
+  }
+  check('... and keeps its copies\' ops where its plane does not plan it as REPT (rept false)', desc(Inverse.homOps(b20, 10.5 / 20, { rept: false })).split('>').length > 10);
+  // (a glide's skeleton step, its own ops the plane's REPT op: the frame is REPT with no option passed)
+  const sk = Inverse.homBuilt(b20, InvOps.stepOps(b20, { rept: true }));
+  sk.rec = b20.rec;
+  check('a skeleton step whose own ops are the plane\'s REPT op glides as REPT', desc(Inverse.homOps(sk, 10.5 / 20)) === 'REPT11h', desc(Inverse.homOps(sk, 10.5 / 20)));
+  // the op's map is the frame's, and its head is H_s, at points of the window
+  let worstF = 0, worstH = 0;
+  for (const x of [1.5, 4.25, 10.5, 19.98]) {
+    const o = Inverse.homOps(b20, x / 20, { rept: true }).ops[0], F = frameF(b20, x), s = x - Math.floor(x), Hs = sub[Math.floor(x)].hom(s);
+    const Rh = (z) => { const ev = (co) => co.reduce((a, c) => CX.add(CX.mul(a, z), c), C(0, 0)); return CX.div(ev(o.p.head.P), ev(o.p.head.Q)); };
+    for (const z of gridOf({ x0: -2, x1: 2, y0: -2, y1: 2 }, 9)) {
+      const v = F(z), u = o.fwd(z), h = Hs(z), hv = Rh(z);
+      if (CX.isFin(v) && CX.abs(v) < 1e6) worstF = Math.max(worstF, CX.abs(CX.sub(u, v)) / (1 + CX.abs(v)));
+      if (CX.isFin(h) && CX.abs(h) < 1e6) worstH = Math.max(worstH, CX.abs(CX.sub(hv, h)) / (1 + CX.abs(h)));
+    }
+  }
+  check('the frame\'s REPT op maps z as H_s o R^j does', worstF < 1e-12, worstF);
+  check('its head P_h / Q_h is H_s', worstH < 1e-12, worstH);
+  check('the head\'s coefficients are scaled near 1, as the copy\'s are', (() => { const o = Inverse.homOps(b20, 10.5 / 20, { rept: true }).ops[0], m = Math.max(...o.p.head.P.concat(o.p.head.Q).map(CX.abs)); return m > 0.5 && m < 2; })());
+  // the plan, the preparation and the search: the frame at x = 10.5 on the gallery square plans (no fixed families
+  // refused) and covers every pixel of the window with no pixel unresolved, its first level solving the head
+  const frame = (x) => { const r = Inverse.homOps(b20, x / 20, { rept: true }); return Inverse.planChain(N20.steps, [Inverse.homBuilt(b20, r)], 0, 1); };
+  const pl = frame(10.5), pp = Inverse.prepare(pl, { win: WIN, shape: SQUARE });
+  check('the frame at x = 10.5 plans as one REPT op and prepares', pl.ok && pl.ops.length === 1 && pl.ops[0].kind === 'REPT' && pp.ok, `${pl.reason} ${pp.reason}`);
+  check('... with E_0 .. E_10 the copies\' and E_11 the whole plane', pp.rept && pp.rept.E.length === 12 && pp.rept.E[11] === null && pp.rept.E[0] !== null, pp.rept && pp.rept.E.map((e) => (e ? 'box' : 'null')).join());
+  {
+    let cov = 0, unres = 0, most = 0;
+    const pts = gridOf(WIN, GRID);
+    for (const w of pts) { const e = Inverse.enumerate(pl, pp, w, PIX, { leaves: false }).rept; if (e.verdict > 0) cov++; if (e.verdict < 0) unres++; most = Math.max(most, e.nodes); }
+    check('the gallery square at x = 10.5: every pixel covered, none unresolved', cov === pts.length && unres === 0, `${cov}/${pts.length}, ${unres} unresolved`);
+    check(`... within the budget by ${NODES_MARGIN} x`, InvOps.REPEAT_NODES_MAX >= NODES_MARGIN * most, most);
+  }
+  // against brute force: Newton x 3 at x = 1.75 (a REPT of 2 levels, the head first) on the bite box, every pixel's
+  // verdict equals the one from the frame's own ops (AFF, the copy's RAT3, AFF after one RAT3: the copies' path, not
+  // the REPT search), every member scored at its own point, unpruned
+  {
+    const N3 = newton(3), b3 = N3.built[0], x = 1.75;
+    const pl3 = Inverse.planChain(N3.steps, [Inverse.homBuilt(b3, Inverse.homOps(b3, x / 3, { rept: true }))], 0, 1);
+    const pp3 = Inverse.prepare(pl3, { win: WIN, shape: BITE });
+    const plain = Inverse.homOps(b3, x / 3, { rept: false }).ops, L = Region.levelOf(BITE);
+    const members = (w) => plain.reduceRight((ms, o) => ms.flatMap((m) => o.pre(m.u).map((q) => ({ u: q.u, J: CX.mul(m.J, q.J || C(1, 0)) }))), [{ u: w, J: C(1, 0) }]);
+    let same = 0, scored = 0, covered = 0, heads = 0;
+    for (const w of gridOf(WIN, GRID).concat(gridOf({ x0: -2, x1: 2, y0: -1.5, y1: 1.5 }, GRID))) {
+      const e = Inverse.enumerate(pl3, pp3, w, PIX, { leaves: false }).rept;
+      if (e.nodes > 0) heads++;
+      let brute = 0, near = false;
+      for (const m of members(w)) { const lv = L(m.u) / (CX.abs(m.J) * PIX); if (Math.abs(lv) <= 1) near = true; if (lv > 0) brute = 1; }
+      if (near) continue;
+      scored++; covered += brute;
+      if (e.verdict === brute) same++;
+    }
+    check('Newton x 3 at x = 1.75 is REPT2h', pl3.ok && desc({ ok: true, ops: pl3.ops }) === 'REPT2h', desc({ ok: true, ops: pl3.ops }));
+    check('... every pixel\'s verdict equals the frame\'s own ops\' brute force', same === scored && scored > 2000, `${same}/${scored}`);
+    check('... over both covered and empty pixels', covered > 20 && covered < scored - 20, covered);
+    check('... the head solved at every pixel (E_n is the whole plane)', heads > 2000, heads);
+  }
+  // near the copy's end (s small, the head near the identity, two of its roots out near 1 / s): the square still
+  // covers every pixel with none unresolved
+  for (const x of [10.001, 10.0001]) {
+    const p2 = frame(x), q2 = Inverse.prepare(p2, { win: WIN, shape: SQUARE });
+    let unres = 0, cov = 0;
+    const pts = gridOf(WIN, 21);
+    for (const w of pts) { const e = Inverse.enumerate(p2, q2, w, PIX, { leaves: false }).rept; if (e.verdict < 0) unres++; if (e.verdict > 0) cov++; }
+    check(`the gallery square at x = ${x}: every pixel covered, none unresolved`, cov === pts.length && unres === 0, `${cov}/${pts.length}, ${unres}`);
+  }
+  // the GLSL cells: the head's coefficients after the copy's (cells 5 .. 8), the copy's own there with no head
+  const inv = GLChain.buildInverse(N20.steps, [Inverse.homBuilt(b20, Inverse.homOps(b20, 10.5 / 20, { rept: true }))]);
+  const hv = new Float32Array(4 * inv.slots);
+  inv.fill(hv);
+  const hp = pl.ops[0].p.head;
+  check('the frame\'s cells: n, P and Q, then the head\'s P and Q', inv.ok && hv[0] === 11 && hv[4] === Math.fround(P20[0].re) && hv[20] === Math.fround(hp.P[0].re) && hv[27] === Math.fround(hp.P[3].im) && hv[30] === Math.fround(hp.Q[1].re), Array.from(hv.slice(0, 36)).join(','));
+  check('... and the walker reads level 0\'s coefficients from the head\'s cells', /l == 0 \? uInv\[\d+\] : uInv\[\d+\]/.test(inv.lib) && /_dudv\(ixRZ\[ci\d+\], rsp\d+\)/.test(inv.walker));
+  check('the parked plane\'s op is its step\'s own (cell 0\'s y 1), the frame\'s is not (0): the carried colour reads the pixel\'s w only for the own map', vals0own === 1 && hv[1] === 0 && pl.ops[0].p.own === false && op20.p.own === true, { vals0own, frame: hv[1] });
+  check('... and the walker sets ixRepOwn from that cell when the op is active', /if \(ra\d+\) ixRepOwn = uInv\[\d+\]\.y > 0\.5;/.test(inv.walker));
+  // a head turns the closed form off: reptHead takes any middle op that is the copy's own map, a monomial's
+  // too, so a monomial copy between two affine maps gets a head, and the closed form (every level the monomial, 4d)
+  // would then be wrong. z^3 x 4 on 4c's tangent disc: with a head composed from AFF, z^3, AFF, prepare has no closed
+  // form (cf null); the same op with no head (the control) has one
+  {
+    const M = chainOf([St('custom', { expr: 'z^3', cut: 180 }, { n: 4, len: 1 })]), bm = M.built[0], rfm = InvOps.reptForm(bm);
+    const mid = InvOps.opIpow(3), A1 = InvOps.opAff(C(0.6, 0), C(0.2, 0.1)), A2 = InvOps.opAff(C(1.5, -0.2), C(-0.1, 0.05));
+    const hm = rfm && InvOps.reptHead(rfm.P, rfm.Q, [A1, mid, A2]);
+    const DISC = { id: 'td', kind: 'disc', c: [0, 0.95], r: 0.05 };
+    const cfOf = (head) => {
+      const op = InvOps.opRept(rfm.P, rfm.Q, 4, (z) => z, { head });
+      const pl = Inverse.planChain(M.steps, [Inverse.homBuilt(bm, { ok: true, ops: [op] })], 0, 1), pp = Inverse.prepare(pl, { win: WIN, shape: DISC });
+      return pl.ok && pp.ok && pp.rept ? pp.rept.cf : undefined;
+    };
+    check('a monomial copy between two affine maps gets a head (reptHead takes it)', !!hm, hm);
+    if (hm) {
+      check('... and then prepare has no closed form (cf null): the guard, not the head\'s absence, keeps it right', cfOf(hm) === null, cfOf(hm));
+      check('control: the same monomial op with no head has its closed form', !!cfOf(null), cfOf(null));
+    }
+  }
+  check('the frame\'s program is the parked plane\'s (one key)', Inverse.inverseKey(N20.steps, [Inverse.homBuilt(b20, Inverse.homOps(b20, 10.5 / 20, { rept: true }))]) === Inverse.inverseKey(N20.steps, N20.built));
 }
 
 console.log(`t_rept: ${n - bad}/${n} passed`);
