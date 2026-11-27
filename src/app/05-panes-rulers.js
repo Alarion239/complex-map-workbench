@@ -430,8 +430,8 @@
     el.removeAttribute('title');
     ledSay(state, el.getAttribute('data-tip'));
   }
-  // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
-  // with its pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
+  // X's LED's changes are said in the polite region #ledLive once its state has not changed for LED_SAY_MS, with the
+  // pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
   // to date says nothing, and a state that comes and goes within the wait is not said
   const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
   let ledSayT = 0;
