@@ -848,7 +848,7 @@
  "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, стопка, коробка, стекло, пол, наклон, прообразы, цель, 3d",
  "narrows here: {d}, not a join": "сужается здесь: {d}, это не слияние",
  "tube of a piece": "трубка части",
- "critical point to its value": "от критической точки к её значению",
+ "critical point to its value": "критическая точка → значение",
  "A video records a glide along the chain, which only the steps view has": "Видео записывает переход по цепочке, а он есть только в виде шагов",
  "Play the chain, or pause it": "Воспроизвести цепочку или поставить на паузу",
  "Paths t ↦ Hₜ(z) on or off": "Показать или скрыть пути t ↦ Hₜ(z)",
