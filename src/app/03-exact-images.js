@@ -918,11 +918,12 @@
     if (((was && was.note) || '') !== note || rept !== !!(was && was.rept) || reptTip(reptProg) !== reptTip(was && was.reptProg)) updateLeds();
     if (quiet) return;
     // (where the pane's LED is not laid out, a phone's head: the cue's words as the pane's corner note, CUE_DELAY_MS after
-    // it starts, so a sighted user sees the picture is still drawing; a frame is asked for then)
+    // it starts, so a sighted user sees the picture is still drawing; a frame is asked for then. It gives way to the Play
+    // gate's message while that is up, which lies over the corner on a phone, as "Compiling…" does)
     if (rept) {
       const led = $(role === 'L' ? 'leftLed' : 'rightLed');
       if (led && !led.offsetWidth) {
-        if (now - reptT >= CUE_DELAY_MS) { const text = reptTip(reptProg); cornerNote(pane, text); paneGl[role].cue = text; }
+        if (now - reptT >= CUE_DELAY_MS) { if (!svGateMessageUp()) { const text = reptTip(reptProg); cornerNote(pane, text); paneGl[role].cue = text; } }
         else if (reptT === now) setTimeout(() => requestRender(role), CUE_DELAY_MS + 20);
       }
     }

@@ -9,7 +9,10 @@
 // - in tiles of TILE_SOLVES root solves with the first pass at FAST_NODES, the cue names the tiles done, "k of n", with
 //   0 <= k < n, on some frame while they draw, the count joined by no-break spaces (a tip never wraps inside it);
 // - on a phone (PHONE_W x PHONE_H), where the LED is not laid out: the pane's corner note says the cue's words while the
-//   second pass is held, and is gone once the picture is drawn.
+//   second pass is held, and is gone once the picture is drawn;
+// - on a phone, Play pressed while the second pass is held: the Play gate waits, and its message (#toastHost) comes up over
+//   the pane's corner (control); a page script logs each frame from then, and no frame drawn while the message is up draws
+//   the cue there; once the message is closed (its ×) the cue is drawn again, the gate still waiting.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -18,6 +21,8 @@ const CUE = /^Drawing the exact picture/, CUE_FRAMES = 10, FAST_NODES = 5, TILE_
 // (CUE_DELAY_MS: the page's wait before the phone's note, as the hairline's; LIVE_WAIT_MS: how long a read waits for it,
 // and for the LEDs' live region, past it)
 const CUE_DELAY_MS = 300, LIVE_WAIT_MS = 5000, PHONE_W = 360, PHONE_H = 640;
+// (the Play gate's message: it comes after GATE_MS of waiting; a read waits for it that long and LIVE_WAIT_MS more)
+const GATE_MS = 10000, MSG = '#toastHost .toast';
 const LIVE = `((document.getElementById('ledLive') || {}).textContent || '')`;
 // (the parked plane drawn, and the gallery parked on plane 1, Inside regions: test/lib/parked_kit.js)
 const { PARKED_DRAWN: DRAWN, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
@@ -91,5 +96,37 @@ await settled({ max: 120000, until: DRAWN });
 await frames(2);
 phone.done = (await ev("__cmwPaneStatus('L')") || {}).cue || null;
 ok('a phone: released, once the picture is drawn the note is gone', !phone.done, phone);
+// ---- a phone, the Play gate: Play pressed while the second pass is held, its message comes up over the pane's corner ----
+{
+  // (a new bound, half the tiles, so the drawn plane is walked again with its second pass held)
+  await ev(`__cmwRept({ fast: ${FAST_NODES}, holdB: true, tiles: ${HELD_TILES / 2} }); 1`);
+  const cued = await poll(`(() => { const s = __cmwPaneStatus('L'); return !!s && s.rept && /^Drawing the exact picture/.test(s.cue || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
+  // (a page script: each frame's time, whether it is REPT-pending, the cue drawn, and whether the message is up)
+  await ev(`(() => { const log = window.__gateLog = []; let last = null;
+    const tick = () => {
+      const s = __cmwPaneStatus('L');
+      if (s && s.t !== last) { last = s.t; log.push({ t: s.t, rept: !!s.rept, cue: s.cue || null, msg: !!document.querySelector('${MSG}') }); }
+      if (log.length < 4000) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick); __cmwSteps({ play: true }); return 1; })()`);
+  const up = await settled({ max: GATE_MS + LIVE_WAIT_MS, panes: false, only: true, until: `!!document.querySelector('${MSG}')` });
+  // (the frames from a moment after the message came up: a frame drawn as it came is not read)
+  const tUp = await ev('performance.now()');
+  await frames(20);
+  const geo = await ev(`(() => { const m = document.querySelector('${MSG}'), p = document.getElementById('plotL'); if (!m || !p) return null;
+    const a = m.getBoundingClientRect(), b = p.getBoundingClientRect(); return { msg: { x: a.left, y: a.top, w: a.width, h: a.height }, plot: { x: b.left, y: b.top, w: b.width, h: b.height } }; })()`);
+  // (the corner note's place, cornerNote's: 8.5 px in from the pane's left, its 18 px tall pill 8 px above the pane's foot)
+  const corner = geo && { x: geo.plot.x + 8.5, y: geo.plot.y + geo.plot.h - 26, w: 40, h: 18 };
+  const covers = !!geo && corner.x < geo.msg.x + geo.msg.w && geo.msg.x < corner.x + corner.w && corner.y < geo.msg.y + geo.msg.h && geo.msg.y < corner.y + corner.h;
+  const under = (await ev('window.__gateLog || []')).filter((e) => e.rept && e.msg && e.t > tUp);
+  await ev(`(document.querySelector('${MSG} .toast-x').click(), 1)`);
+  const back = await poll(`(() => { const s = __cmwPaneStatus('L'); return !document.querySelector('${MSG}') && !!s && s.rept && /^Drawing the exact picture/.test(s.cue || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
+  const waiting = await ev('!!__cmwSteps().moving');
+  info.gate = { cued: cued.ok, up: up.ok, geo, corner, covers, under, back: back.ok, waiting };
+  ok('a phone, the Play gate: Play waits on the REPT draw, and its message comes up over the pane\'s corner (control)', cued.ok && up.ok && covers && under.length > 0, info.gate);
+  ok('a phone, the Play gate: while the message is up, the cue is not drawn under it', under.length > 0 && under.every((e) => !e.cue), under.find((e) => e.cue) || info.gate);
+  ok('a phone, the Play gate: the message closed, the cue is drawn again while the gate still waits', back.ok && waiting, info.gate);
+  await ev('(__cmwSteps({ play: false }), __cmwRept({ holdB: false }), 1)');
+}
 await ev('__cmwRept({ fast: 0, tiles: 0 }); 1');
 return { pass: fails.length === 0, fails, info };
