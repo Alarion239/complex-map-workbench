@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uCEdges: 13, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uAcc: 15, uIxRepPrev: 15,
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uCW: 4, uCEdges: 13, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uAcc: 15, uIxRepPrev: 15,
     // (the Landscape relief's layers, landLayers: the previous layer's depth and the colour layers; the plane's own layers
     // set uPeelD for each draw)
     uPeelD: 16, uBehind: 17,
@@ -226,7 +226,9 @@
     landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
     landCarryPlaceS: { chain: true, sheet: true, vs: () => UTIL_V + LAND_CARRY_PLACE_S_TF_VS(), fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
-    landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
+    landCarry: { chain: true, vs: () => LAND_CARRY_VS(false), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
+    // (the carried frame's stand-in surface while landCarryTF and landCarry link: the places, heights and values from the CPU's grid, no chain)
+    landCarryS: { chain: false, vs: () => LAND_CARRY_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, true, true, 'stand') },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     landB: { chain: false, vs: () => LAND_B_VS(false), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     // (its all-triangles draw: the stand-in surface while landTF and land link)
@@ -584,7 +586,7 @@ float wabs(vec2 w) {
   // the lists of the app's background warm-up (the globes' static programs, the Landscape's static ones and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
   const GLOBE_PROGS = ['sphere', 'sphereStandIn', 'regionSC', 'lineSC', 'disc', 'mark'];
-  const LAND_STATIC = ['landNrm', 'landS', 'floorS'];
+  const LAND_STATIC = ['landNrm', 'landS', 'floorS', 'landCarryNrm', 'landCarryS'];
   const LAND_CHAIN = ['landTF', 'land'];
   // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
   // they have started: the lists above and the current chain's, so the total is known before the work is

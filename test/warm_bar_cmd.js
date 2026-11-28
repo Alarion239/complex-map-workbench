@@ -98,7 +98,7 @@ ok('A done never exceeds total, the fill never exceeds 100', wsw.every((x) => x.
 ok('A the count ends full: the groups add up to the total and every one is linked', lastS.done === lastS.total && lastS.pending === 0 && Object.values(lastS.groups).every((g) => g.done === g.total) && Object.values(lastS.groups).reduce((a, g) => a + g.total, 0) === lastS.total, lastS);
 // (the 2D list: the six static programs of the 2D views' first frame and the colour plot's stand-in, colorStandIn, which a
 // first chain's coloured plane draws while that chain's programs link)
-ok('A the groups: the 2D list is 7, the globes 5 more (mark is shared; the phase globe\'s stand-in is one), the Landscape its three static ones (the stand-in\'s landS and floorS are two) and two chain programs', lastS.groups['2d'].total === 7 && lastS.groups.globe.total === 5 && lastS.groups.land.total === 5, lastS.groups);
+ok('A the groups: the 2D list is 7, the globes 5 more (mark is shared; the phase globe\'s stand-in is one), the Landscape its five static ones (the stand-ins\' landS, floorS, landCarryNrm and landCarryS are four) and two chain programs', lastS.groups['2d'].total === 7 && lastS.groups.globe.total === 5 && lastS.groups.land.total === 7, lastS.groups);
 // the bar's box: 3 px across the top, fixed, no input, the first row of the top bar where it is without it
 ok('A the bar is 3 px, fixed at the top, as wide as the window, takes no input', !!during && during.top === 0 && during.h === 3 && during.w === during.iw && during.pos === 'fixed' && during.pe === 'none' && !during.hit, during);
 ok('A it is a progressbar with a range', !!during && during.role === 'progressbar' && during.min === '0' && during.max === '100', during);
