@@ -455,7 +455,7 @@
     let rs = [];
     try { rs = Constr.dragRoots(S(), s.id); } catch (e) { rs = []; }
     if (!rs.length) rs = s.def ? s.def.args : Object.values(s.at || {});
-    return [...new Set(rs.map((r) => refName(r)))].join(', ');
+    return [...new Set(rs.map((r) => refName(r, undefined, planeOf(s))))].join(', ');
   }
   // ---------------------------------------------------------------- the four tools
   // a pick's refusal is said in the construction chip, in the warning colour, for 2 s (by the pointer, not

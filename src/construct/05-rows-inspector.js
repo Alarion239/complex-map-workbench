@@ -59,7 +59,7 @@
     if (!(s.def || s.at || s.cundef || s._atInf)) { if (r.box) r.box.classList.remove('cm-linked'); return false; }
     const d = r.d;
     let text = null, cls = 'cm-def';
-    if (s.cundef) { text = reasonText(s.cundef); cls = 'err-msg'; }
+    if (s.cundef) { text = reasonText(s.cundef, planeOf(s)); cls = 'err-msg'; }
     else if (s._atInf) text = s._note === 'parallel' ? `${pointName(s)} = ∞ · ${$t('They meet only at ∞')}` : `${pointName(s)} = ∞`;
     else if (s.def) text = defText(s, true);
     else if (s.at) text = boundText(s);
@@ -343,7 +343,7 @@
     if (!s) return;
     const t = s.def ? defText(s) : followsText(s);
     if (E.def.textContent !== t) E.def.textContent = t;
-    const w = s.cundef ? reasonText(s.cundef) : '';
+    const w = s.cundef ? reasonText(s.cundef, planeOf(s)) : '';
     if (E.warn.textContent !== w) E.warn.textContent = w;
     E.warn.hidden = !w;
     let g;

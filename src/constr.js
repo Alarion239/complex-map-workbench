@@ -341,14 +341,14 @@ const Constr = (function (factory) {
     }
     if (typeof ref.img === 'string') {
       const e = ctx.idx.get(ref.img);
-      if (!e || e.plane !== 0 || e.s.kind !== 'point' || !isCarriedPlane(plane)) return U('argUndef', { x: ref.img });
-      if (e.s.cundef || e.s.undef) return U('argUndef', { x: ref.img });
+      if (!e || e.plane !== 0 || e.s.kind !== 'point' || !isCarriedPlane(plane)) return U('argUndef', { x: ref.img, img: true });
+      if (e.s.cundef || e.s.undef) return U('argUndef', { x: ref.img });   // (the source point itself is undefined: its row is where the fix lies, so the reason names it)
       // (a point of the z-plane carried to the plane the reference is read on: the whole chain's map for the targets,
       // the steps up to plane k for a stage-k object)
       const F = ctx.env && (plane === 'T' ? ctx.env.F : ctx.env.Fk ? ctx.env.Fk(plane) : null);
-      if (e.s._atInf) return F ? norm(F(INF)) : U('argUndef', { x: ref.img });
+      if (e.s._atInf) return F ? norm(F(INF), ref.img, true) : U('argUndef', { x: ref.img, img: true });
       const w = F ? F(e.s.p) : null;
-      return norm(w, ref.img);
+      return norm(w, ref.img, true);
     }
     const e = ctx.idx.get(ref.s);
     if (!e || e.plane !== plane) return U('argUndef', { x: ref.s });
@@ -362,11 +362,12 @@ const Constr = (function (factory) {
     const z = handlePos(s, ref.h);
     return z ? { z } : U('argUndef', { x: s.id });
   }
-  function norm(w, id) {
+  // (img: id names the point whose image this is, which the reason then names as that image)
+  function norm(w, id, img) {
     if (w === INF) return { inf: true };
     if (isXY(w)) return { z: w.slice() };
     if (w && Number.isFinite(w.re) && Number.isFinite(w.im)) return { z: [w.re, w.im] };
-    return U('argUndef', { x: id || null });
+    return U('argUndef', id && img ? { x: id, img: true } : { x: id || null });
   }
   // Constr.resolve(state, ref, plane, env)
   function resolve(state, ref, plane, env) { return resolveIn({ state, idx: index(state), env: env || {} }, ref, planeArg(plane)); }
