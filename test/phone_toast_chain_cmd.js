@@ -3,10 +3,10 @@
 // shrinking from its bottom edge and no control of it is under the message. In portrait the sheet keeps its height: the message sits flush on
 // its bottom edge over its list, never over its head or search field, no control moves when it shows, the list's inset lets every control
 // scroll clear of it and goes back with the message. The message's words are never cut: they take two rows (words full width, at most two
-// lines, the buttons together at the right, 44 px tall) when they do not fit beside the buttons (ru and it at 360 px), one row otherwise (en).
+// lines, the buttons together at the right, 44 px tall) when they do not fit in two lines beside the buttons (ru and it at 360 px), one row otherwise (en).
 // A message of two rows over the Display and Chain sheets (360 × 640) and the More side panel (740 × 360) has the sheet end above it, whatever its height; a message
 // whose only button is the close × keeps it at the right over those sheets and without one.
-// The steps view's message with no sheet open takes two rows too when its words do not fit beside its buttons (the choice does not read the overflow on its start side).
+// The steps view's message with no sheet open takes two rows too when its words do not fit in two lines beside its buttons (the choice does not read the overflow on its start side).
 // In the steps view (ci/suite_views.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -148,9 +148,9 @@ for (const [k, tag] of [[null, 'no sheet'], ['display', 'the Display sheet'], ['
   ok(`${t}: the close button is at the right (its right edge at most ${X_EDGE_MAX} px from the message's)`, mm.toast[2] - mm.x[1] <= X_EDGE_MAX, { toast: mm.toast, x: mm.x });
 }
 // ---- the steps view's message with no sheet open (eyes on #1359, #1685): over the plot's bottom edge it is packed to the end, so the choice of rows
-// must not read the overflow on its start side: words that do not fit on one line beside the buttons take the full width, at most two lines, and the
+// must not read the overflow on its start side: words that do not fit in two lines beside the buttons take the full width, at most two lines, and the
 // buttons go below them at the right; short words stay on one row beside them (control)
-const PLOT_MSGS = { en: 'Added f₄ Exponential at the end of the chain, after the Möbius step', ru: 'Добавлен шаг f₄ (Экспонента) в конец цепочки, после дробно-линейного шага', it: 'Aggiunto il passo f₄ (Esponenziale) in fondo alla catena, dopo il passo di Möbius' };
+const PLOT_MSGS = { en: 'Added f₄ Exponential at the end of the chain, after the Möbius step and its pole', ru: 'Добавлен шаг f₄ (Экспонента) в конец цепочки, после дробно-линейного шага', it: 'Aggiunto il passo f₄ (Esponenziale) in fondo alla catena, dopo il passo di Möbius' };
 const measurePlot = () => ev(`(() => {
   const host = document.getElementById('toastHost'), t = host && host.querySelector('.toast'); if (!t) return null;
   const sp = t.querySelector(':scope > span'), tb = t.getBoundingClientRect(), sb = sp.getBoundingClientRect(), cs = getComputedStyle(t);
@@ -169,7 +169,7 @@ for (const lang of ['en', 'ru', 'it']) {
   info[tag] = m;
   ok(`${tag}: the message lies over the plot`, !!m && m.placed === 'phone-plot', m);
   if (!m) continue;
-  ok(`${tag}: words that do not fit beside the buttons take two rows`, m.rows === 'two', { rows: m.rows, words: m.words, inner: m.inner });
+  ok(`${tag}: words that do not fit in two lines beside the buttons take two rows`, m.rows === 'two', { rows: m.rows, words: m.words, inner: m.inner });
   ok(`${tag}: the words have the full width`, m.words >= m.inner - 1, { words: m.words, inner: m.inner });
   ok(`${tag}: the words are not clamped (at most two lines)`, m.cutV <= 1, { cutV: m.cutV });
   ok(`${tag}: the buttons are below the words, at the right`, m.btns.length >= 2 && m.btns.every((b) => b.top >= m.wordsBottom - 1) && m.toast[2] - Math.max(...m.btns.map((b) => b.r)) <= X_EDGE_MAX + 8, { btns: m.btns, wordsBottom: m.wordsBottom, toast: m.toast });
