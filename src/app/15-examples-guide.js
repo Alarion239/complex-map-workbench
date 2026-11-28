@@ -521,14 +521,11 @@
   }
   function viewChanged(side) {
     if (side === 'R') {
-      // targets are drawn and edited in Y Plane; a target draft and a target selection end with it
-      // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
-      if (draft && draft.target) draft = null;
       setHoverW(null);
       buildShapeList();
     } else {
       // a shape draft ends with the view it was drawn in (the plane or the z-globe); the flat probe goes
-      draft = draft && draft.target ? draft : null;
+      draft = null;
       if (!lFlat()) { probe = null; hoverCut = 0; setReadouts(null); }
     }
     updateFocusUI(); scheduleFix(); requestRender('L', 'R'); save();

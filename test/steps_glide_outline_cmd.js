@@ -200,7 +200,9 @@ for (const sc of SCENES) {
   // at the base tolerance, which is at most TRACE_PX CSS px at plane 1's camera, and every sample at rest within that
   // tolerance of them)
   for (const id of sc.st.shapes.filter((x) => x.stage === 1 && TRACED.includes(x.kind)).map((x) => x.id)) {
-    const q = info[`trace ${id}`] = await ev(`(() => {
+    // (the hook answers null until the curve has samples whose key holds between its two reads: a ray's or an equipotential's first trace changes it; the read waits for it)
+    const TRACE_WAIT_MS = 60000, got = await settled({ max: TRACE_WAIT_MS, only: true, until: `!!__cmwTrace(${JSON.stringify(id)})` });
+    const q = info[`trace ${id}`] = got.at < 0 ? `no trace record after ${TRACE_WAIT_MS} ms` : await ev(`(() => {
       const T = __cmwTrace(${JSON.stringify(id)}), s = __cmwLook(${JSON.stringify(id)}, 'L').view.s;
       if (!T) return null;
       const segD = (x, y, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, u = L > 0 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)) : 0; return Math.hypot(x - a[0] - u * dx, y - a[1] - u * dy); };
