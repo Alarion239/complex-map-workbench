@@ -1,9 +1,10 @@
 // The export dialog's page label (the one it opens with: "amsart, 10 pt text · Fit column", «amsart, testo a 10 pt · Adatta alla colonna";
 // the longest: «Margini di 1 pollice · Letter, testo a 10 pt · Adatta alla colonna», «REVTeX во всю ширину, …») has room of
-// its own over the preview, at phone, tablet and desk widths, in English, Russian and Italian. Opened from the steps view (Ctrl+E),
-// each leg shows the label the dialog opens with (Article, amsart) and the longest label of each language (Homework's default,
-// REVTeX full width, an Overleaf article size), reads the label's box (.xf-hint), the grey and lens buttons' boxes
-// (.xf-bar .xf-ico) and the page's (.xf-paper), and checks:
+// its own over the preview, at phone, tablet and desk widths, in English, Russian and Italian. Each leg opens its own page (a control
+// row says so: the page's namespace and language are the leg's) and, from the steps view (Ctrl+E), the dialog. It shows the label the
+// dialog opens with (Article, amsart) and the longest label of each language (Homework's default, REVTeX full width, an Overleaf
+// article size), reads the label's box (.xf-hint), the grey and lens buttons' boxes (.xf-bar .xf-ico) and the page's (.xf-paper),
+// and checks:
 // - the label is shown, in every language (it carries the class and «по ширине колонки», which the facts line under the page does not);
 // - the label's box meets neither button's box;
 // - the label's box ends above the page (so its last line never lands on the page's placeholder lines);
@@ -53,8 +54,14 @@ const meet = (a, b) => Math.min(a.r, b.r) - Math.max(a.l, b.l) > GAP && Math.min
 for (const [W, H, touch] of LEGS) for (const lang of LANGS) {
   const tag = `${lang} ${W}×${H}`;
   await view(W, H, false, touch);
-  await go(`http://localhost:${PORT}/test.html?ns=xfhint${lang}${W}${Date.now() % 1000000}&lang=${lang}`);
+  // (by way of a blank page: straight from the last leg's page the navigation did not always take, and the next leg read that page,
+  // in its language)
+  const ns = `xfhint${lang}${W}${Date.now() % 1000000}`;
+  await go('about:blank');
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}`);
   await settled({ max: 30000, until: '!!window.__cmwExample && !!window.__cmwSteps' });
+  const here = await ev(`({ ns: new URLSearchParams(location.search).get('ns'), lang: window.I18N ? I18N.uiLang : null })`);
+  ok(`${tag}: the leg's own page is open, in its language (control)`, here.ns === ns && here.lang === lang, here);
   await ev('(__cmwExample(1), 1)');
   await settled({ max: 30000 });
   await key('e', 2);   // Ctrl+E
