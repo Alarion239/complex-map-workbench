@@ -41,16 +41,22 @@ const LOG = (act, frames = 24, grace = 0) => `new Promise((resolve) => {
   ${act}
   loop();
 })`;
-// (the tip's left and top writes over REST_FRAMES frames, from the second frame on: the first may still place a tip just shown)
+// (the tip's style writes over REST_FRAMES frames, from the second frame on: the first may still place a tip just shown)
 const REST_FRAMES = 60;
 const REST_WRITES = `new Promise((resolve) => {
   const tip = document.getElementById('tip'), st = tip.style, writes = [];
   let frames = -1;
-  const watch = () => { for (const k of ['left', 'top']) Object.defineProperty(st, k, { configurable: true, get: () => st.getPropertyValue(k), set: (v) => { writes.push(k + ' ' + v); st.setProperty(k, v); } }); };
+  // (every way a style is written from script: a left or top assignment, setProperty, and cssText; each is passed on)
+  const proto = CSSStyleDeclaration.prototype, cssText = Object.getOwnPropertyDescriptor(proto, 'cssText');
+  const watch = () => {
+    for (const k of ['left', 'top']) Object.defineProperty(st, k, { configurable: true, get: () => st.getPropertyValue(k), set: (v) => { writes.push(k + ' ' + v); proto.setProperty.call(st, k, v); } });
+    Object.defineProperty(st, 'setProperty', { configurable: true, value: (k, v, pr) => { writes.push('setProperty ' + k + ' ' + v); proto.setProperty.call(st, k, v, pr); } });
+    Object.defineProperty(st, 'cssText', { configurable: true, get: () => cssText.get.call(st), set: (v) => { writes.push('cssText ' + v); cssText.set.call(st, v); } });
+  };
   const step = () => {
     if (++frames === 0) watch();
     if (frames < ${REST_FRAMES}) { requestAnimationFrame(step); return; }
-    delete st.left; delete st.top;
+    delete st.left; delete st.top; delete st.setProperty; delete st.cssText;
     resolve({ frames, writes: writes.slice(0, 6), hidden: tip.hidden });
   };
   requestAnimationFrame(step);
@@ -63,11 +69,11 @@ for (const [lang, words] of Object.entries(LANGS)) {
   await settled({ max: 8000, only: true, panes: false, until: "document.getElementById('leftLed').className === 'led ok'" });
   const w = await hover();
   ok(`${lang}: the hovered LED shows its tip`, w.ok, w);
-  // (e) the tip rests on the still LED: after it is placed, no frame writes its left or top (counted by an accessor on the tip's style that
-  // passes each write on: a MutationObserver sees no write of the value already there)
+  // (e) the tip rests on the still LED: after it is placed, no frame writes its style (counted by accessors on the tip's style for left, top,
+  // setProperty and cssText that pass each write on: a MutationObserver sees no write of the value already there)
   const e = await ev(REST_WRITES);
   info['rest ' + lang] = e;
-  ok(`${lang}: a tip resting on a still LED writes no left or top in ${REST_FRAMES} frames after it is placed`, e.frames >= REST_FRAMES && e.writes.length === 0 && !e.hidden, e);
+  ok(`${lang}: a tip resting on a still LED writes no style (left, top, setProperty, cssText) in ${REST_FRAMES} frames after it is placed`, e.frames >= REST_FRAMES && e.writes.length === 0 && !e.hidden, e);
   // (a) the LED's words change under the pointer: the tip follows, beside the LED
   const a = await ev(LOG(`window.__cmwBusy(true);`));
   info['change ' + lang] = a.seen;
