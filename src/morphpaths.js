@@ -6,9 +6,9 @@
 // (S, morph's companions, ...) as getters on api, read as A.S and so on.
 const MorphPaths = (() => {
   let A = null;
-  let C, PATHS, SegGrid, activeSteps, allAtOnce, capT, isDeriv,
+  let C, PATHS, SegGrid, allAtOnce, capT,
     kindType, classicSource, lenPx, mDist, mfCache, morph, morphOutline, morphRange, morphState, morphX,
-    rangeParts, requestRender, resamplePx, segD, sheetsShown;
+    requestRender, resamplePx, segD;
   // the times of a path's marks: one step (or all at once) has its arrowhead at m/2 (and, in the figure only, where the
   // caption explains them, dots at m/4 and 3m/4); steps one after another have an arrowhead in the middle of each step
   // (t = k - 1/2: never on the corner where the steps meet) and a bar across the path at each step's end inside the
@@ -692,119 +692,6 @@ const MorphPaths = (() => {
     }
     return out;
   }
-  // the homotopy phrase of the open deformation (morph-figure.md 5, table). Tend < m ('Up to t'): the phrase states the
-  // whole homotopy, and the caption says once, at sentence level, which part is shown (stop)
-  // (SPEC 8) the bracket in TeX: pre 'f_1', post 'f_3' (three or more: f_6\circ\cdots\circ f_4), H_0 = qp and
-  // H_0(z) = qpz; null without a bracket or with no step outside it
-  function rangeTex() {
-    const p = A.S.focus === 0 ? rangeParts() : null;
-    if (!p || (!p.pre.length && !p.post.length)) return null;
-    // (a d/dz in the pre is an operator on the chain so far, not a map composed with it: the pre then starts from the
-    // stage of its last d/dz, w_d, a function of z that the chain sentence defines, and goes on with the maps after it:
-    // P = f_{a−1} ∘ … ∘ f_{d+1} ∘ w_d)
-    let d = 0;
-    for (const k of p.pre) if (isDeriv(k)) d = k;
-    const tok = (ks, w) => [...(w ? [`w_{${w}}`] : []), ...ks.map((k) => `f_{${k}}`)];
-    const comp = (ts) => { const q = ts.slice().reverse(); return q.length <= 2 ? q.join('\\circ ') : `${q[0]}\\circ\\cdots\\circ ${q[q.length - 1]}`; };
-    const app = (ts, x) => (!ts.length ? x : ts.length === 1 ? `${ts[0]}(${x})` : ts.length === 2 ? `${ts[1]}(${ts[0]}(${x}))` : `(${comp(ts)})(${x})`);
-    const preT = tok(p.pre.filter((k) => k > d), d), postT = tok(p.post);
-    const pre = preT.length ? comp(preT) : null, post = postT.length ? comp(postT) : null;
-    const qp = [post, pre].filter(Boolean).join('\\circ ');
-    // (the captions that write w_d also define it, as a function of z)
-    const wdef = d ? `w_{${d}}=${stageTexOf(d)}` : null;
-    return { range: { a: p.a, b: p.b }, pre, post, qp, qpz: app(postT, app(preT, 'z')), H: `H_t=${[post, 'G_t', pre].filter(Boolean).join('\\circ ')}`, deriv: d, wdef };
-  }
-  // the stage w_k as TeX in z: the active steps up to k composed (a d/dz step writes the derivative of what it is given)
-  function stageTexOf(k) {
-    let arg = { s: 'z', p: 4 };
-    for (const j of activeSteps()) { if (j > k) break; arg = A.built[j - 1].tex(arg); }
-    return arg.s;
-  }
-  // " Here w_d = ...", after a caption sentence that writes the bracket's start with a d/dz in its pre
-  const wDefSegs = (rt) => (rt && rt.wdef ? capT(' Here %{w}.', { w: { m: rt.wdef } }) : []);
-  // the Landscape draws H_t on F's sheets: a deformed root, power or log runs on every
-  // sheet, so its homotopy is not said to be on the principal branch (homTex's o.sheets: "on every sheet")
-  const homSheetWords = () => { try { const sh = sheetsShown(); return !!(sh && sh.hom); } catch (e) { return false; } };
-  function morphHomSegs(Tend) {
-    const rt = rangeTex();
-    if (rt) return morphHomSegsRange(Tend, rt);
-    const { steps } = morphRange();
-    const m = steps.length, all = allAtOnce();
-    const upTo = Tend < (all ? 1 : m) - 1e-9;
-    const stop = upTo ? capT(', shown for %{r}', { r: { m: `0\\le t\\le ${I18N.texNum(CX.fmtNum(Tend, 2))}` } }) : [];
-    const range = (t1) => [{ t: ', ' }, { m: `0\\le t\\le ${t1}` }];
-    // (several steps: f_k, p_k, ... name step k's map and centre; all at once, every H^{(k)}_t acts on u, since its input
-    // there is H^{(k-1)}_t(z), not w_{k-1})
-    const sh = homSheetWords();
-    const phrase = (k, names) => {
-      const b = A.built[k - 1], v = all && m > 1 ? 'u' : k === 1 ? 'z' : `w_{${k - 1}}`;
-      const o = names || sh ? Object.assign(names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : {}, sh ? { sheets: true } : {}) : undefined;
-      const r = b && b.homTex ? b.homTex(v, o) : null;
-      if (r) return r;
-      return { tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,%{F}(%{v})$', { v, F: m === 1 && A.S.focus === 0 ? 'F' : `f_{${k}}` }), segment: true };
-    };
-    if (m === 1) {
-      const r = phrase(steps[0]);
-      // (a phrase that states its own range of t does not get a second one)
-      const own = /\\le\s*1|\\le t|t\\le|t</.test(r.tex);
-      return { segs: [...texSegs(r.tex), ...(own ? [] : range(1))], stop, mobius: !!r.mobius, segment: !!r.segment };
-    }
-    // several steps all at once: H_t = H^{(n)}_t o ... o H^{(1)}_t, 0 <= t <= 1, each step's own homotopy at the same t
-    if (all) {
-      const own = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : { m: g.m.replace(/H_\{?([t0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`) }));
-      const comp = steps.map((k) => `H^{(${k})}_t`).reverse().join('\\circ ');
-      const segs = capT('the homotopy {H}, {range}, that deforms every step at once: ', { H: { m: `H_t=${comp}` }, range: { m: '0\\le t\\le 1' } });
-      steps.forEach((k, i) => {
-        if (i) segs.push({ t: '; ' });
-        segs.push(...capT('for {f}, {phrase}', { f: { m: `f_{${k}}` }, phrase: own(k, phrase(k, true).tex) }));
-      });
-      return { segs, stop, mobius: false };
-    }
-    // several steps: H_t runs the steps in turn, 0 <= t <= m; step k's own homotopy is H^{(k)}_s in its own time s,
-    // H_t = H^{(k)}_{t-k+1} on k-1 <= t <= k
-    const local = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : {
-      m: g.m.replace(/(?<![\\A-Za-z])t/g, 's').replace(/H_\{?([s0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`),
-    }));
-    const segs = capT('the homotopy {H}, {range}, that runs the steps in turn ({def} on {interval}): ', { H: { m: `H_t` }, range: { m: `0\\le t\\le ${m}` }, def: { m: 'H_t=H^{(k)}_{t-k+1}' }, interval: { m: 'k-1\\le t\\le k' } });
-    steps.forEach((k, i) => {
-      if (i) segs.push({ t: '; ' });
-      segs.push(...capT('for {f}, {phrase}', { f: { m: `f_{${k}}` }, phrase: local(k, phrase(k, true).tex) }));
-    });
-    return { segs, stop, mobius: false };
-  }
-  // (SPEC 8) the homotopy with a bracket: "the homotopy H_t = f_3 o G_t o f_1, 0 <= t <= m, where G_t is <inner>";
-  // inner is the bracketed part (a step's phrase with H renamed G; in turn or at once, with the "for f_k" list)
-  function morphHomSegsRange(Tend, rt) {
-    const { steps } = morphRange();
-    const m = steps.length, all = allAtOnce(), a = rt.range.a;
-    const upTo = Tend < (all ? 1 : m) - 1e-9;
-    const stop = upTo ? capT(', shown for %{r}', { r: { m: `0\\le t\\le ${I18N.texNum(CX.fmtNum(Tend, 2))}` } }) : [];
-    const toG = (g) => (g.m == null ? g : { m: g.m.replace(/H_(\{[^{}]*\}|[t0-9])/g, 'G_$1').replace(/H\^/g, 'G^') });
-    const sh = homSheetWords();
-    const phrase = (k, names) => {
-      const b = A.built[k - 1], v = all && m > 1 ? 'u' : k === 1 ? 'z' : `w_{${k - 1}}`;
-      const o = names || sh ? Object.assign(names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : {}, sh ? { sheets: true } : {}) : undefined;
-      const r = b && b.homTex ? b.homTex(v, o) : null;
-      if (r) return r;
-      return { tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,%{F}(%{v})$', { v, F: `f_{${k}}` }), segment: true };
-    };
-    let inner, mob = false, seg = false;
-    const list = [];
-    if (m === 1) { const r = phrase(steps[0]); inner = texSegs(r.tex).map(toG); mob = !!r.mobius; seg = !!r.segment; }
-    else if (all) {
-      const own = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : { m: g.m.replace(/H_\{?([t0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`) }));
-      const G = steps.length === 2 ? `H^{(${steps[1]})}_t\\circ H^{(${steps[0]})}_t` : `H^{(${steps[m - 1]})}_t\\circ\\cdots\\circ H^{(${steps[0]})}_t`;
-      inner = capT('the homotopy {G} that deforms these steps at once: ', { G: { m: G } });
-      steps.forEach((k, i) => { if (i) list.push({ t: '; ' }); list.push(...capT('for {f}, {phrase}', { f: { m: `f_{${k}}` }, phrase: own(k, phrase(k, true).tex) })); });
-    } else {
-      const local = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : { m: g.m.replace(/(?<![\\A-Za-z])t/g, 's').replace(/H_\{?([s0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`) }));
-      inner = capT('the homotopy that runs the steps in turn ({def} on {interval}): ', { def: { m: `G_t=H^{(k)}_{t-k+${a}}` }, interval: { m: `k-${a}\\le t\\le ${a === 1 ? 'k' : `k-${a - 1}`}` } });
-      steps.forEach((k, i) => { if (i) list.push({ t: '; ' }); list.push(...capT('for {f}, {phrase}', { f: { m: `f_{${k}}` }, phrase: local(k, phrase(k, true).tex) })); });
-    }
-    const innerAll = [...inner, ...list];
-    const segs = capT('the homotopy %{H}, %{range}, where %{G} is %{inner}', { H: { m: rt.H }, range: { m: `0\\le t\\le ${all ? 1 : m}` }, G: { m: 'G_t' }, inner: innerAll });
-    return { segs, stop, mobius: mob, segment: seg, inner: innerAll, innerShort: inner, rt };
-  }
   // the times of a path's marks, m/4, m/2 and 3m/4, as TeX: a reduced fraction when m is whole (1/4, 3/2), else a number
   const pathTimesTex = (Tend) => [1, 2, 3].map((j) => {
     if (Math.abs(Tend - Math.round(Tend)) > 1e-9) return I18N.texNum(CX.fmtNum(Tend * j / 4, 3));
@@ -812,15 +699,6 @@ const MorphPaths = (() => {
     while (n % 2 === 0 && d > 1) { n /= 2; d /= 2; }
     return d === 1 ? String(n) : `${n}/${d}`;
   });
-  // a time as TeX: a reduced fraction when it is a whole number of quarters (1/4, 3/2), else a number
-  const timeTex = (x) => {
-    let n = Math.round(4 * x), d = 4;
-    if (Math.abs(4 * x - n) > 1e-9) return I18N.texNum(CX.fmtNum(x, 3));
-    while (n % 2 === 0 && d > 1) { n /= 2; d /= 2; }
-    return d === 1 ? String(n) : `${n}/${d}`;
-  };
-  // the times of the marks (pathMarkTimes) as TeX lists for the captions: { seq, arrows: '1/2,\\ 3/2', nodes: '1' }
-  const pathMarksTex = (Tend) => { const mt = pathMarkTimes(Tend), list = (l) => l.map(timeTex).join(',\\ '); return { seq: mt.seq, arrows: list(mt.arrows), nodes: list(mt.nodes), dots: mt.dots.map(timeTex) }; };
   // the kept paths' starts counted by kind, as a phrase: "2 boundary points and 1 marked point"
   function keptParts(sel) {
     const nb = sel.kept.filter((k) => k.sp.kind === 'corner' || k.sp.kind === 'edge').length;
@@ -849,9 +727,9 @@ const MorphPaths = (() => {
   }
   function init(api) {
     A = api;
-    ({ C, PATHS, SegGrid, activeSteps, allAtOnce, capT, isDeriv, kindType, classicSource, lenPx, mDist, mfCache, morph, morphOutline, morphRange, morphState, morphX, rangeParts, requestRender, resamplePx, segD, sheetsShown } = api);
+    ({ C, PATHS, SegGrid, allAtOnce, capT, kindType, classicSource, lenPx, mDist, mfCache, morph, morphOutline, morphRange, morphState, morphX, requestRender, resamplePx, segD } = api);
   }
-  return { init, pathMarkTimes, pathsGen, startOf, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, pathsSentence, morphAt };
+  return { init, pathMarkTimes, pathsGen, startOf, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, texSegs, inlineFrac, pathsSentence, morphAt };
 })();
 import { DEG, TAU } from './util.js';
 import { CX } from './cx.js';

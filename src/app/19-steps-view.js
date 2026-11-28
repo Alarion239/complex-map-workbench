@@ -241,7 +241,9 @@
     const o = Views.svOf(S.view, areas, S.steps.length === 0);
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf; SV.links = 'straight';
     if (SV.els) setSeg(SV.els.scope, SV.scope);   // (the head's switch shows what the view opened on)
-    SV.i = 0; SV.g.set(0);
+    // (the thread on plane 0, which it has arrived at: the next arrival at another plane is a change, and starts that
+    // plane's glides' warm-up, svArrive)
+    SV.i = 0; SV.at = 0; SV.g.set(0);
   }
   // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
   // the device's setting for a state without one). svStore writes it before a save and an undo entry; a link and a scene
@@ -3494,18 +3496,27 @@
   // and the machine code of both its programs is the same at any size. The jobs start
   // once the rest's own work is done (svReady) and SV_WARM_IDLE_MS have passed since that, since the jobs were queued and
   // since the last input, so a loaded example, an edit or a plane's first frame gets its programs first. The glide on
-  // comes first, then the glide back; at most SV_INV_WARM_MAX jobs a rest, so a long chain links nothing more there. Any
-  // input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after such a
-  // change, queues them again
+  // comes first, then the glide back; at most SV_INV_WARM_MAX glide jobs a rest, so a long chain links nothing more
+  // there. Any input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after
+  // such a change, queues them again.
+  // After the glides, the planes a press lands on: each plane either side of the one shown that the carry core draws at
+  // rest on the flat plane (past the colour plane, svRestWarmPlanes) is a job of its own, whose frame at rest
+  // (svRestWarmDraw: its carried colour, by the inverse pass or by the carried meshes, and its outlines) is drawn once
+  // into the GL canvas as a glide's is, so the first frame on that plane links none of its programs and builds none of
+  // its pipelines (where that frame links them, it takes 400-480 ms on lavapipe at 1200 x 800). Those jobs are no part of
+  // svReady: a press waits for its own glide's programs only, and while it waits behind the gate (SV.gate) they are put
+  // off. A job's links and draw that started just before a press are still ahead of that press's frame in the GPU's
+  // queue: they can delay its first frame, never what it shows
   const SV_INV_WARM_MAX = 4;
   // (the left pane's stand-in for a NEWT frame's warm draw, the pane itself (its prototype, so its methods) but SV_WARM_NR_PX
   // device px square; warm: its roots pass
   // keeps to targets of its own, GLR.newtRoots' st.warm, and leaves the glide frames' roots as they were)
   const SV_WARM_NR_PX = 16;
   const svWarmPane = () => Object.create(paneL, { pw: { value: SV_WARM_NR_PX }, ph: { value: SV_WARM_NR_PX }, warm: { value: true } });
-  // (the jobs left [{b, u, asked}] for what svInvWarmKey names: the chain, the surface, the scope, the colour plane, the
-  // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
-  // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
+  // (the jobs left [{b, u, asked}], u null for a plane's frame at rest (svRestWarmPlanes), for what svInvWarmKey names:
+  // the chain, the surface, the scope, the colour plane, the colour style and the plane shown; svInvFlushing: a job's
+  // frame is still running on the GPU; read by the test hooks; svInvQueuedAt, svInvReadyAt: when the jobs were queued,
+  // and since when svReady has read ready, 0 while it does not)
   let svInvJobs = [], svInvWarmKey = null, svInvFlushing = false, svInvQueuedAt = 0, svInvReadyAt = 0;
   // (test hook: no jobs queued while set, and those left dropped; svReady's inverse part, which counts the jobs' glides,
   // built again)
@@ -3524,9 +3535,17 @@
     }
     return out.slice(0, SV_INV_WARM_MAX);
   }
+  // the planes the jobs draw at rest after the glides' (svPrestartInv): the planes either side of the one shown, the next one
+  // first, that the carry core draws at rest on the flat plane (past the colour plane, no d/dz step); [] off the Plane (the
+  // globe, the stack, the Landscape) and while the jobs are off (the test hook's warmInv: false)
+  function svRestWarmPlanes() {
+    if (svInvWarmOff || SV.surf !== 'plane' || !lFlat() || !paneL || !GLR.inverseState || nSteps() < 1) return [];
+    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x)));
+    return [P[j + 1], P[j - 1]].filter((k) => k != null && !svColoured(k) && !isDeriv(k));
+  }
   function svPrestartInv() {
     svInvWarmKey = svInvKey();
-    svInvJobs = svInvGlides().map((g) => ({ b: g.b, u: g.u, asked: false }));
+    svInvJobs = svInvGlides().map((g) => ({ b: g.b, u: g.u, asked: false })).concat(svRestWarmPlanes().map((k) => ({ b: k, u: null, asked: false })));
     svInvQueuedAt = performance.now();
     svInvReadyAt = 0;
     svInvWarmNext();
@@ -3544,6 +3563,33 @@
     if (!h) return null;
     const carry = svCarryStyle(svT());
     return { h, sts: h.paths.map((p, i) => (globe ? Object.assign({ viewKind: 'globe' }, svInvArg(paneL, p, h.list[i], carry)) : svInvStateArg(h, i, b, u))) };
+  }
+  // the inverse paths of plane b's carried colour at rest as svCarryExact draws it, and their programs' states (sts,
+  // GLR.inverseState's arguments, with the rest's look: the slider's opacity, which picks the B class): {h, sts}; h null
+  // (the carried meshes draw it) when it has no inverse paths or its plan has a NEWT op, whose roots pass at rest (t = 1,
+  // svCarryExact's) this job leaves to the landing's frame
+  function svRestWarmFrame(b) {
+    const h = svInvPaths(b, null, 'flat', { r: null });
+    if (!h || h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'))) return { h: null, sts: [] };
+    const carry = svCarryStyle(svT());
+    return { h, sts: h.paths.map((p, i) => Object.assign({ viewKind: 'flat' }, svInvArg(paneL, p, h.list[i], carry))) };
+  }
+  // plane b's frame at rest drawn into a frame no pane shows (into: { open }), as svRenderMoving's colour layer draws
+  // it on the flat plane: the carried colour by the inverse pass (f: svRestWarmFrame's) or else by the carried meshes,
+  // and the outlines over it. The left pane's count of pre-mapped draws (svCarryPre) is the screen frame's and stays as
+  // it was -> whether the colour was drawn
+  function svRestWarmDraw(b, f, into) {
+    const T = svT(), map = svBetween(svPlanes().indexOf(b)).map, pre = svCarryPre;
+    let drawn = false;
+    try {
+      drawn = !!f.h && svDrawInverse(paneL, f.h.list, f.h.paths, T, into) === 'drawn';
+      if (!drawn) drawn = svCarryRegions(paneL, map, T, b, into, null);
+      if (drawn && !SV.bare) svOutlines(paneL, map, into, false);
+    } catch (e) {
+      // (the landing's own frame draws it, and makes what this one did not)
+      drawn = false;
+    } finally { svCarryPre = pre; }
+    return drawn;
   }
   // Those of the jobs' glides (svInvGlides), the states svReady's inverse part counts: built once for what svInvListKey
   // names (svPrestartSoon drops them after an edit). Besides what svInvKey names, a state's program depends on the
@@ -3578,6 +3624,17 @@
       const wait = SV.gate ? 0 : Math.max(svInvQueuedAt, svInvReadyAt, lastInputT) + SV_WARM_IDLE_MS - now;
       if (wait > 0) { setTimeout(svInvWarmNext, Math.max(wait, SV_INV_WARM_AGAIN_MS)); return; }
       const job = svInvJobs[0], globe = SV.surf === 'sphere', T = svT();
+      // (a plane's frame at rest: its inverse programs asked for, then, once none links, the frame drawn and flushed)
+      if (job.u == null) {
+        if (SV.gate) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+        const r = svRestWarmFrame(job.b);
+        if (!job.asked) { if (r.sts.length) GLR.inverseWarmup(r.sts, { start: true }); job.asked = true; svInvWarmNext(); return; }
+        if (r.sts.some((x) => GLR.inverseState(x) === 'pending')) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+        svInvJobs.shift();
+        if (svRestWarmDraw(job.b, r, { open: false }) && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
+        svInvWarmNext();
+        return;
+      }
       const f = svInvFrame(job.b, job.u, globe), h = f && f.h;
       let next = 0;
       if (!f) svInvJobs.shift();
