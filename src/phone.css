@@ -692,8 +692,9 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (a landscape phone's plane is 236 to 266 px tall: the keys, lifted by the message too, left it at the top. There the message does not move them, and stands left of their column
    (the 44 px key and its 8 px gap, below) and, with a construction chip up, right of it (placeToasts); the keys rise for the bar alone) */
 :root.ph.ph-land.sv.ph-toast-on:not(.ph-sheet-on) { --ph-lift: var(--ph-bar); }
-/* (a landscape phone's tall bar leaves a message little room beside the construction chip, so the chip steps aside while a message shows: the bar's title says its prompt too) */
-:root.ph.ph-land.ph-ctx-tall.ph-toast-on .plot > .draft-chip.cm-on { visibility: hidden; }
+/* (a landscape phone's tall bar leaves a message little room beside the construction chip, so the chip steps aside while a message shows: the bar's title says its prompt too.
+   A state message kept out of sight for want of room, data-no-room, takes no room, and the chip stays) */
+:root.ph.ph-land.ph-ctx-tall.ph-toast-on:not(:has(#toastHost[data-no-room])) .plot > .draft-chip.cm-on { visibility: hidden; }
 /* (the plane's keys ride up above a message with its 150 ms ease, and at once under reduced motion) */
 :root.ph.sv .viewstack { transition: bottom 150ms var(--ease-out); }
 /* (the message eases with the keys it stands over in portrait, so the two move in step) */

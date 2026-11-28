@@ -5,7 +5,8 @@
 // the bar is open answers what was just done and stays: the rail's Undo key, pressed under the bar, still undoes the example's
 // opening and shows its "Undid … Redo" message, whose Redo (the phone's only one) brings the example back; a message raised under the
 // bar is still up a second later. At 640 × 360 (control) the message fits in the plane, clear of the lane, and stays. A state message
-// (sticky, as the Play gate's) is not dropped: it is kept out of sight while there is no room and shows again once the bar closes. In
+// (sticky, as the Play gate's) is not dropped: it is kept out of sight while there is no room, the construction chip shown or not as with
+// no message up, and shows again once the bar closes, and once the window widens to a desktop's (1280 × 800). In
 // en, ru and it, light and dark. In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints
 // { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -18,7 +19,8 @@ const read = () => ev(`(() => {
   const R = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
   const lane = document.querySelector('.tour-lane'), host = document.getElementById('toastHost'), bar = document.querySelector('.ph-ctx.in');
   const msgs = [...host.querySelectorAll('.toast')].filter((t) => t.getClientRects().length && getComputedStyle(t).visibility === 'visible').map((t) => ({ box: R(t), words: t.textContent.slice(0, 48) }));
-  return { lane: lane && lane.getClientRects().length ? R(lane) : null, bar: bar ? { l: bar.offsetLeft, t: bar.offsetTop, r: bar.offsetLeft + bar.offsetWidth, b: bar.offsetTop + bar.offsetHeight } : null, msgs, inHost: host.querySelectorAll('.toast').length, tall: document.documentElement.classList.contains('ph-ctx-tall') };
+  const chip = document.querySelector('#plotL > .draft-chip.cm-on');
+  return { chip: chip ? getComputedStyle(chip).visibility : null, noRoom: host.hasAttribute('data-no-room'), phone: document.documentElement.classList.contains('ph'), lane: lane && lane.getClientRects().length ? R(lane) : null, bar: bar ? { l: bar.offsetLeft, t: bar.offsetTop, r: bar.offsetLeft + bar.offsetWidth, b: bar.offsetTop + bar.offsetHeight } : null, msgs, inHost: host.querySelectorAll('.toast').length, tall: document.documentElement.classList.contains('ph-ctx-tall') };
 })()`);
 // (the bar's ×, which puts the tool away; Esc would also close a message that is up)
 const barX = async () => {
@@ -79,14 +81,30 @@ for (const dark of [false, true]) for (const lang of ['en', 'ru', 'it']) for (co
   ok(`${tag}: a message raised under the bar is still up a second later`, f.inHost === 1 && f.msgs.length === 1 && /fresh message/.test(f.msgs[0].words), f);
   await barX();
   if (dark || lang !== 'en') continue;
-  // (a state message is kept out of sight while there is no room, and shows again once the bar closes)
+  // (a state message is kept out of sight while there is no room, and shows again once the bar closes. The construction chip is shown or
+  // not just as with no message up: a message kept out of sight takes no room from it)
+  await settled({ only: true, max: 30000, until: `!document.querySelector('#toastHost .toast')` });
+  await hyper(); await frames();
+  const s0 = info[tag + ' no message, bar open'] = await read();
+  ok(`${tag}: with no message up, the bar open shows the construction chip's state (control)`, s0.inHost === 0 && s0.chip !== null, s0);
+  await barX();
   await ev(`__cmwToast('Still preparing the glide', 'Retry', { sticky: true }); 1`);
   await frames(); await frames();
   await hyper(); await frames();
   const s1 = info[tag + ' sticky, bar open'] = await read();
   ok(`${tag}: a state message is kept, out of sight, while the plane has no room for it`, s1.inHost === 1 && s1.msgs.length === 0, s1);
+  ok(`${tag}: the construction chip, beside a state message kept out of sight, is shown or not as with no message up`, s1.chip === s0.chip, { none: s0.chip, kept: s1.chip });
   await barX(); await frames();
   const s2 = info[tag + ' sticky, bar closed'] = await read();
   ok(`${tag}: the state message shows again once the bar closes`, s2.msgs.length === 1 && /Still preparing/.test(s2.msgs[0].words), s2);
+  // (a state message kept out of sight on the phone shows again when the window widens to a desktop's: no mark of the phone's lack of room is left)
+  await hyper(); await frames();
+  const s3 = info[tag + ' sticky, bar open again'] = await read();
+  ok(`${tag}: the state message is out of sight again under the reopened bar (control)`, s3.inHost === 1 && s3.msgs.length === 0 && s3.noRoom, s3);
+  await view(1280, 800, false, false);
+  await settled({ only: true, max: 20000, until: `!document.documentElement.classList.contains('ph')` });
+  await frames(); await frames();
+  const s4 = info[tag + ' sticky, desktop'] = await read();
+  ok(`${tag}: widened to 1280 × 800, the state message shows again and no data-no-room is left`, !s4.phone && !s4.noRoom && s4.msgs.length === 1 && /Still preparing/.test(s4.msgs[0].words), s4);
 }
 return { pass: fails.length === 0, fails: fails.slice(0, 60), info };
