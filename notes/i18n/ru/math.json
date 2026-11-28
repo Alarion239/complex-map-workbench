@@ -3464,17 +3464,6 @@
    "note": "CSS class, never shown (inventory false positive). Keep.",
    "provisional": true
   },
-  "export.labels_x_x_pt": {
-   "en": " · labels {x}/{x} pt, as in {tsz} pt text · {choice} · {choice}",
-   "ru": " · надписи {x}/{x2} пт, как в тексте {tsz} пт · {choice} · {choice2}",
-   "note": "Rename the placeholders. The first {choice} is export.gray_only or export.print_color; the second is export.stays_under_problem_h, export.figure_across_both_columns or export.floats_tbp.",
-   "provisional": true,
-   "en_key": " · labels {x}/{x2} pt, as in {tsz} pt text · {choice} · {choice2}",
-   "ph": {
-    "choice2": "{choice}",
-    "x2": "{x}"
-   }
-  },
   "export.gray_only": {
    "en": "gray only",
    "ru": "оттенки серого",

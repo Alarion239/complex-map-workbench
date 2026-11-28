@@ -1,15 +1,19 @@
 // The export dialog's page label (the one it opens with: "amsart, 10 pt text · Fit column", «amsart, testo a 10 pt · Adatta alla colonna";
 // the longest: «Margini di 1 pollice · Letter, testo a 10 pt · Adatta alla colonna», «REVTeX во всю ширину, …») has room of
-// its own over the preview, at phone, tablet and desk widths, in English, Russian and Italian. Opened from the steps view (Ctrl+E),
-// each leg shows the label the dialog opens with (Article, amsart) and the longest label of each language (Homework's default,
-// REVTeX full width, an Overleaf article size), reads the label's box (.xf-hint), the grey and lens buttons' boxes
-// (.xf-bar .xf-ico) and the page's (.xf-paper), and checks:
+// its own over the preview, at phone, tablet and desk widths, in English, Russian and Italian. Each leg opens its own page (a control
+// row says so: the page's namespace and language are the leg's) and, from the steps view (Ctrl+E), the dialog. It shows the label the
+// dialog opens with (Article, amsart) and the longest label of each language (Homework's default, REVTeX full width, an Overleaf
+// article size), reads the label's box (.xf-hint), the grey and lens buttons' boxes (.xf-bar .xf-ico) and the page's (.xf-paper),
+// and checks:
 // - the label is shown, in every language (it carries the class and «по ширине колонки», which the facts line under the page does not);
 // - the label's box meets neither button's box;
 // - the label's box ends above the page (so its last line never lands on the page's placeholder lines);
 // - the label is shown whole: its text is not cut by an ellipsis or a clamp (scrollWidth and scrollHeight within its box);
 // - in a preview 560 px wide or wider, where the bar lies over its top padding: the label takes at most two lines, the bar ends inside that
-//   padding (a label that wraps uses the room above the page, it does not push the page down), and the label ends 8 px above the page at least.
+//   padding (a label that wraps uses the room above the page, it does not push the page down), and the label ends 8 px above the page at least;
+// - in Russian, the size stays with its word and its unit, and the label's next « · » with them: «текст 10 пт ·» in the label and «в тексте
+//   10 пт» in the facts line under the page are joined by no-break spaces (U+00A0), and the label's «текст 10 пт ·» stands on one line of its
+//   balanced wrap (a line does not start with the dot).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -24,6 +28,9 @@ const ROOM_ABOVE_PAGE = 8;   // px: beside the buttons, the label ends at least 
 // the labels each leg shows, [preset, columns (Article only), the size's place in the Size menu (0: the default)]: the first one
 // opened, then the longest of each language (Homework's default in it, REVTeX full width in ru, an Overleaf article size in en)
 const LABELS = [['article', '1', 0], ['homework', null, 0], ['article', '2', 2], ['homework', null, 2]];
+// (the phrases a line must not break inside, by language: the label's, and the facts line's; [ \u00a0] matches either space, to find
+// the phrase whichever space it has)
+const PHRASES = { ru: { label: /текст[ \u00a0]\d+(?:[,.]\d+)?[ \u00a0]пт[ \u00a0]·/, facts: /в[ \u00a0]тексте[ \u00a0]\d+(?:[,.]\d+)?[ \u00a0]пт/ } };
 const MENU_UP = `document.querySelectorAll('.pop.menu .mi').length > 0`;
 const hintText = () => ev(`document.querySelector('.modal.xf .xf-hint').textContent`);
 // (a press that changes the label: wait for its text to change; a choice already made is not pressed again)
@@ -48,8 +55,14 @@ const meet = (a, b) => Math.min(a.r, b.r) - Math.max(a.l, b.l) > GAP && Math.min
 for (const [W, H, touch] of LEGS) for (const lang of LANGS) {
   const tag = `${lang} ${W}×${H}`;
   await view(W, H, false, touch);
-  await go(`http://localhost:${PORT}/test.html?ns=xfhint${lang}${W}${Date.now() % 1000000}&lang=${lang}`);
+  // (by way of a blank page: straight from the last leg's page the navigation did not always take, and the next leg read that page,
+  // in its language)
+  const ns = `xfhint${lang}${W}${Date.now() % 1000000}`;
+  await go('about:blank');
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}`);
   await settled({ max: 30000, until: '!!window.__cmwExample && !!window.__cmwSteps' });
+  const here = await ev(`({ ns: new URLSearchParams(location.search).get('ns'), lang: window.I18N ? I18N.uiLang : null })`);
+  ok(`${tag}: the leg's own page is open, in its language (control)`, here.ns === ns && here.lang === lang, here);
   await ev('(__cmwExample(1), 1)');
   await settled({ max: 30000 });
   await key('e', 2);   // Ctrl+E
@@ -67,6 +80,18 @@ for (const [W, H, touch] of LEGS) for (const lang of LANGS) {
       return { shown, text: hint.textContent, hint: box(hint), btns: [...m.querySelectorAll('.xf-bar .xf-ico')].map(box), paper: box(paper),
         cut: hint.scrollWidth > hint.clientWidth + 1 || hint.scrollHeight > hint.clientHeight + 1, sw: hint.scrollWidth, cw: hint.clientWidth,
         lines: Math.round(hint.getBoundingClientRect().height / lh), stage: m.querySelector('.xf-stage').clientWidth,
+        facts: (m.querySelector('.xf-facts') || {}).textContent || '', phraseLines: (() => {
+          // (the number of lines the label's phrase lies on: the distinct tops of its characters' boxes)
+          const re = ${PHRASES[lang] ? PHRASES[lang].label : '/$^/'}, mt = re.exec(hint.textContent);
+          if (!mt) return null;
+          const tops = new Set(), w = document.createTreeWalker(hint, NodeFilter.SHOW_TEXT);
+          for (let n, pos = 0; (n = w.nextNode()); pos += n.data.length) for (let i = 0; i < n.data.length; i++) {
+            if (pos + i < mt.index || pos + i >= mt.index + mt[0].length || !n.data[i].trim()) continue;
+            const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + 1);
+            const b = rg.getClientRects()[0]; if (b) tops.add(Math.round(b.top));
+          }
+          return tops.size;
+        })(),
         barB: m.querySelector('.xf-bar').getBoundingClientRect().bottom, padB: (() => { const sc = m.querySelector('.xf-scroll'); return sc.getBoundingClientRect().top + parseFloat(getComputedStyle(sc).paddingTop); })() };
     })()`);
     info[ltag] = r;
@@ -75,6 +100,12 @@ for (const [W, H, touch] of LEGS) for (const lang of LANGS) {
     ok(`${ltag}: the page label meets neither the grey nor the lens button`, r.btns.length === 2 && r.btns.every((b) => !meet(r.hint, b)), r);
     ok(`${ltag}: the page label ends above the page`, r.hint.b <= r.paper.t + GAP, r);
     ok(`${ltag}: the page label is shown whole (no ellipsis, no clamp)`, !r.cut, r);
+    if (PHRASES[lang]) {
+      const lm = PHRASES[lang].label.exec(r.text), fm = PHRASES[lang].facts.exec(r.facts);
+      ok(`${ltag}: the label's «${lm ? lm[0] : '?'}» is joined by no-break spaces`, !!lm && !/ /.test(lm[0]), r.text);
+      ok(`${ltag}: the facts line's «${fm ? fm[0] : '?'}» is joined by no-break spaces`, !!fm && !/ /.test(fm[0]), r.facts);
+      ok(`${ltag}: the label's «${lm ? lm[0] : '?'}» stands on one line`, r.phraseLines === 1, { text: r.text, lines: r.phraseLines });
+    }
     if (r.stage >= BESIDE_MIN_STAGE) {
       ok(`${ltag}: beside the buttons the label takes at most ${MAX_LINES_BESIDE} lines`, r.lines <= MAX_LINES_BESIDE, r.lines);
       ok(`${ltag}: the bar ends inside the preview's top padding (the page is not pushed down)`, r.barB <= r.padB + GAP, { barB: r.barB, padB: r.padB });
