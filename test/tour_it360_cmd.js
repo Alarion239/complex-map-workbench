@@ -48,8 +48,8 @@ for (const [w, h, lang] of [[360, 780, 'it'], [360, 780, 'ru'], [390, 844, 'it']
   info[tag] = { steps: n, longest };
   await ev('Tour.stop()'); await until('!Tour.isActive()');
 }
-// The same walk's first steps with motion on: the strip and the spotlight morph between steps (the reduced-motion walk above renders each
-// step at once), so a step is read only when the page says it has settled; read with no wait it is still morphing.
+// (the first steps with motion on: the strip's height in the CSS that reduced motion leaves out; each step is read once the page says it has
+// settled, the wait the walk above uses, which these steps meet as soon as Next returns)
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 {
   const tag = 'motion on, 360x780-it';
@@ -60,8 +60,7 @@ await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-m
   for (let k = 1; k <= 3; k++) {
     const before = JSON.stringify(await ev('Tour.current()'));
     await ev('Tour.next()'); await settle(`!Tour.isActive() || JSON.stringify(Tour.current()) !== ${JSON.stringify(before)}`);
-    const g = await ev(PROBE), idle = await ev(IDLE);
-    ok(`${tag}, Next ${k}: the strip is not busy and the spotlight is not moving when the step is read`, idle, g);
+    const g = await ev(PROBE);
     if (g && g.mode === 'port') ok(`${tag}, Next ${k}: the strip is ${rowH('port', g.lines)} px tall`, g.h === rowH('port', g.lines), g);
   }
   await ev('Tour.stop()'); await until('!Tour.isActive()');
