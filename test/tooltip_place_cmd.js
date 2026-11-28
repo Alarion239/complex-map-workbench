@@ -77,7 +77,7 @@ for (const [lang, words] of Object.entries(LANGS)) {
   info['hidden ' + lang] = b.seen;
   ok(`${lang}: the LED has no box when its words change: no tip is drawn away from it`, b.away.length === 0, b.away.slice(0, 2));
 }
-const MIN_OWN_READS = 20;   // of the moved-LED row's 30 frames
+const OWN_READ_FRAMES = 30, MIN_OWN_READS = 20;   // the moved-LED row's frames, and how many of them must be read in their own frame
 // (d) the LED moves under an open tip, its words unchanged (a pane head laid out again around it): the tip goes with it, within a few
 // frames, or is gone; it does not stay where the LED was
 for (const [lang, words] of Object.entries(LANGS)) {
@@ -93,10 +93,10 @@ for (const [lang, words] of Object.entries(LANGS)) {
   // the next frame. No pointer event follows, so nothing but the tip itself can put it right)
   // (the pane head's size changes, and its observer, which runs in the frame's rendering update after the animation frame callbacks and
   // before the paint, does what a pane head's layout pass does: the LED's words change while it is elsewhere)
-  const m = await ev(LOG(`const head = led.closest('.pane-head'); const ro = new ResizeObserver(() => { ro.disconnect(); led.style.marginRight = '260px'; led.setAttribute('data-tip', led.getAttribute('data-tip') + ' '); queueMicrotask(() => { led.style.marginRight = ''; }); }); ro.observe(head); head.style.paddingLeft = '7px';`, 30));
+  const m = await ev(LOG(`const head = led.closest('.pane-head'); const ro = new ResizeObserver(() => { ro.disconnect(); led.style.marginRight = '260px'; led.setAttribute('data-tip', led.getAttribute('data-tip') + ' '); queueMicrotask(() => { led.style.marginRight = ''; }); }); ro.observe(head); head.style.paddingLeft = '7px';`, OWN_READ_FRAMES));
   info['moved ' + lang] = m.seen;
   ok(`${lang}: the open tip is re-shown while the LED is elsewhere for a moment: in every painted frame the tip is beside the LED, or gone`, m.away.length === 0, m.away.slice(0, 2));
-  ok(`${lang}: moved LED: at least ${MIN_OWN_READS} of the frames are read in their own frame (too few reads: a loaded runner would let a tip that is put right a frame late pass)`, m.seen.frames >= MIN_OWN_READS, m.seen);
+  ok(`${lang}: moved LED: too few reads taken in their own frame (runner load?): at least ${MIN_OWN_READS} of ${OWN_READ_FRAMES} are needed, as a read that sees a later frame would let a tip put right a frame late pass`, m.seen.frames >= MIN_OWN_READS, { ownFrame: m.seen.frames, late: m.seen.late, of: OWN_READ_FRAMES });
 }
 // (c) the real trigger: the Cauchy style picked while the LED is hovered, links landing late (test/lib/late_links.js). The pane head
 // lays out again around the LED as the style changes, and the LED's words change with it: the tip stays beside the LED in every
