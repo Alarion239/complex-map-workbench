@@ -937,6 +937,15 @@
     if (!liftSheet) { liftSheet = new CSSStyleSheet(); document.adoptedStyleSheets = [...document.adoptedStyleSheets, liftSheet]; }
     liftSheet.replaceSync(px == null ? '' : ':root { --ph-toast-h: ' + px + 'px; }');
   }
+  // A message kept out of sight (data-no-room, placeToasts) is out of the accessibility tree as well: its role="status" and the host's
+  // aria-live say nothing. Its words are said once in the steps view's live region instead, and again only when they change
+  const toastSaid = new WeakMap();   // (the words said for a message kept out of sight)
+  function toastSayHidden(t) {
+    const words = (t.firstElementChild && t.firstElementChild.textContent) || '', live = SV.els && SV.els.live;
+    if (!live || !words || toastSaid.get(t) === words) return;
+    toastSaid.set(t, words);
+    live.textContent = words;
+  }
   function placeToasts() {
     const host = $('toastHost');
     if (!host) return;
@@ -992,6 +1001,7 @@
       if (noRoom && !mt.hasAttribute('data-sticky') && !mt.hasAttribute('data-under-bar')) { dropToasts(); clear(); return; }
       const hide = noRoom && mt.hasAttribute('data-sticky');
       host.toggleAttribute('data-no-room', hide);
+      if (hide) toastSayHidden(mt);
       toastLift(hide ? null : Math.round(mt.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
