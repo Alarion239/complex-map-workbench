@@ -1457,7 +1457,8 @@
     // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px; farN: the carry's far rings
     // at these points a side, [inner, outer], for a reference frame (test/steps_land_chord_cmd.js); noJump: no jump rule
     // (J 0): the carried grids keep their triangles across a jump; farDepth: the far rings drawn by depth alone, without
-    // the stencil, for a reference frame (test/steps_land_chord_cmd.js) }
+    // the stencil, for a reference frame; noAlone: no second pass of a carry's far rings alone, for the frame without it
+    // (test/steps_land_chord_cmd.js) }
     Object.assign(dbg, api._lw || {});
     // TEST-HOOK
     // (the carry's far rings' points a side: CARRY_FAR_N, or a test's reference counts)
@@ -1721,7 +1722,7 @@
         }
         info.copyAlpha = copies.length ? Math.min(...copies.map((cp) => (cp.alpha == null ? 1 : cp.alpha))) : null;
         info.refine = null;
-        info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null })); info.step = carryStep(mode, H); info.jump = Object.assign({}, carryJump);
+        info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => Object.assign([...p.polar, p.N], { dup: p.polar.dup || null, alone: !!p.polar.alone })); info.step = carryStep(mode, H); info.jump = Object.assign({}, carryJump);
       }
       if (Lp) {
         use(Lp, st.map);

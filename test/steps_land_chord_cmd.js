@@ -24,7 +24,11 @@
 //     carry's map has no jump.
 // (ix) A at u = .75, whose carry has no period: at most DEPTH_FRAC of the surface's pixels apart from the same frame with
 //     the far rings drawn by depth alone, without the stencil (GLR._lw.farDepth): where the outer ring lies in front of
-//     the back of the box's corner, it is drawn there.
+//     the back of the box's corner, it is drawn there;
+// (x) C, a carry with no period whose map is not one to one (z³: a ring point and a box point land on one spot at one
+//     height in different colours): its rings are alone (svLandFar), and its frame is the same with the second pass off
+//     (GLR._lw.noAlone), at most SAME_PX_FRAC of its pixels apart: no ring cell shows through the box where they meet;
+// (xi) B at u = .5, a periodic carry (exp): its rings are not alone, so they keep only the stencil.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
 // a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
@@ -42,6 +46,7 @@ const TOL = 3;                         // css px: a triangle off by more is coun
 const SMOOTH_TOL = 0.5;                // css px: (i)'s bound
 const FINE = [512, 384], COARSE = [32, 32];   // the far rings' points a side for the reference frame and for (iii)
 const PX_TOL = 30, SAT = 24;           // (the pixel rows: a channel more than PX_TOL apart; a surface pixel's channels span more than SAT)
+const SAME_PX_FRAC = 0.001;            // (x)'s bound: 0 measured
 const DEPTH_FRAC = 0.005;               // (ix)'s bound: the stencil hid 2.2 % of the surface there, the depth draw leaves 0.04 % apart
 const LIM = 300000;
 
@@ -49,7 +54,7 @@ const chord = (o = '') => evJson(`JSON.stringify(__cmwLandChordPx(${o}))`, LIM);
 const jumps = () => evJson('JSON.stringify(__cmwLandJumps())', LIM);
 // the kept triangles per grid (the chord rows' tris)
 const counts = (rows) => Object.fromEntries(Object.entries(rows || {}).map(([k, r]) => [k, r.tris]));
-const carried = () => evJson('JSON.stringify((({ u, s, far }) => ({ u, s, far: (far || []).map((p) => p[4]) }))(__cmwLandCarry() || {}))');
+const carried = () => evJson('JSON.stringify((({ u, s, far }) => ({ u, s, far: (far || []).map((p) => p[4]), alone: (far || []).map((p) => !!p.alone) }))(__cmwLandCarry() || {}))');
 const pane = () => ev(`(() => { const o = document.getElementById('overlayL').getBoundingClientRect(); return [o.left, o.top, o.width, o.height]; })()`);
 // the frame redrawn with the knob set (null: unset), once it has settled
 const redraw = async (lw) => {
@@ -122,6 +127,7 @@ for (const u of [0.25, 0.5, 0.75]) {
   await held(u);
   const tag = `B, held at u = ${u}`, c = await carried();
   ok(`${tag}: a carried frame from plane z, with two far rings`, c.s === 0 && Math.abs(c.u - u) < 0.004 && c.far.length === 2, c);
+  if (u === 0.5) ok(`${tag} (xi): a periodic carry's far rings are not alone (they keep only the stencil)`, c.alone.length === 2 && !c.alone.some(Boolean), c);
   const rows = await chord(), smooth = await chord(`{ tol: ${SMOOTH_TOL}, where: (x, y) => Math.hypot(x, y) >= 0.4 && Math.hypot(x, y) <= 1.5 }`);
   info.B['u' + u] = { rows, smooth: smooth && smooth.box, px: await pixelRow(`B-u${u}`) };
   ok(`${tag} (i): on the box's smooth part, triangles and none off by more than ${SMOOTH_TOL} px`, !!smooth && smooth.box.tris > 500 && smooth.box.worst <= SMOOTH_TOL, smooth && smooth.box);
@@ -152,4 +158,6 @@ const nC = await chord();
 await redraw(null);
 info.C = { rows: rC, jumps: await jumps() };
 ok('C, z³ parked on w₁ coloured from z (v): a carried frame, and the jump rule leaves out none of its triangles', cC.s === 0 && !!rC && JSON.stringify(counts(nC)) === JSON.stringify(counts(rC)), { carried: cC, rule: counts(rC), noJump: counts(nC) });
+info.C.noAlone = await pixelRow('C-noalone', { noAlone: true });
+ok(`C (x): a carry with no period, its far rings alone, and the same frame with their second pass off (GLR._lw.noAlone): at most ${SAME_PX_FRAC * 100} % of its pixels apart`, cC.alone.length === 2 && cC.alone.every(Boolean) && info.C.noAlone.share !== null && info.C.noAlone.share <= SAME_PX_FRAC, { alone: cC.alone, px: info.C.noAlone });
 return { pass: fails.length === 0, fails, info };

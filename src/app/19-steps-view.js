@@ -777,9 +777,8 @@
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
     const outer = [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)];
     const P = carry && svLandPeriod(carry, src), alone = !!carry && !carry.plain && !P, dup = P && svLandFarDup(P, outer[2]);
-    const inner = [x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r];
-    if (alone) for (const ring of [inner, outer]) ring.alone = true;
-    return [inner, dup ? Object.assign(outer, { dup }) : outer];
+    const inner = [x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], mark = (ring) => (alone ? Object.assign(ring, { alone }) : ring);
+    return [mark(inner), dup ? Object.assign(outer, { dup }) : mark(outer)];
   };
   // The carried surface's period: P with the places F(z + P) = F(z) and the heights the same, at LAND_DUP_AT points of the
   // box src (the glide map's period, invHomPer, or at rest the chain's from s, Inverse.keyPeriod, or the least multiple of
