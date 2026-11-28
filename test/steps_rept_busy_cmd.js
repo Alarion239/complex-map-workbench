@@ -28,7 +28,7 @@ const COMPILE_NOTE_MS = 300, SHORT_COMPILE_MS = 150;
 const LAND_PROGS = ['landTF', 'land', 'floor', 'landCarryTF', 'landCarry'];
 const LIVE = `((document.getElementById('ledLive') || {}).textContent || '')`;
 // (the parked plane drawn, and the gallery parked on plane 1, Inside regions: test/lib/parked_kit.js)
-const { PARKED_DRAWN: DRAWN, loadGallery, parkInside, waitDrawn } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
+const { loadGallery, parkInside, waitDrawn } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
 // (the parked plane drawn, at most DRAWN_MS: a wait that runs out keeps what was still pending in info.waits, with where)
 const DRAWN_MS = 120000;
 const drawn = async (at) => { const r = await waitDrawn(DRAWN_MS); if (!r.ok) (info.waits = info.waits || []).push({ at, pending: r.pending }); return r; };
@@ -130,11 +130,11 @@ const landHeld = async (releaseMs) => {
   await ev(`GLR.holdLinks(true, ${JSON.stringify(LAND_PROGS)}); 1`);
   await loadGallery(60000);
   await parkInside(60000);
-  const drawn = await settled({ max: 120000, until: DRAWN });
+  const parked = await drawn(`the phone, Landscape, parked (${releaseMs === null ? 'a long compile' : 'a short compile'})`);
   await ev(`__cmwRept({ fast: ${FAST_NODES}, holdB: true, tiles: ${HELD_TILES} }); 1`);
   const cued = await poll(`(() => { const s = __cmwPaneStatus('L'); return !!s && s.rept && /^Drawing the exact picture/.test(s.cue || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
   await ev(`${CORNER_LOG(releaseMs)}; __cmwSteps({ surf: 'land' }); 1`);
-  return { drawn: drawn.ok, cued: cued.ok };
+  return { drawn: parked.ok, cued: cued.ok };
 };
 // the logged frames that are REPT-pending, each with its time since the first compiling frame (since)
 const reptFrames = (log) => { const c = log.find((e) => e.compiling), t0 = c ? c.t : Infinity; return log.filter((e) => e.rept).map((e) => Object.assign({ since: e.t - t0 }, e)); };
