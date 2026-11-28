@@ -521,14 +521,11 @@
   }
   function viewChanged(side) {
     if (side === 'R') {
-      // targets are drawn and edited in Y Plane; a target draft and a target selection end with it
-      // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
-      if (draft && draft.target) draft = null;
       setHoverW(null);
       buildShapeList();
     } else {
       // a shape draft ends with the view it was drawn in (the plane or the z-globe); the flat probe goes
-      draft = draft && draft.target ? draft : null;
+      draft = null;
       if (!lFlat()) { probe = null; hoverCut = 0; setReadouts(null); }
     }
     updateFocusUI(); scheduleFix(); requestRender('L', 'R'); save();
@@ -636,10 +633,34 @@
       meet: () => $t('Tap a crossing of two curves, or one curve and then another.'),
       touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent or Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
     };
+    // the tip beside its element: above it, or below where there is no room above
+    const place = (el) => {
+      const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+      let y = r.top - th - 6; if (y < 6) y = r.bottom + 6;
+      tip.style.left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2)) + 'px';
+      tip.style.top = y + 'px';
+    };
+    // (an open tip goes with its element in every frame, and goes when the element has no box: the element may be laid out elsewhere
+    // for a moment when the tip is placed, a pane head laid out again around it, and no pointer event says it came back)
+    let followRaf = 0;
+    const follow = (el) => {
+      cancelAnimationFrame(followRaf);
+      const step = () => {
+        followRaf = 0;
+        if (tip.hidden || tipWatched !== el) return;
+        if (!el.getClientRects().length) { hide(); return; }
+        place(el);
+        followRaf = requestAnimationFrame(step);
+      };
+      followRaf = requestAnimationFrame(step);
+    };
     const show = (el) => {
       const text = el.getAttribute('data-tip');
       // (never for an element that went away, or one the mouse already left)
       if (!text || !el.isConnected || (el !== lpShown && el !== kbdTip && !el.matches(':hover'))) return;
+      // (an element with no box now, one its pane head hides, has no place to put a tip beside: its rect is the origin's, and a tip
+      // there is at the page's top-left)
+      if (!el.getClientRects().length) { hide(); return; }
       const [label, key] = text.split(/\s{2,}/);
       // (a long-press tip on touch names no key and says tap, not click)
       const byTouch = el === lpShown;
@@ -650,11 +671,12 @@
       const tdesc = byTouch && TOUCH_DESC[el.getAttribute('data-tool')];
       const desc = tdesc ? tdesc() : el.getAttribute('data-desc');
       if (desc) tip.append(h('span', { class: 'tip-desc' }, desc));
+      // (a tip that is open is placed by follow, in the next frame: the element may be laid out elsewhere for the moment, and a place now
+      // would be painted there)
+      const open = !tip.hidden;
       tip.hidden = false;
-      const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
-      let y = r.top - th - 6; if (y < 6) y = r.bottom + 6;
-      tip.style.left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2)) + 'px';
-      tip.style.top = y + 'px';
+      if (!open) place(el);
+      follow(el);
       // (an open tip follows its element's words: a control that changes its data-tip while it is shown, as Play does when
       // its glide waits and when the wait ends, shows the new words at once, and no tip when it has none)
       if (tipWatched !== el) {
@@ -664,7 +686,7 @@
         tipObs.observe(el, { attributes: true, attributeFilter: ['data-tip', 'data-desc'] });
       }
     };
-    const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; if (tipObs) { tipObs.disconnect(); tipObs = null; tipWatched = null; } };
+    const hide = () => { clearTimeout(timer); cancelAnimationFrame(followRaf); followRaf = 0; if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; if (tipObs) { tipObs.disconnect(); tipObs = null; tipWatched = null; } };
     document.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
       const tg = /** @type {HTMLElement} */ (e.target);
@@ -1059,17 +1081,24 @@
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
   const toastFitW = new WeakMap();   // (the width a message picked its rows at)
-  // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
-  // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
-  // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
+  // a phone's message is one row when its words fit in two lines beside its buttons, else two (the words full width, the buttons below):
+  // measured on the one-row layout with the words unclamped and the buttons unshrunk, so that the choice follows the text and the buttons,
+  // not the language. The words fit when they take at most TOAST_ONE_ROW_LINES lines and keep the width the one-row layout gives them at
+  // least (its flex-basis: 140 px over the steps view's plot, where narrower words would send the buttons to a row of their own)
+  // (the lines are counted from the words' line-height, which phone.css sets in px; one that is not would count as no number of lines,
+  // and the message would take two rows)
+  const TOAST_ONE_ROW_LINES = 2, TOAST_FIT_TOL_PX = 0.5;   // (a width within half a pixel of the flex-basis is the flex-basis, rounding aside)
   function fitToastRows(t) {
     if (!t.isConnected) return;
     const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
-    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = 'none';
-    sp.style.whiteSpace = 'nowrap'; t.style.flexWrap = 'nowrap'; t.style.justifyContent = 'flex-start';
-    t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
+    delete t.dataset.rows;
+    const minW = parseFloat(getComputedStyle(sp).flexBasis) || 0;
+    for (const c of parts) if (c !== sp) /** @type {HTMLElement} */ (c).style.flex = 'none';
+    t.style.flexWrap = 'nowrap'; sp.style.display = 'block'; sp.style.webkitLineClamp = 'none';
+    const lines = Math.round(sp.getBoundingClientRect().height / parseFloat(getComputedStyle(sp).lineHeight));
+    t.dataset.rows = lines <= TOAST_ONE_ROW_LINES && sp.clientWidth >= minW - TOAST_FIT_TOL_PX ? 'one' : 'two';
     for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
-    sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
+    t.style.flexWrap = ''; sp.style.display = ''; sp.style.webkitLineClamp = '';
     toastFitW.set(t, t.clientWidth);
     placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
   }
