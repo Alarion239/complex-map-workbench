@@ -28,7 +28,10 @@ const COMPILE_NOTE_MS = 300, SHORT_COMPILE_MS = 150;
 const LAND_PROGS = ['landTF', 'land', 'floor', 'landCarryTF', 'landCarry'];
 const LIVE = `((document.getElementById('ledLive') || {}).textContent || '')`;
 // (the parked plane drawn, and the gallery parked on plane 1, Inside regions: test/lib/parked_kit.js)
-const { PARKED_DRAWN: DRAWN, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
+const { PARKED_DRAWN: DRAWN, loadGallery, parkInside, waitDrawn } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
+// (the parked plane drawn, at most DRAWN_MS: a wait that runs out keeps what was still pending in info.waits, with where)
+const DRAWN_MS = 120000;
+const drawn = async (at) => { const r = await waitDrawn(DRAWN_MS); if (!r.ok) (info.waits = info.waits || []).push({ at, pending: r.pending }); return r; };
 // the cue as the page shows it: the left LED's class and tip (its aria-label), and the plot's aria-busy
 const cue = () => ev(`(() => { const l = document.getElementById('leftLed'), p = document.getElementById('plotL');
   return { led: l.className, label: l.getAttribute('aria-label') || '', tip: l.getAttribute('data-tip') || '', busy: p.getAttribute('aria-busy'), pending: !!(__cmwPaneStatus('L') || {}).rept }; })()`);
@@ -43,7 +46,7 @@ await go(`http://localhost:${PORT}/test.html?view=steps&lang=en`);
 await settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwRept === "function" && !!window.GLR' });
 await loadGallery(60000);
 await parkInside(60000);
-await settled({ max: 120000, until: DRAWN });
+await drawn('the desk, parked');
 const rest = info.rest = await cue();
 ok('at rest, the picture drawn: no busy cue (the LED says nothing of drawing, the plot is not aria-busy)', off(rest), rest);
 // (a new bound: the plane is walked again, its second pass held)
@@ -58,7 +61,7 @@ ok('the tile count agrees with its number ("of 1 tile", not "of 1 tiles")', held
 const said = info.said = await poll(`/Drawing the exact picture/.test(${LIVE})`, CUE_DELAY_MS + LIVE_WAIT_MS);
 ok('the LEDs\' live region says "Drawing the exact picture…" once the cue has lasted', said.ok, { said, live: await ev(LIVE) });
 await ev('__cmwRept({ holdB: false }); 1');
-await settled({ max: 120000, until: DRAWN });
+await drawn('the desk, the held pass released');
 await frames(2);
 const done = info.done = await cue();
 ok('released, once the picture is drawn the cue is gone', off(done), done);
@@ -75,7 +78,7 @@ for (let i = 0; i < WATCH_FRAMES && !counted; i++) {
 info.counted = counted;
 ok('in tiles, the cue names the tiles done: "k of n tiles", 0 <= k < n', !!counted && counted.k >= 0 && counted.k < counted.n, counted);
 ok('the count is joined by no-break spaces ("k\u00a0of\u00a0n")', !!counted && /\d\u00a0of\u00a0\d/.test(counted.label), counted);
-await settled({ max: 120000, until: DRAWN });
+await drawn('the desk, the tiles drawn');
 await frames(2);
 const after = info.after = await cue();
 ok('the tiles drawn, the cue is gone', off(after), after);
@@ -86,7 +89,7 @@ await go(`http://localhost:${PORT}/test.html?view=steps&lang=en`);
 await settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwRept === "function" && !!window.GLR' });
 await loadGallery(60000);
 await parkInside(60000);
-await settled({ max: 120000, until: DRAWN });
+await drawn('the phone, parked');
 const phone = info.phone = { led: await ev("document.getElementById('leftLed').offsetWidth"), rest: (await ev("__cmwPaneStatus('L')") || {}).cue || null };
 await ev(`__cmwRept({ fast: ${FAST_NODES}, holdB: true, tiles: ${HELD_TILES} }); 1`);
 const noted = await poll(`(() => { const s = __cmwPaneStatus('L'); return !!s && s.rept && /^Drawing the exact picture/.test(s.cue || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
@@ -95,7 +98,7 @@ ok('a phone: the LED is not laid out (control: the corner note stands in for it)
 ok('a phone: at rest, the picture drawn, no corner note', !phone.rest, phone);
 ok('a phone: the second pass held, the pane\'s corner note says the cue ("Drawing the exact picture…")', noted.ok, phone);
 await ev('__cmwRept({ holdB: false }); 1');
-await settled({ max: 120000, until: DRAWN });
+await drawn('the phone, the held pass released');
 await frames(2);
 phone.done = (await ev("__cmwPaneStatus('L')") || {}).cue || null;
 ok('a phone: released, once the picture is drawn the note is gone', !phone.done, phone);

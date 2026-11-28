@@ -8,7 +8,9 @@
 // - GALLERY: the gallery example's name (Newton's map for z³ − 1 repeated 20 times);
 // - loadGallery(max): on a page that is up, the gallery example loaded, waited for at most max ms;
 // - parkInside(max, plane = 1): Inside regions, then that plane at once, waited for until the step has landed (at most
-//   max ms each): the caller then waits on PARKED_DRAWN.
+//   max ms each): the caller then waits on PARKED_DRAWN;
+// - waitDrawn(max): PARKED_DRAWN waited for at most max ms: settled()'s answer, and, when the wait ran out, what was still
+//   pending (pending: the parts of __cmwSteps().ready not done, as done/total, and the left pane's status).
 ({ ev, settled, exampleNames }) => {
   const PARKED_DRAWN = "__cmwSteps().ready && __cmwSteps().ready.ready && !(__cmwPaneStatus('L') || { pending: true }).pending";
   const GALLERY = 'Newton’s method for z³ − 1';
@@ -21,5 +23,12 @@
     await ev("__cmwSteps({ scope: 'in' }); 1"); await settled({ max, panes: false });
     await ev(`__cmwSteps({ go: ${plane}, now: true }); 1`); await settled({ max, until: '!__cmwSteps().anim && !__cmwSteps().play' });
   };
-  return { PARKED_DRAWN, GALLERY, loadGallery, parkInside };
+  const PENDING = `(() => { const r = __cmwSteps().ready || {}, parts = {};
+    for (const k in r.parts || {}) if (r.parts[k].done < r.parts[k].total) parts[k] = r.parts[k].done + '/' + r.parts[k].total;
+    return { ready: !!r.ready, parts, pane: __cmwPaneStatus('L') }; })()`;
+  const waitDrawn = async (max) => {
+    const r = await settled({ max, until: PARKED_DRAWN });
+    return r.ok ? r : Object.assign({}, r, { pending: await ev(PENDING) });
+  };
+  return { PARKED_DRAWN, GALLERY, loadGallery, parkInside, waitDrawn };
 }

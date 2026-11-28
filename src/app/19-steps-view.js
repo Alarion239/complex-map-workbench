@@ -241,7 +241,9 @@
     const o = Views.svOf(S.view, areas, S.steps.length === 0);
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf; SV.links = 'straight';
     if (SV.els) setSeg(SV.els.scope, SV.scope);   // (the head's switch shows what the view opened on)
-    SV.i = 0; SV.g.set(0);
+    // (the thread on plane 0, which it has arrived at: the next arrival at another plane is a change, and starts that
+    // plane's glides' warm-up, svArrive)
+    SV.i = 0; SV.at = 0; SV.g.set(0);
   }
   // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
   // the device's setting for a state without one). svStore writes it before a save and an undo entry; a link and a scene
