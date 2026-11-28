@@ -9,11 +9,11 @@ const Export = (() => {
   let A = null;
   let BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
     focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
-    lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence,
-    morphHomSegs, morphLen, morphOn, morphRange, openMenu, pathOf, pathsGen,
+    lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence,
+    openMenu, pathOf, pathsGen,
     pickScene, pointLabel, readTheme, refineAllNow, renderLeft, requestRender, shapeF, shapeStage, stageF, fNameTex, parkedAt,
     runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
-    smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt;
+    smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wvar, setOpt;
   // ---- export: plane images (PNG) and the map with its guarantees (LaTeX) ----
   // Files go through the viewer's downloads capability in claude.ai (the viewer confirms each save); a copy of the
   // page opened on its own saves with a plain download link.
@@ -137,15 +137,14 @@ const Export = (() => {
   }
   // renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
   // Direct3D 11 takes seconds, which would freeze the tab. So the panels are first drawn small with nothing waiting (renderOff's
-  // warm), the deformation's map modes started too, and the programs are awaited here, polled, while the export's
-  // progress shows; renderOff then finds them linked (or links the odd one still missing). Awaited: the ones this
-  // warm-up started and the current chain's; not the others compiling meanwhile (the idle warm-up's, the gallery's).
+  // warm), and the programs are awaited here, polled, while the export's progress shows; renderOff then finds them linked
+  // (or links the odd one still missing). Awaited: the ones this warm-up started and the current chain's; not the others
+  // compiling meanwhile (the idle warm-up's, the gallery's).
   async function warmExport(alive) {
     if (!GLR.ok || !GLR.pending) return true;
     const before = new Set(GLR.pending().map((p) => p.id));
     try {
       renderOff(48, 32, 1, true);
-      if (morphOn()) GLR.prestartModes(A.S.homAll ? [3] : [1]);
     } catch (e) { console.error('export warm-up', e); return alive(); }
     const key = GLR.chainKey;
     const need = new Set(GLR.pending().filter((p) => !before.has(p.id) || p.key === key).map((p) => p.id));
@@ -234,7 +233,7 @@ const Export = (() => {
   function panelKey() {
     const stopsFrom = (f) => Array.from({ length: 25 }, (_, i) => [i / 24, f(i / 24)]);
     const hueAt = (t) => keyHex((2 * t - 1) * Math.PI); // t in [0, 1] -> arg from -pi to pi, colours of the legend wheel
-    const Fn = morphOn() && lPaintsF() ? 'H_t' : A.S.focus === 0 ? 'F' : focusDeriv() ? `w_{${A.S.focus}}` : `f_{${A.S.focus}}`;
+    const Fn = A.S.focus === 0 ? 'F' : focusDeriv() ? `w_{${A.S.focus}}` : `f_{${A.S.focus}}`;
     if (lColor() && A.S.dc !== 'classic') return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.25, '-\\frac{\\pi}{2}'], [0.5, '0'], [0.75, '\\frac{\\pi}{2}'], [1, '\\pi']] };
     if (lColor()) return { title: `|${Fn}|`, stops: [[0, '#000000'], [0.5, '#8a8f93'], [1, '#ffffff']], ticks: [[0, '0'], [0.5, '1'], [1, '\\infty']] };
     if (lGlobe() && lPhase()) return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.5, '0'], [1, '\\pi']] };
@@ -367,24 +366,15 @@ const Export = (() => {
     const vis = A.S.shapes.filter((s) => s.visible !== false);
     let pi = 0;
     const shapeList = joinList(vis.map((s) => { const r = shapePhrase(s, s.kind === 'point' ? pi : 0); if (s.kind === 'point') pi++; return r; }));
-    const lv = panelVar(), Fname0 = fNameTex();
+    const lv = panelVar(), Fname = fNameTex();
     const Ftex = A.S.focus === 0 ? compositeTexShort(parkedAt()) : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
-    const mapF = Ftex ? `${Fname0}(${lv})=${Ftex}` : `${Fname0}`;
-    // the deformation drawn in the panel (Phase or Landscape of H_t): the picture is H_t at the current t, so the caption
-    // names H_t and says which t and which homotopy
-    const hm = morphOn() && lPaintsF();
-    const Fname = hm ? 'H_t' : Fname0, mapM = hm ? 'H_t' : mapF;
-    const homDef = () => {
-      const m = morphLen(), hom = morphHomSegs(m);
-      if (hom.rt) return [...capT(' Shown at %{t}, where %{H} deforms %{QP} (%{t0}) into %{map} (%{tm}); it is %{hom}.', { t: { m: `t=${I18N.texNum(morph.T.toFixed(2))}` }, H: { m: hom.rt.H }, QP: { m: hom.rt.qp }, t0: { m: 't=0' }, map: { m: mapF }, tm: { m: `t=${m}` }, hom: hom.segs }), ...wDefSegs(hom.rt)];
-      return capT(' Shown at %{t}, where %{H} deforms the identity (%{t0}) into %{map} (%{tm}) along %{hom}.', { t: { m: `t=${I18N.texNum(morph.T.toFixed(2))}` }, H: { m: 'H_t' }, t0: { m: 't=0' }, map: { m: mapF }, tm: { m: `t=${m}` }, hom: hom.segs });
-    };
+    const mapF = Ftex ? `${Fname}(${lv})=${Ftex}` : `${Fname}`;
     // the plane of X in three cases (Russian: nominative, after «в»/«на», after «над»)
     const planeName = (cs) => (leftStage() === 0 ? capT('the %{z}-plane', { z: { m: 'z' } }, cs) : capT('the %{w}-plane, the input of %{F}', { w: { m: lv }, F: { m: Fname } }, cs));
     // X, with its view (U-b): the shapes, or what X's paint shows of the map
     const phaseText = (onWhat) => {
       const st = A.S.dc, r = [], F = { m: `|${Fname}|` }, arg = { m: `\\arg ${Fname}` };
-      r.push(...capT('The phase portrait of %{map}', { map: { m: mapM } }), ...onWhat);
+      r.push(...capT('The phase portrait of %{map}', { map: { m: mapF } }), ...onWhat);
       if (st === 'classic') r.push(...capT('brightness increases with %{F}, so zeros are black and poles white.', { F }));
       else if (st === 'phase') r.push(...capT('the colour shows %{arg} (bar).', { arg }));
       else if (st === 'modulus') r.push(...capT('the colour shows %{arg} (bar); lines are level curves of %{F} and of %{arg}.', { arg, F }));
@@ -402,17 +392,16 @@ const Export = (() => {
     };
     const inf = { m: '\\infty' };
     if (lColor()) push(...phaseText([{ t: $tx('cap', ' on ') }, ...planeName('prep'), { t: ': ' }]));
-    else if (lGlobe() && lPhase()) push(...capT('The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.', { map: { m: mapM }, inf }));
+    else if (lGlobe() && lPhase()) push(...capT('The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.', { map: { m: mapF }, inf }));
     else if (lLand()) {
       const ht = { log: `\\log|${Fname}|`, abs: `|${Fname}|`, re: `\\operatorname{Re} ${Fname}`, im: `\\operatorname{Im} ${Fname}` }[A.S.height || 'log'];
       // (what All sheets draws, exactly; while deforming, the sheets of H_t that become those of F,
       // notes/v16-user5/SHEETS-DESIGN.md; the multivalued notation only when it draws F's own sheets; standards-ok: a spec path in notes/)
-      const shw = sheetsShown(), shc = shw ? sheetsClause(shw, 'tex', Fname0) : null;
-      push(...capT('The landscape of %{map}', { map: { m: shw && !shw.hom ? I18N.notation(mapM, undefined, { multi: true }) : mapM } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), ...(shc ? (shc.src ? capT(shc.src, sheetsTexP(shc.p, (m) => ({ m }))) : [{ t: shc.p.text }]) : [{ t: $t('; zeros are pits and poles are peaks.') }]), ...(shc && shc.then ? texSegs($t(shc.then.src, shc.then.p)) : []));
+      const shw = sheetsShown(), shc = shw ? sheetsClause(shw, 'tex', Fname) : null;
+      push(...capT('The landscape of %{map}', { map: { m: shw && !shw.hom ? I18N.notation(mapF, undefined, { multi: true }) : mapF } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), ...(shc ? (shc.src ? capT(shc.src, sheetsTexP(shc.p, (m) => ({ m }))) : [{ t: shc.p.text }]) : [{ t: $t('; zeros are pits and poles are peaks.') }]), ...(shc && shc.then ? texSegs($t(shc.then.src, shc.then.p)) : []));
     } else if (vis.length) push(...cap1(shapeList), { t: $tx('cap', ' in ') }, ...planeName('prep'), { t: lGlobe() ? $t(', on the Riemann sphere.') : '.' });
     else push(...cap1(planeName()), { t: '.' });
     if (vis.some((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s))) push({ t: $t(' Dashed boundaries do not belong to the sets.') });
-    if (hm) push(...homDef());
     // the chain, when F has several steps
     const act = activeSteps();
     if (act.length > 1 && A.S.focus === 0) {
@@ -651,12 +640,12 @@ const Export = (() => {
         if (fv) { const k = wpx / effW(); v.cx = fv.cx; v.cy = fv.cy; v.s = fv.s / k; }
         if (o.T != null) { morph.T = o.T; morph.playing = false; }
         // (o.look 'light': the screen's look in the light theme, for a video; else the art layer on white paper)
-        A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artLandRound = o.landRound || null; A.artCamAsp = o.camAsp || null; A.artCam = true; A.artRelief = !!o.reliefOnly; A.artSkip = o.skipLines ? new Set(o.skipLines) : null; A.artNoLab = !!o.noGlobeLabels;
+        A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artLandRound = o.landRound || null; A.artCamAsp = o.camAsp || null; A.artCam = true; A.artRelief = !!o.reliefOnly; A.artSkip = o.skipLines ? new Set(o.skipLines) : null;
         A.TH = Object.assign({}, light); inkCache.clear();
         if (A.artMode) { A.TH.plane = '#ffffff'; A.TH.planeRGB = GLR.hexRGB('#ffffff'); }
         cv = renderOff(wpx, hpx, dpr);
       } finally {
-        A.artMode = false; A.printInk = null; A.artLandBox = null; A.artLandRound = null; A.artCamAsp = null; A.artCam = false; A.artRelief = false; A.artSkip = null; A.artNoLab = false;
+        A.artMode = false; A.printInk = null; A.artLandBox = null; A.artLandRound = null; A.artCamAsp = null; A.artCam = false; A.artRelief = false; A.artSkip = null;
         Object.assign(v, { cx: keep.cx, cy: keep.cy, s: keep.s });
         morph.T = keep.T; morph.playing = keep.playing;
         A.TH = thKeep; inkCache.clear();
@@ -727,19 +716,8 @@ const Export = (() => {
     const lv = panelVar(), Fname = fNameTex();
     const Ftex = A.S.focus === 0 ? compositeTexShort(parkedAt()) : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const formula = Ftex && Ftex.length < 240 ? inlineFrac(Ftex) : null;
-    // the deformation shown in one panel (Phase or Landscape of H_t): the picture is H_t at the current t
-    const hm = morphOn() && lPaintsF();
-    let hom = null;
-    if (morphOn()) { try { const m = morphLen(), hs = morphHomSegs(m); hom = { T: morph.T, m, tex: captionLatex(hs.segs), inner: hs.inner ? captionLatex(hs.inner) : null, innerShort: hs.innerShort ? captionLatex(hs.innerShort) : null }; } catch (e) { hom = null; } }
-    // the steps the homotopy names f_1, f_2, ...: their maps, for the caption's displayed chain
-    let chain = null;
-    if (morphOn() && A.S.focus === 0) {
-      const ks = morphRange().steps;
-      if (ks.length > 1 && !ks.some((k) => isDeriv(k))) chain = ks.map((k) => { const b = A.built[k - 1], v = k === 1 ? 'z' : `w_{${k - 1}}`; return { f: `f_{${k}}`, v, tex: b && !b.error ? b.tex({ s: v, p: 4 }).s : null }; });
-      if (chain && chain.some((q) => !q.tex)) chain = null;
-    }
     return { shapeList, shapeListGen, nShapes: vis.filter(own).length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
-      height: A.S.height, phase: lPhase(), dc: A.S.dc, cauchy: A.S.dc === 'cauchy' ? cauchyKind() : null, sectors: A.S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
+      height: A.S.height, phase: lPhase(), dc: A.S.dc, cauchy: A.S.dc === 'cauchy' ? cauchyKind() : null, sectors: A.S.sectors || 12, sheets: sheetsShown() };
   }
   // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
   const hueBytes = (t) => keyRGB((2 * t - 1) * Math.PI).map((x) => Math.round(255 * x));
@@ -850,7 +828,7 @@ const Export = (() => {
 
   function init(api) {
     A = api;
-    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence, morphHomSegs, morphLen, morphOn, morphRange, openMenu, pathOf, pathsGen, pickScene, pointLabel, readTheme, refineAllNow, renderLeft, requestRender, shapeF, shapeStage, stageF, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
+    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence, openMenu, pathOf, pathsGen, pickScene, pointLabel, readTheme, refineAllNow, renderLeft, requestRender, shapeF, shapeStage, stageF, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wvar, setOpt } = api);
   }
   return { init, getDownloads, saveFile, effW, renderOff, panelVar, capT, shapePhrase, pcTidy, compositeTexShort, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();

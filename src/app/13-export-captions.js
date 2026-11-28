@@ -233,7 +233,7 @@
   // the shapes to it from z (carried: the caption says "the images of ... under it")
   function svCapParts(o) {
     const c = figCapParts(o);
-    if (!SV.on || morphOn()) return c;
+    if (!SV.on) return c;
     // (hName: what the Landscape's height reads, svHeightName; past the colour plane, the point of T it is carried from)
     const q = svFigParts(), carried = !q.coloured && q.k > 0, hName = svHeightName('tex', q.k);
     // (F, the map from z into the last plane: the composite's formula in z, as the classic caption has it)
@@ -392,7 +392,6 @@
     },
     F: () => stageF(leftStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
-    morphLen,
     // X's window ('L'), or the z-plane's ('L0': the shapes' own plane, also at a focused step)
     screenBox: (side) => side === 'L0' ? srcWindowBox() : viewBoxOf(),
     // X's view ('L') or the z-plane's ('L0'): centre, px per unit, for the export window of an unbounded set (independent
@@ -401,7 +400,7 @@
     landBox: () => landBox(),
     paneAspect: () => paneL.h / effW(),
     panelVar,
-    fname: () => (morphOn() ? 'H_t' : SV.on ? svCapParts().Fname : fNameTex()),
+    fname: () => (SV.on ? svCapParts().Fname : fNameTex()),
     // (the map Y shows while ‹ › rest it on a step's plane: F_j, the composite of the first j steps; -1 otherwise)
     fTex: () => fNameTex(), parkedAt: () => parkedAt(),
     formulaTex: () => svCapParts().formula,
@@ -413,16 +412,11 @@
     sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (step ids only when a shape refers to them)
     chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', phase: $t('Phase'), land: $t('Landscape') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
     hue: hueBytes,
-    // the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
-    // time T; the lift of the plane to the Riemann sphere (the globe's vector marks)
-    defo: () => { const rt = morphOn() ? rangeTex() : null; return { on: morphOn(), T: morph.T, m: morphLen(), deriv: morphHasDeriv(), main: S.view.main, range: rt ? rt.range : null, pre: rt ? rt.pre : null, post: rt ? rt.post : null, qp: rt ? rt.qp : null, qpz: rt ? rt.qpz : null, wdef: rt ? rt.wdef : null }; },
-    plotFAt: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.F : focusF(); } finally { morph.T = keep; } },
+    // the lift of the plane to the Riemann sphere (the globe's vector marks)
     lift: liftC,
-    // the deformation's paths as print vectors (figure.js: the paths figure, plane and globe)
+    // the steps view's paths as print vectors (figure.js: the paths figure, plane and globe)
     pathsSvg: (items, o) => pathsSvg(items, o),
-    pathTimesTex: (m) => pathTimesTex(m),
     pathMarkTimes: (m) => pathMarkTimes(m),
-    pathMarksTex: (m) => pathMarksTex(m),
   });
   // what export and captions (src/export.js) need from the app: its functions and constants, and the state they
   // reassign as getters (and setters for the state they write)
@@ -430,11 +424,11 @@
     return {
       BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
       focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
-      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence,
-      morphHomSegs, morphLen, morphOn, morphRange, openMenu, pathOf, pathsGen,
+      lPhase, lPlain, leftStage, leftView, mfFigCache, morph, pathsSentence,
+      openMenu, pathOf, pathsGen,
       pickScene, pointLabel, readTheme, refineAllNow, renderLeft, requestRender, shapeF, shapeStage, stageF,
       fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
-      smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt,
+      smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wvar, setOpt,
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },
       get artCam() { return artCam; }, set artCam(v) { artCam = v; },
@@ -445,7 +439,6 @@
       get artLandRound() { return artLandRound; }, set artLandRound(v) { artLandRound = v; },
       get artCamAsp() { return artCamAsp; }, set artCamAsp(v) { artCamAsp = v; },
       get artMode() { return artMode; }, set artMode(v) { artMode = v; },
-      get artNoLab() { return artNoLab; }, set artNoLab(v) { artNoLab = v; },
       get artSkip() { return artSkip; }, set artSkip(v) { artSkip = v; },
       get built() { return built; },
       get currentExample() { return currentExample; },

@@ -113,7 +113,7 @@ for (const [show, z0] of [['both', [0.55, 0.3]], ['both', [1.9, 0.45]], ['out', 
 // stages' colour z) in their final colour: the glide's frames and plane 1 at rest, never a blank plane. While the programs
 // link the glide waits on plane z (svLinkHold), whose frames are the late-link stand-in (svCarryRegions' standIn: plane z's
 // meshes in the phase of their points) or the final picture, and are drawn (not blank).
-const LATE_LINK_MS = 2500, SWITCH_FRAMES = 40, SWITCH_MS = 60000;
+const LATE_LINK_MS = 2500, SWITCH_FRAMES = 40, SWITCH_MS = 60000, SWITCH_REC_MAX = 900;
 const SWITCH_PTS = [[1.6, 0.4], [-1.5, -0.6], [0.3, -1.4], [1.3, 1.1], [-1.2, 1.2]];
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${LATE_LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
 const HOLD_TOL = 6, far = (p, q) => Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2]));
@@ -125,22 +125,44 @@ for (const prev of ['phase', 'classic', 'grid', 'enhanced']) {
   const phaseOut = await pixels(SWITCH_PTS);
   await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
   // (the Play gate off: the hold of the glide that has started waits on plane z, which this leg watches; the gate's waits are svplay_gate_cmd.js's)
+  // (every frame is recorded in the page, its x and the pixels of its own canvas at the five points, copied in the task that drew it: a
+  // screenshot taken after a read of x can show the frame before the one x belongs to, at the frame where x leaves z. The recorder stops
+  // when it is read, or at SWITCH_REC_MAX frames)
+  await ev(`((cap) => {
+    const cv = document.getElementById('canvasL'), pts = ${JSON.stringify(SWITCH_PTS)}.map(([x, y]) => { const p = __cmwW2S('L', x, y), r = cv.getBoundingClientRect(); return [Math.round((p[0] - r.left) * cv.width / r.width), Math.round((p[1] - r.top) * cv.height / r.height)]; });
+    const c2 = document.createElement('canvas'); c2.width = pts.length; c2.height = 1;
+    const g2 = c2.getContext('2d', { willReadFrequently: true }), rec = window.__rec = [];
+    window.__recOn = true;
+    const frame = () => {
+      pts.forEach(([x, y], k) => g2.drawImage(cv, x, y, 1, 1, k, 0, 1, 1));
+      const d = g2.getImageData(0, 0, pts.length, 1).data;
+      rec.push({ x: +__cmwSteps().x.toFixed(4), px: pts.map((_, k) => Array.from(d.slice(4 * k, 4 * k + 4))) });
+      if (window.__recOn && rec.length < cap) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame); return 1;
+  })(${SWITCH_REC_MAX})`);
   await ev('(__cmwSteps({ T: 0, go: 1, gate: false }), 1)');
-  const seen = [];
-  for (let i = 0; i < SWITCH_FRAMES; i++) seen.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
   await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+  const seen = JSON.parse(await ev('window.__recOn = false, JSON.stringify(window.__rec)'));
   const finalOut = await pixels(SWITCH_PTS);
   await parkAt(0);
   const plotOut = await pixels(SWITCH_PTS);
   const blankAt = (f) => f.px.every((p) => !coloured(p));
-  const finalAt = (f) => f.px.every((p, k) => !differ(p, finalOut[k]));
-  info.switch = { phaseOut, finalOut, plotOut, links: await ev('JSON.stringify(window.__lateLinks || null)'), frames: seen.map((f) => [f.x, blankAt(f) ? 'blank' : finalAt(f) ? 'final' : f.px.map((p) => p.slice(0, 3).join(',')).join(' ')]) };
+  // (plane 1 at rest as the canvas holds it, the last frame recorded: the reference of the glide's frames, the page's own picture)
+  const restOut = seen[seen.length - 1].px;
+  const finalAt = (f) => f.px.every((p, k) => !differ(p, restOut[k]));
+  const standIn = seen[0];
+  const sketch = (f) => [f.x, blankAt(f) ? 'blank' : finalAt(f) ? 'final' : f.px.map((p) => p.slice(0, 3).join(',')).join(' ')];
+  const pastZ = seen.filter((f) => f.x > 0), onZ = seen.filter((f) => f.x === 0);
+  // (frames: how many were recorded, the first of each, and every frame that is not what it must be)
+  info.switch = { phaseOut, finalOut, plotOut, links: await ev('JSON.stringify(window.__lateLinks || null)'), frames: { recorded: seen.length, onZ: onZ.length, pastZ: pastZ.length, firstPastZ: pastZ.slice(0, 3).map(sketch), firstOnZ: sketch(seen[0]), notFinalPastZ: pastZ.filter((f) => !finalAt(f)).slice(0, 6).map(sketch), blankOnZ: onZ.filter(blankAt).length } };
   ok('switch: the links were late (the control: a link reads not complete for a while)', /"early":[1-9]/.test(info.switch.links), info.switch.links);
   ok('switch: plane 1 at rest is plane z\'s Cauchy plot at the points outside the circle', SWITCH_PTS.every((_, k) => !differ(finalOut[k], plotOut[k])), info.switch);
   ok('switch: negative control: those points\' colour before the switch (the stages\' colour) is not the Cauchy colour', SWITCH_PTS.some((_, k) => differ(phaseOut[k], finalOut[k])), info.switch);
-  ok('switch: the thread reached plane 1 within the frames sampled', seen.some((f) => f.x === 1), info.switch.frames);
-  ok('switch: every frame past z is the final picture (never blank, never the stages\' colour)', seen.every((f) => f.x === 0 || finalAt(f)), info.switch.frames);
-  ok('switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', seen.every((f) => f.x !== 0 || !blankAt(f)), info.switch.frames);
+  ok('switch: the recorder reads plane 1 as the screenshot does, and tells the late-link stand-in from the final picture (the controls of the frames below)', SWITCH_PTS.every((_, k) => !differ(restOut[k], finalOut[k])) && SWITCH_PTS.some((_, k) => differ(standIn.px[k], restOut[k])) && onZ.length > 0, info.switch.frames);
+  ok('switch: the thread reached plane 1 within the frames recorded', seen.some((f) => f.x === 1), info.switch.frames);
+  ok('switch: every frame past z is the final picture (never blank, never the stages\' colour)', pastZ.every(finalAt), info.switch.frames);
+  ok('switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', onZ.every((f) => !blankAt(f)), info.switch.frames);
   // The same switch and step with the Play gate on (the page's default): the press waits for the prestart and starts no glide, and
   // plane z, which the wait leaves on the screen, is still drawn (the late-link stand-in or the final picture, as the held glide's
   // frames are above), never blank; the glide then reaches plane 1 once the programs have linked
