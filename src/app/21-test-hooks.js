@@ -563,10 +563,12 @@
   // region set), null outside its box or with no mask
   window.__cmwLandMask = (x, y) => landMaskAlpha(render3D.mask, x, y);
   // a Landscape frame's pane position (CSS px) of the place (x, y) of its box at height h: pk {box, info, w, h}
-  const landWorldPx = (pk, x, y, h) => {
+  const landWorldPx = (pk, x, y, h) => project(pk, pk.info.MVP, landWorld(pk, x, y, h));
+  // a Landscape frame's world point of the place (x, y) of its box at height h: x and y over the box at its aspect
+  function landWorld(pk, x, y, h) {
     const b = pk.box, [ax, ay] = pk.info.aspect;
-    return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
-  };
+    return [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h];
+  }
   // the last Landscape frame's pane position (CSS px) of the surface point over (x, y) of its plane, null with no pick data
   // or no surface there
   window.__cmwLandSurfacePx = (x, y) => {
@@ -676,8 +678,7 @@
   // of them
   const GEO_G = 12, GEO_EPS = 1e-3, GEO_NEAR = 30;
   function landGeo(f, F, hgt) {
-    const b = f.box, [ax, ay] = f.info.aspect;
-    const world = (x, y, ht) => [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, ht];
+    const world = (x, y, ht) => landWorld(f, x, y, ht);
     const scr = (p) => project(f, f.info.MVP, p);
     const scale = (p) => {
       const q = scr(p);

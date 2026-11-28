@@ -788,16 +788,15 @@
   // span (in its log radius), at LAND_WALL_FINE points a column, the crossing bisected; kept where the rings agree to a
   // column. {d: their angles in the order the ring's decreasing angle meets them, from [0, 2 pi), e: LAND_WALL_E, b:
   // LAND_WALL_B} for the ring's columns to crowd toward them (GLR.wallTheta, CARRY_ZIN), or null: none, or more than
-  // LAND_WALL_MAX. The height's map does not move with the glide, so they are measured once per chain, carry and ring
-  const LAND_WALL_AT = [0.3, 0.45, 0.6], LAND_WALL_FINE = 8, LAND_WALL_MAX = 4, LAND_WALL_E = 1e-4, LAND_WALL_B = 0.85, svLandWallMemo = new Map();
+  // GLR.WALL_SLOTS. The height's map does not move with the glide, so they are measured once per chain, carry and ring
+  const LAND_WALL_AT = [0.3, 0.45, 0.6], LAND_WALL_FINE = 8, LAND_WALL_E = 1e-4, LAND_WALL_B = 0.85, svLandWallMemo = new Map();
   const LAND_WALL_BOX = [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7], [0.35, 0.85], [0.7, 0.15], [0.15, 0.8], [0.85, 0.2], [0.5, 0.1], [0.5, 0.9]];
   function svLandFarWalls(carry, ring) {
     if (carry.plain || !(S.height === 're' || S.height === 'im')) return null;
     const key = JSON.stringify([chainSig[nSteps()], carry.s, carry.hT == null ? carry.T : carry.hT, S.height, ring]);
     if (svLandWallMemo.has(key)) return svLandWallMemo.get(key);
     if (svLandWallMemo.size > 16) svLandWallMemo.clear();
-    let out = null;
-    try { out = svLandWallsOf(cpuMap(carry.hmap), carry.vs ? landBox(carry.vs) : null, ring); } catch (e) { out = null; }
+    const out = svLandWallsOf(cpuMap(carry.hmap), carry.vs ? landBox(carry.vs) : null, ring);
     svLandWallMemo.set(key, out);
     return out;
   }
@@ -815,9 +814,9 @@
       for (let k = 1; k <= M; k++) {
         const th1 = ((k + 0.5) * 2 * Math.PI) / M, b = at(th1);
         if (Number.isFinite(a) && Number.isFinite(b) && Math.sign(a) !== Math.sign(b)) {
-          let lo = th0, hi = th1, fl = a;
-          for (let it = 0; it < 40; it++) { const mid = (lo + hi) / 2, fm = at(mid); if (!Number.isFinite(fm)) break; if (Math.sign(fm) === Math.sign(fl)) { lo = mid; fl = fm; } else hi = mid; }
-          const t = (lo + hi) / 2, p = at(t + col / 2), q = at(t - col / 2);
+          let tLo = th0, tHi = th1, fl = a;
+          for (let it = 0; it < 40; it++) { const mid = (tLo + tHi) / 2, fm = at(mid); if (!Number.isFinite(fm)) break; if (Math.sign(fm) === Math.sign(fl)) { tLo = mid; fl = fm; } else tHi = mid; }
+          const t = (tLo + tHi) / 2, p = at(t + col / 2), q = at(t - col / 2);
           if (Math.abs(p) > s0 && Math.abs(q) > s0 && Math.sign(p) !== Math.sign(q)) out.push(((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI));
         }
         th0 = th1; a = b;
@@ -826,7 +825,7 @@
     });
     const mid = walls[1], near = (x, y) => { const g = Math.abs(x - y) % (2 * Math.PI); return Math.min(g, 2 * Math.PI - g) < col; };
     const kept = mid.filter((t) => walls.every((L) => L.some((u) => near(u, t))));
-    if (!kept.length || kept.length > LAND_WALL_MAX) return null;
+    if (!kept.length || kept.length > GLR.WALL_SLOTS) return null;
     // (in the order the ring's decreasing angle meets them, from the largest)
     const d = kept.sort((x, y) => y - x);
     return { d, e: LAND_WALL_E, b: LAND_WALL_B };

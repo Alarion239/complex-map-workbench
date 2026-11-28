@@ -399,21 +399,29 @@
   // cut of the map, torn and left out), then K[k] cells over the arc to the next wall less e, L[k] long, at the angles
   // d[k] - e - L[k] g(t), g(t) = (1 - b) t + b (1 - cos(pi t)) / 2, t from 0 to 1: b times finer next to the walls than
   // uniform. Each arc has columns in proportion to its length, at least WALL_MIN_K; the last column is column 0's angle
-  // less 2 pi, so the ring is closed. -> {s, d, L, K} of up to 4 walls, or null where the grid has too few columns
+  // less 2 pi, so the ring is closed. -> {s, d, L, K} of up to WALL_SLOTS walls, or null where the grid has too few columns
   const WALL_MIN_K = 4;
   function wallLayout(w, n) {
     const m = n - 1, N = w.d.length, d = [...w.d, w.d[0] - 2 * Math.PI], L = w.d.map((x, k) => d[k] - d[k + 1] - 2 * w.e);
     const room = m - N, tot = L.reduce((a, x) => a + x, 0);
-    if (N > 4 || room < WALL_MIN_K * N || L.some((x) => !(x > 0))) return null;
+    if (N > WALL_SLOTS || room < WALL_MIN_K * N || L.some((x) => !(x > 0))) return null;
     const K = L.map((x) => Math.max(WALL_MIN_K, Math.round((room * x) / tot)));
     K[N - 1] = room - K.slice(0, N - 1).reduce((a, x) => a + x, 0);
     if (K[N - 1] < WALL_MIN_K) return null;
     const S = K.map((x, k) => k + K.slice(0, k).reduce((a, y) => a + y, 0));
     return { s: S, d: w.d, L, K };
   }
+  // wallLayout(w, n), kept on w per n (svPatchZ asks it for each of a ring's n x n points)
+  const wallLayouts = new WeakMap();
+  function wallLayoutOf(w, n) {
+    let m = wallLayouts.get(w);
+    if (!m) wallLayouts.set(w, (m = new Map()));
+    if (!m.has(n)) m.set(n, wallLayout(w, n));
+    return m.get(n);
+  }
   // the column angle of an n x n ring with walls w at grid column i (as CARRY_ZIN places it), or null without a layout
   function wallTheta(w, i, n) {
-    const o = wallLayout(w, n);
+    const o = wallLayoutOf(w, n);
     if (!o) return null;
     let k = 0;
     for (let q = 1; q < o.s.length; q++) if (i >= o.s[q]) k = q;
@@ -424,10 +432,10 @@
   // the wall layout's uniforms (CARRY_ZIN) for polar's grid of n x n: none (uWallN 0) for a grid without walls, a seamed
   // patch's or the box's. Only the single surface's carry places by them (carryHeights, its draw); All sheets' grids do not
   function wallUniforms(P, polar, n) {
-    const w = polar && !polar.seam && polar.walls ? polar.walls : null, o = w ? wallLayout(w, n) : null;
+    const w = polar && !polar.seam && polar.walls ? polar.walls : null, o = w ? wallLayoutOf(w, n) : null;
     u1i(P, 'uWallN', o ? o.s.length : 0);
     if (!o) return;
-    const v4 = (a) => [0, 1, 2, 3].map((k) => (k < a.length ? a[k] : 0));
+    const v4 = (a) => Array.from({ length: WALL_SLOTS }, (_, k) => (k < a.length ? a[k] : 0));
     u4f(P, 'uWallS', ...v4(o.s)); u4f(P, 'uWallD', ...v4(o.d)); u4f(P, 'uWallL', ...v4(o.L)); u4f(P, 'uWallK', ...v4(o.K));
     u1f(P, 'uWallB', w.b); u1f(P, 'uWallE', w.e);
   }

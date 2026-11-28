@@ -583,6 +583,7 @@ void main() {
   // of its neighbours' along the same line, and over CARRY_JUMP_PX css px at the fitted scale: LAND_CARRY_NRM_VS)
   const CARRY_JUMP_J = 4, CARRY_JUMP_PX = 2;
   const SEAM_RINGS = 9;    // (the rings a patch's seam is measured on, svPatchSeam, and given to CARRY_ZIN as uSeam)
+  const WALL_SLOTS = 4;    // (the walls an outer far ring's layout holds: CARRY_ZIN's vec4 uniforms uWallS, uWallD, uWallL, uWallK)
   const CARRY_ZIN = `
 uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[${SEAM_RINGS}]; uniform float uSeamEnd;
 uniform int uWallN; uniform vec4 uWallS; uniform vec4 uWallD; uniform vec4 uWallL; uniform vec4 uWallK; uniform float uWallB; uniform float uWallE;
@@ -597,7 +598,7 @@ vec2 carryZIn(vec4 src, vec2 ij) {
     th = mix(uSeam[k], uSeam[k + 1], t - float(k)) - e - (6.283185307179586 - 2.0 * e) * ij.x * f;
   } else if (uWallN > 0) {
     int k = 0;
-    for (int q = 1; q < 4; q++) if (q < uWallN && ij.x >= uWallS[q]) k = q;
+    for (int q = 1; q < ${WALL_SLOTS}; q++) if (q < uWallN && ij.x >= uWallS[q]) k = q;
     float s = uWallS[k], d = uWallD[k];
     if (ij.x < s + 1.0) th = d + uWallE - 2.0 * uWallE * (ij.x - s);
     else {
