@@ -1,8 +1,9 @@
-// Frames with the tour running, at 1440 (mouse) and 390 (touch): a countdown filling Next while the pointer hovers X; the
-// Grieg piece playing with its captions; and how often the panes change size through a chapter. Each frame window has a
-// control that its activity runs in it, so a window can't measure an idle page:
-// - the countdown: Next fills (its class counting, its --tour-cd set) as the window starts, and the countdown has moved
-//   the tour on to the next step by its end (the countdown is shorter than the window);
+// Frames with the tour running, at 1440 (mouse) and 390 (touch): a countdown filling Next while the pointer hovers X,
+// and the tour moving on to the next step when it ends; the Grieg piece playing with its captions; and how often the
+// panes change size through a chapter. Each frame window has a control that its activity runs in it, so a window can't
+// measure an idle page:
+// - the countdown: Next fills (its class counting, its --tour-cd set) on the plane step as the window starts, and the
+//   countdown has moved the tour on to the next step by its end (the countdown is shorter than the window);
 // - the piece: the Listen button says «Stop listening» as the window starts and as it ends.
 // It runs in the steps view (ci/suite_views.js: steps({ pin: true })).
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -13,6 +14,7 @@ const TOUR = `typeof Tour === 'object' && typeof __qa === 'object'`;
 const running = `Tour.isActive()`;
 // (the page's own frames, not a clock: __qa.frames' window is the measurement itself, a control that must last as long as it says)
 const frames = (ms) => ev(`await __qa.frames(${ms})`);
+const FILL_MS = 5000;
 const nextFrame = () => ev('new Promise((r) => requestAnimationFrame(() => r(1)))');
 // (the countdown as Next shows it, and the step the tour is on; the Listen button's name, which is
 // «Stop listening» while the piece plays)
@@ -43,13 +45,15 @@ for (const [w, h, mob] of [[1440, 900, false], [390, 844, true]]) {
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a[0], y: a[1], button: 'left', clickCount: 1 });
   for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a[0] + 6 * i, y: a[1], button: 'left', buttons: 1 }); await nextFrame(); }   // (one move per drawn frame)
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: a[0] + 60, y: a[1], button: 'left', clickCount: 1 });
+  // (the fill starts once the drag's step is done, which can be a frame after the release)
+  const filling = await settled({ only: true, max: FILL_MS, until: `!!document.querySelector('.ts-next.counting')` });
   const cd0 = await ev(COUNTDOWN);
   R['countdown_' + w] = await frames(2500);
   const cd1 = await ev(COUNTDOWN);
-  R['countdownRun_' + w] = { start: cd0, end: cd1 };
-  check(`${w}: control: the countdown fills Next as the frame window starts`, cd0.counting && parseFloat(cd0.cd) > 0, cd0);
+  R['countdownRun_' + w] = { filling, start: cd0, end: cd1 };
+  check(`${w}: control: the countdown fills Next on the plane step as the frame window starts`, filling.ok && cd0.counting && parseFloat(cd0.cd) > 0 && cd0.step === 'planes:plane', R['countdownRun_' + w]);
   check(`${w}: control: the countdown has moved the tour on to the next step by the window's end`, !!cd0.step && !!cd1.step && cd1.step !== cd0.step, R['countdownRun_' + w]);
-  check(`${w}: 60 fps while the countdown fills Next (p95 under 20 ms)`, R['countdown_' + w].p95 < 20, R['countdown_' + w]);
+  check(`${w}: 60 fps while the countdown fills Next and the tour moves on to the next step (p95 under 20 ms)`, R['countdown_' + w].p95 < 20, R['countdown_' + w]);
   // the Grieg piece with captions
   await ev(`Sound.set({ on: true, events: true }, { quiet: true }); 1`);
   await ev(`Tour.start({ chapter: 'sound', step: 0 })`); await settled({ until: `${running} && !!document.querySelector('.ts-act')` });
