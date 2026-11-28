@@ -336,9 +336,13 @@ if (process.env.CMW_ONLY !== '1-3') {
   // glides over the sheets (the carried sheets, GLR.drawLandscape's landCarryPlace). Playing √z from z: a frame between the
   // planes draws both sheets, the title says so, and the play ends on w_1, the colour plane, with one surface
   await loadSt(`u5splay${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
-  await ev(`__cmwSteps({ surf: 'land', clock: 40 }); 1`); await settled({ until: '__cmwLandSheets().drawn && __cmwLandSheets().drawn.K === 2', max: 20000 });
+  // (the waits below are for a condition alone: what is read after each is the page's hooks, which the pane's refining does not hold, and settled()'s
+  // quiet would count that refining against the cap on a loaded runner; the cap is the play's, not the refining's)
+  const PLAY_MS = 60000;
+  await ev(`__cmwSteps({ surf: 'land', clock: 40 }); 1`);
+  const drawnAt = await settled({ until: '__cmwLandSheets().drawn && __cmwLandSheets().drawn.K === 2', max: PLAY_MS, only: true });
   const at0 = await ev('__cmwLandSheets()');
-  ok('sheets, steps play: at rest on z both sheets are drawn', at0 && at0.drawn && at0.drawn.K === 2, at0 && at0.drawn);
+  ok('sheets, steps play: at rest on z both sheets are drawn', drawnAt.ok && at0 && at0.drawn && at0.drawn.K === 2, at0 && at0.drawn);
   await key('m');
   let mid = null, x = 0;
   for (let i = 0; i < 100 && !(x > 0.25 && x < 0.9 && mid && mid.drawn); i++) { await sleep(120); x = await ev('__cmwSvX()'); mid = await ev('__cmwLandSheets()'); }
@@ -346,10 +350,10 @@ if (process.env.CMW_ONLY !== '1-3') {
   ok('sheets, steps play: a frame of the glide draws both sheets', !!(mid && mid.drawn && mid.drawn.K === 2), mid && mid.drawn);
   ok('sheets, steps play: the glide\'s title says both sheets', !!(mid && /both sheets/.test(mid.title)), mid && mid.title);
   R.u5.caps.play = { x, drawn: mid && mid.drawn, title: mid && mid.title };
-  await settled({ until: '__cmwSvX() >= 0.999', max: 20000 });
+  const arrived = await settled({ until: '__cmwSvX() >= 0.999', max: PLAY_MS, only: true });
   const end = await ev('__cmwSvX()'), done = await ev('__cmwLandSheets()');
   // (w_1 is the colour plane: its F is the identity, one surface and no sheets)
-  ok('sheets, steps play: it arrives on w_1, the colour plane, and the sheets are gone', end >= 0.999 && done && !done.drawn, { end, drawn: done && done.drawn });
+  ok('sheets, steps play: it arrives on w_1, the colour plane, and the sheets are gone', arrived.ok && end >= 0.999 && done && !done.drawn, { end, drawn: done && done.drawn });
   // (√ then sin: the play from w_1 glides across the sin step, whose frames keep √'s two sheets; a slow clock keeps
   // the play between the planes while the carry's program compiles)
   await loadSt(`u5splaysin${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
