@@ -72,11 +72,9 @@
     if (!c.ref) Object.assign(t, { onMake: true, label: c.label });
     return t;
   }
-  // the name a pick has, or will take when it becomes a point (a new point is the next z_n, or the next target letter)
-  function pickName(p, side) {
+  // the name a pick has, or will take when it becomes a point (a new point is the next z_n)
+  function pickName(p) {
     if (p && p.cls === 'point' && p.ref) return refName(p.ref);
-    const st = S();
-    if (side === 'R') return A.targetLabel({}, st.targets.filter((x) => x.kind === 'point').length);
     return A.pointLabel({ num: A.nextPointNum() }, 0, 0);
   }
   // after T: the tangent at T as a line form (C a circle), else null
@@ -95,7 +93,7 @@
     let h = null;
     try { h = Constr.tangentNear(pc.G, Tp.z, [zc.re, zc.im]); } catch (e) { h = null; }
     if (!h || !(h.d * pane.view.s <= radii(touchNow()).p)) return null;
-    return { cls: 'hint', ref: { inf: 1 }, z: h.z, G: h.G, label: $t('the tangent at {a}', { a: pickName(Tp, side) }) };
+    return { cls: 'hint', ref: { inf: 1 }, z: h.z, G: h.G, label: $t('the tangent at {a}', { a: pickName(Tp) }) };
   }
   // the tangent at T in one step, without aiming at the dashed line: the chip's Tangent line and Enter, once T is
   // picked on a circle
@@ -128,7 +126,7 @@
     const pane = A.setView(side);
     let best = null, bd = radii(touchNow()).p;
     for (const r of ringsLeft(Pp.z)) { const [sx, sy] = pane.w2sxy(r.tp[0], r.tp[1]), dd = Math.hypot(sx - x, sy - y); if (dd < bd) { bd = dd; best = r; } }
-    return best ? { cls: 'ring', ref: null, z: best.tp.slice(), k: best.k, G: best.G, label: $t('a tangent from {p}', { p: pickName(Pp, side) }) } : null;
+    return best ? { cls: 'ring', ref: null, z: best.tp.slice(), k: best.k, G: best.G, label: $t('a tangent from {p}', { p: pickName(Pp) }) } : null;
   }
   // what a click at (x, y) takes: {t} (t.role 'T' or 'P'; a hint, a ring) or {t?, warn} (the toast it gives, the
   // target it refuses). First X: T when it is on C, else P. After T: points and crossings, the tangent hint, strokes, a
@@ -175,14 +173,14 @@
   // the touching circle (or, from a ring, the tangent and its touching point): the new points first, then K, one undo
   // step; a display curve becomes a shape first, and K takes the colour after it. The curve stays picked
   function finishTouch(side, ring) {
-    const d = draftC, target = side === 'R', c1 = d.curve1, pc = curve1Piece(c1);
+    const d = draftC, c1 = d.curve1, pc = curve1Piece(c1);
     const pre = [], shapes = [], out = [];
     let cref = c1.ref;
-    if (c1.make) { const C = A.newShape(c1.make.kind, JSON.parse(JSON.stringify(c1.make)), target); pre.push(C); cref = { s: C.id, part: 0 }; }
+    if (c1.make) { const C = A.newShape(c1.make.kind, JSON.parse(JSON.stringify(c1.make))); pre.push(C); cref = { s: C.id, part: 0 }; }
     const refOf = (p) => {
       if (p.cls === 'hint') return { inf: 1 };
-      if (p.cls === 'free') { const q = A.newShape('point', { p: p.z.slice() }, target); shapes.push(q); return { s: q.id }; }
-      const m = materialize(p.onMake ? Object.assign({}, p, { ref: cref }) : p, side, { made: c1.make && pre[0] ? { [c1.make.fixed]: pre[0] } : {} });
+      if (p.cls === 'free') { const q = A.newShape('point', { p: p.z.slice() }); shapes.push(q); return { s: q.id }; }
+      const m = materialize(p.onMake ? Object.assign({}, p, { ref: cref }) : p, { made: c1.make && pre[0] ? { [c1.make.fixed]: pre[0] } : {} });
       shapes.push(...m.shapes);
       return m.ref;
     };
@@ -199,20 +197,20 @@
       let g = null;
       try { g = Constr.shapeOf(ring.G); } catch (e) { g = null; }
       pRef = refOf(Pp);
-      s = A.newShape('line', Object.assign(g && g.kind === 'line' ? { a: g.a, b: g.b } : { a: Pp.z.slice(), b: ring.z.slice() }, { def: { op: 'tangent', args: [cref, pRef], index: ring.k, fill: 'none' } }), target);
-      out.push(s, A.newShape('point', { p: ring.z.slice(), def: { op: 'meet', args: [{ s: s.id, part: 0 }, cref], index: 0 } }, target));
+      s = A.newShape('line', Object.assign(g && g.kind === 'line' ? { a: g.a, b: g.b } : { a: Pp.z.slice(), b: ring.z.slice() }, { def: { op: 'tangent', args: [cref, pRef], index: ring.k, fill: 'none' } }));
+      out.push(s, A.newShape('point', { p: ring.z.slice(), def: { op: 'meet', args: [{ s: s.id, part: 0 }, cref], index: 0 } }));
     } else {
       const tr = refOf(Tp), pr = refOf(Pp);
       let g = null;
       try { const r = pc && pc.G ? Constr.touchForm(pc.G, Tp.z, pr.inf ? Constr.INF : Pp.z) : null; g = r && r.G ? Constr.shapeOf(r.G) : null; } catch (e) { g = null; }
       const base = g ? (g.kind === 'line' ? { a: g.a, b: g.b } : { c: g.c, r: g.r }) : { c: Tp.z.slice(), r: 1 };
-      s = A.newShape(g ? g.kind : 'circle', Object.assign(base, { def: { op: 'touch', args: [cref, tr, pr], fill: 'none', nk: g && g.kind === 'line' ? 'line' : 'circle' } }), target);
+      s = A.newShape(g ? g.kind : 'circle', Object.assign(base, { def: { op: 'touch', args: [cref, tr, pr], fill: 'none', nk: g && g.kind === 'line' ? 'line' : 'circle' } }));
       out.push(s);
     }
-    if (pre.length) s.ci = A.nextCi(target, 1);
+    if (pre.length) s.ci = A.nextCi(1);
     draftC = null;
     holdRing();
-    api.cm.create(pre.concat(shapes, out), { target });
+    api.cm.create(pre.concat(shapes, out));
     draftC = { tool: 'touch', side, picks: [], curve1: { cls: 'curve', ref: cref, z: c1.z }, hover: null, keptC: true };
     // (a ring: P stays picked, with the other ring still offered; the second tangent is one click)
     if (ring && pRef && find(pRef.s)) Object.assign(draftC, { picks: [{ cls: 'point', ref: pRef, z: Pp.z.slice(), role: 'P' }], carried: true, doneK: (d.doneK || []).concat([ring.k]) });
@@ -220,22 +218,21 @@
     A.tourEmit('construct-added', { op: ring ? 'tangent' : 'touch' });
   }
   // the picks as refs (new free points, meet points and points on curves made in the same undo step)
-  function refsOfPicks(side, made) {
+  function refsOfPicks(made) {
     const shapes = [], refs = [];
-    const target = side === 'R';
     for (const p of draftC.picks) {
-      if (p.cls === 'free') { const s = A.newShape('point', { p: p.z.slice() }, target); shapes.push(s); refs.push({ s: s.id }); continue; }
-      const m = materialize(p, side, { made });
+      if (p.cls === 'free') { const s = A.newShape('point', { p: p.z.slice() }); shapes.push(s); refs.push({ s: s.id }); continue; }
+      const m = materialize(p, { made });
       shapes.push(...m.shapes); refs.push(m.ref);
     }
     return { shapes, refs };
   }
   function finish(side) {
-    const d = draftC, tool = d.tool, target = side === 'R';
+    const d = draftC, tool = d.tool;
     // (a display curve picked as C becomes one shape, made first: the picks on it are points on it)
     const made = {};
-    if (CURVE1.has(tool) && d.curve1 && d.curve1.make) made[d.curve1.make.fixed] = A.newShape(d.curve1.make.kind, JSON.parse(JSON.stringify(d.curve1.make)), target);
-    const { shapes, refs } = refsOfPicks(side, made);
+    if (CURVE1.has(tool) && d.curve1 && d.curve1.make) made[d.curve1.make.fixed] = A.newShape(d.curve1.make.kind, JSON.parse(JSON.stringify(d.curve1.make)));
+    const { shapes, refs } = refsOfPicks(made);
     const P = d.picks.map((p) => p.z);
     const pre = [];
     let s, next = null;
@@ -245,13 +242,13 @@
       const g = G ? Constr.geomOf(G) : null;
       const fin = P.find(isXY) || [0, 0];
       const base = g && !g.line ? { c: g.c, r: g.r } : { c: fin.slice(), r: 1 };
-      s = A.newShape(fillMode === 'in' ? 'disc' : 'circle', Object.assign(base, { def: { op: 'circle3', args: refs, fill: fillMode } }), target);
+      s = A.newShape(fillMode === 'in' ? 'disc' : 'circle', Object.assign(base, { def: { op: 'circle3', args: refs, fill: fillMode } }));
     } else if (tool === 'perp' || tool === 'hyper') {
       // K's starting fields (recompute sets them exactly); a display curve becomes a shape first, in the same undo step,
       // and K then takes the next colour
       const c1 = d.curve1, pc = curve1Piece(c1);
       let cref = c1.ref;
-      if (c1.make) { const C = made[c1.make.fixed] || A.newShape(c1.make.kind, JSON.parse(JSON.stringify(c1.make)), target); pre.push(C); cref = { s: C.id, part: 0 }; }
+      if (c1.make) { const C = made[c1.make.fixed] || A.newShape(c1.make.kind, JSON.parse(JSON.stringify(c1.make))); pre.push(C); cref = { s: C.id, part: 0 }; }
       let g = null;
       try { const r = pc && pc.G && isXY(P[0]) && isXY(P[1]) ? Constr.perpForm(pc.G, P[0], P[1], pc) : null; g = r && r.G ? Constr.shapeOf(r.G) : null; } catch (e) { g = null; }
       const base = g ? (g.kind === 'line' ? { a: g.a, b: g.b } : { c: g.c, r: g.r }) : { c: (P.find(isXY) || [0, 0]).slice(), r: 1 };
@@ -261,65 +258,64 @@
       const sm = effSeg(tool);
       // ([issue #70] Between z0 and z1: def.between, the segment from the first point to the second; no side to choose)
       if (sm !== 'whole' && sm !== 'between') { try { seg = Constr.segSideOf(pre[0] || find(cref.s), pc, P[0], P[1]); } catch (e) { seg = 0; } if (sm === 'out') seg = -seg; }
-      s = A.newShape(g ? g.kind : 'circle', Object.assign(base, { def: Object.assign({ op: 'perp', args: [cref].concat(refs), fill: 'none', nk: seg || sm === 'between' ? 'hyper' : g && g.kind === 'line' ? 'line' : 'circle' }, seg ? { seg } : {}, sm === 'between' ? { between: 1 } : {}) }), target);
-      if (pre.length) s.ci = A.nextCi(target, 1);
+      s = A.newShape(g ? g.kind : 'circle', Object.assign(base, { def: Object.assign({ op: 'perp', args: [cref].concat(refs), fill: 'none', nk: seg || sm === 'between' ? 'hyper' : g && g.kind === 'line' ? 'line' : 'circle' }, seg ? { seg } : {}, sm === 'between' ? { between: 1 } : {}) }));
+      if (pre.length) s.ci = A.nextCi(1);
       next = { tool, side, picks: [], curve1: { cls: 'curve', ref: cref, z: c1.z }, hover: null, keptC: true };
     } else if (tool === 'midpoint') {
-      s = A.newShape('point', { p: isXY(P[0]) && isXY(P[1]) ? [(P[0][0] + P[1][0]) / 2, (P[0][1] + P[1][1]) / 2] : [0, 0], def: { op: 'midpoint', args: refs } }, target);
+      s = A.newShape('point', { p: isXY(P[0]) && isXY(P[1]) ? [(P[0][0] + P[1][0]) / 2, (P[0][1] + P[1][1]) / 2] : [0, 0], def: { op: 'midpoint', args: refs } });
     } else {
-      s = A.newShape('line', { a: isXY(P[0]) ? P[0].slice() : [0, 0], b: isXY(P[1]) ? P[1].slice() : [1, 0], def: { op: 'bisector', args: refs } }, target);
+      s = A.newShape('line', { a: isXY(P[0]) ? P[0].slice() : [0, 0], b: isXY(P[1]) ? P[1].slice() : [1, 0], def: { op: 'bisector', args: refs } });
     }
     draftC = null;
     holdRing();
-    api.cm.create(pre.concat(shapes, [s]), { target });
+    api.cm.create(pre.concat(shapes, [s]));
     // (the perpendicular circle: the curve stays picked; Backspace with no points, or Esc, drops it)
     if (next) draftC = next;
     A.requestRender('OL', 'OR');
     A.tourEmit('construct-added', { op: tool === 'hyper' ? 'perp' : tool, tool });
   }
   function holdRing() { ringHold = lastEv ? [lastEv.clientX, lastEv.clientY] : null; ring = null; }
-  function finishMeetCross(t, side) {
-    const m = materialize(t, side, {});
+  function finishMeetCross(t) {
+    const m = materialize(t, {});
     draftC = null;
     holdRing();
-    api.cm.create(m.shapes, { target: side === 'R' });
+    api.cm.create(m.shapes);
     A.requestRender('OL', 'OR');
     A.tourEmit('construct-added', { op: 'meet' });
   }
   // two curves: both points (one for two lines), those that exist
-  function finishMeetCurves(c1, c2, side) {
+  function finishMeetCurves(c1, c2) {
     draftC = null;
     const a = find(c1.ref.s), b = find(c2.ref.s);
     const pa = a && piecesOf(a)[c1.ref.part], pb = b && piecesOf(b)[c2.ref.part];
-    const target = side === 'R';
     const out = [];
     if (pa && pb && (pa.kind === 'traced' || pb.kind === 'traced')) {
       const m = Constr.meetNear(pa, pb, c2.z, null);
-      if (m) out.push(A.newShape('point', { p: m.z.slice(), def: { op: 'meet', args: [c1.ref, c2.ref], seed: m.seed || m.z } }, target));
+      if (m) out.push(A.newShape('point', { p: m.z.slice(), def: { op: 'meet', args: [c1.ref, c2.ref], seed: m.seed || m.z } }));
     } else if (pa && pb) {
       let ms = [];
       try { ms = Constr.meets(pa, pb); } catch (e) { ms = []; }
       for (const m of ms) {
         if (!isXY(m.z) || !Constr.onPiece(pa, m.z) || !Constr.onPiece(pb, m.z)) continue;
         if (out.some((q) => Math.hypot(q.p[0] - m.z[0], q.p[1] - m.z[1]) < 1e-12)) continue;   // (tangency: one point)
-        out.push(A.newShape('point', { p: m.z.slice(), def: { op: 'meet', args: [c1.ref, c2.ref], index: m.index } }, target));
+        out.push(A.newShape('point', { p: m.z.slice(), def: { op: 'meet', args: [c1.ref, c2.ref], index: m.index } }));
       }
     }
     A.requestRender('OL', 'OR');
     // two parallel lines meet only at ∞: said so, not "here"
     if (!out.length) { pickWarn(pa && pb && pa.kind === 'line' && pb.kind === 'line' ? $t('These lines are parallel: they meet only at ∞') : $t('The curves do not meet here')); A.requestRender('OL', 'OR'); return; }
     holdRing();
-    api.cm.create(out, { target });
+    api.cm.create(out);
     A.tourEmit('construct-added', { op: 'meet' });
   }
   // ---------------------------------------------------------------- picks on an editable globe (SPEC 12)
-  // The same point targets as the plane (points, other shapes' handles, f₁'s zeros and poles; in Y the images F(z₀)),
-  // projected to the globe, and N (∞) for Circle through 3 points: circle(P, Q, ∞) is the line through P and Q. A pick on
-  // the globe elsewhere makes a free point there. (Crossings and curves are picked in the plane.)
-  function globeTargets(side) {
+  // The same point targets as the plane (points, other shapes' handles, f₁'s zeros and poles; on a later plane the images
+  // F(z₀) of the z-plane's points), projected to the globe, and N (∞) for Circle through 3 points: circle(P, Q, ∞) is the
+  // line through P and Q. A pick on the globe elsewhere makes a free point there. (Crossings and curves are picked in the
+  // plane.)
+  function globeTargets() {
     const st = S(), out = [];
-    const list = side === 'R' ? st.targets : st.shapes;
-    for (const s of list) {
+    for (const s of st.shapes) {
       if (s.visible === false) continue;
       if (s.kind === 'point') { if (!s._atInf && isXY(s.p)) out.push({ z: s.p, ref: { s: s.id } }); continue; }
       if (s.def || GRID.has(s.kind)) continue;
@@ -327,7 +323,7 @@
       try { hs = Region.handlesOf(s); } catch (e) { hs = []; }
       for (const [k, hz] of hs) if (POS.test(k) && !(s.at && s.at[k])) out.push({ z: [hz.re, hz.im], ref: { s: s.id, h: k } });
     }
-    if (side === 'L' && A.leftStage() === 0) {
+    if (A.leftStage() === 0) {
       const f1 = st.steps[0];
       if (f1 && f1.type === 'zp' && f1.on !== false && f1.uid && f1.zpIds) for (const kind of ['zeros', 'poles']) {
         const vs = env().zpAll ? env().zpAll(f1, kind) : [];
@@ -351,10 +347,10 @@
     if (!draftC || draftC.tool !== tool || draftC.side !== side) draftC = { tool, side, picks: [], curve1: null, hover: null };
     // (the draft's picks that become points are targets: a press on one is refused)
     draftC.picks.forEach((p, i) => { if (p.cls !== 'point' && isXY(p.z)) consider(Region.Globe.lift(p.z[0], p.z[1]), { pend: i }, p.z.slice()); });
-    for (const t of globeTargets(side)) consider(Region.Globe.lift(t.z[0], t.z[1]), t.ref, t.z.slice());
+    for (const t of globeTargets()) consider(Region.Globe.lift(t.z[0], t.z[1]), t.ref, t.z.slice());
     if (tool === 'circle3') consider([0, 0, 1], { inf: 1 }, Constr.INF);
     // (a pick on a drawn curve is a point on it, as on the plane: the construction is exact on it)
-    if (!best && !altNow()) best = globeCurveAt(side, gp.g, x, y, gp.gc, gp.hit);
+    if (!best && !altNow()) best = globeCurveAt(gp.g, x, y, gp.gc, gp.hit);
     if (!best) { if (!gp.g.z) return true; best = { cls: 'free', z: [gp.g.z.re, gp.g.z.im], ref: null }; }
     if (dupPick(best)) { pickWarn($t('{x} needs distinct points', { x: warnTool(tool) })); return true; }
     draftC.picks.push(best); pickOk();

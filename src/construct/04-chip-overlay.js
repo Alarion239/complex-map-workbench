@@ -159,7 +159,7 @@
         // ([issue #70] the Hyperbolic line tool: the whole line, or the segment between the two points)
         else if (tool === 'hyper') box.append(segBox = mkSeg(false, ['in', 'between']));
         // the touching circle after T on a circle: the tangent at T in one click (or Enter)
-        if (tan) box.append(A.h('span', { class: 'cm-seg cm-tan' + (chipTouch() ? ' cm-touch' : '') }, A.h('button', { type: 'button', class: 'cm-sb', title: $t('The tangent at {a} (Enter)', { a: pickName(draftC.picks[0], side) }), onclick: (e) => { e.stopPropagation(); tangentNow(); } }, $t('Tangent line'))));
+        if (tan) box.append(A.h('span', { class: 'cm-seg cm-tan' + (chipTouch() ? ' cm-touch' : '') }, A.h('button', { type: 'button', class: 'cm-sb', title: $t('The tangent at {a} (Enter)', { a: pickName(draftC.picks[0]) }), onclick: (e) => { e.stopPropagation(); tangentNow(); } }, $t('Tangent line'))));
         if (chipTouch()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
         if (segBox && !chipTouch() && plot) {
           // (the words fit when the text stays on one line and the chip inside its plane)
@@ -194,8 +194,8 @@
   // ---------------------------------------------------------------- the overlay: the ring, its chip, the preview
   // a crossing gone to ∞ (its two lines made parallel) is not lost from the plane: a hollow marker sits at
   // the plane's edge where each line leaves it, toward ∞, with "∞" beside it (its row says why)
-  function drawInfMarks(pane, side, ctx, TH) {
-    const list = listOf(side);
+  function drawInfMarks(pane, ctx, TH) {
+    const list = A.planeShapes();
     for (const s of list) {
       if (s.kind !== 'point' || !s._atInf || s.visible === false || !s.def || s.def.op !== 'meet') continue;
       for (const r of s.def.args.slice(0, 2)) {
@@ -231,17 +231,17 @@
   }
   function drawOverlay(pane, side) {
     const ctx = pane.octx, TH = A.TH();
-    drawInfMarks(pane, side, ctx, TH);
+    drawInfMarks(pane, ctx, TH);
     // during a gesture only, an undefined construction shows its last good shape, dashed at 30 %
-    if (A.dragging()) drawGhosts(pane, side, ctx);
+    if (A.dragging()) drawGhosts(pane, ctx);
     // a construction tool's picks and its dashed preview through the pointer
-    if (draftC && draftC.side === side) drawPreview(pane, side, ctx, TH);
+    if (draftC && draftC.side === side) drawPreview(pane, ctx, TH);
     // the selected shape's bound handles: small rings (a bound handle has no square)
     const sel = A.selected() && find(A.selected());
     // a selected construction shows what it is built from: a ring on each defining point, its curves
     // drawn wide and faint (so "drag those" is visible, on touch too)
-    if (sel && (sel.def || sel.at) && (side === 'R') === isT(sel) && !A.dragging()) drawSources(pane, side, ctx, sel, TH);
-    if (sel && sel.at && (side === 'R') === isT(sel)) {
+    if (sel && (sel.def || sel.at) && !isT(sel) && !A.dragging()) drawSources(pane, ctx, sel, TH);
+    if (sel && sel.at && !isT(sel)) {
       ctx.save();
       for (const [k, hz] of Region.handlesOf(sel)) {
         if (!sel.at[k]) continue;
@@ -311,8 +311,8 @@
     ctx.restore();
   }
   // the defining points (rings) and curves (wide, faint) of a selected construction
-  function drawSources(pane, side, ctx, sel, TH) {
-    const plane = planeOfSide(side);
+  function drawSources(pane, ctx, sel, TH) {
+    const plane = A.leftStage();
     const refs = sel.def ? sel.def.args : Object.values(sel.at || {});
     ctx.save();
     for (const r of refs) {
@@ -332,8 +332,8 @@
     }
     ctx.restore();
   }
-  function drawGhosts(pane, side, ctx) {
-    const list = listOf(side);
+  function drawGhosts(pane, ctx) {
+    const list = A.planeShapes();
     const box = pane.box();
     for (const s of list) {
       if (!s.cundef || !s.cHid) continue;
@@ -353,12 +353,12 @@
       ctx.restore();
     }
   }
-  function drawPreview(pane, side, ctx, TH) {
+  function drawPreview(pane, ctx, TH) {
     const d = draftC;
     // the colour the new shape will take, for its stroke and its fill alike
     // (a perpendicular or touching circle on a display curve: that curve becomes the next shape, and K the one after it)
     const k = CURVE1.has(d.tool) && d.curve1 && d.curve1.make ? 1 : 0;
-    const ink = A.shapeInk({ ci: A.nextCi ? A.nextCi(side === 'R', k) : ((side === 'R' ? S().targets.length : S().shapes.length) + k) % 8 });
+    const ink = A.shapeInk({ ci: A.nextCi ? A.nextCi(k) : (S().shapes.length + k) % 8 });
     const color = ink.edge;
     ctx.save();
     ctx.strokeStyle = color; ctx.lineWidth = 1.5;

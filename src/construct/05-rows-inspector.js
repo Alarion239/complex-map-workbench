@@ -209,9 +209,8 @@
     if (side === 'R') return [];
     const touch = !!ctx.touch, items = [];
     const t = snapAt(side, ctx.x, ctx.y, { points: true, cross: true, curves: true, touch, disp: true });
-    const target = side === 'R';
-    if (t && t.cls === 'cross') items.push({ label: $t('Mark the intersection'), run: () => { const m = materialize(t, side, {}); api.cm.create(m.shapes, { target }); A.tourEmit('construct-added', { op: 'meet' }); } });
-    if (t && t.cls === 'curve') items.push({ label: $t('Point on this curve'), run: () => { const m = materialize(t, side, {}); api.cm.create(m.shapes, { target }); A.tourEmit('construct-added', { op: 'glider' }); } });
+    if (t && t.cls === 'cross') items.push({ label: $t('Mark the intersection'), run: () => { const m = materialize(t, {}); api.cm.create(m.shapes); A.tourEmit('construct-added', { op: 'meet' }); } });
+    if (t && t.cls === 'curve') items.push({ label: $t('Point on this curve'), run: () => { const m = materialize(t, {}); api.cm.create(m.shapes); A.tourEmit('construct-added', { op: 'glider' }); } });
     if (t && t.cls === 'curve' && t.disp) { t.make = DISP[t.disp](); }   // (a display curve: made with the point)
     // (issue #13: only what acts on the shape there; the tools that start from it, Perpendicular circle, Touching
     // circle, Circle through 3 points and Midpoint, are the toolbar's)
@@ -226,7 +225,7 @@
         // (a display curve too: its fixed shape is made, or the plane's reused, in the same undo step)
         if (c) items.push({ label: $t('Put on this curve'), run: () => {
           const pre = [], list = isT(p) ? S().targets : S().shapes;   // the owning array: listOf() is a plane's filtered copy
-          const def = { op: 'glider', args: [c.disp ? dispRef(c.disp, side, null, pre) : c.ref] };
+          const def = { op: 'glider', args: [c.disp ? dispRef(c.disp, null, pre) : c.ref] };
           if (c.seed) def.seed = c.seed;
           for (const x of pre) list.splice(list.indexOf(p), 0, x);
           if (api.cm.setDef(p.id, { def, t: c.t }) === false) for (const x of pre) { const i = list.indexOf(x); if (i >= 0) list.splice(i, 1); }
@@ -242,7 +241,7 @@
   }
   function hitShape(side, x, y) {
     const pane = A.setView(side), z = pane.s2w(x, y), tol = 7 / pane.view.s;
-    const list = listOf(side).filter((s) => s.visible !== false).slice().reverse().sort((a, b) => Number(b.kind === 'point') - Number(a.kind === 'point'));
+    const list = A.planeShapes().filter((s) => s.visible !== false).slice().reverse().sort((a, b) => Number(b.kind === 'point') - Number(a.kind === 'point'));
     for (const s of list) { try { if (Region.hitTest(s, z, tol, A.win(side))) return s; } catch (e) { /* */ } }
     return null;
   }
