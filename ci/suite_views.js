@@ -253,6 +253,7 @@ const VIEWS = {
   'phone_keys_room_cmd.js': steps(),
   'steps_phone_stack_cmd.js': steps(),
   'steps_keys_order_cmd.js': steps(),
+  'phone_shape_fields_cmd.js': steps(),
   'head_pop_relayout_cmd.js': classic('the classic X → Y view\'s Regions pop-up in a pane head (#2432), which only the classic view has'),
   'head_pop_place_cmd.js': classic('the classic X → Y view\'s Regions pop-up in a pane head, which only the classic view has'),
   'phone_legend_said_cmd.js': steps(),
