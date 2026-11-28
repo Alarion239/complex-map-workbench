@@ -808,8 +808,8 @@
   // tracks (svHoldB), rest: the last plane at rest's (svRestRec);
   // playRec: a play's schedule ({ from, to, ms, t0, el: its time since it started from from, at t0 }), null without a play or for a
   // slide; rebased: the schedule the last new speed set (svPlayRebase), with rebaseMinSpan, the least span it is timed over;
-  // invWarm: the glides of the plane shown made ready at rest (svPrestartInv's jobs for it done); invGlides: those glides
-  // ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
+  // invWarm: the glides of the plane shown, and the planes a press lands on from it, made ready at rest (svPrestartInv's
+  // jobs for it done); invGlides: those glides ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
   // far that ran past their key (SV.fits); ready (svReady, peeked) and invGlides are read only when asked too (getters:
   // svReady's inverse part asks each glide's programs, and a suite may read the glide once a pixel)
   // the Play gate's 10 s message for a part (null: no part named), and the part it would name now
