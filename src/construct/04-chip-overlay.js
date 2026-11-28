@@ -1,8 +1,6 @@
   // ---------------------------------------------------------------- the chip (the draft chip of the plane drawn in)
   // the counter first (it says which pick is next), then the tool (its tile label on a
   // narrow pane or touch), then Esc; the chip wraps to two lines rather than cut the counter
-  // (the English tile is «Orthogonal», one line, as the Russian «Ортогональная»; «perpendicular»
-  // stays the bisector's sense)
   const toolShort = (id) => ({ circle3: $t('3-pt circle'), meet: $t('Intersect'), midpoint: $t('Midpoint'), bisector: $t('Bisector'), perp: $t('Perpendicular'), touch: $t('Touching'), hyper: $t('Hyperbolic') }[id] || id);
   // the chip's touch form (no "Esc cancels", a ×) from its first frame when the tool is chosen
   // by touch, or on a coarse pointer before any pointer event over a plane
@@ -70,8 +68,8 @@
   function syncChip() {
     if (!A) return;
     const cs = chipSide();
-    for (const side of ['L', 'R']) {
-      const el = document.getElementById(side === 'L' ? 'draftChipL' : 'draftChipR');
+    for (const side of ['L']) {
+      const el = document.getElementById('draftChipL');
       if (!el) continue;
       const tool = A.tool();
       const on = cs === side;

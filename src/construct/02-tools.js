@@ -316,7 +316,7 @@
     const t = d.fdT, s = d.shape;
     d.fdT = null;
     if (!t || !s || !d.moved || altNow() || !A.snapOn() || !find(s.id) || t.cls === 'grid') return;
-    const list = isT(s) ? S().targets : S().shapes;
+    const list = S().shapes;
     if (t.cls === 'point') { if (t.ref && !t.ref.img && !(t.ref.s && !t.ref.h)) { api.cm.bind(s.id, 'p', t.ref, { live: true }); A.cue('attach'); } return; }
     const pre = [];
     let def = null;
