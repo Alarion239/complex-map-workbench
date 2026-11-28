@@ -190,8 +190,9 @@
       }
       // (a landscape phone under the tall construction bar: a chip that the bar would cut, one of its parts (its words, ?, × or token)
       // reaching under the bar's top, steps aside (cm-under, phone.css), as it does for a message; the bar's title says its sentence and
-      // the bar holds its ⌫ and ×. Measured against the bar's place once it is in: its offsetTop, which its slide's transform does not move)
-      const rc = document.documentElement.classList, bar = /** @type {HTMLElement | null} */ (document.querySelector('.ph-ctx.tall'));
+      // the bar holds its ⌫ and ×. Measured against the bar's place once it is in: its offsetTop, which its slide's transform does not move.
+      // Only a bar that shows counts: under a side sheet it is out of sight (.under), and the chip says the sentence)
+      const rc = document.documentElement.classList, bar = /** @type {HTMLElement | null} */ (document.querySelector('.ph-ctx.tall.in:not(.under)'));
       const barTop = rc.contains('ph-land') && rc.contains('ph-ctx-tall') && bar ? bar.offsetTop : Infinity;
       el.classList.toggle('cm-under', [...box.children].some((c) => { const r = c.getBoundingClientRect(); return r.height > 0 && r.bottom > barTop; }));
     }
