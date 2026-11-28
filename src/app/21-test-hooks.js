@@ -87,7 +87,7 @@
   };
   window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
-  window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
+  window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn, and t: its frame's time, __cmwPaneStatus(role).t)
   // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn, and landCarryStandIn for
   // a carried frame at rest): the cell of its finest level done (css px; null before one; 0 on the globe and the Landscape, whose
   // levels have no cell), whether it is the globe's or the Landscape's, whether it is a carried frame's (carry), and its
@@ -304,6 +304,8 @@
     if (mfDrawn) for (const h of mfDrawn.heads) { const q = P(Fat(mfDrawn.T)(C(h[2], h[3]))); heads = Math.max(heads, mDist(q, h)); }
     return { ownLine, arrowMin: sel.arrowMin, kinkStep, minLen, retrace: retr, endLine, ringLine, ringEnd, sepLong, ink: sel.ink, cap: sel.budget, n: sel.kept.length, nSeg, seg, jump, ang, kink, turnP99: turns.length ? turns[Math.floor(0.99 * (turns.length - 1))] : 0, turnMax: turns.length ? turns[turns.length - 1] : 0, sep, heads, nHeads: mfDrawn ? mfDrawn.heads.length : 0, T: mfDrawn ? mfDrawn.T : null, kinds: sel.kept.reduce((a, q) => { a[q.sp.kind] = (a[q.sp.kind] || 0) + 1; return a; }, {}) };
   };
+  // the segment buttons the segmented controls' ResizeObserver watches (segRO)
+  window.__cmwSegObserved = () => segSeen.size;
   window.__cmwMorphCache = () => ({ ready: !!(mfCache.sel && mfCache.key === mfScreenKey(paneR).key && (mfCache.vkey === mfScreenKey(paneR).vkey || mfViewOk(paneR, classicSource()))), job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null, rej: mfCache.sel ? mfCache.sel.rej : null, away: mfCache.sel ? mfCache.sel.away : null, prev: mfCache.prev ? mfCache.prev.sel.kept.length : 0 });
   window.__cmwLastFigure = () => Figure.last();
   window.__cmwFigPathsSel = () => (mfFigCache.sel ? { n: mfFigCache.sel.kept.length, nCands: mfFigCache.sel.nCands, cap: mfFigCache.sel.budget, rej: mfFigCache.sel.rej } : null);
@@ -395,11 +397,14 @@
   // the last Landscape frame's axis names (the plane's Re and Im, the height's), as boxes [x, y, w, h] in CSS px of the pane's canvas
   window.__cmwLandNames = () => (render3D.names || []).map((r) => r.slice());
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame): the
-  // caption's ink box in the key's px (capBox) and how much it is narrowed (capK, 1 for not at all), the ring's −i
-  // label's box (labelBox, null with no ring), and the carried key's line: its lines, its room and its widest word
-  // in the font the key draws it in
+  // caption's ink box in the key's px (capBox) and how much it is narrowed (capK, 1 for not at all; both null when the
+  // caption is not drawn), the ring's −i label's box (labelBox, null with no ring or none drawn), and the carried key's
+  // line: its lines, its room and its widest word in the font the key draws it in. Under the tall bar: the height the key
+  // is drawn compact to (fitH, 0 for the full key), the carried key's compact lines, whether the caption is drawn
+  // (capDrawn), the ring (geo), where its "1" ends (oneEnd), the strip's ink boxes (stripInk) and how much its word is
+  // narrowed (wordK)
   const legendWidest = (side) => { const st = legendState[side], c = document.createElement('canvas').getContext('2d'); c.font = st.ui; return st.words ? Math.max(...st.words.map((w) => c.measureText(w).width)) : 0; };
-  window.__cmwLegend = () => { drawLegend(); const st = legendState.L; return { kind: legendKind('L'), caption: st.caption || null, ring: st.ring, lines: st.lines || 0, room: st.room, widest: legendWidest('L'), capBox: st.capBox || null, capK: st.capK ?? null, labelBox: st.labelBox || null }; };
+  window.__cmwLegend = () => { drawLegend(); const st = legendState.L; return { kind: legendKind('L'), caption: st.caption || null, ring: st.ring, lines: st.lines || 0, room: st.room, widest: legendWidest('L'), capBox: st.capBox || null, capK: st.capK ?? null, labelBox: st.labelBox || null, fitH: st.fitH || 0, compactLines: st.fitH ? st.compactLines || null : null, capDrawn: !!st.capDrawn, geo: st.geo || null, oneEnd: st.oneEnd, stripInk: st.stripInk || null, wordK: st.wordK }; };
   // The camera of the steps view's Landscape (the source plane's view) and its mirror V.left: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy).
   // { zoom: f } runs the app's own zoom of the left plane (zoomPane, the wheel's), about its centre, so the steps view must be showing the plane (not the
   // Landscape); { leftScale } multiplies the mirror's s first (the control: the glide's box does not follow the mirror's history)
@@ -430,15 +435,20 @@
     const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
     return (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
   };
+  // cut 2's jump rule (LAND_CARRY_NRM_VS's jumpOf) over the steps step(i, j, di, dj) (-1: none): the edge from (i, j) to
+  // (i + di, j + dj) crosses a jump when its step is over w and over J times the larger of the steps of the edges before
+  // it and after it along the same line (of those that are finite; none: no jump)
+  const landJumpOf = (step, J, w) => (i, j, di, dj) => {
+    const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj));
+    return m >= 0 && s > w && s > J * m;
+  };
   // The jump bits of an n x n carried grid's vertices with images P (x at 2v, y at 2v + 1; NaN where not finite), as
-  // LAND_CARRY_NRM_VS sets them: bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for v -> v + (1, 1), when
-  // its step on the plane is over w and over J times the larger of the steps of the edges before it and after it along
-  // the same line (of those that are finite; none: no jump); all 0 with J 0
+  // LAND_CARRY_NRM_VS sets them (landJumpOf): bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for
+  // v -> v + (1, 1); all 0 with J 0
   const landJumpBits = (n, P, J, w) => {
     const B = new Uint8Array(n * n);
     if (!(J > 0)) return B;
-    const step = landStep(n, P);
-    const jump = (i, j, di, dj) => { const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj)); return m >= 0 && s > w && s > J * m; };
+    const jump = landJumpOf(landStep(n, P), J, w);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) B[j * n + i] = (jump(i, j, 1, 0) ? 1 : 0) | (jump(i, j, 0, 1) ? 2 : 0) | (jump(i, j, 1, 1) ? 4 : 0);
     return B;
   };
@@ -672,6 +682,39 @@
     for (const r of Object.values(out)) { r.maxCont = +r.maxCont.toFixed(2); r.minJump = Number.isFinite(r.minJump) ? +r.minJump.toFixed(2) : null; }
     return out;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // The carried All sheets' places read back with GLR._lw.cpDump (LAND_CARRY_PLACE_S_TF_VS: each sheet's cells' own four
+  // corners), the box's and each patch's, against cut 2's jump rule (landJumpOf), an edge of a cell on a sheet (along x, y
+  // or the diagonal) beside the same edges of the cells before and after it along that line on that sheet. Per slot (0
+  // the box, i + 1 the patch i): {edges: the edges read (both corners finite), over: those the rule flags, maxRatio: the
+  // largest ratio of an edge with a finite neighbour, J, w: the rule and its floor the frame drew with}, or null with no
+  // read-back
+  window.__cmwLandSheetStretch = () => (GLR._cpDump ? Object.fromEntries(Object.entries(GLR._cpDump).map(([slot, D]) => [slot, landSheetStretch(D)])) : null);
+  function landSheetStretch(D) {
+    const { d, texW, N, K, tileC, J, w } = D, M = N - 1, T = 2 * M;
+    const at = (k, i, j, ci, cj) => { const o = 4 * (((Math.floor(k / tileC) * T) + 2 * j + cj) * texW + (k % tileC) * T + 2 * i + ci); return d[o + 3] > 0.5 ? [d[o], d[o + 1]] : null; };
+    const edge = (k, i, j, di, dj) => {
+      if (i < 0 || j < 0 || i >= M || j >= M) return -1;
+      const a = at(k, i, j, 0, 0), b = at(k, i, j, di, dj);
+      return a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : -1;
+    };
+    let edges = 0, over = 0, maxRatio = 0;
+    for (let k = 0; k < K; k++) {
+      const step = (i, j, di, dj) => edge(k, i, j, di, dj), jump = landJumpOf(step, J, w);
+      for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) for (const [di, dj] of [[1, 0], [0, 1], [1, 1]]) {
+        const s = step(i, j, di, dj);
+        if (s < 0) continue;
+        edges++;
+        const m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj));
+        if (m > 0) maxRatio = Math.max(maxRatio, s / m);
+        if (jump(i, j, di, dj)) over++;
+      }
+    }
+    return { edges, over, maxRatio: +maxRatio.toFixed(2), J, w };
+  }
   // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
   // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there
   window.__cmwLandHeightAt = (x, y) => {
@@ -686,7 +729,7 @@
   };
   // whether the last Landscape frame drew its relief from the stand-in (landStandIn) while landTF and land link
   window.__cmwLandStandIn = () => !!(render3D.floor && render3D.floor.info.standIn);
-  window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), linear: !!render3D.linear, title: paneTitles().left });
+  window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), linear: !!render3D.linear, title: paneTitles().left, layers: render3D.layers ?? null, layerFrames: GLR.landLayerFrames() });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutMarks = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutMarksL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (the handles a frame between two planes draws, which take no input; test/steps_glide_cut_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (test/ux165_chain_cmd.js)
@@ -803,8 +846,8 @@
   // tracks (svHoldB), rest: the last plane at rest's (svRestRec);
   // playRec: a play's schedule ({ from, to, ms, t0, el: its time since it started from from, at t0 }), null without a play or for a
   // slide; rebased: the schedule the last new speed set (svPlayRebase), with rebaseMinSpan, the least span it is timed over;
-  // invWarm: the glides of the plane shown made ready at rest (svPrestartInv's jobs for it done); invGlides: those glides
-  // ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
+  // invWarm: the glides of the plane shown, and the planes a press lands on from it, made ready at rest (svPrestartInv's
+  // jobs for it done); invGlides: those glides ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
   // far that ran past their key (SV.fits); ready (svReady, peeked) and invGlides are read only when asked too (getters:
   // svReady's inverse part asks each glide's programs, and a suite may read the glide once a pixel)
   // the Play gate's 10 s message for a part (null: no part named), and the part it would name now

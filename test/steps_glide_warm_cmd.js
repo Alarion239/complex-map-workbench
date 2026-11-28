@@ -11,10 +11,20 @@
 //   with map mode 1, step 1, t = u: no frame at rest draws a homotopy's outlines but the warm job's);
 // - the frame is the inverse pass's;
 // - no inverse program was made from the rest to the held frame (GLR.landProgs' inv| and invS| entries);
-// - every hold took at most FIRST_MS (a timing row: lavapipe 594-1020 ms before the warm-up; with it, and the warm
-//   job's outlines drawn into its frame and flushed, 62-134 ms for a page's first glide frame under CI's renderer;
-//   z^-2's second half, the page's second hold, varies by machine and is over FIRST_MS on the base too); every step's
-//   wait is in info.
+// - each step's first hold took at most FIRST_MS (a timing row: lavapipe 594-1020 ms before the warm-up; with it, and
+//   the warm job's outlines drawn into its frame and flushed, 62-134 ms for a page's first glide frame under CI's
+//   renderer). z^-2's hold at u = 0.75, its second half and the page's second hold, has no bound: it varies by machine
+//   (166-215 ms on the hosted runner) and is over FIRST_MS on the base too. Every step's wait is in info.
+// A glide whose first inverted op is a NEWT op (the Douady–Hubbard map, steps_glide_exterior's scene: Everywhere, sheets off,
+// bare) draws its frame with two programs, the NEWT roots pass (GLR.newtRoots) and the inverse program that reads it: at rest
+// until its glides' jobs are done, the first frame held at u = 0.5
+// - is the inverse pass's (control);
+// - makes no inverse program, the roots pass's included;
+// - holds the main thread at most NEWT_TASK_MS in any one task from the press to the held frame (a PerformanceObserver's
+//   long tasks). On lavapipe the frame that makes both programs' first draws is about 0.9 s and more. With them made at
+//   rest, the first frame's longest task is 0.27-0.30 s here and 0.345 s on CI: the roots pass has no seed (later frames
+//   start from the frame before's roots, nrLast, and take about 0.13 s), and that GPU work shows where GLR.blit's canvas
+//   copy waits for it. A warm draw does not remove it: the warm pass is 16 px square, and nrLast's key holds the size.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -54,7 +64,7 @@ await view(1200, 800, false, false);
 const FIRST_MS = 150;
 // (name, step, the places held, the places whose wait is bounded by FIRST_MS)
 for (const [name, step, us, timed] of [['z^2', { type: 'pown', params: { n: 2 } }, [0.25], [0.25]], ['Joukowski', { type: 'joukowski' }, [0.25], [0.25]],
-  ['tan', { type: 'tan' }, [0.25], [0.25]], ['z^-2', { type: 'pown', params: { n: -2 } }, [0.25, 0.75], [0.25, 0.75]]]) {
+  ['tan', { type: 'tan' }, [0.25], [0.25]], ['z^-2', { type: 'pown', params: { n: -2 } }, [0.25, 0.75], [0.25]]]) {
   await open(step, `warm${name}`);
   for (const u of us) {
     await rest(0);
@@ -78,6 +88,28 @@ for (const [name, step, us, timed] of [['z^2', { type: 'pown', params: { n: 2 } 
     if (timed.includes(u)) ok(`${name} u = ${u}: the first frame waits at most ${FIRST_MS} ms`, ms <= FIRST_MS, k);
     await ev('window.__svScrubUp(), 1');
   }
+}
+
+// ---- a NEWT glide: the roots pass and its reader made ready at rest
+const NEWT_TASK_MS = 500;
+{
+  await open({ type: 'dh', params: { N: 64 } }, 'warmdh');
+  await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), 1");
+  await rest(0);
+  const r = await settled({ max: 120000, until: '__cmwSteps().invWarm && __cmwSteps().ready.ready && GLR.pendingLinks === 0' });
+  ok('Douady–Hubbard: plane z rests with its glides made ready', r.ok, r);
+  const p0 = await invProgs();
+  await ev(`(() => { window.__longT = []; try { window.__longObs = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__longT.push(Math.round(e.duration)); }); window.__longObs.observe({ entryTypes: ['longtask'] }); } catch (e) { window.__longT = null; } return 1; })()`);
+  const t0 = Date.now();
+  const h = await hold(0.5);
+  const ms = Date.now() - t0, p1 = await invProgs();
+  const long = await ev('(() => { if (window.__longObs) window.__longObs.disconnect(); return window.__longT; })()');
+  const g = await ev('(() => { const g = __cmwSteps().glide; return g && { b: g.b, u: g.u, path: g.path, reason: g.reason }; })()');
+  const k = info['Douady–Hubbard u=0.5'] = { ms, made: p1.filter((x) => !p0.includes(x)), held: h.ok, glide: g, long };
+  ok('Douady–Hubbard u = 0.5: the first frame is the inverse pass\'s (control)', h.ok && !!g && g.path === 'inverse', k);
+  ok('Douady–Hubbard u = 0.5: the first frame makes no inverse program, the NEWT roots pass\'s included', k.made.length === 0, k);
+  ok(`Douady–Hubbard u = 0.5: no task from the press to the first frame holds the main thread over ${NEWT_TASK_MS} ms`, Array.isArray(long) && Math.max(0, ...long) <= NEWT_TASK_MS, k);
+  await ev('window.__svScrubUp(), 1');
 }
 
 return { pass: fails.length === 0, fails, info };

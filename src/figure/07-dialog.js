@@ -3,7 +3,7 @@
   // =====================================================================================================
   const LS = () => (A && A.lsk ? A.lsk('cmw-figure-v1') : 'cmw-figure-v1');
   function loadSet() {
-    const d = { for: 'article', cols: 1, size: {}, text: {}, ink: 'colour', crop: 'fit', axes: {}, fine: false, deform: 'film', last: null, lastFig: null, customPt: null, capLang: 'ui', fmt: 'pdf', dpi: 300, dpiFor: {}, video: null };
+    const d = { for: 'article', cols: 1, size: {}, text: {}, ink: 'colour', crop: 'fit', axes: {}, fine: false, last: null, lastFig: null, customPt: null, capLang: 'ui', fmt: 'pdf', dpi: 300, dpiFor: {}, video: null };
     try { const s = JSON.parse(localStorage.getItem(LS()) || 'null'); if (s && typeof s === 'object') return Object.assign(d, s); } catch (e) { /* storage may be blocked */ }
     return d;
   }
@@ -19,7 +19,7 @@
     const sk = sizeKey(s);
     return Object.assign({
       for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null,
-      ink: s.ink, crop: cropOf(s), svPic: s.svPic === 'two' && A.svSurf() === 'land' ? 'plane' : s.svPic, svFrom: s.svFrom, svTo: s.svTo, axes: s.axes[s.for] || null, deform: s.deform,
+      ink: s.ink, crop: cropOf(s), svPic: s.svPic === 'two' && A.svSurf() === 'land' ? 'plane' : s.svPic, svFrom: s.svFrom, svTo: s.svTo, axes: s.axes[s.for] || null,
       // (a filmstrip over a Number: its name, first and last values ({re, im}) and frames)
       film: s.film === 'number' && A.numbers && A.numbers().some((q) => q.name === s.numName) ? 'number' : 'planes', numName: s.numName, numFrom: A.numberParse ? A.numberParse(s.numFrom) : null, numTo: A.numberParse ? A.numberParse(s.numTo) : null, numN: s.numN,
       lang: capLangOf(s),
@@ -190,20 +190,12 @@
     // unchanged); remembered with the settings. An edited caption is dropped: it is in the other language
     const capLangRow = uiLang() !== 'en' ? row($t('Caption'), segB('xfCapLang', set.capLang === 'en' || set.capLang === 'ru' || set.capLang === 'it' ? set.capLang : 'ui', [['ui', $t('Interface language')], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => { set.capLang = v; capEdited = null; regen.hidden = true; changed(); }, $t('Caption language'))) : null;
     if (capLangRow) capLangRow.classList.add('wide');
-    // (round 3) the deformation is a deformation in every view that shows it: the filmstrip, or one frame at the current
-    // t (the one-panel figure of Phase, Landscape and Phase on the sphere)
-    const defo = defoOf(view);
     // the steps view's glide along its thread: a video of it wherever it has a step, on the plane, the sphere and the Landscape
     const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
     // the steps view without a glide to record: Video is not offered until the thread has a step
     const noGlide = A.svOn() && !glide ? $t('Add a step to make a video') : null;
-    // the classic view without the deformation: no motion to record, so Video is unavailable, with the reason as its tip
-    const noMotion = !A.svOn() && !defo ? $t('A video records a glide along the chain, which only the steps view has') : null;
-    const dOpts = [['film', $t('Filmstrip')]];
-    if (defo) dOpts.push(['frame', $t('One frame')]);
-    const deformOf = () => (dOpts.some((q) => q[0] === set.deform) ? set.deform : 'film');
-    const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
-    if (deformRow) deformRow.classList.add('wide');
+    // the classic view: no motion to record, so Video is unavailable, with the reason as its tip
+    const noMotion = !A.svOn() ? $t('A video records a glide along the chain, which only the steps view has') : null;
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
     // (Two planes and Paths need the Plane or the Sphere: the Landscape's picture is 3D, and a 2D figure never stands in for it.
     // Paths: the plane with the paths of the step that leads to it; off, with its reason, on the Landscape or where there is no
@@ -274,11 +266,11 @@
       if (filmRow) filmRow.hidden = vid || svPicOf() !== 'film';
       if (numRow) numRow.hidden = vid || svPicOf() !== 'film' || filmOf() !== 'number';
     }
-    // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
+    // the format: PDF, PNG, SVG, and Video; remembered
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save)
     const canVideo = typeof VideoEncoder !== 'undefined';
-    const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
+    const fmtOf = () => (set.fmt === 'video' ? (glide && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
     // (Video is always listed: aria-disabled with its reason as the tip where there is nothing to record, noGlide and noMotion)
     fOpts.push(['video', $t('Video')]);
@@ -299,7 +291,7 @@
     const texNote = h('div', { class: 'xf-texnote', id: 'xfTexNote' });
     const texCopy = h('button', { type: 'button', class: 'btn xf-texcopy', id: 'xfTexCopy', onclick: () => { if (!fig) return; A.copyText(latex(fig, capEdited, fmtOf(), dpiOf())); set.last = set.lastFig = { kind: 'latex', fmt: fmtOf(), dpi: dpiOf() }; saveSet(set); toast($t('LaTeX copied.')); cueDone(); } }, $t('Copy LaTeX'));
     const texRow = row('LaTeX', h('div', { class: 'xf-texwrap' }, texPre), h('div', { class: 'xf-texbar' }, texCopy, texNote)); texRow.classList.add('wide');
-    // the video's options (remembered): size, frame rate, length, ends, look, paths, t label
+    // the video's options (remembered): size, frame rate, length, ends, look, paths, label
     const vset = Object.assign(vdefaults(), set.video || {});
     const saveV = () => { set.video = Object.assign({}, vset); saveSet(set); };
     const vseg = (id, key, options, label, num) => segB(id, String(vset[key]), options, (v) => { vset[key] = num ? +v : v; saveV(); posterSoon(); }, label);
@@ -314,8 +306,7 @@
       vfr($t('Speed'), h('div', { class: 'xf-fmtrow' }, vseg('xfVFps', 'fps', [['30', $t('{n} fps', { n: 30 })], ['60', $t('{n} fps', { n: 60 })]], $t('Frame rate'), true), vLen)),
       vfr($t('Ends'), vseg('xfVEnds', 'ends', [['once', $t('Once')], ['loop', $t('Loop')], ['bounce', $t('Bounce')]], $t('Ends'))),
       vfr($t('Look'), vseg('xfVLook', 'look', [['light', $tx('video look', 'Light')], ['print', $tx('video look', 'Print')]], $t('Look'))),
-      ...(defo === 'phase' ? [vfr($t('Window'), vseg('xfVWin', 'win', [['screen', $t('As on screen')], ['fit', $t('Fit the motion')]], $t('Window')))] : []),
-      h('div', { class: 'xf-checks' }, vck('tlabel', glide ? $t('Label') : $t('t label'))));
+      h('div', { class: 'xf-checks' }, vck('tlabel', $t('Label'))));
     // (the steps view: where the video goes and how long it is, kept current by posterSoon)
     const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
     const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m, glide.stops).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = $t('{from} → {to} · {secs} s', { from: glide.from, to: glide.to, secs: I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1) }); };
@@ -337,10 +328,10 @@
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
     printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
-    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow, svPlanesRow, filmRow, ...(numRow ? [numRow] : [])] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
+    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow, svPlanesRow, filmRow, ...(numRow ? [numRow] : [])] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
-    const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, deformOf(), fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });
+    const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });
     // the field is as wide as the name (up to 40 characters, the longest a scene name gets)
     const fitName = () => { nameInp.style.width = `${Math.min(40, Math.max(8, nameInp.value.length + 1))}ch`; };
     fitName();
@@ -474,7 +465,7 @@
         const plan = await videoPlan(opts({ video: vset, alive: () => my === posterTok && !closed }));
         if (!plan || my !== posterTok) return;
         const c = document.createElement('canvas'); c.width = plan.W; c.height = plan.H;
-        const t = plan.gl ? Math.max(0, Math.min(plan.m, A.svGlide().at - plan.gl.lo)) : Math.max(0, Math.min(plan.m, A.defo().T));
+        const t = Math.max(0, Math.min(plan.m, A.svGlide().at - plan.gl.lo));
         if (!(await videoFrame(plan, t, c.getContext('2d', { alpha: false }))) || my !== posterTok) return;
         const k = Math.min(1, 960 / plan.W), s2 = document.createElement('canvas');
         s2.width = Math.round(plan.W * k); s2.height = Math.round(plan.H * k);
@@ -505,7 +496,7 @@
       for (const b of fmtSeg.children) b.setAttribute('aria-checked', String(b.dataset.v === f));
       dpiSel.hidden = f !== 'png';
       syncPlanes();
-      for (const r of [forRow, sizeRow, inkRow, capLangRow, svPicRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
+      for (const r of [forRow, sizeRow, inkRow, capLangRow, svPicRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
       vidRow.hidden = !vid;
       scroll.classList.toggle('video', vid);
       greyBtn.hidden = vid; loupeBtn.hidden = vid; facts.hidden = vid;
@@ -514,7 +505,7 @@
       vidBtn.hidden = !vid;
       dpiSel.value = String(dpiOf());
       // (the default name follows the figure until it is edited)
-      if (!nameEdited) { nameInp.value = defaultName(view, deformOf(), f); fitName(); }
+      if (!nameEdited) { nameInp.value = defaultName(view, f); fitName(); }
       // (the extension of the file a video will be: .mp4, or .webm where only VP9 can be encoded; video-5)
       extEl.textContent = vid ? `.${extKnown || 'mp4'}` : `.${f}`;
       if (vid && !extKnown && canVideo) { const [w0, h0] = VIDEO_SIZES[vset.size] || VIDEO_SIZES['1920x1080']; pickEncoder(w0, h0, vset.fps === 60 ? 60 : 30).then((pk) => { if (!pk || closed) return; extKnown = pk.mux; if (fmtOf() === 'video') extEl.textContent = `.${extKnown}`; }); }
@@ -753,9 +744,7 @@
   }
   async function againRun(what) {
     const set = loadSet();
-    // (after a video: Save opens the dialog on Video, with its progress and Cancel, while the deformation is on; else,
-    // and for Copy, the last figure is made again)
-    if (set.last && set.last.kind === 'video' && what === 'save' && defoOf(A.viewKind()) && typeof VideoEncoder !== 'undefined') { set.fmt = 'video'; saveSet(set); open(); return true; }
+    // (after a video, Save and Copy make the last figure again)
     const last = set.last && set.last.kind !== 'video' ? set.last : set.lastFig || { kind: 'overleaf', fmt: 'pdf' };
     if (set.last && set.last.kind === 'video' && set.fmt === 'video') set.fmt = last.fmt === 'png' || last.fmt === 'svg' ? last.fmt : 'pdf';
     const f = await build(optsOf(set, { capInImage: what === 'copy' && last.kind === 'docs' }));
@@ -775,7 +764,7 @@
   return {
     attach: (api) => { A = api; },
     captionFor, build, pdf, png, svgBlob, greyProof, latex, captionSVG, copyImage, open, again,
-    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), glide: () => (A && A.svGlide ? A.svGlide() : null), glideArt: (x, o) => A.svGlideArt(x, o), glideText: (x) => A.svGlideText(x), svKey: (x) => (A && A.svKey ? A.svKey(x) : null), shortCaption,
+    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), glide: () => (A && A.svGlide ? A.svGlide() : null), glideArt: (x, o) => A.svGlideArt(x, o), glideText: (x) => A.svGlideText(x), svKey: (x) => (A && A.svKey ? A.svKey(x) : null), shortCaption,
     settings: loadSet, saveSettings: saveSet, sizes: SIZES, presets: PRESET,
     dialog: () => dlg, last: () => lastFig, segsOf, plainOf, XD,
     geom: { senseAt, chevronAt, fitBox, ringKey: ringKeyMarkup },

@@ -155,13 +155,12 @@
   function updateDraftChips() {
     syncModeChips();
     const poly = !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
-    const cl = $('draftChipL'), cr = $('draftChipR');
+    const cl = $('draftChipL');
     const cmSide = Construct.chipSide();   // (a construction tool's chip)
-    if (cl) { const on = (poly && !draft.target) || cmSide === 'L'; if (cl.hidden === on) cl.hidden = !on; }
-    if (cr) { const on = (poly && !!draft.target) || cmSide === 'R'; if (cr.hidden === on) cr.hidden = !on; }
+    if (cl) { const on = poly || cmSide === 'L'; if (cl.hidden === on) cl.hidden = !on; }
     // how to close and back up, in the words of the pointer in use (a finger has no Enter)
     if (poly) {
-      const sp = (draft.target ? cr : cl) && (draft.target ? cr : cl).firstElementChild;
+      const sp = cl && cl.firstElementChild;
       const txt = fingerNow() ? $t('Tap the first point to close · Undo removes the last point') : $t('Click the first point or press Enter to close · ⌫ removes the last point');
       if (sp && sp.textContent !== txt) sp.textContent = txt;
     }
@@ -241,9 +240,9 @@
       drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
       // (no crosshair while the pointer lights Look down's square: the square under it is what a press takes)
-      if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      if (leftStage() === 0) { drawHandles(paneL, planeShapes()); drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && draft.cursor || probe); }
       // (a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
-      else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      else { drawHandles(paneL, planeShapes()); drawDraft(paneL); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
       // (not over a zero or pole under the pointer, or one being dragged, nor while the pointer lights Look down's square:
       // the handle is what the pointer holds)
@@ -789,6 +788,8 @@
     const landMap = carry ? carry.hmap : focusMap();
     const info = GLR.drawLandscape({
       map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null, standIn: landCarryStandIn(pane, carry, src) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      // (the steps view's Opacity: each surface lets the ones behind it show through)
+      opacity: SV.on ? svLandOpacity() : 1,
       cells, sheets, mask, outlines: artMode || hideStrokes ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
@@ -807,6 +808,7 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, mask: mask && mask.cut ? mask : null, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box, rulerMu);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
+    render3D.layers = info ? info.layers || 1 : null;   // (the relief's layers the last frame drew: tests)
     // (a frame of the CPU stand-in's relief draws the principal branch alone, so the title does not say the sheets until the frame
     // that draws them: its words follow this. An export's frame (offRender) never draws the stand-in and is not the screen's, so it
     // leaves it as the screen's last frame set it)
@@ -824,7 +826,7 @@
     if (info && !artMode && !figMode && pane === paneL) drawLandPicks(pane);
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.names = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.sheetsInfo = undefined; render3D.standIn = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.names = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.sheetsInfo = undefined; render3D.standIn = undefined; render3D.pick = undefined; render3D.layers = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -1265,17 +1267,6 @@
         lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8, cpu: () => cpuMap(sm) }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
-    // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
-    // (at a focused step, the image of X at the step's input stage)
-    if (hom && imageMode && role === 'R') {
-      // (with a bracket, H_0(∂X) = Q o P(∂X) through H0Map, SPEC 5.3)
-      const base = S.focus > 0 ? S.focus - 1 : 0, bm = hom.range && hom.H0Map ? hom.H0Map : stageMap(base), bk = mapKeyOf(bm);
-      for (const s of S.shapes) {
-        if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
-        const r = shapeGPU(s), rl = linesOf(r, r);
-        if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}` } });
-      }
-    }
     const colorMap = o.colorMap || (hom ? hom.map : focusMap()), colorGlobe = !imageMode && (!o.carryRegions || !!o.carryBase);
     const info = GLR.drawSphere({
       map: colorMap, mode: colorGlobe ? 'color' : 'image', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
@@ -1300,12 +1291,12 @@
     return globeMarks(pane, info, o);
   }
   // what sphereView draws over the globe's frame info ({MVP, eye}) on the pane's 2D context, with sphereView's options o:
-  // the point shapes and the w-plane's point targets lifted to the sphere, the deformation's live paths, the labels, the
-  // probe's ring and the sphere's marks (0, infinity, +-1, +-i, faded in by how far each faces the camera). o.marks false:
-  // sphereView leaves them to its caller, which draws a pass over the frame first (the Inside regions' colour globe).
+  // the point shapes lifted to the sphere, their labels, the probe's ring and the sphere's marks (0, infinity, +-1, +-i,
+  // faded in by how far each faces the camera). o.marks false: sphereView leaves them to its caller, which draws a pass
+  // over the frame first (the Inside regions' colour globe).
   // Returns info
   function globeMarks(pane, info, o) {
-    const ctx = pane.ctx, lift = liftC, hom = o.hom || null, imageMode = o.imageMode, role = o.role === 'L' ? 'L' : 'R';
+    const ctx = pane.ctx, lift = liftC, hom = o.hom || null, imageMode = o.imageMode;
     const facing = (p) => { const tv = [info.eye[0] - p[0], info.eye[1] - p[1], info.eye[2] - p[2]]; const l = Math.hypot(...tv) || 1; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / l; };
     // the region's points, lifted to the sphere
     const Fp = hom && imageMode ? (hom.imageF || hom.F) : stageF(o.stage);
@@ -1323,29 +1314,6 @@
       ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, TAU); ctx.stroke(); ctx.fill();
       // (under the deformation the primes count the steps begun, as on the merged plane: z₀′ for 0 < t <= 1)
       labels.push({ x: q[0], y: q[1], text: pointLabel(s, idx, hom && imageMode ? morphPrimes() : o.stage) });
-    }
-    // the w-plane's point targets on the w-globe (P3b), marked and labelled as in Y Plane
-    if (o.targetPts) {
-      let ti = 0;
-      for (const s of S.targets || []) {
-        if (kindType(s) !== 'point') continue;
-        const idx = ti++;
-        if (s.visible === false) continue;
-        const p = lift(s.p[0], s.p[1]);
-        if (facing(p) <= 0) continue;
-        const q = project(pane, info.MVP, p.map((v) => v * 1.01));
-        if (!q) continue;
-        ctx.fillStyle = shapeInk(s).edge; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, TAU); ctx.stroke(); ctx.fill();
-        labels.push({ x: q[0], y: q[1], text: targetLabel(s, idx) });
-      }
-    }
-    // the deformation's live paths t -> H_t(z) on the merged globe, over the sphere's front side
-    if (hom && imageMode && role === 'R' && !figMode && S.morphPaths !== false && !morphHasDeriv()) {
-      try {
-        const sel = morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye });
-        drawMorphPathsX(pane, sel, hom.imageF || hom.F, globeSelP(info, pane.w, pane.h, 0.02));
-      } catch (e) { console.error('deformation paths', e); }
     }
     if (labels.length) placeLabels(ctx, pane, labels);
     // without the plane, the probe is a ring on the globe
@@ -1375,8 +1343,6 @@
         q = GLR.clearOfLimb(q, (at) => ({ x0: at[0] - half, x1: at[0] + half, y0: at[1] - GLOBE_MARK_PX / 2, y1: at[1] + GLOBE_MARK_PX / 2 }), limb, centre);
         if (!q) continue;
       }
-      // (a video frame: the figure draws these labels at full ink; their places still keep the point labels clear)
-      if (artNoLab) { labelReg(pane).marks.push([q[0], q[1], 11]); continue; }
       ctx.globalAlpha = a;
       ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.strokeText(lab, q[0], q[1]);
       ctx.fillStyle = TH.label; ctx.fillText(lab, q[0], q[1]);
@@ -1508,7 +1474,13 @@
     const r = /** @type {HTMLInputElement} */ ($('alphaRange'));
     r.value = String(S.alpha); paintFader(r);
     $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
-    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity'))) syncOpacityRange(q);
+    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity:not([data-land])'))) syncOpacityRange(q);
+    requestRender('L', 'R'); save();
+  }
+  // the Landscape's own opacity, S.landAlpha: the one setter of its Opacity slider (the .sv-opacity range marked data-land)
+  function setLandOpacity(v) {
+    setOpt('landAlpha', v);
+    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity[data-land]'))) syncOpacityRange(q);
     requestRender('L', 'R'); save();
   }
   function setupViewControls() {

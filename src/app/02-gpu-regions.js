@@ -43,7 +43,7 @@
   const LIVE_SLICE = 4, LIVE_FRAME_MS = 9;
   let liveMsUsed = 0;   // the live fix-up time spent in this animation frame (frame() resets it)
   let frameStartT = -1e9;   // performance.now() at the start of the current animation frame
-  const dragsShape = (s) => !!(drag && drag.shape === s && !drag.target && (drag.mode === 'move' || drag.mode === 'handle'));
+  const dragsShape = (s) => !!(drag && drag.shape === s && (drag.mode === 'move' || drag.mode === 'handle'));
   const liveOn = (s, r) => !!(r && (r.live || r.liveTail)) || dragsShape(s);
   function freePair(p) {
     if (!p) return;

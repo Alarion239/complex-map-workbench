@@ -47,16 +47,16 @@
     return t ? { re: t.z[0], im: t.z[1] } : null;
   }
   // onUp 'draw', before addShape(s): bind the snapped ends; the helpers are pushed into the list first (one undo step)
-  function drawEnd(s, target) {
+  function drawEnd(s) {
     const g = gestSnap;
     gestSnap = null;
     setRing(null, null);
     if (!g || !s) return;
-    const list = target ? S().targets : S().shapes;
+    const list = S().shapes;
     const at = {};
     const put = (key, t) => {
       if (!key || !t) return;
-      const m = materialize(t, target ? 'R' : 'L', { helper: true, owner: s.id });
+      const m = materialize(t, 'L', { helper: true, owner: s.id });
       if (!m) return;
       for (const x of m.shapes) list.push(x);
       at[key] = m.ref;
@@ -73,11 +73,11 @@
     (d.cmAt || (d.cmAt = {}))[d.pts.length] = t;
     return { re: t.z[0], im: t.z[1] };
   }
-  function bindVertices(pg, cmAt, target) {
-    const list = target ? S().targets : S().shapes, at = {};
+  function bindVertices(pg, cmAt) {
+    const list = S().shapes, at = {};
     for (const [i, t] of Object.entries(cmAt)) {
       if (+i >= pg.pts.length) continue;
-      const m = materialize(t, target ? 'R' : 'L', { helper: true, owner: pg.id });
+      const m = materialize(t, 'L', { helper: true, owner: pg.id });
       if (!m) continue;
       for (const x of m.shapes) list.push(x);
       at['v' + i] = m.ref;
@@ -157,8 +157,8 @@
     const t = d.snapT;
     setRing(null, null);
     if (!t || !d.moved || !d.shape) return;
-    const s = d.shape, target = !!d.target, list = target ? S().targets : S().shapes;
-    const m = materialize(t, target ? 'R' : 'L', { helper: true, owner: s.id });
+    const s = d.shape, list = S().shapes;
+    const m = materialize(t, 'L', { helper: true, owner: s.id });
     if (!m) return;
     for (const x of m.shapes) list.splice(list.indexOf(s), 0, x);
     (s.at || (s.at = {}))[d.key] = m.ref;
@@ -196,7 +196,7 @@
       if (!d.moved && Math.hypot(dz.re, dz.im) * pane.view.s < 3) return true;
       for (const id of roots) { const p = find(id); if (p && isXY(p.p)) p.p = [p.p[0] + dz.re, p.p[1] + dz.im]; }
       d.z0 = z; d.moved = true;
-      if (d.target) A.targetsChanged(false); else A.shapesChanged(false);
+      A.shapesChanged(false);
       return true;
     }
     // built on a zero, a handle of another shape or a curve: the press pans X; the chip once per session
@@ -516,7 +516,7 @@
       const r = touchTargetC(side, x, y), t = r.t;
       if (r.warn) { pickWarn(r.warn); return true; }
       if (r.restart) { draftC.picks = []; draftC.carried = false; draftC.doneK = null; }
-      if (t.ref && t.ref.img && !carriedF(side)) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
+      if (t.ref && t.ref.img && !carriedF()) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
       draftC.hoverT = null;
       if (t.cls === 'ring') { finishTouch(side, t); return true; }
       draftC.picks.push(t); pickOk();
@@ -549,7 +549,7 @@
       setRing(side, t, true);   // (the chip says it; the ring only warns, without a second label)
       return true;
     }
-    if (t.ref && t.ref.img && !carriedF(side)) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
+    if (t.ref && t.ref.img && !carriedF()) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
     draftC.picks.push(t); pickOk();
     if (draftC.picks.length >= NEED[tool]) finish(side); else { A.requestRender('OL', 'OR'); }
     return true;
