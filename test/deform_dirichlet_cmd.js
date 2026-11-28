@@ -45,13 +45,13 @@ ok('z² + 1 builds and its deformation chooses its paths', chose(poly), poly);
 ok('η, (−1)^{n+1} as a Dirichlet series, builds and deforms', chose(eta), eta);
 // gated: ζ's main-thread block, absolute. The block is the compile of the glide's inverse programs on llvmpipe, which takes the cores it
 // is given (measured on 4 cores, 2 and 1, idle: ζ's block 10.5-11.1 s, 20 s, 36 s, and 15-16 s, 26-30 s, 49-52 s while other jobs ran; z² + 1's
-// ready time stayed 0.6-1.2 s throughout), so z² + 1 is no scale for it: a ratio to it failed a slow machine (49 s on one core is 46-55 times)
-// and let a ζ build twice as slow pass (27 s is 42 times). The budget is for 4 cores and widens by 4 / cores below that. 25 s is 1.4 times
-// the slowest hosted block seen (17.5 s on the slow runners; 12 s on the fast), 1.6 times the loaded local block and 2.3 times the idle one:
-// a ζ build 2.3 times slower than the idle one fails (a busy-wait of 30 s in the first inverse draw gave 40.5 s, red; 12 s gave 22.4 s,
-// green) (#1365)
+// ready time stays 0.6-1.2 s throughout), so z² + 1 is no scale for it: a ratio to it fails a slow machine (49 s on one core is 46-55 times)
+// and passes a ζ build twice as slow (27 s is 42 times). The budget is for 4 cores and widens by 4 / cores below that. 25 s is 1.4 times
+// the slowest hosted block seen (17.5 s on the slow runners; 12 s on the fast), 1.6 times the loaded local block and 2.3 times the idle one.
+// It fails a ζ build twice as slow on the slow runners (35 s) but not on the fast runners or locally (24 s, 22 s: a busy-wait of 12 s in the
+// first inverse draw gives 22.4 s, green; 30 s gives 40.5 s, red); the ungated timing rows below report that (#1365)
 const ZETA_BLOCKED_MS = 25000;
-const cores = Math.max(1, Math.min(4, await ev('navigator.hardwareConcurrency')));
+const cores = Math.max(1, Math.min(4, (await ev('navigator.hardwareConcurrency')) || 4));
 const budget = Math.round(ZETA_BLOCKED_MS * 4 / cores);
 ok(`the main thread is held at most ${budget} ms (${ZETA_BLOCKED_MS} ms on 4 cores, ${cores} here) by ζ's deformation build`, zeta.blocked <= budget && zeta.ready, { zeta, poly, budget, cores });
 ok('the start on ζ (the park halfway) takes at most 100 ms more than on z² + 1', zeta.park <= poly.park + 100, { zeta, poly });
