@@ -1706,8 +1706,7 @@
           gl.stencilFunc(gl.NOTEQUAL, 0, 0xff);
           u1i(Pc, 'uAlone', 1); u1i(Pc, 'uPoleN', poles.length);
           if (l && poles.length) gl.uniform4fv(l, poles.flatMap((p) => [p[0], p[1], p[2], p[3]]));
-          for (const p of alone) drawPatch(p);
-          u1i(Pc, 'uAlone', 0);
+          try { for (const p of alone) drawPatch(p); } finally { u1i(Pc, 'uAlone', 0); }
         }
         gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
         // (the translucent copies, over the principal surface; info.copyAlpha: the least alpha drawn, for the tests)

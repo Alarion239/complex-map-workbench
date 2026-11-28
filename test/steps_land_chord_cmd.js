@@ -28,7 +28,10 @@
 // (x) C, a carry with no period whose map is not one to one (z³: a ring point and a box point land on one spot at one
 //     height in different colours): its rings are alone (svLandFar), and its frame is the same with the second pass off
 //     (GLR._lw.noAlone), at most SAME_PX_FRAC of its pixels apart: no ring cell shows through the box where they meet;
-// (xi) B at u = .5, a periodic carry (exp): its rings are not alone, so they keep only the stencil.
+// (xi) B at u = .5, a periodic carry (exp): its rings are not alone, so they keep only the stencil;
+// (xii) D, z² over a disc about 0 held at u = .5, |F| heights (they follow the place), coloured from z: a carry with no
+//     period whose glide is two to one about 0, so ring points z and box points -z land on one spot at one height in
+//     different colours. As (x): its rings are alone, and its frame is the same with the second pass off.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
 // a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
@@ -160,4 +163,15 @@ info.C = { rows: rC, jumps: await jumps() };
 ok('C, z³ parked on w₁ coloured from z (v): a carried frame, and the jump rule leaves out none of its triangles', cC.s === 0 && !!rC && JSON.stringify(counts(nC)) === JSON.stringify(counts(rC)), { carried: cC, rule: counts(rC), noJump: counts(nC) });
 info.C.noAlone = await pixelRow('C-noalone', { noAlone: true });
 ok(`C (x): a carry with no period, its far rings alone, and the same frame with their second pass off (GLR._lw.noAlone): at most ${SAME_PX_FRAC * 100} % of its pixels apart`, cC.alone.length === 2 && cC.alone.every(Boolean) && info.C.noAlone.share !== null && info.C.noAlone.share <= SAME_PX_FRAC, { alone: cC.alone, px: info.C.noAlone });
+
+// ---- D: z² over a disc about 0, |F| heights, coloured from z: a glide two to one about 0
+await loadView('steps', `chordD${Date.now()}`, { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, visible: true }], steps: [{ type: 'pown', params: { n: 2 }, on: true }], sheets: false, height: 'abs' });
+await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 0, go: 0, now: true }); 1`);
+await settled({ max: 90000, until: '__cmwSteps().ready.ready' });
+await held(0.5);
+const cD = await carried();
+info.D = { carried: cD, noAlone: await pixelRow('D-noalone', { noAlone: true }) };
+ok(`D, z² over a disc about 0 held at u = .5 (xii): a carry with no period, its far rings alone, and the same frame with their second pass off (GLR._lw.noAlone): at most ${SAME_PX_FRAC * 100} % of its pixels apart`, cD.s === 0 && Math.abs(cD.u - 0.5) < 0.004 && cD.alone.length === 2 && cD.alone.every(Boolean) && info.D.noAlone.share !== null && info.D.noAlone.share <= SAME_PX_FRAC, info.D);
+await letGo();
 return { pass: fails.length === 0, fails, info };
