@@ -313,6 +313,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     polarUniforms(P1, polar, true);
+    u4f(P1, 'uDup', ...((polar && polar.dup) || [0, 0, 0, 0])); u1i(P1, 'uGap', gapOf(polar, N));
     heightUniforms(P1, mode, mu, H);
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1);
@@ -322,6 +323,7 @@
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
     u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
+    u1i(P2, 'uGap', gapOf(polar, N));
     u1f(P2, 'uJump', jump.J); u1f(P2, 'uJumpW', jump.w);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
     gl.activeTexture(gl.TEXTURE15);
@@ -401,6 +403,11 @@
   // only where the others leave a hole) and its far patches (st.carry.far, the slot after them): their textures, kept
   // between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
+  // the gap column of an outer far ring of n x n vertices with its copies' strip (polar.dup, svLandFarDup): the cells
+  // between it and the next span the strip (CARRY_ZIN's uGap, svDupTheta)
+  const dupGap = (n) => Math.floor((n - 1) / 2);
+  // uGap for a patch polar of N points a side: its gap column, or -1 with no copies' strip
+  const gapOf = (polar, N) => (polar && polar.dup ? dupGap(N) : -1);
   // (the carried grids' jump rule for this frame, LAND_CARRY_NRM_VS: J, CARRY_JUMP_J or 0 for none, and w, CARRY_JUMP_PX at the
   // fitted scale in plane units; set by drawLandscape before its height passes)
   let carryJump = { J: CARRY_JUMP_J, w: Infinity };
@@ -1646,14 +1653,15 @@
         // (the stencil marks the pixels the box's cells and the pole patches drew (bit 0), so a branch point's patch
         // (polar.hole, svLandPatches) draws only where they left a hole, marking its own (bit 1), and the far patch only
         // where none of them drew: its coarse cells carry copies of what they cover too, for a periodic map; the outer ring
-        // leaves out those in the strip of its copies, uDup, where they would stand out past the surface they copy)
+        // leaves out its gap column's cells, which span the strip of its copies (uGap), where they would stand out past the
+        // surface they copy)
         gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
         gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
         marked(Pc, () => gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1)));
         // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
         // the box's cells, so a patch shows only where they leave a hole)
         const drawPatch = (p) => {
-          polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N); u4f(Pc, 'uDup', ...(p.polar.dup || [0, 0, 0, 0]));
+          polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N); u4f(Pc, 'uDup', ...(p.polar.dup || [0, 0, 0, 0])); u1i(Pc, 'uGap', gapOf(p.polar, p.N));
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
           gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
           gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
