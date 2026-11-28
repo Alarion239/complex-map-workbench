@@ -773,6 +773,8 @@
     const landMap = carry ? carry.hmap : focusMap();
     const info = GLR.drawLandscape({
       map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null, standIn: landCarryStandIn(pane, carry, src) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      // (the steps view's Opacity: each surface lets the ones behind it show through)
+      opacity: SV.on ? svLandOpacity() : 1,
       cells, sheets, mask, outlines: artMode || hideStrokes ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
@@ -791,6 +793,7 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, mask: mask && mask.cut ? mask : null, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box, rulerMu);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
+    render3D.layers = info ? info.layers || 1 : null;   // (the relief's layers the last frame drew: tests)
     // (a frame of the CPU stand-in's relief draws the principal branch alone, so the title does not say the sheets until the frame
     // that draws them: its words follow this. An export's frame (offRender) never draws the stand-in and is not the screen's, so it
     // leaves it as the screen's last frame set it)
@@ -808,7 +811,7 @@
     if (info && !artMode && !figMode && pane === paneL) drawLandPicks(pane);
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.names = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.sheetsInfo = undefined; render3D.standIn = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.names = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.sheetsInfo = undefined; render3D.standIn = undefined; render3D.pick = undefined; render3D.layers = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -1458,7 +1461,13 @@
     const r = /** @type {HTMLInputElement} */ ($('alphaRange'));
     r.value = String(S.alpha); paintFader(r);
     $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
-    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity'))) syncOpacityRange(q);
+    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity:not([data-land])'))) syncOpacityRange(q);
+    requestRender('L', 'R'); save();
+  }
+  // the Landscape's own opacity, S.landAlpha: the one setter of its Opacity slider (the .sv-opacity range marked data-land)
+  function setLandOpacity(v) {
+    setOpt('landAlpha', v);
+    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity[data-land]'))) syncOpacityRange(q);
     requestRender('L', 'R'); save();
   }
   function setupViewControls() {
