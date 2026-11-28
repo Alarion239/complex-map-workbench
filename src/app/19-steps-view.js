@@ -1069,9 +1069,11 @@
   }
   // The steps view's colour opacity (the Opacity slider; read through regionLook, which the regions' mask passes keep
   // at the slider's value): how much the layers behind show through where the picture covers a point more than once.
-  // The farthest layer stays opaque, so a point covered once keeps its colour
-  const SV_OPACITY_MIN = 0.3;
+  // The farthest layer stays opaque, so a point covered once keeps its colour (SV_OPACITY_MIN, its least: 01-core.js)
   const svOpacity = () => Math.max(SV_OPACITY_MIN, regionLook().alpha);
+  // the Landscape's own opacity (S.landAlpha, its Opacity slider): how much its surfaces behind show through; opaque by
+  // default, so a relief costs one pass until it is set
+  const svLandOpacity = () => (isNum(S.landAlpha) ? Math.max(SV_OPACITY_MIN, Math.min(1, S.landAlpha)) : 1);
   // the look of a carried fill whose own opacity is base: full-opacity fills take the slider's, a dimmed one (a pulled-back
   // shape) keeps its own and draws every layer at it
   // The opacity of a carried layer, and the opacity its buffer size is chosen for: base is the fill's own (1, or less for a
