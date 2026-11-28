@@ -342,7 +342,7 @@ const Constr = (function (factory) {
     if (typeof ref.img === 'string') {
       const e = ctx.idx.get(ref.img);
       if (!e || e.plane !== 0 || e.s.kind !== 'point' || !isCarriedPlane(plane)) return U('argUndef', { x: ref.img, img: true });
-      if (e.s.cundef || e.s.undef) return U('argUndef', { x: ref.img, img: true });
+      if (e.s.cundef || e.s.undef) return U('argUndef', { x: ref.img });   // (the source point itself is undefined: its row is where the fix lies, so the reason names it)
       // (a point of the z-plane carried to the plane the reference is read on: the whole chain's map for the targets,
       // the steps up to plane k for a stage-k object)
       const F = ctx.env && (plane === 'T' ? ctx.env.F : ctx.env.Fk ? ctx.env.Fk(plane) : null);
