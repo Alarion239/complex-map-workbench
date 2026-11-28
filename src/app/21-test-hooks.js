@@ -421,9 +421,9 @@
 
   // TEST-HOOK (dropped from the published page by build.py)
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
-  // whether the plane point (x, y) lies in the strip of a far ring's copies (ring [x, y, ...] with dup [n.x, n.y, half-width],
-  // LAND_CARRY_VS uDup); false for a ring without one
-  const landInStrip = (ring, x, y) => !!ring.dup && Math.abs((x - ring[0]) * ring.dup[0] + (y - ring[1]) * ring.dup[1]) < ring.dup[2];
+  // the gap column of a far ring with its copies' strip (ring.dup, svDupTheta) of n x n vertices: the cells between it and
+  // the next span the strip and are left out (LAND_CARRY_VS); -1 for a ring without one
+  const landGapCol = (ring, n) => (ring && ring.dup ? GLR.dupGap(n) : -1);
   // whether the plane point (x, y) lies in the disc of one of the carry c's pole patches ([x, y, r0, r1], out to r1), which
   // that patch covers
   const inPoleDisc = (c, x, y) => (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(x - qx, y - qy) < q1);
@@ -455,15 +455,16 @@
   // The triangles the last carried frame's draw keeps (LAND_CARRY_VS), on the CPU, grid by grid: the box ('box', cells x
   // cells vertices over src, less the triangles whose corners all lie in one seamed patch's disc, which that patch draws),
   // then as patches says (true: all; 'poles': no far ring; false: none) the pole patches ('pole' k) and the far rings
-  // ('far' k, less the triangles whose corners all lie in the strip of the ring's copies, landInStrip), each n x n vertices
+  // ('far' k, less the cells of the gap column of the ring's copies' strip, landGapCol), each n x n vertices
   // at svPatchZ, then the patches more ('more' k, [x, y, r0, r1], the same parametrisation, on the CPU only). A triangle is
   // kept when its corners' images under the carry's map F are finite and its edges are at most c.lim long; with step (the
   // heights' step limit, LAND_CARRY_VS's uStep: 0.3 H for Re F and Im F) and hgt (a plane point's drawn height), also when
   // its corners' heights are finite and span at most step; and, under the frame's jump rule (c.jump {J, w}), when none of
   // its edges crosses a jump (landJumpBits). visit(g, a, d, e) for each, with its corners' vertices a, d, e
   // (vertex v at grid place (v % n, floor(v / n))) and g {name, n, place, Z, P, Hv}: place (i, j) -> [x, y], fractional
-  // places too; Z and P, the vertices' points and images (x at 2v, y at 2v + 1); Hv, their heights with hgt, or null
-  const landKeptTris = (c, F, visit, { patches = /** @type {boolean | string} */ (true), more = [], step = Infinity, hgt = null } = {}) => {
+  // places too; Z and P, the vertices' points and images (x at 2v, y at 2v + 1); Hv, their heights with hgt, or null.
+  // stepped(g, a, d, e), if given, for each triangle left out by the step alone, after its grid's kept triangles
+  const landKeptTris = (c, F, visit, { patches = /** @type {boolean | string} */ (true), more = [], step = Infinity, hgt = null, stepped = null } = {}) => {
     const lim2 = c.lim * c.lim;
     const grid = (name, n, place, discs = [], ring = null) => {
       const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n), Hv = hgt ? new Float64Array(n * n) : null;
@@ -473,22 +474,28 @@
         if (CX.isFin(w)) { P[2 * v] = w.re; P[2 * v + 1] = w.im; } else P[2 * v] = P[2 * v + 1] = NaN;
         if (Hv) Hv[v] = hgt(zc);
       }
-      const g = { name, n, place, Z, P, Hv }, B = landJumpBits(n, P, c.jump ? c.jump.J : 0, c.jump ? c.jump.w : Infinity);
+      const g = { name, n, place, Z, P, Hv }, B = landJumpBits(n, P, c.jump ? c.jump.J : 0, c.jump ? c.jump.w : Infinity), out = [];
       const keep = (a, d, e, jumps) => {
         if (jumps) return;
         const o = [2 * a, 2 * d, 2 * e];
         if (discs.some(([x, y, r]) => o.every((k) => Math.hypot(Z[k] - x, Z[k + 1] - y) < r))) return;
-        if (ring && o.every((k) => landInStrip(ring, Z[k], Z[k + 1]))) return;
         if (!o.every((k) => Number.isFinite(P[k]))) return;
         for (let m = 0; m < 3; m++) { const k = o[m], q = o[(m + 1) % 3]; if ((P[k] - P[q]) ** 2 + (P[k + 1] - P[q + 1]) ** 2 > lim2) return; }
-        if (Hv && step < Infinity) { const hs = [Hv[a], Hv[d], Hv[e]]; if (!hs.every(Number.isFinite) || Math.max(...hs) - Math.min(...hs) > step) return; }
+        if (Hv && step < Infinity) {
+          const hs = [Hv[a], Hv[d], Hv[e]];
+          if (!hs.every(Number.isFinite)) return;
+          if (Math.max(...hs) - Math.min(...hs) > step) { if (stepped) out.push([a, d, e]); return; }
+        }
         visit(g, a, d, e);
       };
+      const gap = landGapCol(ring, n);
       for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+        if (i === gap) continue;
         const v = j * n + i;
         keep(v, v + 1, v + n + 1, (B[v] & 5) | (B[v + 1] & 2));
         keep(v, v + n + 1, v + n, (B[v] & 6) | (B[v + n] & 1));
       }
+      for (const t of out) stepped(g, ...t);
     };
     const s = c.src, n = c.cells, discs = landSeamDiscs(c);
     grid('box', n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
@@ -533,18 +540,17 @@
   // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h: the carry's height map, plane s into the colour plane) averaged, the
   // chord's height at the cell, against L at its centre; {cells, bad: the cells whose chord is off by more than tol, worst, at:
   // the worst cell's centre and corners' mean and exact L, copies and copiesBad: the cells the outer ring leaves out to the box
-  // and the inner ring, all four corners in the strip of its copies (dup, LAND_CARRY_VS uDup), and those of them off by more
+  // and the inner ring, its gap column's, which span the strip of its copies (landGapCol), and those of them off by more
   // than tol, not in cells or bad}, per patch of c.far (of 'polar': per pole patch, each at its own resolution, none left
-  // out), or null with no carry. (It reads only the height, at a cell's centre: not where the cell stands in the block, nor
-  // its error on the screen, which __cmwLandChordPx reads)
+  // out), each at its grid's points (svPatchZ), or null with no carry. (It reads only the height, at a cell's centre: not
+  // where the cell stands in the block, nor its error on the screen, which __cmwLandChordPx reads)
   window.__cmwLandFarErr = (tol = 0.25, skipPatches = true, of = 'far') => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.far) return null;
     const F = cpuMap(c.map), h = cpuMap(c.hmap), b = c.box, L = (z) => { const v = h(z); return CX.isFin(v) ? Math.log(1 + CX.abs(v)) : NaN; };
     return (of === 'polar' ? (c.polar || []).slice(0, c.patches || 0).map((q) => [...q, c.patchN]) : c.far).map((ring) => {
-      const [px, py, r0, r1, N] = ring, d = of === 'polar' ? null : ring.dup;
-      const m = (N || c.patchN || 96) - 1, at = (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return C(px + r * Math.cos(th), py + r * Math.sin(th)); };
-      const inDup = (i, j) => { const z = at(i, j); return landInStrip(ring, z.re, z.im); };
+      const m = (ring[4] || c.patchN || 96) - 1, at = (i, j) => { const z = svPatchZ(ring, i, j, m + 1); return C(z[0], z[1]); };
+      const gap = of === 'polar' ? -1 : landGapCol(ring, m + 1);
       const out = { cells: 0, bad: 0, worst: 0, at: null, copies: 0, copiesBad: 0 }, V = new Float64Array((m + 1) * (m + 1));
       for (let j = 0; j <= m; j++) for (let i = 0; i <= m; i++) V[j * (m + 1) + i] = L(at(i, j));
       for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
@@ -554,7 +560,7 @@
         const a0 = V[j * (m + 1) + i], a1 = V[j * (m + 1) + i + 1], a2 = V[(j + 1) * (m + 1) + i], a3 = V[(j + 1) * (m + 1) + i + 1], Lc = L(zc);
         if (!Number.isFinite(a0 + a1 + a2 + a3 + Lc)) continue;
         const mean = (a0 + a1 + a2 + a3) / 4, e = Math.abs(mean - Lc);
-        if (d && inDup(i, j) && inDup(i + 1, j) && inDup(i, j + 1) && inDup(i + 1, j + 1)) { out.copies++; if (e > tol) out.copiesBad++; continue; }
+        if (i === gap) { out.copies++; if (e > tol) out.copiesBad++; continue; }
         out.cells++;
         if (e > tol) out.bad++;
         if (e > out.worst) { out.worst = e; out.at = [+zc.re.toFixed(3), +zc.im.toFixed(3), +mean.toFixed(3), +Lc.toFixed(3)]; }
@@ -567,10 +573,12 @@
   // region set), null outside its box or with no mask
   window.__cmwLandMask = (x, y) => landMaskAlpha(render3D.mask, x, y);
   // a Landscape frame's pane position (CSS px) of the place (x, y) of its box at height h: pk {box, info, w, h}
-  const landWorldPx = (pk, x, y, h) => {
+  const landWorldPx = (pk, x, y, h) => project(pk, pk.info.MVP, landWorld(pk, x, y, h));
+  // a Landscape frame's world point of the place (x, y) of its box at height h: x and y over the box at its aspect
+  function landWorld(pk, x, y, h) {
     const b = pk.box, [ax, ay] = pk.info.aspect;
-    return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
-  };
+    return [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h];
+  }
   // the last Landscape frame's pane position (CSS px) of the surface point over (x, y) of its plane, null with no pick data
   // or no surface there
   window.__cmwLandSurfacePx = (x, y) => {
@@ -579,6 +587,10 @@
     const w = pk.F(C(x, y));
     return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // The chord error of the last carried Landscape frame on the screen, on the CPU, per grid the draw keeps triangles of
   // (landKeptTris, with the draw's height step, c.step): each kept triangle whose centroid's image lies in the block is sampled
   // at its centroid and its three edges' midpoints, at the same fractional grid place (i, j); there the chord (its
@@ -590,7 +602,17 @@
   // ({box, pole k, far k}): {tris: the triangles counted, off: those over tol, worst: the largest error (px), at: its
   // centroid's image and point [w.re, w.im, z.re, z.im], place and height: the off triangles whose placement or height
   // part is over tol, inDisc: a far ring's kept triangles whose centroid lies in a pole patch's disc, which that patch
-  // covers (not counted)}, or null with no carried frame
+  // covers (not counted); geo: the cells off by more than tol on the screen from the exact surface, in the frame's world
+  // space at each point's depth (landGeo), both ways: a kept triangle's chord and the exact surface over it, and a triangle
+  // the height step left out (stepped: their count), the exact surface over it against the grid's kept triangles;
+  // geoWorst, geoAt: its centroid's [w.re, w.im, z.re, z.im]; geoCut: the left-out triangles a jump of the height explains
+  // (landCutCell), counted apart from geo, their reading being the slit's width}, or null with no
+  // carried frame. A kept triangle's geo is read when the samples above are over tol apart in 3D (the chord's point and the
+  // exact one, at the larger of their points' stretches), the nearest point of the surface being no farther than the one of
+  // the same z; between the samples the chord is taken to follow the surface. A chord across a wall narrower than its cell
+  // is parametrically far from the points of the same z, and geometrically close to the surface it draws. A left-out
+  // triangle is measured against its own grid's kept triangles only: where another grid draws its surface (the inner
+  // ring's overlap with the box, a pole patch's disc), it reads high
   window.__cmwLandChordPx = ({ tol = 3, where = null } = {}) => {
     const c = render3D.carried, f = render3D.floor;
     if (!c || !c.map || c.sheets || !f) return null;
@@ -601,32 +623,171 @@
     const px = (x, y, ht) => landWorldPx(f, x, y, ht), d = (p, q) => (p && q ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 0);
     const out = {};
     const SAMPLES = [[1 / 3, 1 / 3, 1 / 3], [0.5, 0.5, 0], [0, 0.5, 0.5], [0.5, 0, 0.5]];
-    landKeptTris(c, F, ({ name, n, place, P, Hv }, ...vs) => {
-      const r = out[name] || (out[name] = { tris: 0, off: 0, worst: 0, at: null, place: 0, height: 0, inDisc: 0 });
-      const hs = vs.map((v) => Hv[v]);
-      if (!hs.every(Number.isFinite)) return;
-      const wx = (P[2 * vs[0]] + P[2 * vs[1]] + P[2 * vs[2]]) / 3, wy = (P[2 * vs[0] + 1] + P[2 * vs[1] + 1] + P[2 * vs[2] + 1]) / 3;
-      if (wx < b.x0 || wx > b.x1 || wy < b.y0 || wy > b.y1) return;
+    const geo = landGeo(f, F, hgt), kept = {};
+    const row = (name) => out[name] || (out[name] = { tris: 0, off: 0, worst: 0, at: null, place: 0, height: 0, inDisc: 0, geo: 0, geoWorst: 0, geoAt: null, stepped: 0, geoCut: 0 });
+    // a triangle's place in plane s (k: barycentric -> its point), its centroid's, and whether it is counted
+    const cell = ({ name, n, place }, vs, r) => {
       const ij = vs.map((v) => [v % n, Math.floor(v / n)]), zAt = (k) => place(...[0, 1].map((m) => k[0] * ij[0][m] + k[1] * ij[1][m] + k[2] * ij[2][m]));
       const zc = zAt(SAMPLES[0]);
-      if (name.startsWith('far') && inPoleDisc(c, zc[0], zc[1])) { r.inDisc++; return; }
-      if (where && !where(zc[0], zc[1])) return;
-      let e = 0, ep = 0, eh = 0, atW = null;
+      if (name.startsWith('far') && inPoleDisc(c, zc[0], zc[1])) { r.inDisc++; return null; }
+      return where && !where(zc[0], zc[1]) ? null : { zAt, zc };
+    };
+    const geoRow = (r, g, at) => { if (g > tol) r.geo++; if (g > r.geoWorst) { r.geoWorst = g; r.geoAt = at.map((v) => +v.toFixed(3)); } };
+    const visit = (gr, ...vs) => {
+      const { name, P, Hv } = gr, r = row(name);
+      const hs = vs.map((v) => Hv[v]);
+      if (!hs.every(Number.isFinite)) return;
+      const corners = vs.map((v, m) => geo.world(P[2 * v], P[2 * v + 1], hs[m]));
+      (kept[name] || (kept[name] = [])).push(geo.box(corners));
+      const wx = (P[2 * vs[0]] + P[2 * vs[1]] + P[2 * vs[2]]) / 3, wy = (P[2 * vs[0] + 1] + P[2 * vs[1] + 1] + P[2 * vs[2] + 1]) / 3;
+      if (wx < b.x0 || wx > b.x1 || wy < b.y0 || wy > b.y1) return;
+      const cl = cell(gr, vs, r);
+      if (!cl) return;
+      const { zAt, zc } = cl;
+      let e = 0, ep = 0, eh = 0, e3 = 0, atW = null;
       for (const k of SAMPLES) {
         const z = zAt(k), zz = C(z[0], z[1]), w = F(zz), hx = hgt(zz);
         if (!CX.isFin(w) || !Number.isFinite(hx)) continue;
         const cx = k[0] * P[2 * vs[0]] + k[1] * P[2 * vs[1]] + k[2] * P[2 * vs[2]], cy = k[0] * P[2 * vs[0] + 1] + k[1] * P[2 * vs[1] + 1] + k[2] * P[2 * vs[2] + 1];
         const ch = k[0] * hs[0] + k[1] * hs[1] + k[2] * hs[2], q = px(w.re, w.im, hx);
         e = Math.max(e, d(px(cx, cy, ch), q)); ep = Math.max(ep, d(px(cx, cy, hx), q)); eh = Math.max(eh, d(px(w.re, w.im, ch), q));
+        const c3 = geo.world(cx, cy, ch), q3 = geo.world(w.re, w.im, hx);
+        e3 = Math.max(e3, Math.hypot(c3[0] - q3[0], c3[1] - q3[1], c3[2] - q3[2]) * Math.max(geo.scale(c3), geo.scale(q3)));
         if (!atW) atW = [w.re, w.im];
       }
       r.tris++;
       if (e > tol) { r.off++; if (ep > tol) r.place++; if (eh > tol) r.height++; }
+      if (e3 > tol) geoRow(r, geo.chord(zAt, corners), [...(atW || [wx, wy]), ...zc]);
       if (e > r.worst) { r.worst = e; r.at = [...(atW || [wx, wy]), ...zc].map((v) => +v.toFixed(3)); }
-    }, { step, hgt });
-    for (const r of Object.values(out)) r.worst = +r.worst.toFixed(1);
+    };
+    // a triangle the height step left out: across a jump of the height (geoCut), or the exact surface over it against the
+    // grid's kept triangles
+    const stepped = (gr, ...vs) => {
+      const r = row(gr.name), cl = cell(gr, vs, r);
+      if (!cl) return;
+      const pts = geo.exact(cl.zAt).filter(Boolean);
+      if (!pts.length) return;
+      const w = F(C(cl.zc[0], cl.zc[1]));
+      r.stepped++;
+      if (landCutCell(gr, vs, hgt, step)) { r.geoCut++; return; }
+      geoRow(r, geo.toKept(pts, kept[gr.name] || []), [...(CX.isFin(w) ? [w.re, w.im] : [NaN, NaN]), ...cl.zc]);
+    };
+    landKeptTris(c, F, visit, { step, hgt, stepped });
+    for (const r of Object.values(out)) { r.worst = +r.worst.toFixed(1); r.geoWorst = +r.geoWorst.toFixed(1); }
     return out;
   };
+  // __cmwLandChordPx's geometric reading, in css px, for the frame f (its floor camera; F, the carry's map; hgt, a plane
+  // point's height): the frame's world space is its x, y over the box f.box at its aspect, and the height, and a distance
+  // counts at the projection's largest stretch of a unit step at the point (scale: css px per world unit, its depth, the
+  // largest singular value of the projection's Jacobian there, from its columns at GEO_EPS steps). The exact
+  // surface over a triangle's place in plane s (zAt: barycentric k -> its point) is sampled on a GEO_G-step barycentric
+  // grid (exact: its world points, null where F or the height is not finite), as a mesh of the grid's small triangles.
+  // chord(zAt, corners): two-sided, the drawn triangle (its corners' world points) against that surface: the chord's points
+  // on the same grid each to the mesh, and each exact point to the drawn triangle. toKept(pts, kept): each exact point to
+  // the nearest of the kept triangles (box: a triangle with its bounding box), searched within GEO_NEAR css px. The largest
+  // of them
+  const GEO_G = 12, GEO_EPS = 1e-3, GEO_NEAR = 30;
+  function landGeo(f, F, hgt) {
+    const world = (x, y, ht) => landWorld(f, x, y, ht);
+    const scr = (p) => project(f, f.info.MVP, p);
+    const scale = (p) => {
+      const q = scr(p);
+      if (!q) return 0;
+      let a = 0, bc = 0, d = 0;
+      for (let k = 0; k < 3; k++) {
+        const pk = p.slice(); pk[k] += GEO_EPS;
+        const s = scr(pk);
+        if (!s) return 0;
+        const x = (s[0] - q[0]) / GEO_EPS, y = (s[1] - q[1]) / GEO_EPS;
+        a += x * x; bc += x * y; d += y * y;
+      }
+      return Math.sqrt((a + d) / 2 + Math.hypot((a - d) / 2, bc));
+    };
+    const at = (a, bb) => a * (GEO_G + 1) - (a * (a - 1)) / 2 + bb, K = [];
+    for (let a = 0; a <= GEO_G; a++) for (let bb = 0; a + bb <= GEO_G; bb++) K.push([a / GEO_G, bb / GEO_G, 1 - (a + bb) / GEO_G]);
+    const mesh = [];
+    for (let a = 0; a < GEO_G; a++) for (let bb = 0; a + bb < GEO_G; bb++) {
+      mesh.push([at(a, bb), at(a + 1, bb), at(a, bb + 1)]);
+      if (a + bb + 1 < GEO_G) mesh.push([at(a + 1, bb), at(a + 1, bb + 1), at(a, bb + 1)]);
+    }
+    const exact = (zAt) => K.map((k) => {
+      const z = zAt(k), zz = C(z[0], z[1]), w = F(zz), ht = hgt(zz);
+      return CX.isFin(w) && Number.isFinite(ht) ? world(w.re, w.im, ht) : null;
+    });
+    const chord = (zAt, C3) => {
+      const E = exact(zAt), tris = mesh.filter((t) => t.every((i) => E[i])).map((t) => t.map((i) => E[i]));
+      let g = 0;
+      for (const k of K) {
+        const p = [0, 1, 2].map((m) => k[0] * C3[0][m] + k[1] * C3[1][m] + k[2] * C3[2][m]);
+        let m = Infinity;
+        for (const t of tris) m = Math.min(m, ptTriDist(p, t));
+        if (m < Infinity) g = Math.max(g, m * scale(p));
+      }
+      for (const p of E) if (p) g = Math.max(g, ptTriDist(p, C3) * scale(p));
+      return g;
+    };
+    const box = (t) => ({ t, min: [0, 1, 2].map((m) => Math.min(t[0][m], t[1][m], t[2][m])), max: [0, 1, 2].map((m) => Math.max(t[0][m], t[1][m], t[2][m])) });
+    const toKept = (pts, kept) => {
+      let g = 0;
+      for (const p of pts) {
+        const sc = scale(p), r = sc > 0 ? GEO_NEAR / sc : Infinity;
+        let m = r;
+        for (const { t, min, max } of kept) {
+          if ([0, 1, 2].some((k) => p[k] < min[k] - m || p[k] > max[k] + m)) continue;
+          m = Math.min(m, ptTriDist(p, t));
+        }
+        g = Math.max(g, Math.min(m * sc, GEO_NEAR));
+      }
+      return g;
+    };
+    return { world, scale, exact, chord, box, toKept };
+  }
+  // whether the height jumps on the grid g's edge between vertices a and e: bisected along the edge (GEO_BISECT halvings,
+  // keeping the half whose ends' heights hgt are farther apart), its ends still more than step / 2 apart. A steep wall's
+  // ends come together; a cut's stay apart by the jump. A wrong turn, following a steeper wall past a smaller jump, ends
+  // in no jump, so the cell stays in geo. An edge through a pole or zero of F (the height unbounded there) reads as a jump:
+  // a singular point, not a chord; one passing at a distance well over its length's 2^-48 does not. 48 halvings stay above
+  // the doubles' resolution of the place
+  const GEO_BISECT = 48;
+  function landHeightJump({ n, place }, a, e, hgt, step) {
+    const pa = [a % n, Math.floor(a / n)], pe = [e % n, Math.floor(e / n)];
+    const at = (t) => { const z = place(pa[0] + t * (pe[0] - pa[0]), pa[1] + t * (pe[1] - pa[1])); return hgt(C(z[0], z[1])); };
+    let t0 = 0, t1 = 1, h0 = at(0), h1 = at(1);
+    for (let i = 0; i < GEO_BISECT; i++) {
+      const tm = (t0 + t1) / 2, hm = at(tm);
+      if (!Number.isFinite(hm)) return true;
+      if (Math.abs(hm - h0) >= Math.abs(h1 - hm)) { t1 = tm; h1 = hm; } else { t0 = tm; h0 = hm; }
+    }
+    return Math.abs(h1 - h0) > step / 2;
+  }
+  // whether a jump of the height explains why the step left out the grid g's triangle (vertices vs): every edge whose ends'
+  // heights hgt are over step apart jumps (landHeightJump). A cut crosses two edges; a cell with a wall on its third reads
+  // in geo
+  function landCutCell(g, vs, hgt, step) {
+    const hv = vs.map((v) => { const z = g.place(v % g.n, Math.floor(v / g.n)); return hgt(C(z[0], z[1])); });
+    const edges = [[0, 1], [1, 2], [2, 0]].filter(([m, k]) => !(Math.abs(hv[m] - hv[k]) <= step));
+    return edges.length > 0 && edges.every(([m, k]) => landHeightJump(g, vs[m], vs[k], hgt, step));
+  }
+  window.__cmwLandCutCell = landCutCell;
+  // the distance in 3D from point p to triangle t ([a, b, c], each [x, y, z]): to its nearest point (Ericson's region test)
+  function ptTriDist(p, [a, b, c]) {
+    const minus = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]], dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    const ab = minus(b, a), ac = minus(c, a), ap = minus(p, a), d1 = dot(ab, ap), d2 = dot(ac, ap);
+    const to = (q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]), along = (o, v, t) => [o[0] + v[0] * t, o[1] + v[1] * t, o[2] + v[2] * t];
+    if (d1 <= 0 && d2 <= 0) return to(a);
+    const bp = minus(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3) return to(b);
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) return to(along(a, ab, d1 / (d1 - d3)));
+    const cp = minus(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp);
+    if (d6 >= 0 && d5 <= d6) return to(c);
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) return to(along(a, ac, d2 / (d2 - d6)));
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) return to(along(b, minus(c, b), (d4 - d3) / ((d4 - d3) + (d5 - d6))));
+    const den = 1 / (va + vb + vc), v = vb * den, w = vc * den;
+    return to([a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w]);
+  }
   // The jump rule of the last carried Landscape frame's grids (landJumpBits, LAND_CARRY_NRM_VS) against the carry's map, on the
   // CPU. An edge's ratio is its step on the plane over the larger of its neighbours' along the same line. The box's edges
   // within a seamed patch's disc, which that patch draws, are not read. An edge over the

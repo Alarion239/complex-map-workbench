@@ -12,8 +12,9 @@
 //     of its spike and away from F's poles at ±πi) the triangles read, and none is off by more than 0.5 px: where the
 //     cells are fine for the surface, the hook's chord and exact point agree, so its larger readings elsewhere are the
 //     chords';
-// (ii) B's outer far ring at u = .5 and .75 has kept triangles and none off by more than 3 px (the ring leaves out the
-//     copies of the box and the inner ring that #1137 measured, landInStrip);
+// (ii) B's outer far ring at u = .25, .5 and .75 has kept triangles and none off by more than 3 px: the ring covers only
+//     the ring outside the strip of its copies of the box and the inner ring (svDupTheta), with no cell reaching into the
+//     strip across its edge;
 // (iii) with the far rings drawn at 32 points a side (GLR._lw.farN), B's inner ring at u = .5 reads triangles off by more
 //     than 3 px: the hook reads the rings the frame drew;
 // (iv) A's box at u = .25, .5 and .75 keeps no triangle across a jump of the log's glide (the oracle finds jumps there,
@@ -21,7 +22,19 @@
 //     bridged the slit along the cut;
 // (iv') with the rule off (GLR._lw.noJump), A's box at those u keeps triangles off by more than 3 px: (iv) reads the rule;
 // (v) B at u = .5 and C keep the same triangles, grid by grid, with and without the rule: it leaves out nothing where the
-//     carry's map has no jump.
+//     carry's map has no jump;
+// (vi) A parked on w₁: at most PX_FINE_MAX of its surface's pixels apart from the fine-ring frame. Its height, z's own Im
+//     z = e^Re w sin(Im w), has no cut, so its walls at Im w = 0 and ±π are drawn (carryStep), not left out in fins, and
+//     the outer ring's columns crowd toward them (svLandFarWalls), so the frame is the fine-ring frame's;
+// (vii) A parked on w₁: its far rings keep triangles, and no cell is off by more than 3 px from the surface (geo, in the
+//     frame's world space at depth, both ways: a kept triangle against the surface over it, and the surface over a
+//     triangle the height step left out against the kept ones, where no jump of the height explains the gap: geoCut). A
+//     wall narrower than its cell leaves a chord parametrically far from the points of its z (off, info), while the surface
+//     it draws is the exact one's; the fins of (vi) left the wall's surface out;
+// (viii) geoCut's test (__cmwLandCutCell), on the triangle (0, 0), (1, 0), (0, 1) of a two-point grid over the plane: arg z
+//     across its cut on the negative reals is a jump, and atan(10⁴ Re z) across 0, as steep but continuous, is not; a step
+//     of 5 across Re z + Im z = 0.5 (on two edges) explains the cell, and with a wall 0.8 atan(10⁴ (Re z − Im z − 0.3)) does
+//     not: under the step, it leaves edge (0, 0)–(1, 0) jumping, and its third edge steps by the wall alone;
 // (ix) A at u = .75, whose carry has no period: at most DEPTH_FRAC of the surface's pixels apart from the same frame with
 //     the far rings drawn by depth alone, without the stencil (GLR._lw.farDepth): where the outer ring lies in front of
 //     the back of the box's corner, it is drawn there;
@@ -32,7 +45,8 @@
 // (xii) D, z² over a disc about 0 held at u = .5, |F| heights (they follow the place), coloured from z: a carry with no
 //     period whose glide is two to one about 0, so ring points z and box points -z land on one spot at one height in
 //     different colours. As (x): its rings are alone, and its frame is the same with the second pass off.
-// The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
+// The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc, geo,
+// geoWorst, geoAt, stepped, geoCut}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
 // a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
 // kept triangle may bridge one: a lower J would come within reach of the continuous edges' ratios), and its pixel row:
@@ -49,6 +63,7 @@ const TOL = 3;                         // css px: a triangle off by more is coun
 const SMOOTH_TOL = 0.5;                // css px: (i)'s bound
 const FINE = [512, 384], COARSE = [32, 32];   // the far rings' points a side for the reference frame and for (iii)
 const PX_TOL = 30, SAT = 24;           // (the pixel rows: a channel more than PX_TOL apart; a surface pixel's channels span more than SAT)
+const PX_FINE_MAX = 0.02;              // (vi)'s bound on the share of pixels apart from the fine-ring frame
 const SAME_PX_FRAC = 0.001;            // (x)'s bound: 0 measured
 const DEPTH_FRAC = 0.005;               // (ix)'s bound: the stencil hid 2.2 % of the surface there, the depth draw leaves 0.04 % apart
 const LIM = 300000;
@@ -120,6 +135,9 @@ await settled({ max: 90000, until: '__cmwSteps().ready.ready && __cmwSteps().i =
 const cA = await carried();
 ok('A, parked on w₁ coloured from z: a carried frame from plane z', cA.s === 0 && cA.u === 1, cA);
 info.A.parked = { rows: await chord(), px: await pixelRow('A-parked') };
+ok(`A, parked on w₁ (vi): at most ${PX_FINE_MAX} of the surface's pixels apart from the fine-ring frame`, !!info.A.parked.px && info.A.parked.px.n > 1000 && info.A.parked.px.share <= PX_FINE_MAX, info.A.parked.px);
+const farA = Object.entries(info.A.parked.rows || {}).filter(([k]) => k.startsWith('far'));
+ok(`A, parked on w₁ (vii): its far rings keep triangles, and no cell is off by more than ${TOL} px from the surface (geo)`, farA.length > 0 && farA.every(([, r]) => r.tris > 0 && r.geo === 0), Object.fromEntries(farA));
 
 // ---- B: the default page, Everywhere, T = w₂
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=chordB${Date.now()}`);
@@ -134,7 +152,7 @@ for (const u of [0.25, 0.5, 0.75]) {
   const rows = await chord(), smooth = await chord(`{ tol: ${SMOOTH_TOL}, where: (x, y) => Math.hypot(x, y) >= 0.4 && Math.hypot(x, y) <= 1.5 }`);
   info.B['u' + u] = { rows, smooth: smooth && smooth.box, px: await pixelRow(`B-u${u}`) };
   ok(`${tag} (i): on the box's smooth part, triangles and none off by more than ${SMOOTH_TOL} px`, !!smooth && smooth.box.tris > 500 && smooth.box.worst <= SMOOTH_TOL, smooth && smooth.box);
-  if (u >= 0.5) ok(`${tag} (ii): the outer far ring keeps triangles, none off by more than ${TOL} px`, !!rows && !!rows.far1 && rows.far1.tris > 0 && rows.far1.off === 0, rows && rows.far1);
+  ok(`${tag} (ii): the outer far ring keeps triangles, none off by more than ${TOL} px`, !!rows && !!rows.far1 && rows.far1.tris > 0 && rows.far1.off === 0, rows && rows.far1);
   if (u === 0.5) {
     info.B.jumps = await jumps();
     await redraw({ noJump: true });
@@ -174,4 +192,14 @@ const cD = await carried();
 info.D = { carried: cD, noAlone: await pixelRow('D-noalone', { noAlone: true }) };
 ok(`D, z² over a disc about 0 held at u = .5 (xii): a carry with no period, its far rings alone, and the same frame with their second pass off (GLR._lw.noAlone): at most ${SAME_PX_FRAC * 100} % of its pixels apart`, cD.s === 0 && Math.abs(cD.u - 0.5) < 0.004 && cD.alone.length === 2 && cD.alone.every(Boolean) && info.D.noAlone.share !== null && info.D.noAlone.share <= SAME_PX_FRAC, info.D);
 await letGo();
+
+// ---- (viii): geoCut's test on four cells
+const cutCell = (place, hgt) => ev(`__cmwLandCutCell({ n: 2, place: ${place} }, [0, 1, 2], ${hgt}, 1)`);
+const cuts = {
+  arg: await cutCell('(i, j) => [-1, -0.5 + i + j]', '(z) => Math.atan2(z.im, z.re)'),
+  wall: await cutCell('(i, j) => [-0.5 + i + j, 0]', '(z) => Math.atan(1e4 * z.re)'),
+  step: await cutCell('(i, j) => [i, j]', '(z) => (z.re + z.im > 0.5 ? 5 : 0)'),
+  stepWall: await cutCell('(i, j) => [i, j]', '(z) => (z.re + z.im > 0.5 ? 5 : 0) + 0.8 * Math.atan(1e4 * (z.re - z.im - 0.3))'),
+};
+ok('(viii): geoCut\'s test finds a cut (arg z, a step on two edges), and not a steep wall, alone or beside a cut', cuts.arg === true && cuts.wall === false && cuts.step === true && cuts.stepWall === false, cuts);
 return { pass: fails.length === 0, fails, info };

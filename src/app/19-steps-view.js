@@ -734,16 +734,30 @@
     }
     return Object.assign(out, { end });
   }
-  // the point of a pole's patch p ([x, y, r0, r1], p.seam) at grid place (i, j) of an n x n grid, as CARRY_ZIN places it
-  // (SEAM_EPS inside the cut on rings out to its end, p.seam.end)
+  // the point of a pole's patch p ([x, y, r0, r1], p.seam, p.dup, p.walls) at grid place (i, j) of an n x n grid, as
+  // CARRY_ZIN places it (SEAM_EPS inside the cut on rings out to its end, p.seam.end; an outer far ring with its copies'
+  // strip on the arcs outside it, svDupTheta; one with walls on their layout, GLR.wallTheta)
   function svPatchZ(p, i, j, n) {
     const f = 1 / (n - 1), r = p[2] * Math.pow(p[3] / p[2], j * f);
     let th = -2 * Math.PI * i * f;
     if (p.seam) {
       const K = GLR.SEAM_RINGS, t = Math.min(Math.max(j * f, 0), 1) * (K - 1), k = Math.min(Math.floor(t), K - 2), E = j * f <= p.seam.end ? GLR.SEAM_EPS : 0;
       th = p.seam[k] + (p.seam[k + 1] - p.seam[k]) * (t - k) - E - (2 * Math.PI - 2 * E) * i * f;
+    } else if (p.dup) th = svDupTheta(p.dup, i, r, n);
+    else if (p.walls) {
+      const tw = GLR.wallTheta(p.walls, i, n);
+      if (tw != null) th = tw;
     }
     return [p[0] + r * Math.cos(th), p[1] + r * Math.sin(th)];
+  }
+  // the angle at grid column i of n, radius r, of an outer far ring with its copies' strip dup ([n.x, n.y, half-width, 1],
+  // svLandFar): the strip's edges cross the circle at ±b from its normal n and from -n, b = acos(half-width / r); the
+  // columns up to the gap h (GLR.dupGap) run from +b to -b about n, the rest from +b to -b about -n. So the
+  // grid's outermost columns lie on the strip's edges and its cells cover the ring outside the strip; the cells between
+  // columns h and h + 1 span the strip and are left out (LAND_CARRY_VS), its points drawn by their copies
+  function svDupTheta(d, i, r, n) {
+    const h = GLR.dupGap(n), b = Math.acos(Math.min(1, d[2] / r)), tn = Math.atan2(d[1], d[0]);
+    return i <= h ? tn + b - (2 * b * i) / h : tn + Math.PI + b - (2 * b * (i - h - 1)) / (n - 2 - h);
   }
   // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
   // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
@@ -774,8 +788,10 @@
   // With carry, the outer ring carries its copies' strip (dup, LAND_CARRY_VS uDup), for the carried surface's period P
   // (svLandPeriod) when its half is shorter than the outer ring's inner radius R: each point of the strip within
   // sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the inner ring draw
-  // with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span several periods
-  // there, and their facets would stand out past the surface they copy. [n.x, n.y, half-width, 1], n the unit normal to P.
+  // with their finer cells. The outer ring covers only the ring outside that strip (svDupTheta): its coarse cells span
+  // several periods there, and their facets would stand out past the surface they copy, as would a cell reaching into the
+  // strip across its edge. [n.x, n.y, half-width, 1], n the unit normal to P. Without a strip, the outer ring's walls
+  // (svLandFarWalls).
   // A carry with no period and not plain has both rings alone: a point of plane s outside the box and the pole patches is
   // drawn by the rings and nothing else, so the draw puts their cells there in front of the box where they are nearer
   // (LAND_CARRY_VS uAlone).
@@ -785,8 +801,58 @@
     const R = LAND_FAR_NEAR * r, outer = [x, y, R, LAND_FAR_REACH * Math.max(w, h)], inner = [x, y, r, LAND_FAR_LAP * R];
     const P = carry && svLandPeriod(carry, src), half = P ? CX.abs(P) / 2 : Infinity, alone = !!carry && !carry.plain && !P;
     const dup = half < R ? [-P.im / (2 * half), P.re / (2 * half), Math.sqrt(R * R - half * half), 1] : null, mark = (ring) => (alone ? Object.assign(ring, { alone }) : ring);
-    return [mark(inner), dup ? Object.assign(outer, { dup }) : mark(outer)];
+    const walls = carry && !dup ? svLandFarWalls(carry, outer) : null;
+    return [mark(inner), dup ? Object.assign(outer, { dup }) : mark(walls ? Object.assign(outer, { walls }) : outer)];
   };
+  // The outer far ring's walls: with the height Re or Im of a value (S.height), where it crosses 0 so steeply that half a
+  // column of the ring away on either side (at GLR.CARRY_FAR_N[1] points a side) it is already past the height's scale in
+  // the box (the median of |value| at LAND_WALL_BOX points of it): the log's Im z = r sin(theta) at theta = 0 and pi, a wall
+  // much narrower than a column, which a column's chord would facet. Found on the rings at LAND_WALL_AT of the ring's
+  // span (in its log radius), at LAND_WALL_FINE points a column, the crossing bisected; kept where the rings agree to a
+  // column. {d: their angles in the order the ring's decreasing angle meets them, from [0, 2 pi), e: LAND_WALL_E, b:
+  // LAND_WALL_B} for the ring's columns to crowd toward them (GLR.wallTheta, CARRY_ZIN), or null: none, or more than
+  // GLR.WALL_SLOTS. The height's map does not move with the glide, so they are measured once per chain, carry and ring
+  const LAND_WALL_AT = [0.3, 0.45, 0.6], LAND_WALL_FINE = 8, LAND_WALL_E = 1e-4, LAND_WALL_B = 0.85, svLandWallMemo = new Map();
+  const LAND_WALL_BOX = [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7], [0.35, 0.85], [0.7, 0.15], [0.15, 0.8], [0.85, 0.2], [0.5, 0.1], [0.5, 0.9]];
+  function svLandFarWalls(carry, ring) {
+    if (carry.plain || !(S.height === 're' || S.height === 'im')) return null;
+    const key = JSON.stringify([chainSig[nSteps()], carry.s, carry.hT == null ? carry.T : carry.hT, S.height, ring]);
+    if (svLandWallMemo.has(key)) return svLandWallMemo.get(key);
+    if (svLandWallMemo.size > 16) svLandWallMemo.clear();
+    const out = svLandWallsOf(cpuMap(carry.hmap), carry.vs ? landBox(carry.vs) : null, ring);
+    svLandWallMemo.set(key, out);
+    return out;
+  }
+  function svLandWallsOf(H, src, ring) {
+    if (!H || !src) return null;
+    const v = (z) => { const w = H(z); return CX.isFin(w) ? landValue(w) : NaN; };
+    const sc = LAND_WALL_BOX.map(([fx, fy]) => Math.abs(v(C(src.x0 + fx * (src.x1 - src.x0), src.y0 + fy * (src.y1 - src.y0))))).filter(Number.isFinite).sort((a, b) => a - b);
+    const s0 = sc.length ? sc[sc.length >> 1] : NaN;
+    if (!(s0 > 0)) return null;
+    const m = GLR.CARRY_FAR_N[1] - 1, col = (2 * Math.PI) / m, M = LAND_WALL_FINE * m;
+    const walls = LAND_WALL_AT.map((fj) => {
+      const r = ring[2] * Math.pow(ring[3] / ring[2], fj), at = (th) => v(C(ring[0] + r * Math.cos(th), ring[1] + r * Math.sin(th)));
+      const out = [];
+      let th0 = (0.5 * 2 * Math.PI) / M, a = at(th0);
+      for (let k = 1; k <= M; k++) {
+        const th1 = ((k + 0.5) * 2 * Math.PI) / M, b = at(th1);
+        if (Number.isFinite(a) && Number.isFinite(b) && Math.sign(a) !== Math.sign(b)) {
+          let tLo = th0, tHi = th1, fl = a;
+          for (let it = 0; it < 40; it++) { const mid = (tLo + tHi) / 2, fm = at(mid); if (!Number.isFinite(fm)) break; if (Math.sign(fm) === Math.sign(fl)) { tLo = mid; fl = fm; } else tHi = mid; }
+          const t = (tLo + tHi) / 2, p = at(t + col / 2), q = at(t - col / 2);
+          if (Math.abs(p) > s0 && Math.abs(q) > s0 && Math.sign(p) !== Math.sign(q)) out.push(((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI));
+        }
+        th0 = th1; a = b;
+      }
+      return out;
+    });
+    const mid = walls[1], near = (x, y) => { const g = Math.abs(x - y) % (2 * Math.PI); return Math.min(g, 2 * Math.PI - g) < col; };
+    const kept = mid.filter((t) => walls.every((L) => L.some((u) => near(u, t))));
+    if (!kept.length || kept.length > GLR.WALL_SLOTS) return null;
+    // (in the order the ring's decreasing angle meets them, from the largest)
+    const d = kept.sort((x, y) => y - x);
+    return { d, e: LAND_WALL_E, b: LAND_WALL_B };
+  }
   // The carried surface's period: P with the places F(z + P) = F(z) and the heights the same, at LAND_DUP_AT points of the
   // box src (the glide map's period, invHomPer, or at rest the chain's from s, Inverse.keyPeriod, or the least multiple of
   // it, up to LAND_DUP_M, that the height has too); null where none is found
