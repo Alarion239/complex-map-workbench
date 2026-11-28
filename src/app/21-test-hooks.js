@@ -87,7 +87,7 @@
   };
   window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
-  window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
+  window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn, and t: its frame's time, __cmwPaneStatus(role).t)
   // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn, and landCarryStandIn for
   // a carried frame at rest): the cell of its finest level done (css px; null before one; 0 on the globe and the Landscape, whose
   // levels have no cell), whether it is the globe's or the Landscape's, whether it is a carried frame's (carry), and its
@@ -304,6 +304,8 @@
     if (mfDrawn) for (const h of mfDrawn.heads) { const q = P(Fat(mfDrawn.T)(C(h[2], h[3]))); heads = Math.max(heads, mDist(q, h)); }
     return { ownLine, arrowMin: sel.arrowMin, kinkStep, minLen, retrace: retr, endLine, ringLine, ringEnd, sepLong, ink: sel.ink, cap: sel.budget, n: sel.kept.length, nSeg, seg, jump, ang, kink, turnP99: turns.length ? turns[Math.floor(0.99 * (turns.length - 1))] : 0, turnMax: turns.length ? turns[turns.length - 1] : 0, sep, heads, nHeads: mfDrawn ? mfDrawn.heads.length : 0, T: mfDrawn ? mfDrawn.T : null, kinds: sel.kept.reduce((a, q) => { a[q.sp.kind] = (a[q.sp.kind] || 0) + 1; return a; }, {}) };
   };
+  // the segment buttons the segmented controls' ResizeObserver watches (segRO)
+  window.__cmwSegObserved = () => segSeen.size;
   window.__cmwMorphCache = () => ({ ready: !!(mfCache.sel && mfCache.key === mfScreenKey(paneR).key && (mfCache.vkey === mfScreenKey(paneR).vkey || mfViewOk(paneR, classicSource()))), job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null, rej: mfCache.sel ? mfCache.sel.rej : null, away: mfCache.sel ? mfCache.sel.away : null, prev: mfCache.prev ? mfCache.prev.sel.kept.length : 0 });
   window.__cmwLastFigure = () => Figure.last();
   window.__cmwFigPathsSel = () => (mfFigCache.sel ? { n: mfFigCache.sel.kept.length, nCands: mfFigCache.sel.nCands, cap: mfFigCache.sel.budget, rej: mfFigCache.sel.rej } : null);
@@ -433,15 +435,20 @@
     const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
     return (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
   };
+  // cut 2's jump rule (LAND_CARRY_NRM_VS's jumpOf) over the steps step(i, j, di, dj) (-1: none): the edge from (i, j) to
+  // (i + di, j + dj) crosses a jump when its step is over w and over J times the larger of the steps of the edges before
+  // it and after it along the same line (of those that are finite; none: no jump)
+  const landJumpOf = (step, J, w) => (i, j, di, dj) => {
+    const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj));
+    return m >= 0 && s > w && s > J * m;
+  };
   // The jump bits of an n x n carried grid's vertices with images P (x at 2v, y at 2v + 1; NaN where not finite), as
-  // LAND_CARRY_NRM_VS sets them: bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for v -> v + (1, 1), when
-  // its step on the plane is over w and over J times the larger of the steps of the edges before it and after it along
-  // the same line (of those that are finite; none: no jump); all 0 with J 0
+  // LAND_CARRY_NRM_VS sets them (landJumpOf): bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for
+  // v -> v + (1, 1); all 0 with J 0
   const landJumpBits = (n, P, J, w) => {
     const B = new Uint8Array(n * n);
     if (!(J > 0)) return B;
-    const step = landStep(n, P);
-    const jump = (i, j, di, dj) => { const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj)); return m >= 0 && s > w && s > J * m; };
+    const jump = landJumpOf(landStep(n, P), J, w);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) B[j * n + i] = (jump(i, j, 1, 0) ? 1 : 0) | (jump(i, j, 0, 1) ? 2 : 0) | (jump(i, j, 1, 1) ? 4 : 0);
     return B;
   };
@@ -675,6 +682,39 @@
     for (const r of Object.values(out)) { r.maxCont = +r.maxCont.toFixed(2); r.minJump = Number.isFinite(r.minJump) ? +r.minJump.toFixed(2) : null; }
     return out;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // The carried All sheets' places read back with GLR._lw.cpDump (LAND_CARRY_PLACE_S_TF_VS: each sheet's cells' own four
+  // corners), the box's and each patch's, against cut 2's jump rule (landJumpOf), an edge of a cell on a sheet (along x, y
+  // or the diagonal) beside the same edges of the cells before and after it along that line on that sheet. Per slot (0
+  // the box, i + 1 the patch i): {edges: the edges read (both corners finite), over: those the rule flags, maxRatio: the
+  // largest ratio of an edge with a finite neighbour, J, w: the rule and its floor the frame drew with}, or null with no
+  // read-back
+  window.__cmwLandSheetStretch = () => (GLR._cpDump ? Object.fromEntries(Object.entries(GLR._cpDump).map(([slot, D]) => [slot, landSheetStretch(D)])) : null);
+  function landSheetStretch(D) {
+    const { d, texW, N, K, tileC, J, w } = D, M = N - 1, T = 2 * M;
+    const at = (k, i, j, ci, cj) => { const o = 4 * (((Math.floor(k / tileC) * T) + 2 * j + cj) * texW + (k % tileC) * T + 2 * i + ci); return d[o + 3] > 0.5 ? [d[o], d[o + 1]] : null; };
+    const edge = (k, i, j, di, dj) => {
+      if (i < 0 || j < 0 || i >= M || j >= M) return -1;
+      const a = at(k, i, j, 0, 0), b = at(k, i, j, di, dj);
+      return a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : -1;
+    };
+    let edges = 0, over = 0, maxRatio = 0;
+    for (let k = 0; k < K; k++) {
+      const step = (i, j, di, dj) => edge(k, i, j, di, dj), jump = landJumpOf(step, J, w);
+      for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) for (const [di, dj] of [[1, 0], [0, 1], [1, 1]]) {
+        const s = step(i, j, di, dj);
+        if (s < 0) continue;
+        edges++;
+        const m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj));
+        if (m > 0) maxRatio = Math.max(maxRatio, s / m);
+        if (jump(i, j, di, dj)) over++;
+      }
+    }
+    return { edges, over, maxRatio: +maxRatio.toFixed(2), J, w };
+  }
   // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
   // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there
   window.__cmwLandHeightAt = (x, y) => {
@@ -806,13 +846,17 @@
   // tracks (svHoldB), rest: the last plane at rest's (svRestRec);
   // playRec: a play's schedule ({ from, to, ms, t0, el: its time since it started from from, at t0 }), null without a play or for a
   // slide; rebased: the schedule the last new speed set (svPlayRebase), with rebaseMinSpan, the least span it is timed over;
-  // invWarm: the glides of the plane shown made ready at rest (svPrestartInv's jobs for it done); invGlides: those glides
-  // ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
+  // invWarm: the glides of the plane shown, and the planes a press lands on from it, made ready at rest (svPrestartInv's
+  // jobs for it done); invGlides: those glides ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
   // far that ran past their key (SV.fits); ready (svReady, peeked) and invGlides are read only when asked too (getters:
   // svReady's inverse part asks each glide's programs, and a suite may read the glide once a pixel)
   // the Play gate's 10 s message for a part (null: no part named), and the part it would name now
   /** @type {any} */ (window).__cmwGateStill = (part) => svGateStill(part);
   /** @type {any} */ (window).__cmwGateMissing = () => svGateMissing();
+  // the Play gate's message while it is up (svGateMessageUp: SV.gate's toast in the page), else null; and how long the gate
+  // waits before it shows it, SV_GATE_HANG_MS
+  /** @type {any} */ (window).__cmwGateToast = () => (svGateMessageUp() ? SV.gate.toast : null);
+  /** @type {any} */ (window).__cmwGateHangMs = SV_GATE_HANG_MS;
   // (x moves the thread's position and nothing else: SV.i stays, so a frame held between planes is drawn with the source view while the labels
   // read the plane's own view, V.left. To read the labels against the picture freeze a glide with clock, as steps_glide_labels does)
   /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'glideSheets' in o) { SV.glideSheets = o.glideSheets; requestRender('L'); } if (o && 'glideOrder' in o) { SV.glideSat = o.glideOrder === 'painter' ? 0 : 1; requestRender('L'); } if (o && 'glideStencil' in o) { SV.glideStencil = o.glideStencil; requestRender('L'); } if (o && 'restPaint' in o) { SV.restPaint = o.restPaint; requestRender('L'); } if (o && 'plotsKeep' in o) { SV.plotsKeep = o.plotsKeep; requestRender('L'); } if (o && 'glideSeams' in o) { SV.glideSeams = o.glideSeams; requestRender('L'); } if (o && 'landBranches' in o) { SV.landBranches = o.landBranches; requestRender('L'); } if (o && 'glideFade' in o) { SV.glideFade = o.glideFade; requestRender('L'); } if (o && 'tieBand' in o) { svTieBandSet = o.tieBand; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && 'holdJobs' in o) svJobsHoldSet(o.holdJobs); if (o && 'holdWarm' in o) svWarmHoldSet(o.holdWarm); if (o && 'warmInv' in o) svInvWarmOffSet(!o.warmInv); if (o && 'ahead' in o) svAheadTune(o.ahead); if (o && 'gate' in o) svGateOffSet(!o.gate); if (o && o.play != null) { if (o.play) svPlay(); else { svGateEnd(); svPause(true); } } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { get ready() { return svReady(null, true); }, on: SV.on, plots: { drawn: svPlotsUse.drawn, kept: svPlotsUse.kept, held: svPlotsKey !== null }, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', playRec: SV.play && !SV.play.slide ? { from: SV.play.from, to: SV.play.to, ms: SV.play.ms, t0: SV.play.t0, el: svElapsed(SV.play) } : null, rebased: SV.rebased || null, rebaseMinSpan: SV_REBASE_MIN_SPAN, loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, fits: SV.fits, homAll: !!S.homAll, moving: svMoving() || svGateWaiting(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, note: paneL.noteBox || null, paths: svPathsHook(), glide: svGlideRec, get ahead() { return svAheadHook(); }, get aheadCost() { return svAheadCostNow(); }, get aheadPlan() { return svAheadPlanHook(); }, get aheadProbe() { return svAheadProbeHook(); }, hold: svHoldB, rest: svRestRec, tieBand: svTieBand(), carryPre: svCarryPre, resolved: GLR.carryResolveFrames ? GLR.carryResolveFrames() : 0, invWarm: svInvWarmKey === svInvKey() && !svInvJobs.length && !svInvFlushing, get invGlides() { return svInvGlides().map((g) => [g.b, g.u]); }, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };

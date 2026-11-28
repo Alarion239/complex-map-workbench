@@ -163,6 +163,20 @@
   // the panels were built at start-up on Windows)
   const segPending = new Map();
   let segRaf = 0;
+  // (a control's segments change size after it is placed: when it first lays out in the page, when the faces land, when
+  // the head lays its row out again. Each segment is observed, and a change places its control's thumb again in the
+  // next frame's pass; the observer reports after layout, so it forces none. A segment taken out of the page, a closed
+  // popover's, is reported once more, at 0 x 0, and is let go)
+  const segRO = new ResizeObserver((es) => {
+    for (const e of es) {
+      const b = e.target;
+      if (!b.isConnected) { segRO.unobserve(b); segSeen.delete(b); continue; }
+      const el = b.parentElement, on = el && el.querySelector(':scope > .on');
+      if (on) segPending.set(el, on);
+    }
+    if (segPending.size && !segRaf) segRaf = requestAnimationFrame(placeSegs);
+  });
+  const segSeen = new Set();
   function placeSegs() {
     segRaf = 0;
     const list = [...segPending];
@@ -180,6 +194,7 @@
       b.setAttribute('aria-checked', String(sel));
       b.tabIndex = sel ? 0 : -1;   // (one Tab stop: the checked one, as roveRadios keeps every radio group)
       if (sel) on = b;
+      if (!segSeen.has(b)) { segSeen.add(b); segRO.observe(b); }
     }
     if (on) {
       segPending.set(el, on);
@@ -197,12 +212,6 @@
       el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, 'aria-label': aria || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
     setSeg(el, value);
-    // (the thumb is placed again once the control is in the page: for the segment checked by then, which a caller may
-    // have changed)
-    requestAnimationFrame(() => {
-      const on = el.querySelector('.on');
-      if (on) { segPending.set(el, on); if (!segRaf) segRaf = requestAnimationFrame(placeSegs); }
-    });
     el.addEventListener('keydown', (e) => {
       const bs = [...el.children];
       if (wrap && (e.key === 'Home' || e.key === 'End')) {

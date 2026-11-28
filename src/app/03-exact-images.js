@@ -19,8 +19,6 @@
   // open sets whose globe boundary the figure draws itself, dashed (the GL lines of a
   // sphere cannot dash): their lines are left out of the art layer
   let artSkip = null;
-  // a video frame of a globe: the figure draws the sphere's labels itself
-  let artNoLab = false;
   let offRender = false;               // renderOff (figure export) is drawing: no cost guard, no half resolution
   // a map spec that applies no live step: drawn without the chain (GLR's isIdent)
   function isIdentMap(m) {
@@ -909,25 +907,28 @@
     // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
     const rp = GLR.reptPendingTake ? GLR.reptPendingTake() : null, rept = !!rp;
     const was = paneGl[role], reptProg = rp && rp.prog ? rp.prog : null;
-    // (reptT: when the pane's REPT cue started; cue: the cue's words, when they were drawn as the pane's corner note)
+    // (reptT: when the pane's REPT cue started; cue and cueBox: the cue's words and their box in the pane's CSS px, when
+    // they were drawn as the pane's corner note)
     const reptT = rept ? (was && was.rept ? was.reptT : now) : null;
-    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, reptProg, reptT, cue: null, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
+    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, reptProg, reptT, cue: null, cueBox: null, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
     invPendN = 0;
     // (the LEDs, the plots' aria-busy and the hairline follow a note that comes or goes, and a REPT draw's cue: updateLeds,
     // when it starts, moves on a tile or ends)
     if (((was && was.note) || '') !== note || rept !== !!(was && was.rept) || reptTip(reptProg) !== reptTip(was && was.reptProg)) updateLeds();
     if (quiet) return;
     // (where the pane's LED is not laid out, a phone's head: the cue's words as the pane's corner note, CUE_DELAY_MS after
-    // it starts, so a sighted user sees the picture is still drawing; a frame is asked for then. It gives way to the Play
-    // gate's message while that is up, which lies over the corner on a phone, as "Compiling…" does)
-    if (rept) {
-      const led = $(role === 'L' ? 'leftLed' : 'rightLed');
-      if (led && !led.offsetWidth) {
-        if (now - reptT >= CUE_DELAY_MS) { if (!svGateMessageUp()) { const text = reptTip(reptProg); cornerNote(pane, text); paneGl[role].cue = text; } }
-        else if (reptT === now) setTimeout(() => requestRender(role), CUE_DELAY_MS + 20);
-      }
-    }
+    // it starts, so a sighted user sees the picture is still drawing; a frame is asked for then)
+    const led = rept ? $(role === 'L' ? 'leftLed' : 'rightLed') : null, cornerCue = !!led && !led.offsetWidth;
+    if (cornerCue && reptT === now) setTimeout(() => requestRender(role), CUE_DELAY_MS + 20);
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
+    // (the corner holds one note: the cue gives way to the "Compiling…" note on the frames that draw it, and only those;
+    // and to the Play gate's message while that is up, which lies over the corner on a phone, as "Compiling…" does in
+    // waitNotes)
+    if (!waitNotes(pane, role, st, now) && cornerCue && now - reptT >= CUE_DELAY_MS && !svGateMessageUp()) { const text = reptTip(reptProg); paneGl[role].cueBox = cornerNote(pane, text); paneGl[role].cue = text; }
+  }
+  // the notes of a frame that waits for programs: "Preparing the GPU…" once they have waited 1.5 s, else the "Compiling…"
+  // corner note once the frame has stood in for a compiling program for 300 ms; true when the "Compiling…" note was drawn
+  function waitNotes(pane, role, st, now) {
     if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
     // (and one at 300 ms: a chain with no earlier version is drawn from a SphereMesh once its link has waited 250 ms,
@@ -935,22 +936,26 @@
     else if (!gpuWait.has(pane)) { gpuWait.set(pane, now); for (const ms of [300, 1600]) setTimeout(() => requestRender(role), ms); }
     else {
       const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
-      if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
+      if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return false; }
     }
-    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileBusy(role, false); return; }
+    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileBusy(role, false); return false; }
     setCompileBusy(role, true);
     const t0 = compileT.get(pane);
     if (t0 === undefined) {
       compileT.set(pane, now);
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
-    } else if (now - t0 >= 300) {
-      // (not while the Play gate's message is up: it says the programs are not ready, and the note would lie under it)
-      if (svGateMessageUp()) compileBox = null; else compileNote(pane);
+      return false;
     }
+    if (now - t0 < 300) return false;
+    // (not while the Play gate's message is up: it says the programs are not ready, and the note would lie under it)
+    if (svGateMessageUp()) { compileBox = null; return false; }
+    compileNote(pane, now);
+    return true;
   }
-  // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
+  // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px,
+  // with t, the time of the frame that drew it)
   let compileBox = null;
-  function compileNote(pane) { compileBox = cornerNote(pane, $t('Compiling…')); }
+  function compileNote(pane, t) { compileBox = Object.assign(cornerNote(pane, $t('Compiling…')), { t }); }
   // a small quiet note of text in the pane's lower left corner: its box, in the pane's CSS px
   function cornerNote(pane, text) {
     const ctx = pane.ctx;
