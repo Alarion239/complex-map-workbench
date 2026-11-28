@@ -126,10 +126,10 @@
       create(shapes, o = {}) {
         const ids = [];
         for (const s0 of shapes) {
-          const s = s0.id ? s0 : Object.assign(newShape(s0.kind, {}, !!o.target), s0, { id: undefined });
+          const s = s0.id ? s0 : Object.assign(newShape(s0.kind, {}), s0, { id: undefined });
           if (!s.id) s.id = 's' + takeId();
           if (s.visible == null) s.visible = true;
-          (o.target ? S.targets : S.shapes).push(s);
+          pushShape(s);
           ids.push(s.id);
         }
         if (o.select !== false && ids.length) { selected = ids[ids.length - 1]; zpSel = null; }
@@ -190,7 +190,7 @@
       drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
       leftStage, planeShapes, lFlat, zpStep,
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, nextPointNum, targetLabel,
-      nextCi: (target, k = 0) => (target ? TARGET_CI[(S.targets.length + k) % TARGET_CI.length] : (S.shapes.length + k) % 8),   // (the colour newShape will give; k shapes later)
+      nextCi: (k = 0) => (S.shapes.length + k) % 8,   // (the colour newShape will give; k shapes later)
       capPhrase: (s, cs) => shapePhrase(s, 0, cs),   // (a curve named by its maths in a caption)
       newShape, deleteShape, requestRender, commit, shapesChanged, targetsChanged, buildShapeList, toast, undoToast, tourEmit, bindField,
     };

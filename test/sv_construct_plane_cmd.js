@@ -1,6 +1,8 @@
 // The steps view's later planes take constructions on their own objects: on plane 1 of a Möbius chain a 3-point circle
 // is made from three clicks, its points and the circle belong to plane 1 (stage = 1), one Undo takes them all, the chip
-// says "· on w₁" while the construction is under way, and a point of plane z carried to plane 1 (z₀′) is an input too.
+// says "· on w₁" while the construction is under way, and a point of plane z carried to plane 1 (z₀′) is an input too. A finished
+// shape's text counts the primes of the image points from the shape's own plane: the plane-1 circle of a three-plane chain (z², then the Möbius)
+// through two plane-1 points and z₀′ reads z₀′ on each of the three planes, in en, ru and it.
 // A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -57,4 +59,32 @@ for (const s of [pickA, pickB, carriedAt]) { await move(s[0], s[1]); await settl
 await quiet();
 const S2 = await shapes(), carriedCircle = S2.find((s) => s.def && s.def.op === 'circle3');
 ok('a 3-point circle on plane 1 through a carried point: its third input is the image of z₀', !!carriedCircle && carriedCircle.stage === 1 && carriedCircle.def.args.some((r) => r.img === 'z0'), carriedCircle && carriedCircle.def);
+// ---- a finished shape's text counts the primes from the shape's own plane, whichever plane is shown
+for (const lang of ['en', 'ru', 'it']) {
+  const ns3 = 'svcn' + lang + Date.now();
+  const o3 = { v3: true, v4: true, v5: true, v6: true, nextId: 60, focus: 0, rightMode: 'image', shapes: [
+    { id: 'z0', kind: 'point', p: [0.5, 0.5], ci: 0, visible: true, num: 0 },
+    { id: 's50', kind: 'point', ci: 1, visible: true, p: [0.35, 0.45], stage: 1, num: 1 },
+    { id: 's51', kind: 'point', ci: 1, visible: true, p: [0.7, -0.35], stage: 1, num: 2 },
+    { id: 's52', kind: 'disc', ci: 1, visible: true, c: [0.2335, -0.0775], r: 0.54, def: { op: 'circle3', args: [{ s: 's50' }, { s: 's51' }, { img: 'z0' }], fill: 'in', flip: true }, stage: 1 },
+    { id: 's53', kind: 'segment', ci: 1, visible: true, a: [0.35, 0.45], b: [0.2, 0.1], stage: 1, at: { a: { s: 's50' }, b: { img: 'z0' } } }],
+    steps: [{ type: 'custom', params: { expr: 'z^2' }, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] };
+  await go(`${BASE}/gl-helpers.html`); await sleep(350);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns3}', ${JSON.stringify(JSON.stringify(o3))}); 1`);
+  await go(`${BASE}/test.html?ns=${ns3}&view=steps&lang=${lang}`);
+  await settled({ max: LOAD_MAX, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().planes.length > 2" });
+  for (const k of [0, 1, 2]) {
+    await ev(`__cmwSteps({ go: ${k}, now: true }); 1`);
+    await settled({ floor: QUIET_FLOOR, max: QUIET_MAX, until: `__cmwSteps().stage === ${k} && !__cmwSteps().moving` });
+    await ev(`__cmwSelect('s52'); 1`);
+    await settled({ max: PICK_MAX, until: `[...document.querySelectorAll('.cm-idef')].some((e) => !!e.offsetParent && /w₁/.test(e.textContent))` });
+    const idef = await ev(`(() => { const e = [...document.querySelectorAll('.cm-idef')].find((x) => x.offsetParent); return e ? e.textContent.replace(/\\s+/g, ' ').trim() : ''; })()`);
+    ok(`a plane-1 circle through z₀′ on plane ${k} (${lang}): its text names the image z₀′, not z₀″`, /z₀′(?!′)/.test(idef) && !/z₀[″‴]/.test(idef), idef);
+    // (a segment bound to z₀′: the Inspector says what it follows, its row says its ends, both from its own plane)
+    await ev(`__cmwSelect('s53'); 1`);
+    await settled({ max: PICK_MAX, until: `[...document.querySelectorAll('.cm-idef')].some((e) => !!e.offsetParent && /z₀/.test(e.textContent))` });
+    const seg = await ev(`[...document.querySelectorAll('.cm-idef, .cm-def')].filter((e) => e.offsetParent).map((e) => e.textContent.replace(/\\s+/g, ' ').trim()).join(' | ')`);
+    ok(`a segment bound to z₀′ on plane ${k} (${lang}): what it follows and its ends name z₀′, not z₀″`, /z₀′(?!′)/.test(seg) && !/z₀[″‴]/.test(seg), seg);
+  }
+}
 return { pass: fails.length === 0, fails, info };

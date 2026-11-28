@@ -33,13 +33,11 @@
   const S = () => A.S();
   const find = (id) => S().shapes.find((x) => x.id === id) || S().targets.find((x) => x.id === id) || null;
   const isT = (s) => !!s && S().targets.includes(s);
-  // the plane an object lives in ('T' for a target, else its stage), the plane a side shows, and a plane's objects
+  // the plane an object lives in ('T' for a target, else its stage), and a plane's objects
   const planeOf = (s) => Constr.planeOf(S(), s);
-  const planeOfSide = (side) => (side === 'R' ? 'T' : A.leftStage());
   const listOfPlane = (p) => Constr.listOfPlane(S(), p);
-  const listOf = (side) => (side === 'R' ? S().targets : A.planeShapes());
-  // the map that carries a z-plane point to the plane a side shows: the whole chain on Y, the steps up to plane k on a
-  // later plane of X; null where X shows no such plane
+  // the map that carries a z-plane point to the plane X shows: the steps up to plane k on a later plane k; null on the
+  // z-plane
   const carriedF = () => (A.leftStage() > 0 && env().Fk ? env().Fk(A.leftStage()) : null);
   const touchNow = () => !!lastEv && (lastEv.pointerType === 'touch' || lastEv.pointerType === 'pen');
   // the radii in screen px: points p, curves c (a finger 14, a mouse 6), the grid lattice g, a rail's
@@ -216,13 +214,13 @@
     if (!(k in dispPcs)) { try { dispPcs[k] = Constr.pieces(Object.assign({ id: '', ci: 0, visible: true }, DISP[k]()), {})[0] || null; } catch (e) { dispPcs[k] = null; } }
     return dispPcs[k];
   }
-  const fixedShape = (side, k) => listOf(side).find((x) => x.fixed === k && !x.def && !x.at) || null;
+  const fixedShape = (k) => A.planeShapes().find((x) => x.fixed === k && !x.def && !x.at) || null;
   // the display curves of a pane no visible shape stands for: [{key, pc, shape: its hidden fixed shape | null}]
-  function dispCurves(side) {
+  function dispCurves() {
     const out = [];
     for (const k of ['unit', 'real', 'imag']) {
       if (k === 'unit' && !S().unit) continue;
-      const sh = fixedShape(side, k);
+      const sh = fixedShape(k);
       if (sh && sh.visible !== false) continue;
       const pc = dispPiece(k);
       if (pc) out.push({ key: k, pc, shape: sh });
@@ -230,9 +228,9 @@
     return out;
   }
   // the curve ref of display curve k: its shape (made in this step, or the plane's), else a new one pushed to shapes
-  function dispRef(k, side, made, shapes) {
-    let sh = (made && made[k]) || fixedShape(side, k);
-    if (!sh) { sh = A.newShape(DISP[k]().kind, DISP[k](), side === 'R'); if (made) made[k] = sh; shapes.push(sh); }
+  function dispRef(k, made, shapes) {
+    let sh = (made && made[k]) || fixedShape(k);
+    if (!sh) { sh = A.newShape(DISP[k]().kind, DISP[k]()); if (made) made[k] = sh; shapes.push(sh); }
     return { s: sh.id, part: 0 };
   }
   // a number pair as the chip writes it: "0.5 + i", in Russian and Italian «0,5 + i» (I18N.comma, the
@@ -247,11 +245,13 @@
   }
   // the primes of an image point after n steps: z′, z″, z‴, then z″ again
   const primes = (n) => (n < 4 ? ['', '′', '″', '‴'][n] : '″');
-  function refName(ref, cs) {
+  // (an image point's primes count the steps from z to the plane the name is read on: the plane shown, which a draft's picks are on, or, for a finished
+  // shape's text, its own plane (stage))
+  function refName(ref, cs, stage) {
     if (!ref) return '?';
     if (ref.inf) return '∞';
     if (typeof ref.zp === 'string') return zMark(ref.kind, Constr.zpNum((S().steps || []).find((x) => x.uid === ref.zp), ref.kind, zpIndex(ref)));
-    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes(A.leftStage() || S().steps.length) : '?'; }
+    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes((stage == null ? A.leftStage() : stage === 'T' ? 0 : stage) || S().steps.length) : '?'; }
     if (ref.meet) return `${curveName(ref.meet[0])} ∩ ${curveName(ref.meet[1])}`;
     if (ref.part != null) return curveName(ref);
     const s = find(ref.s);
@@ -330,11 +330,13 @@
   function defText(s, short) {
     const d = s.def;
     if (!d) return null;
-    const N = (i) => refName(d.args[i], 'acc');
+    // (a finished shape's text counts the primes from its own plane, whichever plane is shown)
+    const R = (r, cs) => refName(r, cs, planeOf(s));
+    const N = (i) => R(d.args[i], 'acc');
     switch (d.op) {
       case 'circle3': {
         if (d.fill !== 'in') return s.kind === 'line' ? $t('the line through {a}, {b}, {c}', { a: N(0), b: N(1), c: N(2) }) : $t('through {a}, {b}, {c}', { a: N(0), b: N(1), c: N(2) });
-        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: R(d.args[i]), b: R(d.args[j]) }); }
         if (s.complement) return $t('outside the circle through {a}, {b}, {c}', { a: N(0), b: N(1), c: N(2) });
         return $t('the disc through {a}, {b}, {c}', { a: N(0), b: N(1), c: N(2) });
       }
@@ -346,8 +348,8 @@
         return d.index === 1 ? $t('{c1} ∩ {c2}, second point', { c1, c2 }) : $t('{c1} ∩ {c2}, first point', { c1, c2 });
       }
       case 'glider': return $t('on {curve}', { curve: curveName(d.args[0]) });
-      case 'midpoint': return $t('midpoint of {a}, {b}', { a: refName(d.args[0]), b: refName(d.args[1]) });
-      case 'bisector': return $t('bisector of {a}, {b}', { a: refName(d.args[0]), b: refName(d.args[1]) });
+      case 'midpoint': return $t('midpoint of {a}, {b}', { a: R(d.args[0]), b: R(d.args[1]) });
+      case 'bisector': return $t('bisector of {a}, {b}', { a: R(d.args[0]), b: R(d.args[1]) });
       case 'perp': {
         const p = { a: N(1), b: N(2), c: cName(d.args[0]) };
         // [issue #70] Between z0 and z1: the hyperbolic segment from P to Q, in C's inside or outside (the side of the arc's middle)
@@ -367,20 +369,20 @@
         }
         if (short) {
           if (d.fill !== 'in') return s.kind === 'line' ? $t('line perpendicular to {c}, through {a} and {b}', p) : $t('perpendicular to {c}, through {a} and {b}', p);
-          if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+          if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: R(d.args[i]), b: R(d.args[j]) }); }
           return s.complement ? $t('outside a circle perpendicular to {c}, through {a} and {b}', p) : $t('disc perpendicular to {c}, through {a} and {b}', p);
         }
         if (d.fill !== 'in') return s.kind === 'line' ? $t('the line through {a} and {b}, perpendicular to {c}', p) : $t('through {a} and {b}, perpendicular to {c}', p);
-        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: R(d.args[i]), b: R(d.args[j]) }); }
         if (s.complement) return $t('outside the circle through {a} and {b}, perpendicular to {c}', p);
         return $t('the disc through {a} and {b}, perpendicular to {c}', p);
       }
       // the touching circle: {a} is T (nominative: «точка касания — {a}»), {b} is P (after "through", ctx acc)
       case 'touch': {
-        const p = { a: refName(d.args[1]), b: N(2), c: cName(d.args[0]) };
+        const p = { a: R(d.args[1]), b: N(2), c: cName(d.args[0]) };
         if (d.args[2] && d.args[2].inf) return $tx('row', 'the tangent to {c} at {a}', p);
         if (d.fill !== 'in') return s.kind === 'line' ? $t('the line through {b}, touching {c} at {a}', p) : $t('through {b}, touching {c} at {a}', p);
-        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: R(d.args[i]), b: R(d.args[j]) }); }
         if (s.complement) return $t('outside the circle through {b}, touching {c} at {a}', p);
         return $t('the disc through {b}, touching {c} at {a}', p);
       }
@@ -410,7 +412,7 @@
   // a line, segment, ray or half-plane bound at both ends reads by its points ("line through z₀ and z₁")
   function boundText(s) {
     if (!s.at || !s.at.a || !s.at.b || s.def) return null;
-    const a = refName(s.at.a), b = refName(s.at.b), aa = refName(s.at.a, 'acc'), ba = refName(s.at.b, 'acc');
+    const st = planeOf(s), a = refName(s.at.a, undefined, st), b = refName(s.at.b, undefined, st), aa = refName(s.at.a, 'acc', st), ba = refName(s.at.b, 'acc', st);
     switch (s.kind) {
       case 'line': return $t('line through {a} and {b}', { a: aa, b: ba });
       case 'segment': return $t('segment from {a} to {b}', { a, b });
@@ -421,7 +423,7 @@
   }
   function followsText(s) {
     if (!s.at) return '';
-    const xs = [...new Set(Object.values(s.at).map(refName))];
+    const xs = [...new Set(Object.values(s.at).map((r) => refName(r, undefined, planeOf(s))))];
     return $t('follows {x}', { x: xs.join(', ') });
   }
 
@@ -436,7 +438,7 @@
     if (!st) return null;
     const pane = A.setView(side);
     const zc = pane.s2w(x, y), Z = [zc.re, zc.im], sc = pane.view.s;
-    const list = listOf(side);
+    const list = A.planeShapes();
     const ex = o.exclude || new Set();
     const touch = o.touch != null ? o.touch : touchNow();
     const R = radii(touch);
@@ -453,7 +455,7 @@
         try { hs = Region.handlesOf(s); } catch (e) { hs = []; }
         for (const [k, hz] of hs) { if (!POS.test(k) || (s.at && s.at[k])) continue; consider([hz.re, hz.im], { s: s.id, h: k }); }
       }
-      if (side === 'L' && A.leftStage() === 0) {
+      if (A.leftStage() === 0) {
         const zs = A.zpStep();
         if (zs && zs.k === 1 && zs.st.uid && zs.st.zpIds) {
           for (const kind of ['zeros', 'poles']) (zs.items[kind] || []).forEach((z, i) => {
@@ -487,7 +489,7 @@
         });
       }
       // the display curves (a hidden fixed shape of that name stands for its curve)
-      if (o.disp) for (const dc of dispCurves(side)) {
+      if (o.disp) for (const dc of dispCurves()) {
         if (dc.shape && ex.has(dc.shape.id)) continue;
         const d = pieceDist(dc.pc, Z);
         if (d > lim) continue;
@@ -529,7 +531,7 @@
         if (u) best = u;
       }
       if (best) {
-        const p3 = best.s ? pts3Of(best.s, planeOfSide(side)) : null;
+        const p3 = best.s ? pts3Of(best.s, A.leftStage()) : null;
         let pr = null;
         try { pr = Constr.projectPiece(best.pc, Z, best.pc.c3 ? p3 : null); } catch (e) { pr = null; }
         if (pr && isXY(pr.z)) {
@@ -562,20 +564,20 @@
     const avoid = [];
     if (ex) for (const id of ex) { if (id === o.self) continue; const q = find(id); if (q && q.kind === 'point' && !q._atInf && isXY(q.p)) avoid.push(q.p); }
     const clash = (z) => avoid.some((q) => Math.abs(q[0] - z[0]) <= 1e-9 * Math.max(1, Math.abs(z[0])) && Math.abs(q[1] - z[1]) <= 1e-9 * Math.max(1, Math.abs(z[1])));
-    const p3 = railS && pc.c3 ? pts3Of(railS, planeOfSide(side)) : null;
+    const p3 = railS && pc.c3 ? pts3Of(railS, A.leftStage()) : null;
     if (pc.c3 && (!p3 || p3 === 'inf')) return null;
     const at = (t) => { let z = null; try { z = Constr.glide(pc, t, p3); } catch (e) { z = null; } return isXY(z) ? z : null; };
     const cands = [];
     const add = (t, label, zz, rr) => { const z = at(t); if (!z || clash(z)) return; const d = Math.hypot(z[0] - tg.z[0], z[1] - tg.z[1]) * sc; if (d <= (rr != null ? rr : R) * f) cands.push({ t, z, d, label: label || fmtZl(zz || z) }); };
     // 1. its crossings with the other shown curves (the point stays on its rail: it only stops there)
-    const list = listOf(side), others = [];
+    const list = A.planeShapes(), others = [];
     const box = { x0: tg.z[0] - h, x1: tg.z[0] + h, y0: tg.z[1] - h, y1: tg.z[1] + h };
     for (const s of list) {
       if (s.visible === false || s === railS || (ex && ex.has(s.id)) || s.kind === 'point' || GRID.has(s.kind) || s.kind === 'formula') continue;
       const bx = boxesOf(s);
       piecesOf(s).forEach((q, i) => { const b = bx[i]; if (b && (box.x1 < b.x0 || box.x0 > b.x1 || box.y1 < b.y0 || box.y0 > b.y1)) return; others.push(q); });
     }
-    for (const dc of dispCurves(side)) if (dc.key !== tg.disp && !(railS && dc.shape === railS)) others.push(dc.pc);
+    for (const dc of dispCurves()) if (dc.key !== tg.disp && !(railS && dc.shape === railS)) others.push(dc.pc);
     for (const q of others) {
       if (q === pc) continue;
       let m = null;

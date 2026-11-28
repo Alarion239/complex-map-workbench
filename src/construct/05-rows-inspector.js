@@ -105,7 +105,7 @@
       if (info && !s.def.seg) add.push({ label: info.line ? $t('One side of {c} only', { c: cName(s.def.args[0]) }) : dw === 'out' ? $t('Outside {c} only', { c: cName(s.def.args[0]) }) : $t('Inside {c} only', { c: cName(s.def.args[0]) }), run: () => setSeg(s, info.dflt) });
       if (info && s.def.seg) add.push({ label: $t('Other side'), run: () => setSeg(s, -s.def.seg) }, { label: $t('Whole circle'), run: () => setSeg(s, 0) });
       // ([issue #70] Between z0 and z1: the segment from the first point to the second; Whole circle undoes it)
-      if (info && s.def.between !== 1) add.push({ label: $t('Between {a} and {b} only', { a: refName(s.def.args[1]), b: refName(s.def.args[2]) }), run: () => setBetween(s, true) });
+      if (info && s.def.between !== 1) add.push({ label: $t('Between {a} and {b} only', { a: refName(s.def.args[1], undefined, planeOf(s)), b: refName(s.def.args[2], undefined, planeOf(s)) }), run: () => setBetween(s, true) });
       if (info && s.def.between === 1) add.push({ label: $t('Whole circle'), run: () => setSeg(s, 0) });
     }
     if (s.def && s.def.op === 'meet' && s.def.index !== 'finite' && !s.def.seed && !touchMeet(s)) add.push({ label: $t('Other point'), run: () => api.cm.setDef(s.id, { index: s.def.index === 1 ? 0 : 1 }) });
@@ -209,9 +209,8 @@
     if (side === 'R') return [];
     const touch = !!ctx.touch, items = [];
     const t = snapAt(side, ctx.x, ctx.y, { points: true, cross: true, curves: true, touch, disp: true });
-    const target = side === 'R';
-    if (t && t.cls === 'cross') items.push({ label: $t('Mark the intersection'), run: () => { const m = materialize(t, side, {}); api.cm.create(m.shapes, { target }); A.tourEmit('construct-added', { op: 'meet' }); } });
-    if (t && t.cls === 'curve') items.push({ label: $t('Point on this curve'), run: () => { const m = materialize(t, side, {}); api.cm.create(m.shapes, { target }); A.tourEmit('construct-added', { op: 'glider' }); } });
+    if (t && t.cls === 'cross') items.push({ label: $t('Mark the intersection'), run: () => { const m = materialize(t, {}); api.cm.create(m.shapes); A.tourEmit('construct-added', { op: 'meet' }); } });
+    if (t && t.cls === 'curve') items.push({ label: $t('Point on this curve'), run: () => { const m = materialize(t, {}); api.cm.create(m.shapes); A.tourEmit('construct-added', { op: 'glider' }); } });
     if (t && t.cls === 'curve' && t.disp) { t.make = DISP[t.disp](); }   // (a display curve: made with the point)
     // (issue #13: only what acts on the shape there; the tools that start from it, Perpendicular circle, Touching
     // circle, Circle through 3 points and Midpoint, are the toolbar's)
@@ -225,8 +224,8 @@
         const c = snapAt(side, ctx.x, ctx.y, { points: false, cross: false, curves: true, disp: true, touch, exclude: ex });
         // (a display curve too: its fixed shape is made, or the plane's reused, in the same undo step)
         if (c) items.push({ label: $t('Put on this curve'), run: () => {
-          const pre = [], list = isT(p) ? S().targets : S().shapes;   // the owning array: listOf() is a plane's filtered copy
-          const def = { op: 'glider', args: [c.disp ? dispRef(c.disp, side, null, pre) : c.ref] };
+          const pre = [], list = S().shapes;   // the owning array: A.planeShapes() is a plane's filtered copy
+          const def = { op: 'glider', args: [c.disp ? dispRef(c.disp, null, pre) : c.ref] };
           if (c.seed) def.seed = c.seed;
           for (const x of pre) list.splice(list.indexOf(p), 0, x);
           if (api.cm.setDef(p.id, { def, t: c.t }) === false) for (const x of pre) { const i = list.indexOf(x); if (i >= 0) list.splice(i, 1); }
@@ -242,7 +241,7 @@
   }
   function hitShape(side, x, y) {
     const pane = A.setView(side), z = pane.s2w(x, y), tol = 7 / pane.view.s;
-    const list = listOf(side).filter((s) => s.visible !== false).slice().reverse().sort((a, b) => Number(b.kind === 'point') - Number(a.kind === 'point'));
+    const list = A.planeShapes().filter((s) => s.visible !== false).slice().reverse().sort((a, b) => Number(b.kind === 'point') - Number(a.kind === 'point'));
     for (const s of list) { try { if (Region.hitTest(s, z, tol, A.win(side))) return s; } catch (e) { /* */ } }
     return null;
   }
@@ -261,12 +260,12 @@
     const pc = piecesOf(c)[r.part];
     if (!pc || pc.kind === 'none' || pc.kind === 'traced') return null;
     if (c.def && c.def.op === 'perp' && pc.seg) return { text: $t('0 and 1 at its ends on {c}', { c: cName(c.def.args[0]) }), range: [0, 1] };
-    if (c.def && c.def.op === 'perp') return { text: $t('0 at {p}, ½ opposite it', { p: refName(c.def.args[1]) }), range: [0, 1] };
+    if (c.def && c.def.op === 'perp') return { text: $t('0 at {p}, ½ opposite it', { p: refName(c.def.args[1], undefined, planeOf(c)) }), range: [0, 1] };
     // (a touching circle: perp's map anchored at T; the tangent at T and a tangent from P: plain line gliders from T or P)
-    if (c.def && c.def.op === 'touch' && !(c.def.args[2] && c.def.args[2].inf)) return { text: $t('0 at {p}, ½ opposite it', { p: refName(c.def.args[1]) }), range: [0, 1] };
-    if (c.def && (c.def.op === 'touch' || c.def.op === 'tangent')) return { text: $t('0 at {p}; t is the distance from it', { p: refName(c.def.args[1]) }), range: [-10, 10] };
+    if (c.def && c.def.op === 'touch' && !(c.def.args[2] && c.def.args[2].inf)) return { text: $t('0 at {p}, ½ opposite it', { p: refName(c.def.args[1], undefined, planeOf(c)) }), range: [0, 1] };
+    if (c.def && (c.def.op === 'touch' || c.def.op === 'tangent')) return { text: $t('0 at {p}; t is the distance from it', { p: refName(c.def.args[1], undefined, planeOf(c)) }), range: [-10, 10] };
     if (c.def && c.def.op === 'circle3') {
-      const [p, q, rr] = c.def.args.map((x) => refName(x));
+      const [p, q, rr] = c.def.args.map((x) => refName(x, undefined, planeOf(c)));
       return { text: $t('0 at {p}, ¼ at {q}, ½ at {r}', { p, q, r: rr }), range: [0, 1] };
     }
     if (pc.poly) { const n = pc.poly.pts.length; return { text: $t('sides: 0 at vertex 1, {n} once round', { n }), range: [0, n] }; }
@@ -351,7 +350,7 @@
     try { g = graph(); } catch (e) { return; }
     const refs = s.def ? s.def.args : s.at ? Object.values(s.at) : [];
     const src = [];
-    for (const r of refs) { const nm = refName(r), id = r.meet ? null : r.s || r.img || null; if (!src.some((x) => x[1] === nm)) src.push([id, nm]); }
+    for (const r of refs) { const nm = refName(r, undefined, planeOf(s)), id = r.meet ? null : r.s || r.img || null; if (!src.some((x) => x[1] === nm)) src.push([id, nm]); }
     const us = [...g.users(s.id)];
     const sig = src.map((x) => x.join(':')).join(',') + '|' + us.join(',') + '|' + I18N.lang;
     if (E.uses.dataset.sig !== sig) {
