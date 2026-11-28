@@ -67,7 +67,8 @@ for (const lang of ['en', 'ru', 'it']) {
     { id: 'z0', kind: 'point', p: [0.5, 0.5], ci: 0, visible: true, num: 0 },
     { id: 's50', kind: 'point', ci: 1, visible: true, p: [0.35, 0.45], stage: 1, num: 1 },
     { id: 's51', kind: 'point', ci: 1, visible: true, p: [0.7, -0.35], stage: 1, num: 2 },
-    { id: 's52', kind: 'disc', ci: 1, visible: true, c: [0.2335, -0.0775], r: 0.54, def: { op: 'circle3', args: [{ s: 's50' }, { s: 's51' }, { img: 'z0' }], fill: 'in', flip: true }, stage: 1 }],
+    { id: 's52', kind: 'disc', ci: 1, visible: true, c: [0.2335, -0.0775], r: 0.54, def: { op: 'circle3', args: [{ s: 's50' }, { s: 's51' }, { img: 'z0' }], fill: 'in', flip: true }, stage: 1 },
+    { id: 's53', kind: 'segment', ci: 1, visible: true, a: [0.35, 0.45], b: [0.2, 0.1], stage: 1, at: { a: { s: 's50' }, b: { img: 'z0' } } }],
     steps: [{ type: 'custom', params: { expr: 'z^2' }, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] };
   await go(`${BASE}/gl-helpers.html`); await sleep(350);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns3}', ${JSON.stringify(JSON.stringify(o3))}); 1`);
@@ -80,6 +81,11 @@ for (const lang of ['en', 'ru', 'it']) {
     await settled({ max: PICK_MAX, until: `[...document.querySelectorAll('.cm-idef')].some((e) => !!e.offsetParent && /w₁/.test(e.textContent))` });
     const idef = await ev(`(() => { const e = [...document.querySelectorAll('.cm-idef')].find((x) => x.offsetParent); return e ? e.textContent.replace(/\\s+/g, ' ').trim() : ''; })()`);
     ok(`a plane-1 circle through z₀′ on plane ${k} (${lang}): its text names the image z₀′, not z₀″`, /z₀′(?!′)/.test(idef) && !/z₀[″‴]/.test(idef), idef);
+    // (a segment bound to z₀′: the Inspector says what it follows, its row says its ends, both from its own plane)
+    await ev(`__cmwSelect('s53'); 1`);
+    await settled({ max: PICK_MAX, until: `[...document.querySelectorAll('.cm-idef')].some((e) => !!e.offsetParent && /z₀/.test(e.textContent))` });
+    const seg = await ev(`[...document.querySelectorAll('.cm-idef, .cm-def')].filter((e) => e.offsetParent).map((e) => e.textContent.replace(/\\s+/g, ' ').trim()).join(' | ')`);
+    ok(`a segment bound to z₀′ on plane ${k} (${lang}): what it follows and its ends name z₀′, not z₀″`, /z₀′(?!′)/.test(seg) && !/z₀[″‴]/.test(seg), seg);
   }
 }
 // ---- an undefined argument's reason names the image point on the shape's plane (z₀′), not the source point
