@@ -2,10 +2,10 @@
 // x = 1.5 draws both sheets of the covering surface (render3D.sheetsInfo.K = 2), as the frames of the √z step's glide and
 // the planes at rest do. The sheets of the √z step exist only as preimages of z's points, so the carry of that frame
 // starts from z's plane. At x = STRETCH_X, mid-glide on the √z step, no edge of a carried sheet's cell, in the box or a
-// patch, is one that cut 2's jump rule (LAND_CARRY_NRM_VS) would flag (__cmwLandSheetStretch over the places read
-// back): each cell's corners are continued from its own centre (LAND_CARRY_PLACE_S_TF_VS), so no sheet triangle bridges
-// the map's cut, and LAND_SHEET_VS needs no jump flags. A command file for a CDP daemon (test/cdp_kit README); prints
-// {pass, fails, info}.
+// patch, is one that cut 2's jump rule (LAND_CARRY_NRM_VS, with the frame's J and its finite floor) would flag
+// (__cmwLandSheetStretch over the places read back): each cell's corners are continued from its own centre
+// (LAND_CARRY_PLACE_S_TF_VS), so no sheet triangle bridges the map's cut, and LAND_SHEET_VS needs no jump flags.
+// A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -33,7 +33,7 @@ for (const x of [0, 0.5, 1, 1.5, 2]) {
   if (x === STRETCH_X) {
     const st = info.stretch = await ev('__cmwLandSheetStretch()');
     const all = Object.values(st || {});
-    ok(`x = ${x}: no edge of a carried sheet's cell, in the box or a patch, crosses a jump by cut 2's rule (each cell continued from its centre)`, !!st && !!st[0] && all.every((r) => r.edges > 0 && r.over === 0), st);
+    ok(`x = ${x}: no edge of a carried sheet's cell, in the box or a patch, crosses a jump by cut 2's rule (each cell continued from its centre)`, !!st && !!st[0] && all.every((r) => r.J > 0 && Number.isFinite(r.w) && r.w > 0 && r.edges > 0 && r.over === 0), st);
   }
 }
 await ev('delete GLR._lw; GLR._cpDump = null; 1');
