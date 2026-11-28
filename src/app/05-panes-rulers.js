@@ -1338,8 +1338,6 @@
         q = GLR.clearOfLimb(q, (at) => ({ x0: at[0] - half, x1: at[0] + half, y0: at[1] - GLOBE_MARK_PX / 2, y1: at[1] + GLOBE_MARK_PX / 2 }), limb, centre);
         if (!q) continue;
       }
-      // (a video frame: the figure draws these labels at full ink; their places still keep the point labels clear)
-      if (artNoLab) { labelReg(pane).marks.push([q[0], q[1], 11]); continue; }
       ctx.globalAlpha = a;
       ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.strokeText(lab, q[0], q[1]);
       ctx.fillStyle = TH.label; ctx.fillText(lab, q[0], q[1]);

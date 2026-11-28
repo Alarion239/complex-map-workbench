@@ -17,9 +17,6 @@
   // a caption whose map is MAPTOK: F named in the text ($F$), its formula displayed at the end of the sentence that
   // names it first (", where \[ F(z) = ... . \]"); when that sentence is long, right after the phrase that names F
   // (see displayF); called inside using(lang)
-  // CHAINTOK ends the sentence that names the steps f_1, f_2, ...: the display there gives the chain
-  // (F(z) = ..., F = f_2 o f_1, f_1(z) = ..., f_2(w_1) = ...), so the steps the caption names are defined
-  const CHAINTOK = '\u0002';
   // a literal a+bi (or a real) of the app's TeX, negated: -0.5-0.3i -> 0.5+0.3i; null when it is not one
   const negLit = (x) => {
     const m = /^(-?)(\d+(?:\.\d+)?)(?:([+-])(\d+(?:\.\d+)?)?i)?$/.exec(x.replace(/\s+/g, ''));
@@ -35,18 +32,6 @@
     // + (-a) -> - a (a complex literal keeps its parentheses, a real drops them)
     out = out.replace(/\+\\left\((-[^()]*?)\\right\)/g, (m0, a) => { const n = negLit(a); if (n == null || /^-/.test(n)) return m0; return /i/.test(n) && /[+-]/.test(n.slice(1)) ? `-\\left(${n}\\right)` : `-${n}`; });
     return out;
-  }
-  // the chain as a display: gathered lines, each in \displaystyle, packed to the caption's measure
-  function chainDisplay(c, maxW, pt) {
-    const F = `${c.Fname}(${c.lvar})=${tidyTex(c.raw)}`, comp = `${c.Fname}=${c.chain.map((q) => q.f).reverse().join('\\circ ')}`;
-    const steps = c.chain.map((q) => `${q.f}(${q.v})=${tidyTex(q.tex)}`);
-    const wOf = (x) => { try { return XD.tex(`\\displaystyle ${x}`, pt).w; } catch (e) { return 0; } };
-    const gap = ',\\qquad ', lines = [];
-    if (wOf(F + gap + comp) <= maxW) lines.push(F + gap + comp); else lines.push(F, comp);
-    let cur = '';
-    for (const q of steps) { const t2 = cur ? cur + gap + q : q; if (cur && wOf(t2) > maxW) { lines.push(cur); cur = q; } else cur = t2; }
-    if (cur) lines.push(cur);
-    return `\\begin{gathered}${lines.map((l) => `\\displaystyle ${l}`).join(',\\\\ ')}.\\end{gathered}`;
   }
   // the ends of the sentences of a caption: each '.' outside math before a space or the end
   const sentenceEnds = (cap) => {
@@ -67,15 +52,7 @@
   const upperFirst = (s) => s.replace(/^(\s*)(\p{Ll})/u, (m0, sp0, ch) => sp0 + ch.toUpperCase());
   // multi: the figure draws the multivalued function (a landscape with All sheets), so the display writes it as one
   // (Ln in Russian, GLOSSARY 2.2; English unchanged), as the inline map of the same caption does
-  function displayF(cap, c, maxW = 300, pt = 10, multi = false) {
-    const iC = cap.indexOf(CHAINTOK);
-    if (iC >= 0) {
-      if (c.raw && c.chain) {
-        const disp = `${DISP_OPEN}${chainDisplay(c, maxW, pt)}${DISP_CLOSE}`;
-        return (cap.slice(0, iC) + leadIn(cap, iC) + disp + cap.slice(iC + 1 + (cap[iC + 1] === '.' ? 1 : 0))).split(MAPTOK).join(`$${c.Fname}$`);
-      }
-      cap = cap.split(CHAINTOK).join('');
-    }
+  function displayF(cap, c, multi = false) {
     const i = cap.indexOf(MAPTOK);
     if (i < 0) return cap;
     // the end of the sentence that names F (the next '.' outside math before a space or the end)
@@ -124,34 +101,6 @@
   const joinWords = (a) => (a.length <= 1 ? a.join('') : a.length === 2 ? `${a[0]} and ${a[1]}` : `${a.slice(0, -1).join(', ')}, and ${a[a.length - 1]}`);
   // Russian: «a, b и c», Italian: «a, b e c», with «;» between decimals («$0{,}5$; $1$ и $2$»)
   const joinL = (a) => (!capComma() ? joinWords(a) : a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(a.some((x) => /\{,\}/.test(x)) ? '; ' : ', ')} ${capRu() ? 'и' : $t('and')} ${a[a.length - 1]}`);
-  // the homotopy as a sentence: "Here H_t, 0 <= t <= m, deforms the identity (t = 0)
-  // into F (t = m) and runs the steps in turn (...): for f_1, ...; for f_2, ..." rather than "... along the homotopy
-  // H_t, ..., that runs the steps in turn"; CHAINTOK ends it when the chain is displayed. Called inside using(lang)
-  // " Here w_d = ...": a bracket's start written with the stage of a d/dz in its pre, defined in z
-  const wDefS = (d) => (d && d.wdef ? $t(' Here $%{w}$.', { w: d.wdef }) : '');
-  function homSentence(c, map) {
-    if (!c.hom) return '';
-    const m = tnum(c.hom.m), tail = c.chain && c.raw ? CHAINTOK : '';
-    // (SPEC 8: a bracket with a pre or a post: H_t = Q o G_t o P, and G_t is the bracketed part)
-    const d = A.defo ? A.defo() : null;
-    if (d && d.qp && c.hom.inner) {
-      const hom = (c.hom.inner.length > 360 && c.hom.innerShort ? c.hom.innerShort.replace(/:\s*$/, '') : c.hom.inner) + tail;
-      if (d.pre && d.post) return $t(' Here $H_t=%{Q}\\circ G_t\\circ %{P}$, $0\\le t\\le %{m}$, deforms $%{QP}$ ($t=0$) into %{map} ($t=%{m}$): $%{P}$ acts first and $%{Q}$ last, both in full, and $G_t$ is %{hom}.', { Q: d.post, P: d.pre, QP: d.qp, m, map, hom }) + wDefS(d);
-      if (d.pre) return $t(' Here $H_t=G_t\\circ %{P}$, $0\\le t\\le %{m}$, deforms $%{P}$ ($t=0$) into %{map} ($t=%{m}$): $%{P}$ acts first, in full, and $G_t$ is %{hom}.', { P: d.pre, m, map, hom }) + wDefS(d);
-      return $t(' Here $H_t=%{Q}\\circ G_t$, $0\\le t\\le %{m}$, deforms $%{Q}$ ($t=0$) into %{map} ($t=%{m}$): $%{Q}$ acts last, in full, and $G_t$ is %{hom}.', { Q: d.post, m, map, hom });
-    }
-    const vals = { H: 'H_t', range: `0\\le t\\le ${c.hom.m}`, def: 'H_t=H^{(k)}_{t-k+1}', interval: 'k-1\\le t\\le k' };
-    let pref = '';
-    try {
-      const tpl = $t('the homotopy {H}, {range}, that runs the steps in turn ({def} on {interval}): ');
-      pref = A.segsTex(tpl.split(/(%?\{\w+\})/).filter(Boolean).map((q) => { const k = /^%?\{(\w+)\}$/.exec(q); return k && vals[k[1]] != null ? { m: vals[k[1]] } : { t: q }; })).trim();
-    } catch (e) { pref = ''; }
-    if (pref && c.hom.tex.indexOf(pref) === 0) {
-      const rest = c.hom.tex.slice(pref.length).trim();
-      return $t(' Here $H_t$, $0\\le t\\le %{m}$, deforms the identity ($t=0$) into %{map} ($t=%{m}$) and runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): %{rest}.', { m, map, rest: rest + tail });
-    }
-    return $t(' Here $H_t$ deforms the identity ($t=0$) into %{map} ($t=%{m}$) along %{hom}.', { map, m, hom: c.hom.tex + tail });
-  }
   // the landscape's clause on its sheets (app's sheetsClause, 'tex'): the window k and H, F as math, then the sentence on
   // the deformed pieces' paths on a sheet, if any
   const sheetsTex = (shc) => (shc.src ? $t(shc.src, Object.fromEntries(Object.entries(shc.p).map(([q, v]) => [q, q === 'k' || q === 'H' || q === 'F' ? `$${v}$` : v]))) : shc.p.text) + (shc.then ? $t(shc.then.src, shc.then.p) : '');
@@ -170,7 +119,6 @@
   // a filmstrip over a Number: "The plane w₁ at c = −1.5, −1, −0.5, 0.25." (a decimal comma's list is set off by semicolons)
   const numFilmSentence = (fi) => $t('The plane $%{p}$ at $%{c}=%{list}$.', { p: fi.plane, c: fi.num, list: fi.labs.join(capComma() ? ';\\,' : ',\\,') });
   function captionFor(o, view, body) {
-    const ru = capRu();
     const fi = body.info || {};
     if (fi.svTwo) {
       const own = fi.ownWin ? ' ' + (fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.')) : '';
@@ -188,39 +136,9 @@
     // (round 3) F's formula is displayed, not inline: the caption names F (MAPTOK), and displayF sets
     // F(z) = ... as a displayed equation after the sentence that names F first
     const map = c.raw ? MAPTOK : c.mapTex ? `$${c.mapTex}$` : `$${c.Fname}$`;
-    // Phase and Landscape of the deformation: the picture is H_t at the current t
-    const hm = c.hm && (view === 'phase' || view === 'land' || view === 'xyL');
-    if (fi.film) {
-      const ts = joinL(fi.ts ? fi.ts.map((t, k) => $t('(%{letter}) $t=%{t}$', { letter: ru ? RU_LETTERS[k] : String.fromCharCode(97 + k), t: fi.labs[k] })) : []);
-      const along = homSentence(c, map);
-      if (fi.film === 'phaseGlobe') return $t('Phase portraits of $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, at %{ts}: the color shows $\\arg H_t$ (key at right).', { ts }) + (fi.outline ? $t(' Black: the boundary of $X$.') : '') + along;
-      if (fi.film === 'land') {
-        const ht = { log: '\\log|H_t|', abs: '|H_t|', re: '\\operatorname{Re} H_t', im: '\\operatorname{Im} H_t' }[c.height || 'log'];
-        let s2 = $t('Landscapes of $H_t$%{over} at %{ts}: the height is $%{ht}$', { over: fi.box ? $t(' over $%{box}$', { box: winTex(fi.box) }) : '', ts, ht });
-        if (c.phase && o.ink !== 'bw') s2 += $t(' and the color shows $\\arg %{f}$', { f: 'H_t' });
-        // (the frames draw H_t on F's sheets, as the single frame; its clause says so)
-        const shf = c.sheets && c.sheets.hom && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
-        s2 += shf ? sheetsTex(shf) : c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
-        return s2 + along;
-      }
-      if (fi.film === 'phase') {
-        const f = 'H_t', dc = fi.dc || 'enhanced', lv = $t('the thin lines are the level sets $\\arg %{f}\\in\\frac{\\pi}{6}\\mathbb{Z}$', { f });
-        let s2 = $t('Phase portraits of $H_t$ on $%{box}$ at %{ts}', { box: winTex(fi.box), ts });
-        if (fi.bw) s2 += $t(', drawn as level sets of $\\arg %{f}$ at multiples of $\\pi/6$; heavy: $\\arg %{f}=0$, dashed: $\\arg %{f}=\\pi$. Bands: $\\lfloor\\log_2|%{f}|\\rfloor$ even (gray) or odd (white).', { f });
-        else if (dc === 'classic') s2 += $t(': brightness increases with $|%{f}|$, so zeros are black and poles white.', { f });
-        else if (dc === 'modulus') s2 += $t(': the color shows $\\arg %{f}$ (key at right); the lines are level curves of $|%{f}|$ and of $\\arg %{f}$.', { f });
-        else if (dc === 'grid') s2 += $t(': the color shows $\\arg %{f}$ (key at right); the lines are the preimages of the coordinate lines of the image plane.', { f });
-        else if (dc === 'phase') s2 += $t(': the color shows $\\arg %{f}$ (key at right) and %{lv}.', { f, lv });
-        else if (dc === 'cauchy') s2 += '.';
-        else { const n = c.sectors || 12; s2 += $t(': the color shows $\\arg %{f}$ (key at right), %{lv}, and the shading steps in $|%{f}|$ by factors of $e^{2\\pi/%{n}}\\approx %{x}$; the white line is $|%{f}|=1$.', { f, lv, n, x: tnum(+Math.exp(2 * Math.PI / n).toFixed(2)) }); }
-        if (fi.zp && fi.zp.some((z) => z.length)) s2 += $t(' Zeros are dots and poles are open circles.');
-        return s2 + along;
-      }
-    }
-    const homDef = () => (hm && c.hom ? $t(' Shown at $t=%{t}$.', { t: tnum(c.hom.T.toFixed(2)) }) + homSentence(c, map) : '');
     if (view === 'phase') {
-      const f = hm ? 'H_t' : c.Fname, i = body.info, zs = i.zp.filter((r) => r.kind !== 'pole'), ps = i.zp.filter((r) => r.kind === 'pole');
-      let s = $t('Phase portrait of %{map} on $%{box}$', { map: hm ? '$H_t$' : map, box: winTex(i.box) });
+      const f = c.Fname, i = body.info, zs = i.zp.filter((r) => r.kind !== 'pole'), ps = i.zp.filter((r) => r.kind === 'pole');
+      let s = $t('Phase portrait of %{map} on $%{box}$', { map, box: winTex(i.box) });
       if (i.bw) s += $t(', drawn as level sets of $\\arg %{f}$ at multiples of $\\pi/6$; heavy: $\\arg %{f}=0$, dashed: $\\arg %{f}=\\pi$. Bands: $\\lfloor\\log_2|%{f}|\\rfloor$ even (gray) or odd (white).', { f });
       else {
         const dc = c.dc || 'enhanced', lv = $t('the thin lines are the level sets $\\arg %{f}\\in\\frac{\\pi}{6}\\mathbb{Z}$', { f });
@@ -241,28 +159,27 @@
       }
       if (zs.length) s += zs.length <= 4 ? $t(' Zeros (dots) at %{list}.', { list: joinL(listTex(zs)) }) : $tn(' {n} zeros (dots).', ' {n} zeros (dots).', zs.length);
       if (ps.length) s += ps.length <= 4 ? $t(' Poles (open circles) at %{list}.', { list: joinL(listTex(ps)) }) : $tn(' {n} poles (open circles).', ' {n} poles (open circles).', ps.length);
-      return s + homDef();
+      return s;
     }
     if (view === 'land') {
       // (fh: what the height reads, the steps view's c.hName where it is not the plane's own map, past the colour plane)
-      const f = hm ? 'H_t' : c.Fname, fh = hm ? f : c.hName || f, ht = { log: `\\log|${fh}|`, abs: `|${fh}|`, re: `\\operatorname{Re} ${fh}`, im: `\\operatorname{Im} ${fh}` }[c.height || 'log'];
+      const f = c.Fname, fh = c.hName || f, ht = { log: `\\log|${fh}|`, abs: `|${fh}|`, re: `\\operatorname{Re} ${fh}`, im: `\\operatorname{Im} ${fh}` }[c.height || 'log'];
       // (all sheets: the multivalued function, Ln in Russian: GLOSSARY 2.2; c.sheets: what the landscape
-      // draws, null for the principal branch; the clause says exactly which sheets, also of H_t while deforming)
-      const shc = c.sheets && (hm || !c.sheets.hom) && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
-      let s = $t('Landscape of %{map}%{over}: the height is $%{ht}$', { map: hm ? '$H_t$' : shc && I18 ? I18.notation(map, undefined, { multi: true }) : map, over: body.info.box ? $t(' over $%{box}$', { box: winTex(body.info.box) }) : '', ht });
+      // draws, null for the principal branch; the clause says exactly which sheets, and the window k and H, F are math;
+      // c.sheets.hom, the sheets of a homotopy H_t, have no clause here)
+      const shc = c.sheets && !c.sheets.hom && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
+      let s = $t('Landscape of %{map}%{over}: the height is $%{ht}$', { map: shc && I18 ? I18.notation(map, undefined, { multi: true }) : map, over: body.info.box ? $t(' over $%{box}$', { box: winTex(body.info.box) }) : '', ht });
       if (c.phase && o.ink !== 'bw') s += $t(' and the color shows $\\arg %{f}$', { f });
-      // (while deforming, c.sheets.hom: the sheets of H_t that become those of F, SHEETS-DESIGN.md in notes/; the
-      // window k and H, F are math)
       s += shc ? sheetsTex(shc) : c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
-      return s + homDef();
+      return s;
     }
     // the shape list in the genitive («образ круга»): the app gives it as shapeListGen; English has one form
     const genOf = () => (c.shapeListGen ? A.segsTex(us(c.shapeListGen)) : A.segsTex(us(c.shapeList)));
     // Phase in one panel, in the plane or on the Riemann sphere
     const g = A.state();
     // (the steps view's plane surface draws the phase portrait in the plane, not on the sphere)
-    if (view === 'xyL' && g.main === 'phase' && A.svOn() && !g.lGlobe) return $t('Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}', { choice: c.hm ? '$H_t$' : map, choice2: c.hm ? 'H_t' : c.Fname, homDef: homDef() });
-    if (view === 'xyL' && g.main === 'phase') return $t('Phase portrait of %{choice} on the Riemann sphere, with $\\infty$ at the north pole: the color shows $\\arg %{choice2}$.%{homDef}', { choice: c.hm ? '$H_t$' : map, choice2: c.hm ? 'H_t' : c.Fname, homDef: homDef() });
+    if (view === 'xyL' && g.main === 'phase' && A.svOn() && !g.lGlobe) return $t('Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.', { choice: map, choice2: c.Fname });
+    if (view === 'xyL' && g.main === 'phase') return $t('Phase portrait of %{choice} on the Riemann sphere, with $\\infty$ at the north pole: the color shows $\\arg %{choice2}$.', { choice: map, choice2: c.Fname });
     // X's plane: the shapes in it, or past the steps view's colour plane the images of the shapes carried there
     const i = body.info;
     const list = A.segsTex(us(c.shapeList));
@@ -311,17 +228,15 @@
   const plainOf = (tex, lang) => segsOf(tex, lang).map((s) => (s.d != null ? ` ${plainMath(s.d.replace(/\\displaystyle\s*/g, ''))} ` : s.m != null ? plainMath(s.m) : s.b != null ? s.b : s.i != null ? s.i : s.t)).join('').replace(/ {2,}/g, ' ');
   const plainMath = XD.plain;
   // (the steps view: the stage's window, As on screen, unless a crop is asked for)
-  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, deform: 'film' });
+  const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null });
   // the default file name and \label: the scene, the view and the kind of figure, so two
-  // different figures never share a file or a label (strip-to-disk-phase-film, strip-to-disk-globe-paths, ...); the
+  // different figures never share a file or a label (strip-to-disk-filmstrip, strip-to-disk-paths, ...); the
   // name stays the same for the same figure, so a new export overwrites only its own file
-  function defaultName(view, deform, fmt) {
+  function defaultName(view, fmt) {
     // (the app's scene name ends with the tag of the view on screen: the base is the scene alone)
     const sn = (A && A.sceneName()) || 'figure', suf = { phase: '-phase', land: '-landscape' }[A.viewKind()];
     const base = suf && sn.endsWith(suf) ? sn.slice(0, -suf.length) : sn;
-    const defo = defoOf(view), tag = { phase: 'phase', phaseGlobe: 'phase-sphere', land: 'landscape' }[defo];
-    if (fmt === 'video') return defo ? `${base}-${tag}-video` : base;
-    if (defo) return `${base}-${tag}-${deform === 'frame' ? 'frame' : 'film'}`;
+    if (fmt === 'video') return base;
     if (view === 'svFilm' || view === 'svNumFilm') return `${base}-filmstrip`;
     if (view === 'svTwo') return `${base}-two-planes`;
     if (view === 'svPaths') return `${base}-paths`;
@@ -333,22 +248,15 @@
   // the list-of-figures entry of a caption with a display: a template of its own, under
   // about 100 characters; null: the text before the display (shortCaption). Called inside using(lang)
   function shortFor(view, body) {
-    const fi = body.info || {}, c = A.capParts(), ts = fi.labs ? `$t=${fi.labs.join(',\\,')}$` : '';
+    const fi = body.info || {}, c = A.capParts();
     if (fi.svFilm) return $t('The planes along %{chain}.', { chain: svChain(fi.frames) });
     if (fi.numFilm) return numFilmSentence(fi);
     if (fi.svTwo) return svTwoSentence(fi);
-    const at = c.hom ? `$t=${tnum(c.hom.T.toFixed(2))}$` : '';
-    if (fi.film === 'phaseGlobe') return $t('Phase portraits of $H_t$ on the Riemann sphere at %{ts}.', { ts });
-    if (fi.film === 'land') return $t('Landscapes of $H_t$ at %{ts}.', { ts });
-    if (fi.film === 'phase') return $t('Phase portraits of $H_t$ at %{ts}.', { ts });
-    if (c.hm && c.hom && view === 'phase') return $t('Phase portrait of $H_t$ at %{ts}.', { ts: at });
-    if (c.hm && c.hom && view === 'land') return $t('Landscape of $H_t$ at %{ts}.', { ts: at });
-    if (c.hm && c.hom && view === 'xyL') return $t('Phase portrait of $H_t$ on the Riemann sphere at %{ts}.', { ts: at });
     if (view === 'phase') return $t('Phase portrait of $%{F}$.', { F: c.Fname });
     if (view === 'land') return $t('Landscape of $%{F}$.', { F: c.Fname });
     return $t('The image under $%{F}$.', { F: c.Fname });
   }
-  // build(o): the figure for the current view. o: {for, cols, sizeId, customPt, text, ink, crop, axes, deform,
+  // build(o): the figure for the current view. o: {for, cols, sizeId, customPt, text, ink, crop, axes,
   // name, captionTex (an edited caption), capInImage, view, alive}. -> {svg, W, H, boxes, lines, glyphs, meta,
   // captionTex, name, view, Wtex, ...} or null when cancelled
   // a pass that met a range of MathJax's STIX2 font not yet loaded (XD.waits, 01-composer.js) is built again
@@ -378,33 +286,26 @@
     // a slide's figure fits under the frame title (16:9: about half its width tall)
     P.maxH = o.for === 'slides' ? 0.5 * W : Infinity;
     const view = o.view || (A.svOn() && o.svPic === 'film' ? (o.film === 'number' ? 'svNumFilm' : 'svFilm') : A.svOn() && o.svPic === 'two' ? 'svTwo' : o.svPic === 'paths' && A.svOn() && A.svPathsFig && A.svPathsFig() && A.svPathsFig().i != null ? 'svPaths' : A.viewKind());
-    const name = (o.name || defaultName(view, o.deform) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
+    const name = (o.name || defaultName(view) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
     // the caption language: o.lang ('en' | 'ru' | 'it'), else the interface's
     const lang = o.lang === 'en' || o.lang === 'ru' || o.lang === 'it' ? o.lang : uiLang();
     XD.begin(name, lang);
     const t0 = performance.now();
     let body;
-    // (round 3) the deformation is exported as a deformation in every view: the filmstrip, the paths (plane, globe),
-    // or the frame at the current t (o.deform 'frame', the one-panel figure)
-    const defo = defoOf(view);
-    if (defo && o.deform !== 'frame') body = null;
-    else if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
+    if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
     else if (view === 'svNumFilm') body = await figNumFilm(o, P, W, T);
     else if (view === 'svTwo') body = await figSvTwo(o, P, W, T);
     else if (view === 'svPaths') body = await figPaths(Object.assign({}, o, { sv: A.svPathsFig() }), P, W, T);
     else if (view === 'phase') body = await figPhase(o, P, W, T);
     else if (view === 'land') body = await figLand(o, P, W, T);
-    if (body) { /* made */ }
-    else if (defo && o.deform !== 'frame') body = defo === 'phase' ? await figFilmPhase(o, P, W, T) : await figFilmPic(o, P, W, T, defo);
-    else body = await figXY(o, P, W, T, view);
+    if (!body) body = await figXY(o, P, W, T, view);
     if (!body || (o.alive && !o.alive())) return null;
-    const autoCap = polish(using(lang, () => { const cp = A.capParts(); return displayF(captionFor(o, view, body), cp, 0.88 * W, T[2], view === 'land' && !cp.hm && !!cp.sheets); }), lang);
+    const autoCap = polish(using(lang, () => { const cp = A.capParts(); return displayF(captionFor(o, view, body), cp, view === 'land' && !!cp.sheets); }), lang);
     const shortCap = polish(using(lang, () => shortFor(view, body)), lang);
-    const cp = using(lang, () => A.capParts()), Fn = cp.hm && (view === 'phase' || view === 'land') ? 'H_t' : cp.Fname;
-    const film = !!(body.info && body.info.film);
+    const cp = using(lang, () => A.capParts()), Fn = cp.Fname;
     // a slide names F: in its title when the formula is short, else displayed under the figure
-    const slideF = cp.raw ? `${cp.Fname}(${cp.lvar})=${tidyTex(cp.raw)}` : null, slideFin = !!slideF && slideF.length <= 48;
-    const slideTitle = polish(using(lang, () => (film ? (slideFin ? $t('The deformation $H_t$ to $%{F}$', { F: slideF }) : $t('The deformation $H_t$')) : view === 'phase' ? $t('Phase portrait of $%{Fn}$', { Fn }) : view === 'land' ? $t('Landscape of $%{Fn}$', { Fn }) : cp.mapTex && cp.mapTex.length < 60 ? $t('The map $%{mapTex}$', { mapTex: cp.mapTex }) : $t('The map $%{Fn}$', { Fn }))), lang);
+    const slideF = cp.raw ? `${cp.Fname}(${cp.lvar})=${tidyTex(cp.raw)}` : null;
+    const slideTitle = polish(using(lang, () => (view === 'phase' ? $t('Phase portrait of $%{Fn}$', { Fn }) : view === 'land' ? $t('Landscape of $%{Fn}$', { Fn }) : cp.mapTex && cp.mapTex.length < 60 ? $t('The map $%{mapTex}$', { mapTex: cp.mapTex }) : $t('The map $%{Fn}$', { Fn }))), lang);
     const captionTex = o.captionTex != null ? o.captionTex : autoCap;
     let H = body.H;
     const items = body.items.slice();
@@ -417,7 +318,7 @@
     const meta = { app: 'Complex Map Workbench', name, preset: o.for, ink: o.ink, view, width: `${Wtex}pt`, scene: A.sceneMeta() };
     const fig = XD.svg({ W, H, items, defs: body.defs, lines: body.lines, meta, ...svTwoWords(body.info, lang) });
     // (box: the picture's world window, a plane panel's, for a check against the screen)
-    return Object.assign(fig, { box: (body.info && body.info.box) || null, name, captionTex, autoCaption: autoCap, shortCap, slideTitle, slideF: slideF && !(film ? slideFin : cp.mapTex && cp.mapTex.length < 60) ? polish(slideF, lang) : null, view, for: o.for, Wtex, size, T, star: !!size.star, cols: o.cols, ink: o.ink, ms: Math.round(performance.now() - t0), info: body.info, opts: o, lang });
+    return Object.assign(fig, { box: (body.info && body.info.box) || null, name, captionTex, autoCaption: autoCap, shortCap, slideTitle, slideF: slideF && !(cp.mapTex && cp.mapTex.length < 60) ? polish(slideF, lang) : null, view, for: o.for, Wtex, size, T, star: !!size.star, cols: o.cols, ink: o.ink, ms: Math.round(performance.now() - t0), info: body.info, opts: o, lang });
   }
   // the caption typeset alone, as LaTeX would set it under the figure ("Figure 1." in bold), for the paper preview
   // (round 3) a caption's words typeset ahead, in slices with a yield once 8 ms have passed: the cache then serves

@@ -1,14 +1,13 @@
   // =====================================================================================================
-  // 6. Video of the deformation (round 3): every frame rendered exactly off-screen (never a screen capture), encoded
-  // with WebCodecs as H.264 in our own MP4 muxer, else VP9 in our own WebM muxer; one frame per task, so the page
+  // 6. Video of the steps view's glide along its thread: every frame rendered exactly off-screen (never a screen capture),
+  // encoded with WebCodecs as H.264 in our own MP4 muxer, else VP9 in our own WebM muxer; one frame per task, so the page
   // keeps its frames while a video is made
   // =====================================================================================================
   const VIDEO_SIZES = { '1920x1080': [1920, 1080], '1280x720': [1280, 720], '1080x1080': [1080, 1080] };
-  // (export review r3, editor-5) win: 'screen' (the screen's window, the default) or 'fit' (the window the motion needs)
   // (export review r3, verify-editor-7) secs is the length of ONE step (the Length menu says "3 s per step"): a chain of
   // five steps is not rushed, a single map takes that long
   const VSECS = [2, 3, 4, 6];
-  const vdefaults = () => ({ size: '1920x1080', fps: 30, secs: 3, ends: 'once', tlabel: true, look: 'light', win: 'screen' });
+  const vdefaults = () => ({ size: '1920x1080', fps: 30, secs: 3, ends: 'once', tlabel: true, look: 'light' });
   // the frames' times (export review r3, editor-7, a lecture's pace): each step eased on its own (t = k + ease(u)) over
   // secs seconds, a hold of 0.6 s at every whole t inside, holds of 1.2 s at both ends. stops (a glide's plan,
   // A.svGlide): the whole t inside where it holds, the others crossed in one ease with the steps either side (an
@@ -34,71 +33,6 @@
     return one;
   }
   const tOf = (e) => (typeof e === 'number' ? e : null);
-  // the window of a plane kind at the video's aspect: the screen's (As on screen), else the union of what the frames
-  // draw (Fit the motion; Phase: its zeros and poles)
-  async function videoBox(kind, asp, m, o, v) {
-    const scr = A.screenBox('L');
-    let cb = null;
-    if (v.win === 'fit') {
-      if (kind === 'phase') {
-        for (const t of [0, m / 3, 2 * m / 3, m]) { for (const r of zerosPolesIn(A.plotFAt(t), scr, 40)) cb = unionBox(cb, { x0: r.z.re, x1: r.z.re, y0: r.z.im, y1: r.z.im }); await breathe(); }
-        if (cb) { const sp = Math.max(cb.x1 - cb.x0, cb.y1 - cb.y0, 1); cb = { x0: cb.x0 - 0.6 * sp, x1: cb.x1 + 0.6 * sp, y0: cb.y0 - 0.6 * sp, y1: cb.y1 + 0.6 * sp }; }
-      } else {
-        for (const t of [0, m / 3, 2 * m / 3, m]) {
-          const q = await A.art({ box: scr, wpt: 120, dpi: 72, ink: printInkFor(o, A.state().alpha), T: t, alive: o.alive });
-          if (!q) return null;
-          cb = unionBox(cb, contentBox(q, scr));
-        }
-        if (cb) { const px = 0.08 * (cb.x1 - cb.x0), py = 0.08 * (cb.y1 - cb.y0); cb = { x0: Math.max(scr.x0, cb.x0 - px), x1: Math.min(scr.x1, cb.x1 + px), y0: Math.max(scr.y0, cb.y0 - py), y1: Math.min(scr.y1, cb.y1 + py) }; }
-      }
-    }
-    // (As on screen: the screen's window, widened to the frame's aspect, so all of it shows)
-    return widenTo(cb || scr, asp);
-  }
-  // (export review r3, verify-editor-8) the sphere's labels in a video: 0, infinity, 1, i, -1, -i wherever their point
-  // faces the camera (GLOBE_LABEL_FACE), at full ink (the screen fades them near the rim, which left infinity nearly white);
-  // poles just beyond the globe, equator points just above |z| = 1, as on screen. g: the render's camera; returns
-  // {lab, u, v} in fractions of the pane
-  const GLOBE_LABS = [['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', null, 1, 0], ['i', null, 0, 1], ['−1', null, -1, 0], ['−i', null, 0, -1]];
-  function globeLabelSpots(g) {
-    if (!g || !A.lift || !GLR.M4) return [];
-    const out = [];
-    for (const [lab, p0, re, im] of GLOBE_LABS) {
-      const p = p0 || A.lift(re, im), tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]];
-      if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1) <= GLOBE_LABEL_FACE) continue;
-      const q = GLR.M4.apply(g.MVP, p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
-      if (q[3] <= 1e-6) continue;
-      out.push({ lab, u: q[0] / q[3] * 0.5 + 0.5, v: 1 - (q[1] / q[3] * 0.5 + 0.5) });
-    }
-    return out;
-  }
-  // (export review r3, video-11, editor-8) a globe or a relief fills the frame: the union of what four frames draw,
-  // widened to the frame's aspect, as a crop [u0, u1, v0, v1] of the pane's picture (fractions), at most 1.6 x zoom
-  async function videoCrop(plan, o) {
-    const { W, H, m } = plan;
-    let c = null;
-    const w0 = 240, h0 = w0 * H / W;
-    for (const t of [0, m / 3, 2 * m / 3, m]) {
-      const r = await A.art({ wpt: w0, hpt: h0, dpi: 72, ink: printInkFor(o, A.state().alpha), T: t, alive: o.alive, landBox: plan.landBox });
-      if (!r) return null;
-      const b = inkBounds(r, plan.kind === 'land' ? 232 : 246), add = (f) => { c = c ? [Math.min(c[0], f[0]), Math.max(c[1], f[1]), Math.min(c[2], f[2]), Math.max(c[3], f[3])] : f; };
-      if (b) add([b[0] / r.w, (b[1] + 1) / r.w, b[2] / r.h, (b[3] + 1) / r.h]);
-      // (verify-editor-8) the globe's labels, with their size (about 3 % of H, infinity 4 %) and air: never cut by the edge
-      if (plan.kind === 'phaseGlobe') for (const q of globeLabelSpots(r.globe)) add([q.u - 0.04 * H / W, q.u + 0.04 * H / W, q.v - 0.04, q.v + 0.04]);
-      // (the relief's floor, where the light look prints its grid and labels: its corners through the camera, with air)
-      const L = r.land;
-      if (L && L.MVP && GLR.M4) {
-        const [ax, ay] = L.aspect || [1, 1];
-        for (const [x, y] of [[-ax, -ay], [ax, -ay], [ax, ay], [-ax, ay]]) { const q = GLR.M4.apply(L.MVP, [x * 1.12, y * 1.12, L.floorZ]); if (q[3] > 1e-6) { const u = q[0] / q[3] * 0.5 + 0.5, w = 1 - (q[1] / q[3] * 0.5 + 0.5); add([u, u, w, w]); } }
-      }
-    }
-    if (!c) return [0, 1, 0, 1];
-    const pad = 0.04, cx = (c[0] + c[1]) / 2, cy = (c[2] + c[3]) / 2;
-    let s = Math.max(c[1] - c[0], c[3] - c[2]) + 2 * pad;
-    s = Math.min(1, Math.max(1 / 1.6, s));
-    const u0 = Math.min(1 - s, Math.max(0, cx - s / 2)), v0 = Math.min(1 - s, Math.max(0, cy - s / 2));
-    return [u0, u0 + s, v0, v0 + s];
-  }
   // a globe or a relief frame is drawn at a device pixel ratio of at least PIC_DPR_MIN, and of the frame's height over PIC_H_PX
   // when that is more
   const PIC_DPR_MIN = 1.5, PIC_H_PX = 360;
@@ -116,7 +50,7 @@
     // (the key stands in a column at the right, beside the picture as in the still, so it never covers it)
     const picW = key ? W - keyColumn(H) : W;
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light' }), kind: 'glide', gl, W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m, gl.stops), name, key };
+    return { o, v: Object.assign({}, v, { look: 'light' }), gl, W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m, gl.stops), name, key };
   }
   // the app's hue ring as a canvas of the frame's own scale (0.14 H across), drawn once and kept for every frame
   function ringCanvas(Hpx) {
@@ -132,33 +66,12 @@
     kx.putImageData(id, 0, 0);
     return kc;
   }
-  // the plan of a video: what is drawn, and where
+  // the plan of a video: the steps view's glide along its thread (glidePlan); there is none to record without a step
   async function videoPlan(opts) {
     const o = Object.assign(defaults(), opts || {}), v = Object.assign(vdefaults(), o.video || {});
     const gl = !o.view && A.svOn && A.svOn() && A.svGlide ? A.svGlide() : null;
-    if (gl) return await glidePlan(o, v, gl);
-    const view = o.view || A.viewKind(), kind = defoOf(view);
-    if (!kind) throw new Error('The deformation is off');
-    const [Wpx, Hpx] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'];
-    const d = A.defo(), m = d.m;
-    const pic = kind === 'phaseGlobe' || kind === 'land';
-    // (the screen's line widths at a retina scale; a globe or a relief: the art layer's own labels at about 3 % of the
-    // frame's height, export review r3, editor-8)
-    const dpr = pic ? Math.max(PIC_DPR_MIN, Hpx / PIC_H_PX) : Math.max(1, Math.min(Wpx, Hpx) / 720);
-    const plan = { o, v, kind, W: Wpx, H: Hpx, dpr, m, pic, times: videoTimes(v, m), name: (o.name || defaultName(view, null, 'video') || 'deformation').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'deformation' };
-    if (o.trace) plan.trace = o.trace;
-    if (kind === 'land') {
-      const lb = planLandBox();
-      if (lb) plan.landBox = lb;
-    }
-    if (!pic) { plan.box = await videoBox(kind, Wpx / Hpx, m, o, v); if (!plan.box) return null; }
-    else { plan.crop = await videoCrop(plan, o); if (!plan.crop) return null; }
-    // (the frames' fonts are matched here, once: the first frame's text otherwise took 20-45 ms of its task)
-    { const fc = document.createElement('canvas').getContext('2d'); for (const it of ['', 'italic ']) { fc.font = `${it}${Math.round(0.04 * Hpx)}px "Latin Modern Roman", "CMU Serif", "Times New Roman", serif`; fc.measureText('t = 0.00 −1234567890'); } }
-    await breathe();
-    // (editor-6) the ring key of Phase and Phase on the sphere: drawn once, kept for every frame
-    if ((kind === 'phase' || kind === 'phaseGlobe') && A.hue) plan.key = ringCanvas(Hpx);
-    return plan;
+    if (!gl) throw new Error('There is no glide to record');
+    return await glidePlan(o, v, gl);
   }
   // the video's text: an italic letter, upright digits, on a white halo (editor-17)
   const vText = (ctx, parts, x, y, fs, align = 'left') => {
@@ -226,23 +139,15 @@
   // one frame of the video at time t, drawn into the 2D context ctx (W x H device px)
   async function videoFrame(plan, t, ctx) {
     // (W: the picture's width, the frame's but for the glide's key column at the right; Wf: the frame's)
-    const { o, v, kind, H, dpr } = plan, W = plan.picW || plan.W, Wf = plan.W, st = A.state();
+    const { o, v, H, dpr } = plan, W = plan.picW || plan.W, Wf = plan.W, st = A.state();
     const look = v.look === 'print' ? 'print' : 'light';
-    const base = { dpi: 96 * dpr, T: t, alive: o.alive, raw: true, look: look === 'light' ? 'light' : null, ink: printInkFor(o, st.alpha), noGlobeLabels: kind === 'phaseGlobe' };
-    let r;
-    if (kind === 'glide') r = await A.svGlideArt(plan.gl.lo + t, Object.assign(base, plan.pic ? { wpt: W / dpr * 72 / 96, hpt: H / dpr * 72 / 96, landBox: plan.landBox, landRound: roundLandBox } : { box: plan.box, wpt: W / dpr * 72 / 96 }));
-    else if (plan.box) r = await A.art(Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
-    else {
-      const [u0, u1, v0, v1] = plan.crop, zx = 1 / (u1 - u0), zy = 1 / (v1 - v0);
-      r = await A.art(Object.assign(base, { wpt: W * zx / dpr * 72 / 96, hpt: H * zy / dpr * 72 / 96, landBox: plan.landBox }));
-    }
+    const base = { dpi: 96 * dpr, T: t, alive: o.alive, raw: true, look: look === 'light' ? 'light' : null, ink: printInkFor(o, st.alpha) };
+    const r = await A.svGlideArt(plan.gl.lo + t, Object.assign(base, plan.pic ? { wpt: W / dpr * 72 / 96, hpt: H / dpr * 72 / 96, landBox: plan.landBox, landRound: roundLandBox } : { box: plan.box, wpt: W / dpr * 72 / 96 }));
     if (!r) return false;
     const s0 = performance.now();
     ctx.save();
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, Wf, H);
-    // (a globe or a relief: the crop of the pane's picture that holds what the frames draw)
-    const cr = plan.crop || [0, 1, 0, 1], sx0 = cr[0] * r.cv.width, sy0 = cr[2] * r.cv.height, sw = (cr[1] - cr[0]) * r.cv.width, sh = (cr[3] - cr[2]) * r.cv.height;
-    ctx.drawImage(r.cv, sx0, sy0, sw, sh, 0, 0, W, H);
+    ctx.drawImage(r.cv, 0, 0, W, H);
     // (the off-screen canvas is let go at once: a frame's 8 MB backing store would otherwise wait for the collector)
     r.cv.width = 1; r.cv.height = 1;
     const lw = Math.max(1, Math.min(W, H) / 720);
@@ -254,7 +159,7 @@
     // (editor-6) the print look's axes, and tick numbers in both looks: the window is fixed, so they are too
     if (plan.box) {
       // (the readout at the bottom left keeps its place: an axis number that would run through it is left out)
-      const labW = kind === 'glide' && v.tlabel ? vWidth(ctx, [[A.svGlideText(plan.gl.lo + t), false]], Math.round(0.04 * H)) + 0.035 * H : 0;
+      const labW = v.tlabel ? vWidth(ctx, [[A.svGlideText(plan.gl.lo + t), false]], Math.round(0.04 * H)) + 0.035 * H : 0;
       const b = plan.box, step = niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0), 8), xs = XD.ticks(b.x0, b.x1, step), ys = XD.ticks(b.y0, b.y1, step);
       const ox = Math.min(Math.max(P(C(0, 0))[0], 0), W), oy = Math.min(Math.max(P(C(0, 0))[1], 0), H);
       if (look === 'print') { line([[0, oy], [W, oy]], '#555555', 1.2 * lw); line([[ox, 0], [ox, H]], '#555555', 1.2 * lw); }
@@ -269,32 +174,11 @@
         vText(ctx, [[lab, false]], lx, py + 0.35 * fs, fs, 'right');
       }
     }
-    // (export review r3, verify-editor-8) the globe's labels in both looks, drawn here (the art layer leaves its own out):
-    // dark on a white halo, about 3 % of H; infinity half as large again, its glyph being only x-height tall
-    if (kind === 'phaseGlobe' && r.globe) {
-      plan.labelBoxes = [];
-      for (const q of globeLabelSpots(r.globe)) {
-        const x = (q.u - cr[0]) / (cr[1] - cr[0]) * W, y = (q.v - cr[2]) / (cr[3] - cr[2]) * H, inf = q.lab === '∞', f = inf ? Math.round(1.5 * fs) : fs;
-        const parts = q.lab === '−i' ? [['−', false], ['i', true]] : [[q.lab, q.lab === 'i']];
-        const yb = y + (inf ? 0.25 : 0.35) * f, w = vText(ctx, parts, x, yb, f, 'center');
-        plan.labelBoxes.push({ lab: q.lab, x0: x - w / 2, x1: x + w / 2, y0: yb - (inf ? 0.5 : 0.72) * f, y1: yb + 0.05 * f, fs: f });
-      }
-    }
-    if (kind === 'glide' && plan.key) glideChrome(ctx, plan, t, fs);
-    // (editor-6) the ring key, top right
-    else if (plan.key) {
-      const n = plan.key.width, x = W - n - 0.05 * H, y = 0.06 * H + fs;
-      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(x + n / 2, y + n / 2, n / 2 + 0.2 * fs, 0, 2 * Math.PI); ctx.fill();
-      ctx.drawImage(plan.key, x, y);
-      vText(ctx, [['arg ', false], ['H', true], ['t', true, 'sub']], x + n / 2, y - 0.45 * fs, fs, 'center');
-      vText(ctx, [['0', false]], x + n + 0.25 * fs, y + n / 2 + 0.35 * fs, fs, 'left');
-      vText(ctx, [['±π', false]], x - 0.25 * fs, y + n / 2 + 0.35 * fs, fs, 'right');
-    }
-    // the t label: bottom left, an italic t and upright digits (editor-17)
+    if (plan.key) glideChrome(ctx, plan, t, fs);
+    // the label: bottom left, the thread's position (editor-17)
     if (v.tlabel) {
-      const f2s = Math.round(0.04 * H), num = I18 ? I18.num(t.toFixed(2)) : t.toFixed(2);
-      if (kind === 'glide') { plan.label = A.svGlideText(plan.gl.lo + t); vText(ctx, [[plan.label, false]], Math.round(0.035 * H), H - Math.round(0.035 * H), f2s); }
-      else vText(ctx, [['t', true], [` = ${num}`, false]], Math.round(0.035 * H), H - Math.round(0.035 * H), f2s);
+      plan.label = A.svGlideText(plan.gl.lo + t);
+      vText(ctx, [[plan.label, false]], Math.round(0.035 * H), H - Math.round(0.035 * H), Math.round(0.04 * H));
     }
     ctx.restore();
     if (plan.trace) plan.trace.push(['draw', Math.round(performance.now() - s0)]);
@@ -469,7 +353,7 @@
     const codec = pick.mux === 'mp4' && desc && desc.length > 3 ? `avc1.${hx(desc[1])}${hx(desc[2])}${hx(desc[3])}` : pick.cfg.codec;
     const blob = pick.mux === 'mp4' ? muxMP4(chunks, desc, W, H, fps) : muxWebM(chunks, W, H, fps, pick.cfg.codec);
     if (opts && opts.keepForCheck) { plan.o = Object.assign({}, plan.o, { alive: null }); lastVideo = { codec, mux: pick.mux, frames: n, fps, W, H, times, desc, chunks, plan }; }
-    return { blob, ext: pick.mux, codec, frames: n, fps, secs: n / fps, W, H, name: plan.name, ms: Math.round(performance.now() - t0), labels: plan.labelBoxes || null };
+    return { blob, ext: pick.mux, codec, frames: n, fps, secs: n / fps, W, H, name: plan.name, ms: Math.round(performance.now() - t0) };
   }
   // (tests) one frame of the last video decoded back, and the exact render at its t, as RGBA at w x h
   async function videoCheck(k, w = 192, h = 108) {
@@ -497,12 +381,12 @@
     let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
     return { t: typeof e === 'number' ? e : e.a, pic: (L.plan.picW || L.plan.W) / L.plan.W, mad: s / (w * h * 3), decoded: c1.toDataURL('image/png'), exact: c2.toDataURL('image/png'), label: L.plan.label || null };
   }
-  // (tests, export review r3, editor-5) the last video's window and the screen's, and a frame at the screen's t drawn by
-  // the video's code at the pane's size, for a pixel comparison with a capture of the pane
+  // (tests) the video's window and the screen's, and the frame at the thread's position on
+  // screen drawn by the video's code
   async function videoScreenCheck(opts) {
     const plan = await videoPlan(opts);
     if (!plan) return null;
-    const scr = A.screenBox('L'), t = A.defo().T;
+    const scr = A.screenBox('L'), t = Math.max(0, Math.min(plan.m, A.svGlide().at - plan.gl.lo));
     const c = document.createElement('canvas'); c.width = plan.W; c.height = plan.H;
     await videoFrame(plan, t, c.getContext('2d', { alpha: false }));
     return { box: plan.box, screen: scr, t, frame: c.toDataURL('image/png') };

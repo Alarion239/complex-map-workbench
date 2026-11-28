@@ -19,8 +19,6 @@
   // open sets whose globe boundary the figure draws itself, dashed (the GL lines of a
   // sphere cannot dash): their lines are left out of the art layer
   let artSkip = null;
-  // a video frame of a globe: the figure draws the sphere's labels itself
-  let artNoLab = false;
   let offRender = false;               // renderOff (figure export) is drawing: no cost guard, no half resolution
   // a map spec that applies no live step: drawn without the chain (GLR's isIdent)
   function isIdentMap(m) {
