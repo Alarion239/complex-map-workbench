@@ -51,9 +51,15 @@ ok('η, (−1)^{n+1} as a Dirichlet series, builds and deforms', chose(eta), eta
 // It fails a ζ build twice as slow on the slow runners (35 s) but not on the fast runners or locally (24 s, 22 s: a busy-wait of 12 s in the
 // first inverse draw gives 22.4 s, green; 30 s gives 40.5 s, red); the ungated timing rows below report that (#1365)
 const ZETA_BLOCKED_MS = 25000;
+// (the cores are the page's navigator.hardwareConcurrency, which follows the CPU affinity, not a cgroup CPU quota: a runner
+// throttled by quota that shows 4 CPUs gets no widening; on such a runner, read its quota, cpu.max)
 const cores = Math.max(1, Math.min(4, (await ev('navigator.hardwareConcurrency')) || 4));
 const budget = Math.round(ZETA_BLOCKED_MS * 4 / cores);
 ok(`the main thread is held at most ${budget} ms (${ZETA_BLOCKED_MS} ms on 4 cores, ${cores} here) by ζ's deformation build`, zeta.blocked <= budget && zeta.ready, { zeta, poly, budget, cores });
+// gated too: ζ's paths ready within ZETA_LATE_MS of that budget. The block is nearly all of the wait (98 %), so a ready later
+// than that is a wait that does not hold the main thread (an async hop, a slower worker), which the block's row does not see
+const ZETA_LATE_MS = 5000;
+ok(`ζ's paths are ready within ${budget + ZETA_LATE_MS} ms of the start (the block's budget and ${ZETA_LATE_MS} ms)`, zeta.ready && zeta.readyMs <= budget + ZETA_LATE_MS, { zeta, budget });
 ok('the start on ζ (the park halfway) takes at most 100 ms more than on z² + 1', zeta.park <= poly.park + 100, { zeta, poly });
 // tighter: reported, not gated (ci/browser_suites.js TIMING)
 ok('timing: the paths on ζ within 5 times those of z² + 1', zeta.readyMs <= 5 * poly.readyMs, { zeta, poly });
