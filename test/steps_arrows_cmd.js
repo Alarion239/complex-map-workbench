@@ -11,10 +11,11 @@ const ns = 'svar' + Date.now();
 await seed(ns, st);
 await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
 // (a key's glide waits behind the Play gate until the page's programs, warm draw and jobs are ready, which on a software renderer's cold
-// start can take longer than a fixed wait: the page is ready before the first key, and a step is given the time the gate may take)
-const READY_MS = 60000, STEP_MS = 60000;
-const idle = `__cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#paneL canvas') && __cmwSteps().ready.ready`;
-await settled({ max: READY_MS, until: idle });
+// start can take longer than a fixed wait: the page is prepared before the first key (test/lib/wait_kit.js' prepared(), whose failure
+// names the parts not done), and a step is given the time the gate may take, PREPARED_MS)
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const STEP_MS = kit.PREPARED_MS;
+await kit.prepared(`__cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#paneL canvas')`);
 ok('the page is the steps view', await ev('!!__cmwSteps().on'), null);
 const press = async (key, modifiers = 0) => { const p = { key, code: key, modifiers, windowsVirtualKeyCode: key === 'ArrowRight' ? 39 : 37 }; await send('Input.dispatchKeyEvent', { type: 'keyDown', ...p }); await send('Input.dispatchKeyEvent', { type: 'keyUp', ...p }); };
 const at = () => ev('__cmwSteps().i');
