@@ -3,7 +3,7 @@
 // ("Moved Point p to 0.500 + 0.000i."; in Russian «Объект «Точка p» перемещён в 0,500 + 0,000i.», in Italian «Oggetto «Punto p» spostato in …»: the decimal comma,
 // never two numbers apart), not another shape's name ("Moved z₀."). The selected row says "Arrow keys move it; Shift for ten steps" where a keyboard is
 // the input (a laptop), and says nothing of it on a touch phone, which has no arrow keys. In the steps view the plane on screen is the one camera every plane shares
-// (S.srcView); in the classic view a target is in Y's pane, with its own view. The step is read as what the plane's own scale says
+// (S.srcView); the classic view shows X alone, whose view a target is nudged in. The step is read as what the plane's own scale says
 // (the page's Constr.gridStep of the pixels a unit takes there), so it holds wherever the view is set.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
@@ -30,7 +30,7 @@ const leg = async (view, lang = 'en') => {
   await settled({ max: WARM_MS, only: true, until: `typeof __cmwShapes === 'function' && __cmwShapes().targets.length === 1` });
   if (view === 'steps') { await ev(`(__cmwSteps({ go: 1, now: true }), 1)`); await settled({ max: WARM_MS, until: '__cmwSteps().i === 1 && !__cmwSteps().moving' }); }
   await settled({ only: true, floor: 300, max: WARM_MS });
-  const side = view === 'steps' ? 'L' : 'R', step = await stepOf(side), name = await ev(`(() => { const r = ${ROW}, k = r && r.querySelector('.k'); return k ? k.textContent.trim() : null; })()`);
+  const step = await stepOf('L'), name = await ev(`(() => { const r = ${ROW}, k = r && r.querySelector('.k'); return k ? k.textContent.trim() : null; })()`);
   info[tag] = { step, name };
   if (lang === 'en') ok(`${view}: the target's row is "Point p"`, name === 'Point p', name);
   const p0 = await target();

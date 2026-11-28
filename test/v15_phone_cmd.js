@@ -185,7 +185,7 @@ await nav(URL0 + 'T'); await settle(600);
 // ---------- 3. the sheet: X above it, one resize after the animation; the grabber; Esc ----------
 await view(390, 844, false, true);
 await loadChain('v15phS', { sel: 3 });
-await ev(`window.__phRO = []; window.__phT0 = 0; const ro = new ResizeObserver((es) => { for (const e of es) window.__phRO.push([e.target.id, Math.round(performance.now() - window.__phT0), Math.round(e.contentRect.width), Math.round(e.contentRect.height)]); }); ro.observe(document.getElementById('canvasL')); ro.observe(document.getElementById('canvasR')); setTimeout(() => { window.__phRO = []; }, 100); 1`);
+await ev(`window.__phRO = []; window.__phT0 = 0; const ro = new ResizeObserver((es) => { for (const e of es) window.__phRO.push([e.target.id, Math.round(performance.now() - window.__phT0), Math.round(e.contentRect.width), Math.round(e.contentRect.height)]); }); ro.observe(document.getElementById('canvasL')); setTimeout(() => { window.__phRO = []; }, 100); 1`);
 await settle(300);
 await ev(`window.__phT0 = performance.now(); window.__phRO = []; 1`);
 await ev(`Phone.open('edit'), 1`); await settled({ until: "document.documentElement.classList.contains('ph-sheet-on')", max: 8000 });
