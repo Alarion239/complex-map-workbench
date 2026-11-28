@@ -1681,7 +1681,8 @@
         // (the stencil marks the pixels the box's cells and the pole patches drew (bit 0), so a branch point's patch
         // (polar.hole, svLandPatches) draws only where they left a hole, marking its own (bit 1), and the far patch only
         // where none of them drew: its coarse cells carry copies of what they cover too, for a periodic map; the outer ring
-        // leaves out those in the strip of its copies, uDup, where they would stand out past the surface they copy)
+        // leaves out its gap column's cells, which span the strip of its copies (uGap), where they would stand out past the
+        // surface they copy)
         gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
         gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
         marked(Pc, () => gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1)));
