@@ -71,6 +71,7 @@ const MAP = [
   ['src/app/19-steps-gate.js', ui('views', 'desktop', 'phone', 'layout')],                          // the Play gate, a part of the steps view
   ['src/app/19-steps-poles.js', ui('views', 'desktop', 'phone', 'layout')],                         // the glide's pole tracks, a part of the steps view
   ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone', 'layout')],                         // the steps view (#366 prototype)
+  ['src/app/19-thread-edit.js', ui('views', 'desktop', 'phone', 'layout')],                        // chain editing on the thread, a part of the steps view
   ['src/app/19-steps-ahead.js', { core: true, areas: ['views'] }],                              // the steps view's render-ahead frames (#1339; its suite is in the exact shard)
   ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
   ['src/app/19-readout.js', ui('views', 'desktop', 'phone')],                                      // a stage disc's readout card in the Inspector (#1983)
