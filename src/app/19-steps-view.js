@@ -1069,9 +1069,11 @@
   }
   // The steps view's colour opacity (the Opacity slider; read through regionLook, which the regions' mask passes keep
   // at the slider's value): how much the layers behind show through where the picture covers a point more than once.
-  // The farthest layer stays opaque, so a point covered once keeps its colour
-  const SV_OPACITY_MIN = 0.3;
+  // The farthest layer stays opaque, so a point covered once keeps its colour (SV_OPACITY_MIN, its least: 01-core.js)
   const svOpacity = () => Math.max(SV_OPACITY_MIN, regionLook().alpha);
+  // the Landscape's own opacity (S.landAlpha, its Opacity slider): how much its surfaces behind show through; opaque by
+  // default, so a relief costs one pass until it is set
+  const svLandOpacity = () => (isNum(S.landAlpha) ? Math.max(SV_OPACITY_MIN, Math.min(1, S.landAlpha)) : 1);
   // the look of a carried fill whose own opacity is base: full-opacity fills take the slider's, a dimmed one (a pulled-back
   // shape) keeps its own and draws every layer at it
   // The opacity of a carried layer, and the opacity its buffer size is chosen for: base is the fill's own (1, or less for a
@@ -1109,7 +1111,8 @@
   // into the GL frame gl ({ open }, opened if need be): 'drawn', else the first draw's GLR.drawInverse answer that was
   // not ('error' when it threw). A shape drawn already stays: the next path draws over it
   // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
-  // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
+  // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's; pane.warm, the
+  // warm job's stand-in svWarmPane: a pass of its own, which the shapes' pass does not read)
   // (alphaOf, edgeOf: svInvArg's; b, a: the frame's planes, a = b - 1 unless given: svCarryAlpha's glide; gl.sat: each
   // draw blended front to back, drawInverse's saturate)
   function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf, b, a = b - 1) {
@@ -1117,7 +1120,7 @@
     let nr = 0;
     if (t != null && p0 && p0.inv && p0.inv.nr && GLR.newtRoots) {
       try {
-        const r = GLR.newtRoots({ map: p0.m, plan: p0.plan, prep: p0.prep, inv: p0.inv, view: pane.view, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, t });
+        const r = GLR.newtRoots({ map: p0.m, plan: p0.plan, prep: p0.prep, inv: p0.inv, view: pane.view, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, t, warm: !!pane.warm });
         if (r.state === 'drawn') nr = r.token;
       } catch (e) { console.error('steps view NEWT roots', e); }
     }
@@ -2175,10 +2178,12 @@
     const frame = { open: false };
     // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
     // (under: under what the frame holds, drawColorPlot's under)
-    const plot = (k, al, noValue, under) => {
+    // (stand: while the plot's program links, its stand-in, as renderColor draws the plane at rest: colourStandIn)
+    const plot = (k, al, noValue, under, stand) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue, under });
+      const m = svColourMap(k);
+      GLR.drawColorPlot({ map: m, view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue, under, standIn: stand ? colourStandIn(pane, m) : null });
     };
     // (the glide's record, svGlideRec, of a frame that drew (drew) or not, why not (why.r), its span and its sheet copies;
     // sat: drawn front to back, colour())
@@ -2263,8 +2268,9 @@
       if (still && !svColoured(a) && a > 0 && !isDeriv(a) && svCarryRegions(pane, { mode: 1, hi: a, t: 1 }, T, a, frame, null)) return;
       // (else the planes' exact colours: at rest, a plane at or before the colour plane; mid-glide, where the carried
       // meshes cannot draw (the glide waits while they link, svLinkHold), the colour of the plane the frame is nearest
-      // to, as it is at rest: never two planes blended)
-      plot(still ? a : near, 1);
+      // to, as it is at rest: never two planes blended. While its program links, the plot's stand-in, as at rest: a
+      // glide held on its plane for its programs (svLinkHold) shows the plane's picture, not an empty pane)
+      plot(still ? a : near, 1, false, false, true);
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
@@ -3481,16 +3487,22 @@
   // no inverse program and builds no pipeline inside its first frame: on a renderer that links in the main thread and
   // makes a draw's machine code at its first use (SwiftShader, llvmpipe) those hold a first frame 0.5-2.7 s. Each job
   // is one part of a glide (svGlideParts) and takes an idle moment of its own: it asks for the inverse programs of its
-  // frame (svInvPaths: the programs svCarryExactHom and svGlobeCarryInv draw with; with KHR_parallel_shader_compile they
-  // link in the background, and a later moment looks again), then, on the plane, draws that frame once into the GL
-  // canvas, which no pane shows until a frame copies it (svWarmCarry's way). A frame whose first op is a NEWT op is not
-  // drawn: its roots pass would keep a float texture of the pane's size a root, which the rest never needs. The jobs start
+  // frame (svInvPaths: the programs svCarryExactHom and svGlobeCarryInv draw with, and the NEWT roots pass of a frame whose
+  // first op is a NEWT op; with KHR_parallel_shader_compile they link in the background, and a later moment looks again),
+  // then, on the plane, draws that frame once into the GL canvas, which no pane shows until a frame copies it (svWarmCarry's
+  // way). A NEWT frame is drawn SV_WARM_NR_PX square (svWarmPane): its roots pass writes float targets of the frame's size,
+  // and the machine code of both its programs is the same at any size. The jobs start
   // once the rest's own work is done (svReady) and SV_WARM_IDLE_MS have passed since that, since the jobs were queued and
   // since the last input, so a loaded example, an edit or a plane's first frame gets its programs first. The glide on
   // comes first, then the glide back; at most SV_INV_WARM_MAX jobs a rest, so a long chain links nothing more there. Any
   // input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after such a
   // change, queues them again
   const SV_INV_WARM_MAX = 4;
+  // (the left pane's stand-in for a NEWT frame's warm draw, the pane itself (its prototype, so its methods) but SV_WARM_NR_PX
+  // device px square; warm: its roots pass
+  // keeps to targets of its own, GLR.newtRoots' st.warm, and leaves the glide frames' roots as they were)
+  const SV_WARM_NR_PX = 16;
+  const svWarmPane = () => Object.create(paneL, { pw: { value: SV_WARM_NR_PX }, ph: { value: SV_WARM_NR_PX }, warm: { value: true } });
   // (the jobs left [{b, u, asked}] for what svInvWarmKey names: the chain, the surface, the scope, the colour plane, the
   // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
   // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
@@ -3571,19 +3583,19 @@
       if (!f) svInvJobs.shift();
       else if (!job.asked) { GLR.inverseWarmup(f.sts, { start: true }); job.asked = true; }
       else {
-        const st = f.sts.map((x) => GLR.inverseState(x));
-        if (st.includes('pending')) next = SV_INV_WARM_AGAIN_MS;
+        const st = f.sts.map((x) => GLR.inverseState(x)), w = GLR.inverseWarmup(f.sts);
+        if (st.includes('pending') || w.done < w.total) next = SV_INV_WARM_AGAIN_MS;
         else {
           svInvJobs.shift();
           // (the frame's commands flushed, and the next job only once the GPU has run them (GLR.gpuDone's fence, polled,
           // never waited on): left in the queue they would run in the first glide frame's copy to its pane)
-          if (!globe && st.every((x) => x === 'ready') && !h.paths.some((q) => q.inv && q.inv.nr)) {
+          if (!globe && st.every((x) => x === 'ready')) {
             let drawn = false;
-            const warmFrame = { open: false };
-            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, warmFrame, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
+            const warmFrame = { open: false }, pane = h.paths.some((q) => q.inv && q.inv.nr) ? svWarmPane() : paneL;
+            try { drawn = svDrawInverse(pane, h.list, h.paths, T, warmFrame, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
             // (and the outlines over it, into the same frame, which no pane shows: the first glide frame would build
             // their pass's scratch and pipeline otherwise)
-            if (drawn && !SV.bare) { try { svOutlines(paneL, svBetween(svPlanes().indexOf(job.b) - 1 + job.u).map, warmFrame, false); } catch (e) { /* the glide frame draws them */ } }
+            if (drawn && !SV.bare) { try { svOutlines(pane, svBetween(svPlanes().indexOf(job.b) - 1 + job.u).map, warmFrame, false); } catch (e) { /* the glide frame draws them */ } }
             if (drawn && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
           }
         }

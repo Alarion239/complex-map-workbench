@@ -397,11 +397,14 @@
   // the last Landscape frame's axis names (the plane's Re and Im, the height's), as boxes [x, y, w, h] in CSS px of the pane's canvas
   window.__cmwLandNames = () => (render3D.names || []).map((r) => r.slice());
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame): the
-  // caption's ink box in the key's px (capBox) and how much it is narrowed (capK, 1 for not at all), the ring's −i
-  // label's box (labelBox, null with no ring), and the carried key's line: its lines, its room and its widest word
-  // in the font the key draws it in
+  // caption's ink box in the key's px (capBox) and how much it is narrowed (capK, 1 for not at all; both null when the
+  // caption is not drawn), the ring's −i label's box (labelBox, null with no ring or none drawn), and the carried key's
+  // line: its lines, its room and its widest word in the font the key draws it in. Under the tall bar: the height the key
+  // is drawn compact to (fitH, 0 for the full key), the carried key's compact lines, whether the caption is drawn
+  // (capDrawn), the ring (geo), where its "1" ends (oneEnd), the strip's ink boxes (stripInk) and how much its word is
+  // narrowed (wordK)
   const legendWidest = (side) => { const st = legendState[side], c = document.createElement('canvas').getContext('2d'); c.font = st.ui; return st.words ? Math.max(...st.words.map((w) => c.measureText(w).width)) : 0; };
-  window.__cmwLegend = () => { drawLegend(); const st = legendState.L; return { kind: legendKind('L'), caption: st.caption || null, ring: st.ring, lines: st.lines || 0, room: st.room, widest: legendWidest('L'), capBox: st.capBox || null, capK: st.capK ?? null, labelBox: st.labelBox || null }; };
+  window.__cmwLegend = () => { drawLegend(); const st = legendState.L; return { kind: legendKind('L'), caption: st.caption || null, ring: st.ring, lines: st.lines || 0, room: st.room, widest: legendWidest('L'), capBox: st.capBox || null, capK: st.capK ?? null, labelBox: st.labelBox || null, fitH: st.fitH || 0, compactLines: st.fitH ? st.compactLines || null : null, capDrawn: !!st.capDrawn, geo: st.geo || null, oneEnd: st.oneEnd, stripInk: st.stripInk || null, wordK: st.wordK }; };
   // The camera of the steps view's Landscape (the source plane's view) and its mirror V.left: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy).
   // { zoom: f } runs the app's own zoom of the left plane (zoomPane, the wheel's), about its centre, so the steps view must be showing the plane (not the
   // Landscape); { leftScale } multiplies the mirror's s first (the control: the glide's box does not follow the mirror's history)
@@ -688,7 +691,7 @@
   };
   // whether the last Landscape frame drew its relief from the stand-in (landStandIn) while landTF and land link
   window.__cmwLandStandIn = () => !!(render3D.floor && render3D.floor.info.standIn);
-  window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), linear: !!render3D.linear, title: paneTitles().left });
+  window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), linear: !!render3D.linear, title: paneTitles().left, layers: render3D.layers ?? null, layerFrames: GLR.landLayerFrames() });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutMarks = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutMarksL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (the handles a frame between two planes draws, which take no input; test/steps_glide_cut_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (test/ux165_chain_cmd.js)
