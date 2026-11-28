@@ -1,5 +1,5 @@
 // The Shapes sheet's expanded row on a 390 x 844 and a 430 x 932 phone (en, ru, it) gives each point field its words and its whole text: for a segment, a line, a
-// ray and a half-plane, free and bound (the segment bound to w₁,₁ and to z₀′ reads "= w₁,₁" and "= z₀′"), no label is cut to an ellipsis
+// ray and a half-plane, free and bound (the segment bound to w₁,₁ and to the image of z₀ reads "= w₁,₁" and "= z₀…", with the primes of its plane), no label is cut to an ellipsis
 // and no field's text runs past its box. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
