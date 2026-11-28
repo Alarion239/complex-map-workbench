@@ -33,13 +33,11 @@
   const S = () => A.S();
   const find = (id) => S().shapes.find((x) => x.id === id) || S().targets.find((x) => x.id === id) || null;
   const isT = (s) => !!s && S().targets.includes(s);
-  // the plane an object lives in ('T' for a target, else its stage), the plane a side shows, and a plane's objects
+  // the plane an object lives in ('T' for a target, else its stage), and a plane's objects
   const planeOf = (s) => Constr.planeOf(S(), s);
-  const planeOfSide = (side) => (side === 'R' ? 'T' : A.leftStage());
   const listOfPlane = (p) => Constr.listOfPlane(S(), p);
-  const listOf = (side) => (side === 'R' ? S().targets : A.planeShapes());
-  // the map that carries a z-plane point to the plane a side shows: the whole chain on Y, the steps up to plane k on a
-  // later plane of X; null where X shows no such plane
+  // the map that carries a z-plane point to the plane X shows: the steps up to plane k on a later plane k; null on the
+  // z-plane
   const carriedF = () => (A.leftStage() > 0 && env().Fk ? env().Fk(A.leftStage()) : null);
   const touchNow = () => !!lastEv && (lastEv.pointerType === 'touch' || lastEv.pointerType === 'pen');
   // the radii in screen px: points p, curves c (a finger 14, a mouse 6), the grid lattice g, a rail's
@@ -216,13 +214,13 @@
     if (!(k in dispPcs)) { try { dispPcs[k] = Constr.pieces(Object.assign({ id: '', ci: 0, visible: true }, DISP[k]()), {})[0] || null; } catch (e) { dispPcs[k] = null; } }
     return dispPcs[k];
   }
-  const fixedShape = (side, k) => listOf(side).find((x) => x.fixed === k && !x.def && !x.at) || null;
+  const fixedShape = (k) => A.planeShapes().find((x) => x.fixed === k && !x.def && !x.at) || null;
   // the display curves of a pane no visible shape stands for: [{key, pc, shape: its hidden fixed shape | null}]
-  function dispCurves(side) {
+  function dispCurves() {
     const out = [];
     for (const k of ['unit', 'real', 'imag']) {
       if (k === 'unit' && !S().unit) continue;
-      const sh = fixedShape(side, k);
+      const sh = fixedShape(k);
       if (sh && sh.visible !== false) continue;
       const pc = dispPiece(k);
       if (pc) out.push({ key: k, pc, shape: sh });
@@ -230,9 +228,9 @@
     return out;
   }
   // the curve ref of display curve k: its shape (made in this step, or the plane's), else a new one pushed to shapes
-  function dispRef(k, side, made, shapes) {
-    let sh = (made && made[k]) || fixedShape(side, k);
-    if (!sh) { sh = A.newShape(DISP[k]().kind, DISP[k](), side === 'R'); if (made) made[k] = sh; shapes.push(sh); }
+  function dispRef(k, made, shapes) {
+    let sh = (made && made[k]) || fixedShape(k);
+    if (!sh) { sh = A.newShape(DISP[k]().kind, DISP[k]()); if (made) made[k] = sh; shapes.push(sh); }
     return { s: sh.id, part: 0 };
   }
   // a number pair as the chip writes it: "0.5 + i", in Russian and Italian «0,5 + i» (I18N.comma, the
@@ -440,7 +438,7 @@
     if (!st) return null;
     const pane = A.setView(side);
     const zc = pane.s2w(x, y), Z = [zc.re, zc.im], sc = pane.view.s;
-    const list = listOf(side);
+    const list = A.planeShapes();
     const ex = o.exclude || new Set();
     const touch = o.touch != null ? o.touch : touchNow();
     const R = radii(touch);
@@ -457,7 +455,7 @@
         try { hs = Region.handlesOf(s); } catch (e) { hs = []; }
         for (const [k, hz] of hs) { if (!POS.test(k) || (s.at && s.at[k])) continue; consider([hz.re, hz.im], { s: s.id, h: k }); }
       }
-      if (side === 'L' && A.leftStage() === 0) {
+      if (A.leftStage() === 0) {
         const zs = A.zpStep();
         if (zs && zs.k === 1 && zs.st.uid && zs.st.zpIds) {
           for (const kind of ['zeros', 'poles']) (zs.items[kind] || []).forEach((z, i) => {
@@ -491,7 +489,7 @@
         });
       }
       // the display curves (a hidden fixed shape of that name stands for its curve)
-      if (o.disp) for (const dc of dispCurves(side)) {
+      if (o.disp) for (const dc of dispCurves()) {
         if (dc.shape && ex.has(dc.shape.id)) continue;
         const d = pieceDist(dc.pc, Z);
         if (d > lim) continue;
@@ -533,7 +531,7 @@
         if (u) best = u;
       }
       if (best) {
-        const p3 = best.s ? pts3Of(best.s, planeOfSide(side)) : null;
+        const p3 = best.s ? pts3Of(best.s, A.leftStage()) : null;
         let pr = null;
         try { pr = Constr.projectPiece(best.pc, Z, best.pc.c3 ? p3 : null); } catch (e) { pr = null; }
         if (pr && isXY(pr.z)) {
@@ -566,20 +564,20 @@
     const avoid = [];
     if (ex) for (const id of ex) { if (id === o.self) continue; const q = find(id); if (q && q.kind === 'point' && !q._atInf && isXY(q.p)) avoid.push(q.p); }
     const clash = (z) => avoid.some((q) => Math.abs(q[0] - z[0]) <= 1e-9 * Math.max(1, Math.abs(z[0])) && Math.abs(q[1] - z[1]) <= 1e-9 * Math.max(1, Math.abs(z[1])));
-    const p3 = railS && pc.c3 ? pts3Of(railS, planeOfSide(side)) : null;
+    const p3 = railS && pc.c3 ? pts3Of(railS, A.leftStage()) : null;
     if (pc.c3 && (!p3 || p3 === 'inf')) return null;
     const at = (t) => { let z = null; try { z = Constr.glide(pc, t, p3); } catch (e) { z = null; } return isXY(z) ? z : null; };
     const cands = [];
     const add = (t, label, zz, rr) => { const z = at(t); if (!z || clash(z)) return; const d = Math.hypot(z[0] - tg.z[0], z[1] - tg.z[1]) * sc; if (d <= (rr != null ? rr : R) * f) cands.push({ t, z, d, label: label || fmtZl(zz || z) }); };
     // 1. its crossings with the other shown curves (the point stays on its rail: it only stops there)
-    const list = listOf(side), others = [];
+    const list = A.planeShapes(), others = [];
     const box = { x0: tg.z[0] - h, x1: tg.z[0] + h, y0: tg.z[1] - h, y1: tg.z[1] + h };
     for (const s of list) {
       if (s.visible === false || s === railS || (ex && ex.has(s.id)) || s.kind === 'point' || GRID.has(s.kind) || s.kind === 'formula') continue;
       const bx = boxesOf(s);
       piecesOf(s).forEach((q, i) => { const b = bx[i]; if (b && (box.x1 < b.x0 || box.x0 > b.x1 || box.y1 < b.y0 || box.y0 > b.y1)) return; others.push(q); });
     }
-    for (const dc of dispCurves(side)) if (dc.key !== tg.disp && !(railS && dc.shape === railS)) others.push(dc.pc);
+    for (const dc of dispCurves()) if (dc.key !== tg.disp && !(railS && dc.shape === railS)) others.push(dc.pc);
     for (const q of others) {
       if (q === pc) continue;
       let m = null;
