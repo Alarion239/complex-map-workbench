@@ -422,6 +422,11 @@
       if (py >= 0 && py <= yh) { cy.beginPath(); cy.moveTo(yw - 4, py - 2.5); cy.lineTo(yw - 4, py + 2.5); cy.lineTo(yw, py); cy.fill(); }
     }
   }
+  // the LEDs are focusable images (the markup has no words, so none is English first): they are named with the translated
+  // "Starting…" as the script starts (22-start.js), until the first updateLeds names the state
+  function nameLeds() {
+    for (const id of ['leftLed', 'rightLed']) { const el = $(id); if (el && !el.hasAttribute('aria-label')) el.setAttribute('aria-label', $t('Starting…')); }
+  }
   function setLed(side, state, tip, quiet) {
     const el = $(side === 'L' ? 'leftLed' : 'rightLed');
     if (!el) return;
