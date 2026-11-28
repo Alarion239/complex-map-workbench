@@ -31,6 +31,7 @@ const VIEWS = {
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'canvas_plane_names_cmd.js': steps(),
   'led_a11y_cmd.js': steps({ pin: true }),
+  'tooltip_place_cmd.js': steps({ pin: true }),
   'example_try_sv_cmd.js': steps(),
   'example_try_keys_cmd.js': steps(),
   'nudge_target_cmd.js': steps({ pin: true }),
@@ -95,6 +96,7 @@ const VIEWS = {
   'steps_glide_plots_keep_cmd.js': steps({ pin: true }),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_glide_sheet_seams_cmd.js': steps({ pin: true }),   // (its page asks ?view=steps itself)
+  'steps_glide_hold_standin_cmd.js': steps({ pin: true }),   // (its page asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_glide_mesh_wait_cmd.js': steps(),
   'steps_glide_cut_dash_cmd.js': steps(),
@@ -188,6 +190,7 @@ const VIEWS = {
   'head_press_cmd.js': steps({ pin: true }),
   'steps_land_lscale_cmd.js': steps({ pin: true }),
   'steps_land_caption_cmd.js': steps(),
+  'steps_land_opacity_cmd.js': steps({ pin: true }),
   'pre_more_said_cmd.js': steps(),
   'compile_pill_cmd.js': steps({ pin: true }),
   'steps_chipname_cmd.js': steps(),
@@ -246,6 +249,7 @@ const VIEWS = {
   'steps_toast_ctx_cmd.js': steps(),
   'phone_legend_clear_cmd.js': steps(),
   'phone_legend_keys_cmd.js': steps({ pin: true }),
+  'phone_legend_fit_cmd.js': steps({ pin: true }),
   'classic_chain_box_cmd.js': classic('the classic view\'s empty chain box under the plane (#2269), which goes with the classic view'),
   'phone_keys_room_cmd.js': steps(),
   'steps_phone_stack_cmd.js': steps(),
@@ -370,6 +374,7 @@ const VIEWS = {
   'inspector_parse_hint_cmd.js': steps(),
   'ux165_palette_cmd.js': steps({ pin: true }),
   'guide_nav_cmd.js': steps({ pin: true }),
+  'guide_probe_keys_cmd.js': steps(),
   'i18n_cmd.js': steps({ pin: true }),
   'i18n_classic_cmd.js': classic('the Deformation\'s keys on a Russian layout (Ь, З), the digit keys that pick X → Y, Phase and Landscape, and the classic Landscape title of the logarithm\'s example: the steps view has none of those keys (its play and Paths keys and its plane head\'s sheets are in i18n_cmd)'),
   'i18n_walk_cmd.js': port('words', 'it walks the classic views, cards and Deformation; the steps view\'s own walk is i18n_walk_steps_cmd'),

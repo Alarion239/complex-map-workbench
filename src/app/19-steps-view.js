@@ -1069,9 +1069,11 @@
   }
   // The steps view's colour opacity (the Opacity slider; read through regionLook, which the regions' mask passes keep
   // at the slider's value): how much the layers behind show through where the picture covers a point more than once.
-  // The farthest layer stays opaque, so a point covered once keeps its colour
-  const SV_OPACITY_MIN = 0.3;
+  // The farthest layer stays opaque, so a point covered once keeps its colour (SV_OPACITY_MIN, its least: 01-core.js)
   const svOpacity = () => Math.max(SV_OPACITY_MIN, regionLook().alpha);
+  // the Landscape's own opacity (S.landAlpha, its Opacity slider): how much its surfaces behind show through; opaque by
+  // default, so a relief costs one pass until it is set
+  const svLandOpacity = () => (isNum(S.landAlpha) ? Math.max(SV_OPACITY_MIN, Math.min(1, S.landAlpha)) : 1);
   // the look of a carried fill whose own opacity is base: full-opacity fills take the slider's, a dimmed one (a pulled-back
   // shape) keeps its own and draws every layer at it
   // The opacity of a carried layer, and the opacity its buffer size is chosen for: base is the fill's own (1, or less for a
@@ -2176,10 +2178,12 @@
     const frame = { open: false };
     // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
     // (under: under what the frame holds, drawColorPlot's under)
-    const plot = (k, al, noValue, under) => {
+    // (stand: while the plot's program links, its stand-in, as renderColor draws the plane at rest: colourStandIn)
+    const plot = (k, al, noValue, under, stand) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue, under });
+      const m = svColourMap(k);
+      GLR.drawColorPlot({ map: m, view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue, under, standIn: stand ? colourStandIn(pane, m) : null });
     };
     // (the glide's record, svGlideRec, of a frame that drew (drew) or not, why not (why.r), its span and its sheet copies;
     // sat: drawn front to back, colour())
@@ -2264,8 +2268,9 @@
       if (still && !svColoured(a) && a > 0 && !isDeriv(a) && svCarryRegions(pane, { mode: 1, hi: a, t: 1 }, T, a, frame, null)) return;
       // (else the planes' exact colours: at rest, a plane at or before the colour plane; mid-glide, where the carried
       // meshes cannot draw (the glide waits while they link, svLinkHold), the colour of the plane the frame is nearest
-      // to, as it is at rest: never two planes blended)
-      plot(still ? a : near, 1);
+      // to, as it is at rest: never two planes blended. While its program links, the plot's stand-in, as at rest: a
+      // glide held on its plane for its programs (svLinkHold) shows the plane's picture, not an empty pane)
+      plot(still ? a : near, 1, false, false, true);
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)

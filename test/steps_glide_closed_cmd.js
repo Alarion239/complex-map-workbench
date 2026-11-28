@@ -20,12 +20,14 @@
 //   than DIFF_TOL apart, for each step (a u close enough to 1 that a fast but continuous end of the motion does not
 //   count);
 // - cost (cos): the frame held at u = 0.5, the left pane drawn ten times in a row and read back each time (__cmwTime),
-//   against z^2's in the same session: within the step's cost times (lavapipe: cos about 1.3-1.6). Timing rows
-//   (reported, not gated, cos and the cubic): within its timing times. The cubic's cost is a timing row only: on lavapipe
-//   its frame costs 1.23-1.60 times z^2's by its closed form and 1.49-1.79 by Newton's method (six rounds each, one
-//   session), and the hosted runner's Gates read 1.38-1.45, so no bound tells the two apart and a gated one fails runs
-//   with the closed form; a cubic that falls back to Newton fails the rows above (none of its ops is NEWT). Its
-//   reported level, 1.65, is above the closed form's spread on both machines.
+//   against z^2's in the same session: within the step's cost times. Timing rows (reported, not gated, cos and the
+//   cubic): within its timing times. Cos's frame costs 1.69-1.94 times z^2's on lavapipe in a cloud sandbox (ten runs,
+//   most 1.69-1.85) and 1.75-1.82 on the hosted runner's Gates (three exact shards); its reported level, 2, is above
+//   both, and its gated one, 2.5, above that. The cubic's cost is a timing row only: on lavapipe its frame costs
+//   1.23-1.60 times z^2's by its closed form and 1.49-1.79 by Newton's method (six rounds each, one session), and the
+//   hosted runner's Gates read 1.38-1.45, so no bound tells the two apart and a gated one fails runs with the closed
+//   form; a cubic that falls back to Newton fails the rows above (none of its ops is NEWT). Its reported level, 1.65,
+//   is above the closed form's spread on both machines.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -55,7 +57,7 @@ const noNewton = (g) => !!g && Array.isArray(g.ops) && g.ops.length > 0 && !g.op
 // the steps: us, where the frame's path and ops are read; judge, the u (one of us) where its colour is judged; same, the frame at 0.5
 // from either end; cost and timing: the bounds of its held frame against z^2's, gated and reported (none: not timed)
 const CASES = {
-  cos: { step: { type: 'cos' }, us: [0.25, 0.5, 0.75], judge: 0.5, same: true, cost: 2.5, timing: 1.6 },
+  cos: { step: { type: 'cos' }, us: [0.25, 0.5, 0.75], judge: 0.5, same: true, cost: 2.5, timing: 2 },
   cosh: { step: { type: 'cosh' }, us: [0.5] },
   arccos: { step: { type: 'arccos' }, us: [0.5] },
   arcosh: { step: { type: 'arcosh' }, us: [0.5] },
