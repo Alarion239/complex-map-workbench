@@ -736,11 +736,7 @@ uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform int uAlone; uniform int uPoleN; uniform vec4 uPole[${CARRY_POLES}];
 bool inDisc(vec2 a, vec2 b, vec2 c) {
-  for (int k = 0; k < ${CARRY_DISCS}; k++) {
-    if (k >= uDiscN) break;
-    vec3 d = uDisc[k];
-    if (length(a - d.xy) < d.z && length(b - d.xy) < d.z && length(c - d.xy) < d.z) return true;
-  }
+  for (int k = 0; k < ${CARRY_DISCS} && k < uDiscN; k++) if (all(lessThan(vec3(length(a - uDisc[k].xy), length(b - uDisc[k].xy), length(c - uDisc[k].xy)), vec3(uDisc[k].z)))) return true;
   return false;
 }
 bool drawnBy(vec2 z) {
