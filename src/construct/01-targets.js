@@ -266,7 +266,8 @@
     return `${curveName(a[0])} ∩ ${curveName(a[1])}`;
   }
   // the reason an undefined construction gives (SPEC 3.1)
-  function reasonText(u) {
+  // (stage: the plane the shape is on, which an image point named in the reason counts its primes from)
+  function reasonText(u, stage) {
     if (!u) return '';
     const a = u.args || {};
     const mark = a.mark ? zMark(a.mark.kind, markNum(a.mark)) : '';
@@ -294,7 +295,7 @@
       case 'stepRemoved': return $t('The step of {mark} was removed', { mark });
       case 'zpNotF1': return a.mark && a.mark.kind === 'poles' ? $t('{mark} is a pole of {f} now: only the zeros and poles of f₁ lie in the z-plane', { mark, f: 'f' + sub(a.f || 2) }) : $t('{mark} is a zero of {f} now: only the zeros and poles of f₁ lie in the z-plane', { mark, f: 'f' + sub(a.f || 2) });
       case 'argUndef': {
-        const x = a.x == null ? null : typeof a.x === 'string' ? nameById(a.x) : a.x.mark ? zMark(a.x.mark.kind, markNum(a.x.mark)) : null;
+        const x = a.x == null ? null : typeof a.x === 'string' ? (a.img ? refName({ img: a.x }, undefined, stage) : nameById(a.x)) : a.x.mark ? zMark(a.x.mark.kind, markNum(a.x.mark)) : null;
         return x ? $t('{x} is undefined', { x }) : $t('An argument is undefined');
       }
     }

@@ -2,7 +2,8 @@
 // is made from three clicks, its points and the circle belong to plane 1 (stage = 1), one Undo takes them all, the chip
 // says "· on w₁" while the construction is under way, and a point of plane z carried to plane 1 (z₀′) is an input too. A finished
 // shape's text counts the primes of the image points from the shape's own plane: the plane-1 circle of a three-plane chain (z², then the Möbius)
-// through two plane-1 points and z₀′ reads z₀′ on each of the three planes, in en, ru and it.
+// through two plane-1 points and z₀′ reads z₀′ on each of the three planes, in en, ru and it. The same circle under (z + 1)/1 is undefined, and its
+// reason names the argument that is undefined, z₀′ (not the source point z₀), on each plane.
 // A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -79,6 +80,28 @@ for (const lang of ['en', 'ru', 'it']) {
     await settled({ max: PICK_MAX, until: `[...document.querySelectorAll('.cm-idef')].some((e) => !!e.offsetParent && /w₁/.test(e.textContent))` });
     const idef = await ev(`(() => { const e = [...document.querySelectorAll('.cm-idef')].find((x) => x.offsetParent); return e ? e.textContent.replace(/\\s+/g, ' ').trim() : ''; })()`);
     ok(`a plane-1 circle through z₀′ on plane ${k} (${lang}): its text names the image z₀′, not z₀″`, /z₀′(?!′)/.test(idef) && !/z₀[″‴]/.test(idef), idef);
+  }
+}
+// ---- an undefined argument's reason names the image point on the shape's plane (z₀′), not the source point
+for (const [lang, want] of [['en', /z₀′ is undefined/], ['ru', /z₀′: не определено/], ['it', /z₀′ non è definito/]]) {
+  const ns4 = 'svcu' + lang + Date.now();
+  const o4 = { v3: true, v4: true, v5: true, v6: true, nextId: 60, focus: 0, rightMode: 'image', shapes: [
+    { id: 'z0', kind: 'point', p: [0.5, 0.5], ci: 0, visible: true, num: 0 },
+    { id: 's50', kind: 'point', ci: 1, visible: true, p: [0.35, 0.45], stage: 1, num: 1 },
+    { id: 's51', kind: 'point', ci: 1, visible: true, p: [0.7, -0.35], stage: 1, num: 2 },
+    { id: 's52', kind: 'disc', ci: 1, visible: true, c: [0.2335, -0.0775], r: 0.54, def: { op: 'circle3', args: [{ s: 's50' }, { s: 's51' }, { img: 'z0' }], fill: 'in', flip: true }, stage: 1 }],
+    steps: [{ type: 'custom', params: { expr: 'z^2' }, on: true }, { type: 'mobius', params: { a: '1', b: '1', c: '0', d: '1' }, on: true }] };
+  await go(`${BASE}/gl-helpers.html`); await sleep(350);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns4}', ${JSON.stringify(JSON.stringify(o4))}); 1`);
+  await go(`${BASE}/test.html?ns=${ns4}&view=steps&lang=${lang}`);
+  await settled({ max: LOAD_MAX, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().planes.length > 2" });
+  for (const k of [0, 1, 2]) {
+    await ev(`__cmwSteps({ go: ${k}, now: true }); 1`);
+    await settled({ floor: QUIET_FLOOR, max: QUIET_MAX, until: `__cmwSteps().stage === ${k} && !__cmwSteps().moving` });
+    await ev(`__cmwSelect('s52'); 1`);
+    await settled({ max: PICK_MAX, until: `[...document.querySelectorAll('.err-msg')].some((e) => /undefined|не определено|non è definito/.test(e.textContent))` });
+    const why = await ev(`[...document.querySelectorAll('.err-msg')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim()).join(' | ')`);
+    ok(`a plane-1 circle through an undefined z₀′ on plane ${k} (${lang}): the reason names z₀′, not z₀`, want.test(why), why);
   }
 }
 return { pass: fails.length === 0, fails, info };
