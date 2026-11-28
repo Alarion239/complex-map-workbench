@@ -1699,7 +1699,7 @@
         // points are drawn already, and the rest are points nothing else draws, so they show where they are nearer than
         // what was drawn there, past the box's edge or its back. A periodic carry's rings carry coarse copies of the box's
         // points, which the stencil keeps behind it)
-        const alone = dbg.farDepth ? [] : farPatches.filter((p) => p.polar.alone);
+        const alone = dbg.farDepth || dbg.noAlone ? [] : farPatches.filter((p) => p.polar.alone);
         if (alone.length) {
           const poles = (st.carry.polar || []).slice(0, CARRY_POLES), l = L_(Pc, 'uPole');
           gl.stencilFunc(gl.NOTEQUAL, 0, 0xff);
