@@ -334,7 +334,7 @@
         vs.forEach((z, i) => { const id = f1.zpIds[kind] && f1.zpIds[kind][i]; if (z && id) out.push({ z, ref: { zp: f1.uid, kind, id, i, step: 0 } }); });
       }
     }
-    { const F = carriedF(side); if (F) for (const s of st.shapes) if (s.kind === 'point' && planeOf(s) === 0 && s.visible !== false && !s.helper && !s._atInf) { const w = F(s.p); if (w) out.push({ z: w, ref: { img: s.id } }); } }
+    { const F = carriedF(); if (F) for (const s of st.shapes) if (s.kind === 'point' && planeOf(s) === 0 && s.visible !== false && !s.helper && !s._atInf) { const w = F(s.p); if (w) out.push({ z: w, ref: { img: s.id } }); } }
     return out;
   }
   function globeClick(side, x, y) {

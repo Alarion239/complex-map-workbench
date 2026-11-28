@@ -175,12 +175,12 @@
   }
   // ---------------- constructions: the interface's adapter (construct.js; SPEC 20, INTERFACE) ----------------
   function cmUiApi() {
-    const paneOf = (side) => (side === 'R' ? paneR : paneL);
+    // (X's pane: Y takes no constructions)
     return {
       S: () => S, h, TH: () => TH, sub,
-      setView: (side) => { const p = paneOf(side); p.setView(side === 'R' ? V.right : leftView()); return p; },
-      win: (side) => (side === 'R' ? targetWin() : clipWin),
-      globeEdit, globePick: (side, x, y) => { const gc = globeCam(side); const g = gc ? pickGlobe(side === 'R' ? paneR : paneL, camOf(side), x, y) : null; return gc && g ? { gc, g, hit: (s, tol) => globeCurveHit(gc, s, x, y, tol) } : null; }, gScreen,
+      setView: () => { paneL.setView(leftView()); return paneL; },
+      win: () => clipWin,
+      globeEdit, globePick: (side, x, y) => { const gc = globeCam(side); const g = gc ? pickGlobe(paneL, camOf(side), x, y) : null; return gc && g ? { gc, g, hit: (s, tol) => globeCurveHit(gc, s, x, y, tol) } : null; }, gScreen,
       tool: () => tool, setTool, selected: () => selected, dragging: () => !!drag && /^(move|handle|zp)$/.test(drag.mode) && !!drag.moved,
       select: (id) => { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR', 'P'); },
       hoverShape: (id) => { hoverShape = id; requestRender('L', 'R'); },
@@ -189,7 +189,6 @@
       // finger: the press state, no step); a sound cue
       drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
       leftStage, planeShapes, lFlat, zpStep,
-      yWhole: () => S.focus === 0,
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, nextPointNum, targetLabel,
       nextCi: (target, k = 0) => (target ? TARGET_CI[(S.targets.length + k) % TARGET_CI.length] : (S.shapes.length + k) % 8),   // (the colour newShape will give; k shapes later)
       capPhrase: (s, cs) => shapePhrase(s, 0, cs),   // (a curve named by its maths in a caption)
