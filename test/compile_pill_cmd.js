@@ -67,7 +67,7 @@ const SAMPLER = `(() => { const log = window.__ledLog = []; let t0 = 0, p0 = 0; 
   const c = !!(s && s.compiling), now = performance.now();
   if (l && !p0) p0 = now;
   if (l && c && !t0) t0 = now;
-  if (l) log.push({ t: t0 ? now - t0 : 0, p: now - p0, c, led: l.className, label: l.getAttribute('aria-label') || l.getAttribute('title') || l.getAttribute('data-tip'), live: z ? z.textContent : '' });
+  if (l) log.push({ t: t0 ? now - t0 : 0, p: now - p0, c, app: typeof __cmwPaneStatus === 'function', led: l.className, label: l.getAttribute('aria-label') || l.getAttribute('title') || l.getAttribute('data-tip'), live: z ? z.textContent : '' });
   if (log.length < 4000) requestAnimationFrame(tick);
 }; requestAnimationFrame(tick); })()`;
 const LANGS = { en: 'Compiling…', ru: 'Компиляция…', it: 'Compilazione…' };
@@ -96,7 +96,10 @@ for (const [lang, words] of Object.entries(LANGS)) {
   const log = all.filter((x) => x.c), first = log.length ? log[0].t : 0, early = log.filter((x) => x.t - first < FIRST_MS);
   info['before the first compiling frame ' + lang] = { n: lead.length, led: lead.map((x) => x.led).filter((v, i, a) => a.indexOf(v) === i), label: lead.length ? lead[0].label : null };
   ok(`${lang}: the LED is never "Up to date" from its first paint to the first compiling frame, with links pending`, lead.length > 0 && lead.every((x) => x.led === 'led busy'), lead.slice(0, 3));
-  ok(`${lang}: until the first compiling frame the LED has no label or says "${STARTING[lang]}", never the English words in another language`, lead.every((x) => !x.label || x.label === STARTING[lang]), lead.filter((x) => x.label && x.label !== STARTING[lang]).slice(0, 3));
+  // (from the first frame after the app's script has run, which names the LEDs in the step that applies the translations; the frames
+  // before it are the bare markup, which has no words)
+  const named = lead.filter((x) => x.app);
+  ok(`${lang}: from the app's first frame to the first compiling frame the LED is named "${STARTING[lang]}", never empty and never the English words in another language`, named.length > 0 && named.every((x) => x.label === STARTING[lang]), named.filter((x) => x.label !== STARTING[lang]).slice(0, 3));
   ok(`${lang}: the LED says "${STARTING[lang]}" before the first compiling frame`, lead.some((x) => x.label === STARTING[lang]), lead.slice(0, 3));
   info['first frames ' + lang] = { n: log.length, early: early.length, led: early.map((x) => x.led).filter((v, i, a) => a.indexOf(v) === i), label: early.length ? early[0].label : null };
   ok(`${lang}: frames that stand in for a compiling program were sampled within ${FIRST_MS} ms of the first`, early.length >= 1, info['first frames ' + lang]);
