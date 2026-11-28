@@ -57,12 +57,15 @@ await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-m
   await go(`http://localhost:${PORT}/test.html?ns=it360-motion&lang=it`); await until(`typeof Tour === 'object' && typeof Tour.dismissSuggestion === 'function'`);
   await ev('Tour.dismissSuggestion()'); await ev('Tour.auto(false)');
   await ev(`Tour.start({ chapter: 'basics' })`); await settle(`Tour.isActive() && Tour.current().chapter === 'basics'`);
+  let portrait = 0;
   for (let k = 1; k <= 3; k++) {
     const before = JSON.stringify(await ev('Tour.current()'));
     await ev('Tour.next()'); await settle(`!Tour.isActive() || JSON.stringify(Tour.current()) !== ${JSON.stringify(before)}`);
     const g = await ev(PROBE);
-    if (g && g.mode === 'port') ok(`${tag}, Next ${k}: the strip is ${rowH('port', g.lines)} px tall`, g.h === rowH('port', g.lines), g);
+    if (g && g.mode === 'port') { portrait++; ok(`${tag}, Next ${k}: the strip is ${rowH('port', g.lines)} px tall`, g.h === rowH('port', g.lines), g); }
   }
+  // (the control: the height rows above are made only for a step read in the portrait strip, and these steps are)
+  ok(`${tag}: all 3 steps were read in the portrait strip`, portrait === 3, portrait);
   await ev('Tour.stop()'); await until('!Tour.isActive()');
 }
 ok('no wait timed out', !waitFails.length, waitFails);
