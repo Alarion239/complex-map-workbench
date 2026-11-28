@@ -579,6 +579,7 @@ void main() {
   // end at the cut and no cell straddles it; past its end the ring closes round
   const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
   const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
+  const CARRY_POLES = 12;  // (the carry's pole patches, at most: the far rings' second pass leaves their discs to them, LAND_CARRY_VS)
   // (a carried grid edge crosses a jump of the carry's map when its step on the plane is over CARRY_JUMP_J times the larger
   // of its neighbours' along the same line, and over CARRY_JUMP_PX css px at the fitted scale: LAND_CARRY_NRM_VS)
   const CARRY_JUMP_J = 4, CARRY_JUMP_PX = 2;
@@ -716,11 +717,20 @@ void main() {
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup;
+uniform int uAlone; uniform int uPoleN; uniform vec4 uPole[${CARRY_POLES}];
 bool inDisc(vec2 a, vec2 b, vec2 c) {
   for (int k = 0; k < ${CARRY_DISCS}; k++) {
     if (k >= uDiscN) break;
     vec3 d = uDisc[k];
     if (length(a - d.xy) < d.z && length(b - d.xy) < d.z && length(c - d.xy) < d.z) return true;
+  }
+  return false;
+}
+bool drawnBy(vec2 z) {
+  if (z.x >= uSrc.x && z.x <= uSrc.x + uSrc.z && z.y >= uSrc.y && z.y <= uSrc.y + uSrc.w) return true;
+  for (int k = 0; k < ${CARRY_POLES}; k++) {
+    if (k >= uPoleN) break;
+    if (length(z - uPole[k].xy) < uPole[k].w) return true;
   }
   return false;
 }
@@ -741,6 +751,7 @@ void main() {
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
+  if (uAlone == 1 && (drawnBy(carryZ(vec2(V0))) || drawnBy(carryZ(vec2(V1))) || drawnBy(carryZ(vec2(V2))))) return;
   if (uPolar.w > 0.0 && uDup.w > 0.0 && inDup(carryZ(vec2(V0))) && inDup(carryZ(vec2(V1))) && inDup(carryZ(vec2(V2)))) return;
   int j0 = jumpsAt(V0), jE = hf == 0 ? (j0 & 5) | (jumpsAt(V1) & 2) : (j0 & 6) | (jumpsAt(V2) & 1);
   if (jE != 0) return;

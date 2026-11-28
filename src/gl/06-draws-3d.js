@@ -428,7 +428,7 @@
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z; hole: a branch point's, drawn
   // only where the others leave a hole) and its far patches (st.carry.far, the slot after them): their textures, kept
   // between frames
-  const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
+  const CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
   // (the carried grids' jump rule for this frame, LAND_CARRY_NRM_VS: J, CARRY_JUMP_J or 0 for none, and w, CARRY_JUMP_PX at the
   // fitted scale in plane units; set by drawLandscape before its height passes)
   let carryJump = { J: CARRY_JUMP_J, w: Infinity };
@@ -1456,7 +1456,8 @@
     // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px; farN: the carry's far rings
     // at these points a side, [inner, outer], for a reference frame (test/steps_land_chord_cmd.js); noJump: no jump rule
-    // (J 0): the carried grids keep their triangles across a jump }
+    // (J 0): the carried grids keep their triangles across a jump; farDepth: the far rings drawn by depth alone, without
+    // the stencil, for a reference frame (test/steps_land_chord_cmd.js) }
     Object.assign(dbg, api._lw || {});
     // TEST-HOOK
     // (the carry's far rings' points a side: CARRY_FAR_N, or a test's reference counts)
@@ -1691,8 +1692,22 @@
         // (bit 0 clear passes; REPLACE writes the reference's bit 1 alone, through the mask)
         gl.stencilMask(0x02); gl.stencilFunc(gl.EQUAL, 2, 0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
         for (const p of pp) if (p.polar.hole) marked(Pc, () => drawPatch(p));
-        gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        gl.stencilMask(0xff); gl.stencilFunc(dbg.farDepth ? gl.ALWAYS : gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         for (const p of farPatches) drawPatch(p);
+        // (a carry with no period (alone, svLandFar): the far rings again over the pixels the box and the pole patches
+        // drew, by depth, leaving out each triangle with a corner in the box's rectangle or in a pole patch's disc: those
+        // points are drawn already, and the rest are points nothing else draws, so they show where they are nearer than
+        // what was drawn there, past the box's edge or its back. A periodic carry's rings carry coarse copies of the box's
+        // points, which the stencil keeps behind it)
+        const alone = dbg.farDepth ? [] : farPatches.filter((p) => p.polar.alone);
+        if (alone.length) {
+          const poles = (st.carry.polar || []).slice(0, CARRY_POLES), l = L_(Pc, 'uPole');
+          gl.stencilFunc(gl.NOTEQUAL, 0, 0xff);
+          u1i(Pc, 'uAlone', 1); u1i(Pc, 'uPoleN', poles.length);
+          if (l && poles.length) gl.uniform4fv(l, poles.flatMap((p) => [p[0], p[1], p[2], p[3]]));
+          for (const p of alone) drawPatch(p);
+          u1i(Pc, 'uAlone', 0);
+        }
         gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
         // (the translucent copies, over the principal surface; info.copyAlpha: the least alpha drawn, for the tests)
         const fading = copies.map((cp, i) => [cp, i]).filter(([cp]) => alphaOf(cp) > 0 && alphaOf(cp) < 1);

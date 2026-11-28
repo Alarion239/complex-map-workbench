@@ -22,6 +22,9 @@
 // (iv') with the rule off (GLR._lw.noJump), A's box at those u keeps triangles off by more than 3 px: (iv) reads the rule;
 // (v) B at u = .5 and C keep the same triangles, grid by grid, with and without the rule: it leaves out nothing where the
 //     carry's map has no jump.
+// (ix) A at u = .75, whose carry has no period: at most DEPTH_FRAC of the surface's pixels apart from the same frame with
+//     the far rings drawn by depth alone, without the stencil (GLR._lw.farDepth): where the outer ring lies in front of
+//     the back of the box's corner, it is drawn there.
 // The rest is read, not checked (info): each frame's rows per grid ({tris, off, worst, at, place, height, inDisc}), its
 // jump rows ({edges, jumps, flagged, missed, extra, maxCont, minJump, across}: J's margin; at u = .05, early in the glide,
 // a jump is small against its neighbours (ratio down to about 2.7, under CARRY_JUMP_J), so a few are not flagged and a
@@ -39,6 +42,7 @@ const TOL = 3;                         // css px: a triangle off by more is coun
 const SMOOTH_TOL = 0.5;                // css px: (i)'s bound
 const FINE = [512, 384], COARSE = [32, 32];   // the far rings' points a side for the reference frame and for (iii)
 const PX_TOL = 30, SAT = 24;           // (the pixel rows: a channel more than PX_TOL apart; a surface pixel's channels span more than SAT)
+const DEPTH_FRAC = 0.005;               // (ix)'s bound: the stencil hid 2.2 % of the surface there, the depth draw leaves 0.04 % apart
 const LIM = 300000;
 
 const chord = (o = '') => evJson(`JSON.stringify(__cmwLandChordPx(${o}))`, LIM);
@@ -52,11 +56,12 @@ const redraw = async (lw) => {
   await ev(`(${lw ? `GLR._lw = ${JSON.stringify(lw)}` : 'delete GLR._lw'}, __cmwLandSeams(true), 1)`);
   await settled({ max: 120000 });
 };
-// the share of the surface's pixels in the pane more than PX_TOL apart between the frame now and the fine-ring frame
-const pixelRow = async (tag) => {
+// the share of the surface's pixels in the pane more than PX_TOL apart between the frame now and the same frame with the
+// knob lw set (the fine-ring frame by default)
+const pixelRow = async (tag, lw = { farN: FINE }) => {
   const r = await pane(), a = PNG(fs.readFileSync(await shot(`chord-${tag}`)));
-  await redraw({ farN: FINE });
-  const b = PNG(fs.readFileSync(await shot(`chord-${tag}-fine`)));
+  await redraw(lw);
+  const b = PNG(fs.readFileSync(await shot(`chord-${tag}-ref`)));
   await redraw(null);
   let n = 0, apart = 0;
   for (let y = Math.ceil(r[1]); y < r[1] + r[3]; y++) for (let x = Math.ceil(r[0]); x < r[0] + r[2]; x++) {
@@ -95,6 +100,10 @@ for (const u of [0.05, 0.1, 0.25, 0.5, 0.75]) {
     info.A['u' + u].noJump = nj && nj.box;
     ok(`A, held at u = ${u} (iv'): with the jump rule off (GLR._lw.noJump) the box keeps triangles off by more than ${TOL} px`, !!nj && nj.box.off > 0, nj && nj.box);
     await redraw(null);
+  }
+  if (u === 0.75) {
+    const fd = info.A['u' + u].farDepth = await pixelRow('A-u0.75-depth', { farDepth: true });
+    ok(`A, held at u = ${u} (ix): the far rings are drawn where they lie in front of the box: at most ${DEPTH_FRAC * 100} % of the surface's pixels apart from the frame with them drawn by depth alone (GLR._lw.farDepth)`, fd.share !== null && fd.share <= DEPTH_FRAC, fd);
   }
   await letGo();
 }
