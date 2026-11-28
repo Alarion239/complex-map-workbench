@@ -346,7 +346,7 @@ const Constr = (function (factory) {
       // (a point of the z-plane carried to the plane the reference is read on: the whole chain's map for the targets,
       // the steps up to plane k for a stage-k object)
       const F = ctx.env && (plane === 'T' ? ctx.env.F : ctx.env.Fk ? ctx.env.Fk(plane) : null);
-      if (e.s._atInf) return F ? norm(F(INF)) : U('argUndef', { x: ref.img, img: true });
+      if (e.s._atInf) return F ? norm(F(INF), ref.img, true) : U('argUndef', { x: ref.img, img: true });
       const w = F ? F(e.s.p) : null;
       return norm(w, ref.img, true);
     }

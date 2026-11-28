@@ -130,4 +130,24 @@ for (const [lang, want] of [['en', /z₀′ is undefined/], ['ru', /z₀′: н�
   const whyX = await ev(`[...document.querySelectorAll('.err-msg')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim()).join(' | ')`);
   ok('a circle through the image of an undefined point: the reason names the point itself, not its image', /undefined/.test(whyX) && !/[′″‴]/.test(whyX), whyX);
 }
+// ---- a point at ∞ whose image the map cannot give (exp at ∞): the reason names the image, not the generic "An argument is undefined"
+{
+  const ns6 = 'svci' + Date.now();
+  const o6 = { v3: true, v4: true, v5: true, v6: true, nextId: 70, focus: 0, rightMode: 'image', shapes: [
+    { id: 'k1', kind: 'line', a: [-2, 0], b: [2, 0], ci: 0, visible: true },
+    { id: 'k2', kind: 'line', a: [-2, 1], b: [2, 1], ci: 0, visible: true },
+    { id: 'X', kind: 'point', p: [0, 0], ci: 0, visible: true, num: 0, def: { op: 'meet', args: [{ s: 'k1', part: 0 }, { s: 'k2', part: 0 }], index: 'finite' } },
+    { id: 's50', kind: 'point', ci: 1, visible: true, p: [0.35, 0.45], stage: 1, num: 1 },
+    { id: 's51', kind: 'point', ci: 1, visible: true, p: [0.7, -0.35], stage: 1, num: 2 },
+    { id: 's52', kind: 'disc', ci: 1, visible: true, c: [0.2335, -0.0775], r: 0.54, def: { op: 'circle3', args: [{ s: 's50' }, { s: 's51' }, { img: 'X' }], fill: 'in', flip: true }, stage: 1 }],
+    steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] };
+  await go(`${BASE}/gl-helpers.html`); await sleep(350);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns6}', ${JSON.stringify(JSON.stringify(o6))}); 1`);
+  await go(`${BASE}/test.html?ns=${ns6}&view=steps`);
+  await settled({ max: LOAD_MAX, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().planes.length > 2" });
+  await ev(`__cmwSelect('s52'); 1`);
+  await settled({ max: PICK_MAX, until: `[...document.querySelectorAll('.err-msg')].some((e) => /undefined/.test(e.textContent))` });
+  const whyI = await ev(`[...document.querySelectorAll('.err-msg')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim()).join(' | ')`);
+  ok('a circle through the image of a point at ∞ that exp cannot map: the reason names the image', /′ is undefined/.test(whyI), whyI);
+}
 return { pass: fails.length === 0, fails, info };
