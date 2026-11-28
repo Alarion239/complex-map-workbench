@@ -253,7 +253,7 @@
     if (!ref) return '?';
     if (ref.inf) return '∞';
     if (typeof ref.zp === 'string') return zMark(ref.kind, Constr.zpNum((S().steps || []).find((x) => x.uid === ref.zp), ref.kind, zpIndex(ref)));
-    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes((stage == null ? A.leftStage() : stage) || S().steps.length) : '?'; }
+    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes((stage == null ? A.leftStage() : stage === 'T' ? 0 : stage) || S().steps.length) : '?'; }
     if (ref.meet) return `${curveName(ref.meet[0])} ∩ ${curveName(ref.meet[1])}`;
     if (ref.part != null) return curveName(ref);
     const s = find(ref.s);
@@ -414,7 +414,7 @@
   // a line, segment, ray or half-plane bound at both ends reads by its points ("line through z₀ and z₁")
   function boundText(s) {
     if (!s.at || !s.at.a || !s.at.b || s.def) return null;
-    const a = refName(s.at.a), b = refName(s.at.b), aa = refName(s.at.a, 'acc'), ba = refName(s.at.b, 'acc');
+    const st = planeOf(s), a = refName(s.at.a, undefined, st), b = refName(s.at.b, undefined, st), aa = refName(s.at.a, 'acc', st), ba = refName(s.at.b, 'acc', st);
     switch (s.kind) {
       case 'line': return $t('line through {a} and {b}', { a: aa, b: ba });
       case 'segment': return $t('segment from {a} to {b}', { a, b });
@@ -425,7 +425,7 @@
   }
   function followsText(s) {
     if (!s.at) return '';
-    const xs = [...new Set(Object.values(s.at).map(refName))];
+    const xs = [...new Set(Object.values(s.at).map((r) => refName(r, undefined, planeOf(s))))];
     return $t('follows {x}', { x: xs.join(', ') });
   }
 
