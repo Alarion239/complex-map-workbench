@@ -10,8 +10,14 @@ await view(1440, 900, false, false);
 const ns = 'svru' + Date.now();
 await seed(ns, st);
 await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+// (a play waits behind the Play gate until the page's programs, warm draw and jobs are ready, which on a software
+// renderer's cold start can take longer than a fixed wait: the page is prepared before the first key (test/lib/wait_kit.js'
+// prepared(), whose failure names the parts not done), and a key that plays waits as long; a key that only toggles a
+// button is not gated, KEY_MS)
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const KEY_MS = 5000;
 const idle = `__cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')`;
-await settled({ max: 30000, until: idle });
+await kit.prepared(idle);
 ok('the page is the steps view', await ev('!!__cmwSteps().on'), null);
 await ev('document.activeElement && document.activeElement.blur(), 1');
 // a key as the browser sends it on that layout; the caller waits on the state it changes
@@ -20,13 +26,18 @@ const PATHS = `document.querySelector('#svStrip .sv-paths').getAttribute('aria-p
 // A play on a short thread ends within a few frames, so the page counts the times the Play button's label turns to Pause
 // (a MutationObserver) instead of the suite reading the label at a moment
 await ev(`(() => { const b = document.querySelector('#svStrip .sv-play'); window.__starts = 0; let was = b.getAttribute('aria-label'); new MutationObserver(() => { const n = b.getAttribute('aria-label'); if (n !== was && n === 'Pause') window.__starts++; was = n; }).observe(b, { attributes: true, attributeFilter: ['aria-label'] }); })(), 1`);
-// press a key, wait up to 5 s until the page's state is the one expected, then say whether it is
-const keyTo = async (k, code, expr) => { await press(k, code); await settled({ max: 5000, only: true, until: expr }); return ev(expr); };
+// press a key, wait up to KEY_MS until the page's state is the one expected, then say whether it is; playTo: a key that
+// plays, waited for as the gate is (prepared, the n-th play counted)
+const keyTo = async (k, code, expr) => { await press(k, code); await settled({ max: KEY_MS, only: true, until: expr }); return ev(expr); };
+const playTo = async (k, code, n) => { await press(k, code); await kit.prepared(`window.__starts >= ${n}`, kit.PREPARED_MS, { only: true }); return ev(`window.__starts >= ${n}`); };
+// a slow first draw: the carried colour's warm draw is not made for 9 s, so the Play gate holds the first key's play that
+// long (a slow runner's cold start; the row must wait for it to be over, not give up)
+await ev(`__cmwSteps({ holdWarm: true }), setTimeout(() => __cmwSteps({ holdWarm: false }), 9000), 1`);
 ok('the thread has not played at the start', (await ev('window.__starts')) === 0, null);
-ok('Ь (KeyM) plays', await keyTo('ь', 'KeyM', 'window.__starts >= 1'), await ev('window.__starts'));
-await settled({ max: 20000, until: idle });
-ok('Л (KeyK) plays', await keyTo('л', 'KeyK', 'window.__starts >= 2'), await ev('window.__starts'));
-await settled({ max: 20000, until: idle });
+ok('Ь (KeyM) plays', await playTo('ь', 'KeyM', 1), await ev('window.__starts'));
+await kit.prepared(idle);
+ok('Л (KeyK) plays', await playTo('л', 'KeyK', 2), await ev('window.__starts'));
+await kit.prepared(idle);
 const p0 = await ev(PATHS);
 ok('the Paths button is there and enabled', p0 !== null && !(await ev(`document.querySelector('#svStrip .sv-paths').disabled`)), p0);
 ok('З (KeyP) toggles Paths', await keyTo('з', 'KeyP', `${PATHS} !== ${JSON.stringify(p0)}`), [p0, await ev(PATHS)]);
