@@ -2,22 +2,22 @@
   // point and handle targets are refs as they are; a crossing becomes a meet point (a helper when a drawing tool made
   // it on its own), a curve a point on the curve. Returns {ref, shapes: [new shapes to create first]}
   // (a target on a display curve makes that curve's fixed shape first, or reuses one: o.made, by key)
-  function materialize(t, side, o = {}) {
+  function materialize(t, o = {}) {
     if (!t) return null;
     if (t.cls === 'point') return { ref: t.ref, shapes: [] };
-    const target = side === 'R', pre = [];
+    const pre = [];
     if (t.cls === 'cross') {
-      const def = { op: 'meet', args: t.ref.meet.map((r) => (r.disp ? dispRef(r.disp, side, o.made || {}, pre) : r)) };
+      const def = { op: 'meet', args: t.ref.meet.map((r) => (r.disp ? dispRef(r.disp, o.made || {}, pre) : r)) };
       if (t.ref.seed) def.seed = t.ref.seed; else def.index = t.ref.index;
-      const p = A.newShape('point', { p: t.z.slice(), def }, target);
+      const p = A.newShape('point', { p: t.z.slice(), def });
       if (o.helper) { p.helper = true; p.owner = o.owner; }
       return { ref: { s: p.id }, shapes: pre.concat([p]) };
     }
     if (t.cls === 'curve') {
-      const def = { op: 'glider', args: [t.disp ? dispRef(t.disp, side, o.made || {}, pre) : t.ref] };
+      const def = { op: 'glider', args: [t.disp ? dispRef(t.disp, o.made || {}, pre) : t.ref] };
       const extra = { p: t.z.slice(), def };
       if (t.seed) def.seed = t.seed; else extra.t = t.t;
-      const p = A.newShape('point', extra, target);
+      const p = A.newShape('point', extra);
       return { ref: { s: p.id }, shapes: pre.concat([p]) };
     }
     return null;
@@ -56,7 +56,7 @@
     const at = {};
     const put = (key, t) => {
       if (!key || !t) return;
-      const m = materialize(t, 'L', { helper: true, owner: s.id });
+      const m = materialize(t, { helper: true, owner: s.id });
       if (!m) return;
       for (const x of m.shapes) list.push(x);
       at[key] = m.ref;
@@ -77,7 +77,7 @@
     const list = S().shapes, at = {};
     for (const [i, t] of Object.entries(cmAt)) {
       if (+i >= pg.pts.length) continue;
-      const m = materialize(t, 'L', { helper: true, owner: pg.id });
+      const m = materialize(t, { helper: true, owner: pg.id });
       if (!m) continue;
       for (const x of m.shapes) list.push(x);
       at['v' + i] = m.ref;
@@ -90,7 +90,6 @@
     if (!cl) return false;
     const t = snapAt(side, x, y, cl);
     if (!t || t.cls === 'grid') return false;   // (a lattice point: the app's snapZ, the same point)
-    const target = side === 'R';
     if (t.cls === 'point' && t.ref.s && !t.ref.h) {
       // never silent: the chip says the point is already there (Alt, or Snap off, places a new one)
       A.select(t.ref.s);
@@ -101,13 +100,13 @@
     }
     if (t.cls === 'point' && typeof t.ref.zp === 'string') return false;   // (onDown already dragged the zero)
     if (t.cls === 'point') {
-      const p = A.newShape('point', { p: t.z.slice(), at: { p: t.ref } }, target);
-      api.cm.create([p], { target });
+      const p = A.newShape('point', { p: t.z.slice(), at: { p: t.ref } });
+      api.cm.create([p]);
       return true;
     }
-    const m = materialize(t, side, {});
+    const m = materialize(t, {});
     if (!m) return false;
-    api.cm.create(m.shapes, { target });
+    api.cm.create(m.shapes);
     A.tourEmit('construct-added', { op: t.cls === 'cross' ? 'meet' : 'glider' });
     return true;
   }
@@ -158,7 +157,7 @@
     setRing(null, null);
     if (!t || !d.moved || !d.shape) return;
     const s = d.shape, list = S().shapes;
-    const m = materialize(t, 'L', { helper: true, owner: s.id });
+    const m = materialize(t, { helper: true, owner: s.id });
     if (!m) return;
     for (const x of m.shapes) list.splice(list.indexOf(s), 0, x);
     (s.at || (s.at = {}))[d.key] = m.ref;
@@ -317,12 +316,12 @@
     const t = d.fdT, s = d.shape;
     d.fdT = null;
     if (!t || !s || !d.moved || altNow() || !A.snapOn() || !find(s.id) || t.cls === 'grid') return;
-    const side = isT(s) ? 'R' : 'L', list = isT(s) ? S().targets : S().shapes;
+    const list = S().shapes;
     if (t.cls === 'point') { if (t.ref && !t.ref.img && !(t.ref.s && !t.ref.h)) { api.cm.bind(s.id, 'p', t.ref, { live: true }); A.cue('attach'); } return; }
     const pre = [];
     let def = null;
-    if (t.cls === 'cross') { def = { op: 'meet', args: t.ref.meet.map((r) => (r.disp ? dispRef(r.disp, side, null, pre) : r)) }; if (t.ref.seed) def.seed = t.ref.seed; else def.index = t.ref.index; }
-    else if (t.cls === 'curve') def = { op: 'glider', args: [t.disp ? dispRef(t.disp, side, null, pre) : t.ref] };
+    if (t.cls === 'cross') { def = { op: 'meet', args: t.ref.meet.map((r) => (r.disp ? dispRef(r.disp, null, pre) : r)) }; if (t.ref.seed) def.seed = t.ref.seed; else def.index = t.ref.index; }
+    else if (t.cls === 'curve') def = { op: 'glider', args: [t.disp ? dispRef(t.disp, null, pre) : t.ref] };
     if (!def) return;
     for (const c of pre) list.splice(list.indexOf(s), 0, c);
     const patch = { def, live: true };
@@ -391,21 +390,21 @@
   // the Point tool on a drawn curve on an editable globe (6 px, 14 for a finger: `hit` is the
   // app's globeCurveHit): a point on it, the globe pick projected onto the piece nearest on the screen. True when it made
   // one (one undo step). The display curves are the graticule there, not targets
-  function globePoint(side, g, x, y, gc, hit) {
+  function globePoint(g, x, y, gc, hit) {
     if (!g || !g.z || !gc || !A.snapOn() || altNow()) return false;
-    const target = side === 'R', t = globeCurveAt(side, g, x, y, gc, hit);
+    const t = globeCurveAt(g, x, y, gc, hit);
     if (!t) return false;
-    const m = materialize(t, side, {});
+    const m = materialize(t, {});
     if (!m) return false;
-    api.cm.create(m.shapes, { target });
+    api.cm.create(m.shapes);
     A.tourEmit('construct-added', { op: 'glider' });
     return true;
   }
   // the drawn curve under a globe press (6 px, 14 for a finger), as a curve target {cls: 'curve', ref, z, t, seed, pc}:
   // the globe pick projected onto the piece nearest on the screen (globePoint and globeClick)
-  function globeCurveAt(side, g, x, y, gc, hit) {
+  function globeCurveAt(g, x, y, gc, hit) {
     if (!g || !g.z || !gc || !hit) return null;
-    const st = S(), target = side === 'R', list = target ? st.targets : st.shapes, tol = touchNow() ? 14 : 6;
+    const list = S().shapes, tol = touchNow() ? 14 : 6;
     const Z = [g.z.re, g.z.im];
     let best = null, bd = tol;
     for (const e of list.slice().reverse()) {
@@ -525,12 +524,12 @@
     }
     let t = pickOf(side, x, y);
     if (tool === 'meet') {
-      if (t.cls === 'cross') { finishMeetCross(t, side); return true; }
+      if (t.cls === 'cross') { finishMeetCross(t); return true; }
       // a pick on a point is not a curve: the curve under it is wanted
       if (t.cls !== 'curve' || !t.ref) { const c = snapAt(side, x, y, { points: false, cross: false, curves: true }); if (!c) { pickWarn(chipTouch() ? $t('Tap a crossing of two curves, or a curve.') : $t('Click a crossing of two curves, or a curve.')); return true; } t = c; }
       if (!draftC.curve1) { draftC.curve1 = t; pickOk(); A.requestRender('OL', 'OR'); return true; }
       if (t.ref.s === draftC.curve1.ref.s && t.ref.part === draftC.curve1.ref.part) return true;
-      finishMeetCurves(draftC.curve1, t, side);
+      finishMeetCurves(draftC.curve1, t);
       return true;
     }
     // midpoint / bisector: a click on a segment's stroke takes its ends

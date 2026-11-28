@@ -311,7 +311,7 @@
         const all = (tubes ? tubes.labels : []).concat(off);
         if (!all.length) return;
         const t0 = performance.now();
-        drawStackLabels(ctx, all, tubes ? tubes.fade : 1, stackRoom(pane, camera), (tubes ? tubes.marks : []).concat(lookPts(), stackLevelPts(mids), stackKeyPts(pane)));
+        drawStackLabels(ctx, all, tubes ? tubes.fade : 1, stackRoom(pane, camera), (tubes ? tubes.marks : []).concat(lookPts(), stackLevelPts(mids)), stackKeyPts(pane));
         if (tubes) tubes.labelMs = performance.now() - t0;
       },
     };

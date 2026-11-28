@@ -765,7 +765,7 @@
       // the second press of a double-click places no second point on the first
       const last = list[list.length - 1], now = performance.now();
       // (on a drawn curve (no point or mark took the press): a point on that curve)
-      if (!gs.pt && Construct.globePoint && Construct.globePoint(side, g, x, y, gc, (s, tol) => globeCurveHit(gc, s, x, y, tol))) {
+      if (!gs.pt && Construct.globePoint && Construct.globePoint(g, x, y, gc, (s, tol) => globeCurveHit(gc, s, x, y, tol))) {
         // (the plane's shapes read again: the point was just added, and `list` is a copy taken before it)
         const cur = planeShapes(), pl = cur[cur.length - 1];
         lastGlobePoint = pl ? { id: pl.id, t: now } : null; gSnapMark = null;

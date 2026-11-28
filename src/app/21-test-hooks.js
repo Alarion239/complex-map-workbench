@@ -87,7 +87,7 @@
   };
   window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
-  window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
+  window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn, and t: its frame's time, __cmwPaneStatus(role).t)
   // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn, and landCarryStandIn for
   // a carried frame at rest): the cell of its finest level done (css px; null before one; 0 on the globe and the Landscape, whose
   // levels have no cell), whether it is the globe's or the Landscape's, whether it is a carried frame's (carry), and its
@@ -304,6 +304,8 @@
     if (mfDrawn) for (const h of mfDrawn.heads) { const q = P(Fat(mfDrawn.T)(C(h[2], h[3]))); heads = Math.max(heads, mDist(q, h)); }
     return { ownLine, arrowMin: sel.arrowMin, kinkStep, minLen, retrace: retr, endLine, ringLine, ringEnd, sepLong, ink: sel.ink, cap: sel.budget, n: sel.kept.length, nSeg, seg, jump, ang, kink, turnP99: turns.length ? turns[Math.floor(0.99 * (turns.length - 1))] : 0, turnMax: turns.length ? turns[turns.length - 1] : 0, sep, heads, nHeads: mfDrawn ? mfDrawn.heads.length : 0, T: mfDrawn ? mfDrawn.T : null, kinds: sel.kept.reduce((a, q) => { a[q.sp.kind] = (a[q.sp.kind] || 0) + 1; return a; }, {}) };
   };
+  // the segment buttons the segmented controls' ResizeObserver watches (segRO)
+  window.__cmwSegObserved = () => segSeen.size;
   window.__cmwMorphCache = () => ({ ready: !!(mfCache.sel && mfCache.key === mfScreenKey(paneR).key && (mfCache.vkey === mfScreenKey(paneR).vkey || mfViewOk(paneR, classicSource()))), job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null, rej: mfCache.sel ? mfCache.sel.rej : null, away: mfCache.sel ? mfCache.sel.away : null, prev: mfCache.prev ? mfCache.prev.sel.kept.length : 0 });
   window.__cmwLastFigure = () => Figure.last();
   window.__cmwFigPathsSel = () => (mfFigCache.sel ? { n: mfFigCache.sel.kept.length, nCands: mfFigCache.sel.nCands, cap: mfFigCache.sel.budget, rej: mfFigCache.sel.rej } : null);
@@ -419,9 +421,9 @@
 
   // TEST-HOOK (dropped from the published page by build.py)
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
-  // whether the plane point (x, y) lies in the strip of a far ring's copies (ring [x, y, ...] with dup [n.x, n.y, half-width],
-  // LAND_CARRY_VS uDup); false for a ring without one
-  const landInStrip = (ring, x, y) => !!ring.dup && Math.abs((x - ring[0]) * ring.dup[0] + (y - ring[1]) * ring.dup[1]) < ring.dup[2];
+  // the gap column of a far ring with its copies' strip (ring.dup, svDupTheta) of n x n vertices: the cells between it and
+  // the next span the strip and are left out (LAND_CARRY_VS); -1 for a ring without one
+  const landGapCol = (ring, n) => (ring && ring.dup ? GLR.dupGap(n) : -1);
   // whether the plane point (x, y) lies in the disc of one of the carry c's pole patches ([x, y, r0, r1], out to r1), which
   // that patch covers
   const inPoleDisc = (c, x, y) => (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(x - qx, y - qy) < q1);
@@ -433,22 +435,27 @@
     const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
     return (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
   };
+  // cut 2's jump rule (LAND_CARRY_NRM_VS's jumpOf) over the steps step(i, j, di, dj) (-1: none): the edge from (i, j) to
+  // (i + di, j + dj) crosses a jump when its step is over w and over J times the larger of the steps of the edges before
+  // it and after it along the same line (of those that are finite; none: no jump)
+  const landJumpOf = (step, J, w) => (i, j, di, dj) => {
+    const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj));
+    return m >= 0 && s > w && s > J * m;
+  };
   // The jump bits of an n x n carried grid's vertices with images P (x at 2v, y at 2v + 1; NaN where not finite), as
-  // LAND_CARRY_NRM_VS sets them: bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for v -> v + (1, 1), when
-  // its step on the plane is over w and over J times the larger of the steps of the edges before it and after it along
-  // the same line (of those that are finite; none: no jump); all 0 with J 0
+  // LAND_CARRY_NRM_VS sets them (landJumpOf): bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for
+  // v -> v + (1, 1); all 0 with J 0
   const landJumpBits = (n, P, J, w) => {
     const B = new Uint8Array(n * n);
     if (!(J > 0)) return B;
-    const step = landStep(n, P);
-    const jump = (i, j, di, dj) => { const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj)); return m >= 0 && s > w && s > J * m; };
+    const jump = landJumpOf(landStep(n, P), J, w);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) B[j * n + i] = (jump(i, j, 1, 0) ? 1 : 0) | (jump(i, j, 0, 1) ? 2 : 0) | (jump(i, j, 1, 1) ? 4 : 0);
     return B;
   };
   // The triangles the last carried frame's draw keeps (LAND_CARRY_VS), on the CPU, grid by grid: the box ('box', cells x
   // cells vertices over src, less the triangles whose corners all lie in one seamed patch's disc, which that patch draws),
   // then as patches says (true: all; 'poles': no far ring; false: none) the pole patches ('pole' k) and the far rings
-  // ('far' k, less the triangles whose corners all lie in the strip of the ring's copies, landInStrip), each n x n vertices
+  // ('far' k, less the cells of the gap column of the ring's copies' strip, landGapCol), each n x n vertices
   // at svPatchZ, then the patches more ('more' k, [x, y, r0, r1], the same parametrisation, on the CPU only). A triangle is
   // kept when its corners' images under the carry's map F are finite and its edges are at most c.lim long; with step (the
   // heights' step limit, LAND_CARRY_VS's uStep: 0.3 H for Re F and Im F) and hgt (a plane point's drawn height), also when
@@ -471,13 +478,14 @@
         if (jumps) return;
         const o = [2 * a, 2 * d, 2 * e];
         if (discs.some(([x, y, r]) => o.every((k) => Math.hypot(Z[k] - x, Z[k + 1] - y) < r))) return;
-        if (ring && o.every((k) => landInStrip(ring, Z[k], Z[k + 1]))) return;
         if (!o.every((k) => Number.isFinite(P[k]))) return;
         for (let m = 0; m < 3; m++) { const k = o[m], q = o[(m + 1) % 3]; if ((P[k] - P[q]) ** 2 + (P[k + 1] - P[q + 1]) ** 2 > lim2) return; }
         if (Hv && step < Infinity) { const hs = [Hv[a], Hv[d], Hv[e]]; if (!hs.every(Number.isFinite) || Math.max(...hs) - Math.min(...hs) > step) return; }
         visit(g, a, d, e);
       };
+      const gap = landGapCol(ring, n);
       for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+        if (i === gap) continue;
         const v = j * n + i;
         keep(v, v + 1, v + n + 1, (B[v] & 5) | (B[v + 1] & 2));
         keep(v, v + n + 1, v + n, (B[v] & 6) | (B[v + n] & 1));
@@ -526,18 +534,17 @@
   // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h: the carry's height map, plane s into the colour plane) averaged, the
   // chord's height at the cell, against L at its centre; {cells, bad: the cells whose chord is off by more than tol, worst, at:
   // the worst cell's centre and corners' mean and exact L, copies and copiesBad: the cells the outer ring leaves out to the box
-  // and the inner ring, all four corners in the strip of its copies (dup, LAND_CARRY_VS uDup), and those of them off by more
+  // and the inner ring, its gap column's, which span the strip of its copies (landGapCol), and those of them off by more
   // than tol, not in cells or bad}, per patch of c.far (of 'polar': per pole patch, each at its own resolution, none left
-  // out), or null with no carry. (It reads only the height, at a cell's centre: not where the cell stands in the block, nor
-  // its error on the screen, which __cmwLandChordPx reads)
+  // out), each at its grid's points (svPatchZ), or null with no carry. (It reads only the height, at a cell's centre: not
+  // where the cell stands in the block, nor its error on the screen, which __cmwLandChordPx reads)
   window.__cmwLandFarErr = (tol = 0.25, skipPatches = true, of = 'far') => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.far) return null;
     const F = cpuMap(c.map), h = cpuMap(c.hmap), b = c.box, L = (z) => { const v = h(z); return CX.isFin(v) ? Math.log(1 + CX.abs(v)) : NaN; };
     return (of === 'polar' ? (c.polar || []).slice(0, c.patches || 0).map((q) => [...q, c.patchN]) : c.far).map((ring) => {
-      const [px, py, r0, r1, N] = ring, d = of === 'polar' ? null : ring.dup;
-      const m = (N || c.patchN || 96) - 1, at = (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return C(px + r * Math.cos(th), py + r * Math.sin(th)); };
-      const inDup = (i, j) => { const z = at(i, j); return landInStrip(ring, z.re, z.im); };
+      const m = (ring[4] || c.patchN || 96) - 1, at = (i, j) => { const z = svPatchZ(ring, i, j, m + 1); return C(z[0], z[1]); };
+      const gap = of === 'polar' ? -1 : landGapCol(ring, m + 1);
       const out = { cells: 0, bad: 0, worst: 0, at: null, copies: 0, copiesBad: 0 }, V = new Float64Array((m + 1) * (m + 1));
       for (let j = 0; j <= m; j++) for (let i = 0; i <= m; i++) V[j * (m + 1) + i] = L(at(i, j));
       for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
@@ -547,7 +554,7 @@
         const a0 = V[j * (m + 1) + i], a1 = V[j * (m + 1) + i + 1], a2 = V[(j + 1) * (m + 1) + i], a3 = V[(j + 1) * (m + 1) + i + 1], Lc = L(zc);
         if (!Number.isFinite(a0 + a1 + a2 + a3 + Lc)) continue;
         const mean = (a0 + a1 + a2 + a3) / 4, e = Math.abs(mean - Lc);
-        if (d && inDup(i, j) && inDup(i + 1, j) && inDup(i, j + 1) && inDup(i + 1, j + 1)) { out.copies++; if (e > tol) out.copiesBad++; continue; }
+        if (i === gap) { out.copies++; if (e > tol) out.copiesBad++; continue; }
         out.cells++;
         if (e > tol) out.bad++;
         if (e > out.worst) { out.worst = e; out.at = [+zc.re.toFixed(3), +zc.im.toFixed(3), +mean.toFixed(3), +Lc.toFixed(3)]; }
@@ -675,6 +682,39 @@
     for (const r of Object.values(out)) { r.maxCont = +r.maxCont.toFixed(2); r.minJump = Number.isFinite(r.minJump) ? +r.minJump.toFixed(2) : null; }
     return out;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // The carried All sheets' places read back with GLR._lw.cpDump (LAND_CARRY_PLACE_S_TF_VS: each sheet's cells' own four
+  // corners), the box's and each patch's, against cut 2's jump rule (landJumpOf), an edge of a cell on a sheet (along x, y
+  // or the diagonal) beside the same edges of the cells before and after it along that line on that sheet. Per slot (0
+  // the box, i + 1 the patch i): {edges: the edges read (both corners finite), over: those the rule flags, maxRatio: the
+  // largest ratio of an edge with a finite neighbour, J, w: the rule and its floor the frame drew with}, or null with no
+  // read-back
+  window.__cmwLandSheetStretch = () => (GLR._cpDump ? Object.fromEntries(Object.entries(GLR._cpDump).map(([slot, D]) => [slot, landSheetStretch(D)])) : null);
+  function landSheetStretch(D) {
+    const { d, texW, N, K, tileC, J, w } = D, M = N - 1, T = 2 * M;
+    const at = (k, i, j, ci, cj) => { const o = 4 * (((Math.floor(k / tileC) * T) + 2 * j + cj) * texW + (k % tileC) * T + 2 * i + ci); return d[o + 3] > 0.5 ? [d[o], d[o + 1]] : null; };
+    const edge = (k, i, j, di, dj) => {
+      if (i < 0 || j < 0 || i >= M || j >= M) return -1;
+      const a = at(k, i, j, 0, 0), b = at(k, i, j, di, dj);
+      return a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : -1;
+    };
+    let edges = 0, over = 0, maxRatio = 0;
+    for (let k = 0; k < K; k++) {
+      const step = (i, j, di, dj) => edge(k, i, j, di, dj), jump = landJumpOf(step, J, w);
+      for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) for (const [di, dj] of [[1, 0], [0, 1], [1, 1]]) {
+        const s = step(i, j, di, dj);
+        if (s < 0) continue;
+        edges++;
+        const m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj));
+        if (m > 0) maxRatio = Math.max(maxRatio, s / m);
+        if (jump(i, j, di, dj)) over++;
+      }
+    }
+    return { edges, over, maxRatio: +maxRatio.toFixed(2), J, w };
+  }
   // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
   // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there
   window.__cmwLandHeightAt = (x, y) => {
@@ -806,8 +846,8 @@
   // tracks (svHoldB), rest: the last plane at rest's (svRestRec);
   // playRec: a play's schedule ({ from, to, ms, t0, el: its time since it started from from, at t0 }), null without a play or for a
   // slide; rebased: the schedule the last new speed set (svPlayRebase), with rebaseMinSpan, the least span it is timed over;
-  // invWarm: the glides of the plane shown made ready at rest (svPrestartInv's jobs for it done); invGlides: those glides
-  // ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
+  // invWarm: the glides of the plane shown, and the planes a press lands on from it, made ready at rest (svPrestartInv's
+  // jobs for it done); invGlides: those glides ([b, u] each part, svInvGlides), whose inverse programs svReady counts; fits: the head's fits so
   // far that ran past their key (SV.fits); ready (svReady, peeked) and invGlides are read only when asked too (getters:
   // svReady's inverse part asks each glide's programs, and a suite may read the glide once a pixel)
   // the Play gate's 10 s message for a part (null: no part named), and the part it would name now

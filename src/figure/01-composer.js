@@ -10,7 +10,6 @@
   const uiLang = () => (I18 ? I18.lang : 'en');
   // a number in TeX in the current language (0{,}5 in Russian); English: as it is
   const tnum = (x) => (I18 ? I18.texNum(x) : String(x));
-  const RU_LETTERS = 'абвгдежзиклм';
   // the sound cues (notes/sound/DESIGN.md): "export ready" after a copy; a save cues in A.saveFile itself
   const cueDone = () => { if (A && A.soundDone) A.soundDone(); };
   const cueError = () => { if (A && A.soundError) A.soundError(); };

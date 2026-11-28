@@ -152,6 +152,7 @@
     dirty.G = false;
     // (each plane drawn says, after it, what its canvas shows only in words: paneSays … paneSaid)
     if (dirty.L) { dirty.L = false; paneSays(paneL); try { renderLeft(); } catch (e) { console.error(e); } paneSaid(paneL); }
+    ledFirstFrame();
     dirty.R = false;
     dirty.OL = dirty.OR = false;
     if (invPaneQ.drew.L && invPaneQ.drew.R) for (const k of ['L', 'R']) if (invPaneQ[k]) invPaneQ[k].share = 0.5;

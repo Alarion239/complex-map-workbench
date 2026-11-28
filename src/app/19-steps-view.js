@@ -241,7 +241,9 @@
     const o = Views.svOf(S.view, areas, S.steps.length === 0);
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf; SV.links = 'straight';
     if (SV.els) setSeg(SV.els.scope, SV.scope);   // (the head's switch shows what the view opened on)
-    SV.i = 0; SV.g.set(0);
+    // (the thread on plane 0, which it has arrived at: the next arrival at another plane is a change, and starts that
+    // plane's glides' warm-up, svArrive)
+    SV.i = 0; SV.at = 0; SV.g.set(0);
   }
   // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
   // the device's setting for a state without one). svStore writes it before a save and an undo entry; a link and a scene
@@ -732,16 +734,26 @@
     }
     return Object.assign(out, { end });
   }
-  // the point of a pole's patch p ([x, y, r0, r1], p.seam) at grid place (i, j) of an n x n grid, as CARRY_ZIN places it
-  // (SEAM_EPS inside the cut on rings out to its end, p.seam.end)
+  // the point of a pole's patch p ([x, y, r0, r1], p.seam, p.dup) at grid place (i, j) of an n x n grid, as CARRY_ZIN
+  // places it (SEAM_EPS inside the cut on rings out to its end, p.seam.end; an outer far ring with its copies' strip on
+  // the arcs outside it, svDupTheta)
   function svPatchZ(p, i, j, n) {
     const f = 1 / (n - 1), r = p[2] * Math.pow(p[3] / p[2], j * f);
     let th = -2 * Math.PI * i * f;
     if (p.seam) {
       const K = GLR.SEAM_RINGS, t = Math.min(Math.max(j * f, 0), 1) * (K - 1), k = Math.min(Math.floor(t), K - 2), E = j * f <= p.seam.end ? GLR.SEAM_EPS : 0;
       th = p.seam[k] + (p.seam[k + 1] - p.seam[k]) * (t - k) - E - (2 * Math.PI - 2 * E) * i * f;
-    }
+    } else if (p.dup) th = svDupTheta(p.dup, i, r, n);
     return [p[0] + r * Math.cos(th), p[1] + r * Math.sin(th)];
+  }
+  // the angle at grid column i of n, radius r, of an outer far ring with its copies' strip dup ([n.x, n.y, half-width, 1],
+  // svLandFarDup): the strip's edges cross the circle at ±b from its normal n and from -n, b = acos(half-width / r); the
+  // columns up to the gap h (GLR.dupGap) run from +b to -b about n, the rest from +b to -b about -n. So the
+  // grid's outermost columns lie on the strip's edges and its cells cover the ring outside the strip; the cells between
+  // columns h and h + 1 span the strip and are left out (LAND_CARRY_VS), its points drawn by their copies
+  function svDupTheta(d, i, r, n) {
+    const h = GLR.dupGap(n), b = Math.acos(Math.min(1, d[2] / r)), tn = Math.atan2(d[1], d[0]);
+    return i <= h ? tn + b - (2 * b * i) / h : tn + Math.PI + b - (2 * b * (i - h - 1)) / (n - 2 - h);
   }
   // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
   // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
@@ -782,9 +794,10 @@
   // heights the same: the glide map's period, invHomPer, or at rest the chain's from s, Inverse.keyPeriod, or the least
   // multiple of it, up to LAND_DUP_M, that the height has too, checked at LAND_DUP_AT points of the box), each point of the
   // strip within sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the
-  // inner ring draw with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span
-  // several periods there, and their facets would stand out past the surface they copy. [n.x, n.y, half-width, 1], n the
-  // unit normal to P; null where no such period is found
+  // inner ring draw with their finer cells. The outer ring covers only the ring outside that strip (svDupTheta): its coarse
+  // cells span several periods there, and their facets would stand out past the surface they copy, as would a cell
+  // reaching into the strip across its edge. [n.x, n.y, half-width, 1], n the unit normal to P; null where no such period
+  // is found
   const LAND_DUP_M = 4, LAND_DUP_AT = [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7], [0.35, 0.85], [0.7, 0.15]], LAND_DUP_TOL = 1e-7;
   function svLandFarDup(carry, src, R) {
     if (carry.plain) return null;
@@ -3494,18 +3507,27 @@
   // and the machine code of both its programs is the same at any size. The jobs start
   // once the rest's own work is done (svReady) and SV_WARM_IDLE_MS have passed since that, since the jobs were queued and
   // since the last input, so a loaded example, an edit or a plane's first frame gets its programs first. The glide on
-  // comes first, then the glide back; at most SV_INV_WARM_MAX jobs a rest, so a long chain links nothing more there. Any
-  // input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after such a
-  // change, queues them again
+  // comes first, then the glide back; at most SV_INV_WARM_MAX glide jobs a rest, so a long chain links nothing more
+  // there. Any input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after
+  // such a change, queues them again.
+  // After the glides, the planes a press lands on: each plane either side of the one shown that the carry core draws at
+  // rest on the flat plane (past the colour plane, svRestWarmPlanes) is a job of its own, whose frame at rest
+  // (svRestWarmDraw: its carried colour, by the inverse pass or by the carried meshes, and its outlines) is drawn once
+  // into the GL canvas as a glide's is, so the first frame on that plane links none of its programs and builds none of
+  // its pipelines (where that frame links them, it takes 400-480 ms on lavapipe at 1200 x 800). Those jobs are no part of
+  // svReady: a press waits for its own glide's programs only, and while it waits behind the gate (SV.gate) they are put
+  // off. A job's links and draw that started just before a press are still ahead of that press's frame in the GPU's
+  // queue: they can delay its first frame, never what it shows
   const SV_INV_WARM_MAX = 4;
   // (the left pane's stand-in for a NEWT frame's warm draw, the pane itself (its prototype, so its methods) but SV_WARM_NR_PX
   // device px square; warm: its roots pass
   // keeps to targets of its own, GLR.newtRoots' st.warm, and leaves the glide frames' roots as they were)
   const SV_WARM_NR_PX = 16;
   const svWarmPane = () => Object.create(paneL, { pw: { value: SV_WARM_NR_PX }, ph: { value: SV_WARM_NR_PX }, warm: { value: true } });
-  // (the jobs left [{b, u, asked}] for what svInvWarmKey names: the chain, the surface, the scope, the colour plane, the
-  // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
-  // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
+  // (the jobs left [{b, u, asked}], u null for a plane's frame at rest (svRestWarmPlanes), for what svInvWarmKey names:
+  // the chain, the surface, the scope, the colour plane, the colour style and the plane shown; svInvFlushing: a job's
+  // frame is still running on the GPU; read by the test hooks; svInvQueuedAt, svInvReadyAt: when the jobs were queued,
+  // and since when svReady has read ready, 0 while it does not)
   let svInvJobs = [], svInvWarmKey = null, svInvFlushing = false, svInvQueuedAt = 0, svInvReadyAt = 0;
   // (test hook: no jobs queued while set, and those left dropped; svReady's inverse part, which counts the jobs' glides,
   // built again)
@@ -3524,9 +3546,17 @@
     }
     return out.slice(0, SV_INV_WARM_MAX);
   }
+  // the planes the jobs draw at rest after the glides' (svPrestartInv): the planes either side of the one shown, the next one
+  // first, that the carry core draws at rest on the flat plane (past the colour plane, no d/dz step); [] off the Plane (the
+  // globe, the stack, the Landscape) and while the jobs are off (the test hook's warmInv: false)
+  function svRestWarmPlanes() {
+    if (svInvWarmOff || SV.surf !== 'plane' || !lFlat() || !paneL || !GLR.inverseState || nSteps() < 1) return [];
+    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x)));
+    return [P[j + 1], P[j - 1]].filter((k) => k != null && !svColoured(k) && !isDeriv(k));
+  }
   function svPrestartInv() {
     svInvWarmKey = svInvKey();
-    svInvJobs = svInvGlides().map((g) => ({ b: g.b, u: g.u, asked: false }));
+    svInvJobs = svInvGlides().map((g) => ({ b: g.b, u: g.u, asked: false })).concat(svRestWarmPlanes().map((k) => ({ b: k, u: null, asked: false })));
     svInvQueuedAt = performance.now();
     svInvReadyAt = 0;
     svInvWarmNext();
@@ -3544,6 +3574,33 @@
     if (!h) return null;
     const carry = svCarryStyle(svT());
     return { h, sts: h.paths.map((p, i) => (globe ? Object.assign({ viewKind: 'globe' }, svInvArg(paneL, p, h.list[i], carry)) : svInvStateArg(h, i, b, u))) };
+  }
+  // the inverse paths of plane b's carried colour at rest as svCarryExact draws it, and their programs' states (sts,
+  // GLR.inverseState's arguments, with the rest's look: the slider's opacity, which picks the B class): {h, sts}; h null
+  // (the carried meshes draw it) when it has no inverse paths or its plan has a NEWT op, whose roots pass at rest (t = 1,
+  // svCarryExact's) this job leaves to the landing's frame
+  function svRestWarmFrame(b) {
+    const h = svInvPaths(b, null, 'flat', { r: null });
+    if (!h || h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'))) return { h: null, sts: [] };
+    const carry = svCarryStyle(svT());
+    return { h, sts: h.paths.map((p, i) => Object.assign({ viewKind: 'flat' }, svInvArg(paneL, p, h.list[i], carry))) };
+  }
+  // plane b's frame at rest drawn into a frame no pane shows (into: { open }), as svRenderMoving's colour layer draws
+  // it on the flat plane: the carried colour by the inverse pass (f: svRestWarmFrame's) or else by the carried meshes,
+  // and the outlines over it. The left pane's count of pre-mapped draws (svCarryPre) is the screen frame's and stays as
+  // it was -> whether the colour was drawn
+  function svRestWarmDraw(b, f, into) {
+    const T = svT(), map = svBetween(svPlanes().indexOf(b)).map, pre = svCarryPre;
+    let drawn = false;
+    try {
+      drawn = !!f.h && svDrawInverse(paneL, f.h.list, f.h.paths, T, into) === 'drawn';
+      if (!drawn) drawn = svCarryRegions(paneL, map, T, b, into, null);
+      if (drawn && !SV.bare) svOutlines(paneL, map, into, false);
+    } catch (e) {
+      // (the landing's own frame draws it, and makes what this one did not)
+      drawn = false;
+    } finally { svCarryPre = pre; }
+    return drawn;
   }
   // Those of the jobs' glides (svInvGlides), the states svReady's inverse part counts: built once for what svInvListKey
   // names (svPrestartSoon drops them after an edit). Besides what svInvKey names, a state's program depends on the
@@ -3578,6 +3635,17 @@
       const wait = SV.gate ? 0 : Math.max(svInvQueuedAt, svInvReadyAt, lastInputT) + SV_WARM_IDLE_MS - now;
       if (wait > 0) { setTimeout(svInvWarmNext, Math.max(wait, SV_INV_WARM_AGAIN_MS)); return; }
       const job = svInvJobs[0], globe = SV.surf === 'sphere', T = svT();
+      // (a plane's frame at rest: its inverse programs asked for, then, once none links, the frame drawn and flushed)
+      if (job.u == null) {
+        if (SV.gate) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+        const r = svRestWarmFrame(job.b);
+        if (!job.asked) { if (r.sts.length) GLR.inverseWarmup(r.sts, { start: true }); job.asked = true; svInvWarmNext(); return; }
+        if (r.sts.some((x) => GLR.inverseState(x) === 'pending')) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+        svInvJobs.shift();
+        if (svRestWarmDraw(job.b, r, { open: false }) && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
+        svInvWarmNext();
+        return;
+      }
       const f = svInvFrame(job.b, job.u, globe), h = f && f.h;
       let next = 0;
       if (!f) svInvJobs.shift();
