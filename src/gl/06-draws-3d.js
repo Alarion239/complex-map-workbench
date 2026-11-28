@@ -325,6 +325,49 @@
     for (const t of [landStand.tex1, landStand.tex2, ...landStand.edges]) gl.deleteTexture(t);
     landStand = null;
   }
+  // The carried frame's stand-in surface while landCarryTF and landCarry link (c = st.carry, c.standIn {nx, ny, w, q}: plane s's
+  // grid over its box src, node (a, b) at 2 (b nx + a): its place q, the glide's map of the point, and its value w in the height
+  // plane; NaN where the map has no value): the places and heights texture landCarryTF makes (place, height of heightOf, 1 where
+  // the node has a place and a value), made on the CPU, the normals landCarryNrm makes of it with the frame's jump rule (jump),
+  // and the values texture the stand-in's colours come from. Drawn by landCarryS over the box's grid only (no pole patches, no far
+  // rings, no copies). null until landCarryNrm and landCarryS have linked
+  let carryStand = null;
+  function carryStandSurface(st, c, mode, H, aspect, heightOf, jump) {
+    const g = c.standIn, P2 = program('landCarryNrm');
+    if (!g || !P2 || !program('landCarryS')) return null;
+    const N = g.nx, b = st.box, key = [mode, H, aspect[0], aspect[1], b.x0, b.x1, b.y0, b.y1, c.lim, jump.J, jump.w].join('|');
+    if (!carryStand) carryStand = { tex1: floatTex(), tex2: floatTex(), tex3: floatTex(), grid: null };
+    const cs = carryStand;
+    if (cs.grid !== g || cs.key !== key) {
+      const t1 = new Float32Array(4 * N * N), t3 = new Float32Array(4 * N * N);
+      for (let i = 0; i < N * N; i++) {
+        const qx = g.q[2 * i], qy = g.q[2 * i + 1], re = g.w[2 * i], im = g.w[2 * i + 1];
+        if (!(Number.isFinite(qx) && Number.isFinite(qy) && Number.isFinite(re) && Number.isFinite(im))) continue;
+        t1[4 * i] = qx; t1[4 * i + 1] = qy; t1[4 * i + 2] = heightOf(mode < 2 ? Math.hypot(re, im) : mode % 2 ? im : re); t1[4 * i + 3] = 1;
+        t3[4 * i] = re; t3[4 * i + 1] = im;
+      }
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, cs.tex3);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, N, N, 0, gl.RGBA, gl.FLOAT, t3);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, cs.tex1);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, N, N, 0, gl.RGBA, gl.FLOAT, t1);
+      use(P2);
+      u1i(P2, 'uN', N);
+      u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+      u2f(P2, 'uAspect', aspect[0], aspect[1]);
+      u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', 0);
+      u1f(P2, 'uJump', jump.J); u1f(P2, 'uJumpW', jump.w);
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(P2, empty(), gl.POINTS, N * N, 0, N * N * 16, cs.tex2, N, N, gl.RGBA32F, gl.RGBA);
+      cs.grid = g; cs.key = key;
+    }
+    return Object.assign(cs, { N, standIn: true, carried: true, cuts: -1, rf: null });
+  }
+  function carryStandRelease() {
+    if (!carryStand) return;
+    for (const t of [carryStand.tex1, carryStand.tex2, carryStand.tex3]) gl.deleteTexture(t);
+    carryStand = null;
+  }
   // The steps view's carried landscape (st.carry {map, s, T, hT, u, lim, src, key}): plane s's grid over its box src
   // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
   // each vertex at the height of the stages (s, hT] at its point (hT default T), and coloured by G = the stages (s, T]
@@ -1396,8 +1439,10 @@
     if (api._lw && api._lw.motion) st = Object.assign({}, st, { motion: true, full: false });
     // TEST-HOOK
     lvCollect();
-    // the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
-    if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
+    // the carried landscape while its programs compile: the stand-in of its carried frame (carryStandSurface), where the CPU has one
+    // (at rest), else plane s's own surface (st.map)
+    const carryWait = st.carry && !carryReady(st.carry.map) ? st.carry : null;
+    if (carryWait) st = Object.assign({}, st, { carry: null });
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
@@ -1484,8 +1529,8 @@
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
     let hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect, null, null, carryJump) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     // (nothing to draw from yet, the principal surface's programs still linking: the stand-in's relief)
-    if (!hd && !st.carry) hd = landStandSurface(st, mode, H, mu, aspect, heightOf);
-    else if (hd && !hd.standIn) landStandRelease();
+    if (!hd && !st.carry) hd = (carryWait && carryStandSurface(st, carryWait, mode, H, aspect, heightOf, carryJump)) || landStandSurface(st, mode, H, mu, aspect, heightOf);
+    else if (hd && !hd.standIn) { landStandRelease(); carryStandRelease(); }
     // (the carry's pole patches, made before the draw: each a TF pass of its own)
     const pp = [];
     const farPatches = [];
@@ -1549,7 +1594,7 @@
     const below = eye[2] < floorZ;
     const floorPass = (alpha) => {
       // (the stand-in's frame draws the plate with F's print from the stand-in's grid (floorS) until floor, which prints the chain's map, has linked)
-      const Fp = program('floor', st.map) || (hd && hd.standIn ? program('floorS') : null);
+      const Fp = program('floor', st.map) || (hd && hd.standIn && !hd.carried ? program('floorS') : null);
       if (!Fp) return;
       use(Fp, st.map);
       common(Fp);
@@ -1567,7 +1612,7 @@
     if (!below && !st.reliefOnly) floorPass(0.8);
     gl.disable(gl.BLEND);
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
-    const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
+    const Lp = (st.carry && !hs) || hd.carried ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
     // (moving, the principal surface: its steep base triangles by landB, once the refinement's programs have run, STEEP;
@@ -1804,6 +1849,23 @@
           if (landPane.drawn.size > 64) landPane.drawn.delete(landPane.drawn.values().next().value);
         }
         lvTailMark();
+      } else if (hd.carried) {
+        // (the carried frame's stand-in: the box's grid at the CPU's places and heights, the colour from the nodes' values; a triangle
+        // across a jump or over uLim or uStep is left out as landCarry leaves it out)
+        const LC = program('landCarryS'), sb = carryWait.src || box;
+        if (LC) {
+          use(LC);
+          common(LC);
+          landLight(LC);
+          u3(LC, 'uCut', C.cut);
+          u1f(LC, 'uLim', carryWait.lim); u1f(LC, 'uStep', carryStep(mode, H));
+          u2f(LC, 'uClipA', aspect[0], aspect[1]);
+          u4f(LC, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+          polarUniforms(LC, null, false); discUniforms(LC, null); u4f(LC, 'uDup', 0, 0, 0, 0);
+          gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, hd.tex3);
+          gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+          info.standIn = true; info.carried = true; info.carryStand = true;
+        }
       } else if (hd.standIn) {
         // (the stand-in: every base triangle, F from the corners, no cut: the heights' step rule leaves a wall out)
         const LS = program('landS');

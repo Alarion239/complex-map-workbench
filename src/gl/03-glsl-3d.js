@@ -711,9 +711,10 @@ void main() {
   // the plane is over CARRY_JUMP_J times its neighbours' along the same line, and over CARRY_JUMP_PX at the fitted scale)
   // is left out: the slit along a cut whose banks land within uLim, which a kept triangle would bridge. (jumpsAt: a grid
   // point's bits; a triangle's edges are V0 -> V1, +x of V0 (hf 0) or its diagonal, V1 -> V2, +y of V1 (hf 0) or +x of V2,
-  // and V0 -> V2, the diagonal of V0 (hf 0) or its +y)
-  const LAND_CARRY_VS = `
-uniform highp sampler2D uT1; uniform highp sampler2D uT2;
+  // and V0 -> V2, the diagonal of V0 (hf 0) or its +y). stand: the stand-in's draw (the CPU's grid in the textures, no chain): vW is
+  // the node's value in the height plane (uCW), which LAND_FS's stand form colours from
+  const LAND_CARRY_VS = (stand = false) => `
+uniform highp sampler2D uT1; uniform highp sampler2D uT2;${stand ? ' uniform highp sampler2D uCW;' : ''}
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup;
 bool inDisc(vec2 a, vec2 b, vec2 c) {
@@ -746,7 +747,7 @@ void main() {
   if (jE != 0) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
-  vZ = carryZ(vec2(V));
+  vZ = carryZ(vec2(V));${stand ? '\n  vW = texelFetch(uCW, V, 0).xy;' : ''}
   vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
   vNor = nv.xyz; vAO = nv.w - 2.0 * floor(0.5 * nv.w);
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
@@ -1298,13 +1299,14 @@ float frontA() { return uFront > 0 && texelFetch(uBehind, ivec3(ivec2(gl_FragCoo
   // (preKeyDepth, the 2D carried colour's order) as a share of its distance from the eye, so the point the 2D picture
   // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
   // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
-  // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
-  const LAND_FS = (sheet, plain, lite, carry = false) => glsl`
+  // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck. carry 'stand': the carried
+  // stand-in's (LAND_CARRY_VS stand): the carried surface's clip and rim with the colour from vW, as plain
+  const LAND_FS = (sheet, plain, lite, carry = /** @type {boolean | 'stand'} */ (false)) => glsl`
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
-uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps; uniform float uFade;\n${PRE_KEY_DECL}` : `\n${PEEL_DECL}`}${LAND_PEEL_DECL}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
+uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry === true ? ` uniform float uKeyEps; uniform float uFade;\n${PRE_KEY_DECL}` : `\n${PEEL_DECL}`}${LAND_PEEL_DECL}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? glsl`flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry === true ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? `${carry ? 'uniform vec2 uClipA;\n' : ''}vec2 landW(vec2 z) { return vW; }` : sheet ? glsl`flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1358,7 +1360,7 @@ vec2 facetW(vec2 w) {
   return w * exp(clamp(lr, -85.0, 85.0) - log(r));
 }`}
 void main() {
-${carry ? '  float fdep = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : '  float fdep = gl_FragCoord.z;\n'}${LAND_PEEL}${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
+${carry === true ? '  float fdep = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : '  float fdep = gl_FragCoord.z;\n'}${LAND_PEEL}${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
@@ -1433,11 +1435,11 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
   // (a carried copy fading in: uFade its transparency, premultiplied, 0 everywhere else; frontA: the front surface's
   // alpha over the relief's layers, 1 at opacity 1. A copy fades only at opacity 1, so at most one of the two is
   // other than its plain value)
-  o = ${carry ? 'vec4(toSrgb(fogged(c, vPos)) * (1.0 - uFade), (1.0 - uFade) * frontA())' : 'vec4(toSrgb(fogged(c, vPos)), frontA())'};
+  o = ${carry === true ? 'vec4(toSrgb(fogged(c, vPos)) * (1.0 - uFade), (1.0 - uFade) * frontA())' : 'vec4(toSrgb(fogged(c, vPos)), frontA())'};
   // (a point the region mask marks unresolved: the flat planes' no-value hatch, opaque and unlit, in o's colour as it is
   // premultiplied: by a copy's fade, not by the front surface's alpha)
-  o.rgb = mix(o.rgb, nanHatch(gl_FragCoord.xy, uDpr)${carry ? ' * (1.0 - uFade)' : ''}, noValueAt(vZ));
-${carry ? '  gl_FragDepth = fdep;\n' : ''}}
+  o.rgb = mix(o.rgb, nanHatch(gl_FragCoord.xy, uDpr)${carry === true ? ' * (1.0 - uFade)' : ''}, noValueAt(vZ));
+${carry === true ? '  gl_FragDepth = fdep;\n' : ''}}
 `;
   const FLOOR_VS = `
 uniform mat4 uMVP; uniform vec2 uExt; uniform float uFloorZ;

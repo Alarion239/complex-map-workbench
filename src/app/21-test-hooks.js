@@ -689,6 +689,8 @@
   };
   // whether the last Landscape frame drew its relief from the stand-in (landStandIn) while landTF and land link
   window.__cmwLandStandIn = () => !!(render3D.floor && render3D.floor.info.standIn);
+  // whether it was the carried frame's stand-in (landCarryS: plane s's grid at the carried places while landCarryTF and landCarry link)
+  window.__cmwLandCarryStand = () => !!(render3D.floor && render3D.floor.info.carryStand);
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), linear: !!render3D.linear, title: paneTitles().left, layers: render3D.layers ?? null, layerFrames: GLR.landLayerFrames() });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutMarks = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutMarksL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (the handles a frame between two planes draws, which take no input; test/steps_glide_cut_cmd.js)
