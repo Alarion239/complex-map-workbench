@@ -247,11 +247,13 @@
   }
   // the primes of an image point after n steps: z′, z″, z‴, then z″ again
   const primes = (n) => (n < 4 ? ['', '′', '″', '‴'][n] : '″');
-  function refName(ref, cs) {
+  // (an image point's primes count the steps from z to the plane the name is read on: the plane shown, which a draft's picks are on, or, for a finished
+  // shape's text, its own plane (stage))
+  function refName(ref, cs, stage) {
     if (!ref) return '?';
     if (ref.inf) return '∞';
     if (typeof ref.zp === 'string') return zMark(ref.kind, Constr.zpNum((S().steps || []).find((x) => x.uid === ref.zp), ref.kind, zpIndex(ref)));
-    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes(A.leftStage() || S().steps.length) : '?'; }
+    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes((stage == null ? A.leftStage() : stage === 'T' ? 0 : stage) || S().steps.length) : '?'; }
     if (ref.meet) return `${curveName(ref.meet[0])} ∩ ${curveName(ref.meet[1])}`;
     if (ref.part != null) return curveName(ref);
     const s = find(ref.s);
@@ -330,11 +332,13 @@
   function defText(s, short) {
     const d = s.def;
     if (!d) return null;
-    const N = (i) => refName(d.args[i], 'acc');
+    // (a finished shape's text counts the primes from its own plane, whichever plane is shown)
+    const R = (r, cs) => refName(r, cs, planeOf(s));
+    const N = (i) => R(d.args[i], 'acc');
     switch (d.op) {
       case 'circle3': {
         if (d.fill !== 'in') return s.kind === 'line' ? $t('the line through {a}, {b}, {c}', { a: N(0), b: N(1), c: N(2) }) : $t('through {a}, {b}, {c}', { a: N(0), b: N(1), c: N(2) });
-        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: R(d.args[i]), b: R(d.args[j]) }); }
         if (s.complement) return $t('outside the circle through {a}, {b}, {c}', { a: N(0), b: N(1), c: N(2) });
         return $t('the disc through {a}, {b}, {c}', { a: N(0), b: N(1), c: N(2) });
       }
@@ -346,8 +350,8 @@
         return d.index === 1 ? $t('{c1} ∩ {c2}, second point', { c1, c2 }) : $t('{c1} ∩ {c2}, first point', { c1, c2 });
       }
       case 'glider': return $t('on {curve}', { curve: curveName(d.args[0]) });
-      case 'midpoint': return $t('midpoint of {a}, {b}', { a: refName(d.args[0]), b: refName(d.args[1]) });
-      case 'bisector': return $t('bisector of {a}, {b}', { a: refName(d.args[0]), b: refName(d.args[1]) });
+      case 'midpoint': return $t('midpoint of {a}, {b}', { a: R(d.args[0]), b: R(d.args[1]) });
+      case 'bisector': return $t('bisector of {a}, {b}', { a: R(d.args[0]), b: R(d.args[1]) });
       case 'perp': {
         const p = { a: N(1), b: N(2), c: cName(d.args[0]) };
         // [issue #70] Between z0 and z1: the hyperbolic segment from P to Q, in C's inside or outside (the side of the arc's middle)
@@ -367,20 +371,20 @@
         }
         if (short) {
           if (d.fill !== 'in') return s.kind === 'line' ? $t('line perpendicular to {c}, through {a} and {b}', p) : $t('perpendicular to {c}, through {a} and {b}', p);
-          if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+          if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: R(d.args[i]), b: R(d.args[j]) }); }
           return s.complement ? $t('outside a circle perpendicular to {c}, through {a} and {b}', p) : $t('disc perpendicular to {c}, through {a} and {b}', p);
         }
         if (d.fill !== 'in') return s.kind === 'line' ? $t('the line through {a} and {b}, perpendicular to {c}', p) : $t('through {a} and {b}, perpendicular to {c}', p);
-        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: R(d.args[i]), b: R(d.args[j]) }); }
         if (s.complement) return $t('outside the circle through {a} and {b}, perpendicular to {c}', p);
         return $t('the disc through {a} and {b}, perpendicular to {c}', p);
       }
       // the touching circle: {a} is T (nominative: «точка касания — {a}»), {b} is P (after "through", ctx acc)
       case 'touch': {
-        const p = { a: refName(d.args[1]), b: N(2), c: cName(d.args[0]) };
+        const p = { a: R(d.args[1]), b: N(2), c: cName(d.args[0]) };
         if (d.args[2] && d.args[2].inf) return $tx('row', 'the tangent to {c} at {a}', p);
         if (d.fill !== 'in') return s.kind === 'line' ? $t('the line through {b}, touching {c} at {a}', p) : $t('through {b}, touching {c} at {a}', p);
-        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: R(d.args[i]), b: R(d.args[j]) }); }
         if (s.complement) return $t('outside the circle through {b}, touching {c} at {a}', p);
         return $t('the disc through {b}, touching {c} at {a}', p);
       }
@@ -410,7 +414,7 @@
   // a line, segment, ray or half-plane bound at both ends reads by its points ("line through z₀ and z₁")
   function boundText(s) {
     if (!s.at || !s.at.a || !s.at.b || s.def) return null;
-    const a = refName(s.at.a), b = refName(s.at.b), aa = refName(s.at.a, 'acc'), ba = refName(s.at.b, 'acc');
+    const st = planeOf(s), a = refName(s.at.a, undefined, st), b = refName(s.at.b, undefined, st), aa = refName(s.at.a, 'acc', st), ba = refName(s.at.b, 'acc', st);
     switch (s.kind) {
       case 'line': return $t('line through {a} and {b}', { a: aa, b: ba });
       case 'segment': return $t('segment from {a} to {b}', { a, b });
@@ -421,7 +425,7 @@
   }
   function followsText(s) {
     if (!s.at) return '';
-    const xs = [...new Set(Object.values(s.at).map(refName))];
+    const xs = [...new Set(Object.values(s.at).map((r) => refName(r, undefined, planeOf(s))))];
     return $t('follows {x}', { x: xs.join(', ') });
   }
 
