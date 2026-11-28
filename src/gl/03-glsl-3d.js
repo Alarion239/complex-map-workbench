@@ -578,8 +578,9 @@ void main() {
   // inside it on each side out to the cut's end (uSeamEnd, a fraction of the way out), so the ring's first and last cells
   // end at the cut and no cell straddles it; past its end the ring closes round
   const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
-  const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
-  const CARRY_POLES = 12;  // (the carry's pole patches, at most: the far rings' second pass leaves their discs to them, LAND_CARRY_VS)
+  // (the seamed patches' discs the box's draw leaves to them, and the carry's pole patches, at most, whose discs the far
+  // rings' second pass leaves to them: LAND_CARRY_VS)
+  const CARRY_DISCS = 4, CARRY_POLES = 12;
   // (a carried grid edge crosses a jump of the carry's map when its step on the plane is over CARRY_JUMP_J times the larger
   // of its neighbours' along the same line, and over CARRY_JUMP_PX css px at the fitted scale: LAND_CARRY_NRM_VS)
   const CARRY_JUMP_J = 4, CARRY_JUMP_PX = 2;
@@ -706,7 +707,7 @@ void main() {
   // evaluates G exactly (LAND_FS's carry form). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
   // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
   // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge. A patch with uDup
-  // (n.x, n.y, half-width, 1: the outer far ring of a periodic carry, svLandFarDup) leaves out a triangle whose corners all
+  // (n.x, n.y, half-width, 1: the outer far ring of a periodic carry, svLandFar) leaves out a triangle whose corners all
   // lie within the half-width of its centre across the period: copies of points the box and the inner ring draw finer.
   // A triangle with an edge across a jump of the carry's map (LAND_CARRY_NRM_VS's bits in uT2's w: an edge whose step on
   // the plane is over CARRY_JUMP_J times its neighbours' along the same line, and over CARRY_JUMP_PX at the fitted scale)
@@ -716,8 +717,7 @@ void main() {
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup;
-uniform int uAlone; uniform int uPoleN; uniform vec4 uPole[${CARRY_POLES}];
+uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup; uniform int uAlone; uniform int uPoleN; uniform vec4 uPole[${CARRY_POLES}];
 bool inDisc(vec2 a, vec2 b, vec2 c) {
   for (int k = 0; k < ${CARRY_DISCS}; k++) {
     if (k >= uDiscN) break;
@@ -727,12 +727,9 @@ bool inDisc(vec2 a, vec2 b, vec2 c) {
   return false;
 }
 bool drawnBy(vec2 z) {
-  if (z.x >= uSrc.x && z.x <= uSrc.x + uSrc.z && z.y >= uSrc.y && z.y <= uSrc.y + uSrc.w) return true;
-  for (int k = 0; k < ${CARRY_POLES}; k++) {
-    if (k >= uPoleN) break;
-    if (length(z - uPole[k].xy) < uPole[k].w) return true;
-  }
-  return false;
+  bool d = all(greaterThanEqual(z, uSrc.xy)) && all(lessThanEqual(z, uSrc.xy + uSrc.zw));
+  for (int k = 0; k < ${CARRY_POLES} && !d; k++) d = k < uPoleN && length(z - uPole[k].xy) < uPole[k].w;
+  return d;
 }
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;

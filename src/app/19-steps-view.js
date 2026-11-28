@@ -769,15 +769,20 @@
   // disc about the image of infinity), where no cell of the box's grid reaches. The inner ring is the part the glides
   // of a periodic map (exp) bring into the block, so it has the finer grid. The inner ring runs a little past the outer
   // one's start (LAND_FAR_LAP), so the chords of their polygons, of different sizes, leave no crack.
-  // With carry, the outer ring carries its copies' strip (dup, svLandFarDup). A carry with no period (svLandPeriod) has
-  // both rings alone: a point of plane s outside the box and the pole patches is drawn by the rings and nothing else, so
-  // the draw puts their cells there in front of the box where they are nearer (LAND_CARRY_VS uAlone).
+  // With carry, the outer ring carries its copies' strip (dup, LAND_CARRY_VS uDup), for the carried surface's period P
+  // (svLandPeriod) when its half is shorter than the outer ring's inner radius R: each point of the strip within
+  // sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the inner ring draw
+  // with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span several periods
+  // there, and their facets would stand out past the surface they copy. [n.x, n.y, half-width, 1], n the unit normal to P.
+  // A carry with no period and not plain has both rings alone: a point of plane s outside the box and the pole patches is
+  // drawn by the rings and nothing else, so the draw puts their cells there in front of the box where they are nearer
+  // (LAND_CARRY_VS uAlone).
   const LAND_FAR_NEAR = 4, LAND_FAR_REACH = 1000, LAND_FAR_LAP = 1.002;
   const svLandFar = (src, carry = null) => {
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
-    const outer = [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)];
-    const P = carry && svLandPeriod(carry, src), alone = !!carry && !carry.plain && !P, dup = P && svLandFarDup(P, outer[2]);
-    const inner = [x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], mark = (ring) => (alone ? Object.assign(ring, { alone }) : ring);
+    const R = LAND_FAR_NEAR * r, outer = [x, y, R, LAND_FAR_REACH * Math.max(w, h)], inner = [x, y, r, LAND_FAR_LAP * R];
+    const P = carry && svLandPeriod(carry, src), half = P ? CX.abs(P) / 2 : Infinity, alone = !!carry && !carry.plain && !P;
+    const dup = half < R ? [-P.im / (2 * half), P.re / (2 * half), Math.sqrt(R * R - half * half), 1] : null, mark = (ring) => (alone ? Object.assign(ring, { alone }) : ring);
     return [mark(inner), dup ? Object.assign(outer, { dup }) : mark(outer)];
   };
   // The carried surface's period: P with the places F(z + P) = F(z) and the heights the same, at LAND_DUP_AT points of the
@@ -799,16 +804,6 @@
       if (zs.every((z) => same(F(z), F(CX.add(z, P))) && same(ht(z), ht(CX.add(z, P))))) return P;
     }
     return null;
-  }
-  // The outer ring's copies of the nearer surface (LAND_CARRY_VS uDup), for the carried surface's period P
-  // (svLandPeriod) when its half is shorter than the outer ring's inner radius R: each point of the strip within
-  // sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the inner ring
-  // draw with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span several
-  // periods there, and their facets would stand out past the surface they copy. [n.x, n.y, half-width, 1], n the unit
-  // normal to P; null where |P| / 2 is R or more
-  function svLandFarDup(P, R) {
-    const half = CX.abs(P) / 2;
-    return half < R ? [-P.im / (2 * half), P.re / (2 * half), Math.sqrt(R * R - half * half), 1] : null;
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and near, the nearer
   // plane, whose title and key the pane shows). The regions' fill and stroke do not switch at near: each blends its own
