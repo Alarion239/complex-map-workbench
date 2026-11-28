@@ -11,8 +11,9 @@
 // - the label is shown whole: its text is not cut by an ellipsis or a clamp (scrollWidth and scrollHeight within its box);
 // - in a preview 560 px wide or wider, where the bar lies over its top padding: the label takes at most two lines, the bar ends inside that
 //   padding (a label that wraps uses the room above the page, it does not push the page down), and the label ends 8 px above the page at least;
-// - in Russian, the size stays with its word and its unit: «текст 10 пт» in the label and «в тексте 10 пт» in the facts line under the page
-//   are joined by no-break spaces (U+00A0), and the label's «текст 10 пт» stands on one line of its balanced wrap.
+// - in Russian, the size stays with its word and its unit, and the label's next « · » with them: «текст 10 пт ·» in the label and «в тексте
+//   10 пт» in the facts line under the page are joined by no-break spaces (U+00A0), and the label's «текст 10 пт ·» stands on one line of its
+//   balanced wrap (a line does not start with the dot).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -29,7 +30,7 @@ const ROOM_ABOVE_PAGE = 8;   // px: beside the buttons, the label ends at least 
 const LABELS = [['article', '1', 0], ['homework', null, 0], ['article', '2', 2], ['homework', null, 2]];
 // (the phrases a line must not break inside, by language: the label's, and the facts line's; [ \u00a0] matches either space, to find
 // the phrase whichever space it has)
-const PHRASES = { ru: { label: /текст[ \u00a0]\d+(?:[,.]\d+)?[ \u00a0]пт/, facts: /в[ \u00a0]тексте[ \u00a0]\d+(?:[,.]\d+)?[ \u00a0]пт/ } };
+const PHRASES = { ru: { label: /текст[ \u00a0]\d+(?:[,.]\d+)?[ \u00a0]пт[ \u00a0]·/, facts: /в[ \u00a0]тексте[ \u00a0]\d+(?:[,.]\d+)?[ \u00a0]пт/ } };
 const MENU_UP = `document.querySelectorAll('.pop.menu .mi').length > 0`;
 const hintText = () => ev(`document.querySelector('.modal.xf .xf-hint').textContent`);
 // (a press that changes the label: wait for its text to change; a choice already made is not pressed again)
