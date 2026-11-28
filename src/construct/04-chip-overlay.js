@@ -572,7 +572,7 @@
         draftC.hoverT = r && !r.warn && !r.restart ? r.t : null;
         A.requestRender('OL', 'OR');
         if (tt && r.warn) { setRing(side, tt, r.warn); return; }
-        if (tt && tt.ref && tt.ref.img && !carriedF(side)) { setRing(side, tt, $t('Draw in X to use {x}', { x: pointName(find(tt.ref.img)) })); return; }
+        if (tt && tt.ref && tt.ref.img && !carriedF()) { setRing(side, tt, $t('Draw in X to use {x}', { x: pointName(find(tt.ref.img)) })); return; }
         setRing(side, tt);
         return;
       }
@@ -581,7 +581,7 @@
       if (dupPick(t)) { const w = $t('{x} needs distinct points', { x: warnTool(tool) }); setRing(side, t, pickWarnMsg === w ? true : w); return; }
       if (t && tool === 'meet' && t.cls === 'point') t = snapAt(side, x, y, { points: false, cross: true, curves: true });
       if (t && tool === 'meet' && t.cls === 'curve' && !t.ref) t = null;   // (Intersect takes a display curve's crossings, not the curve)
-      if (t && t.ref && t.ref.img && !carriedF(side)) { setRing(side, t, $t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return; }
+      if (t && t.ref && t.ref.img && !carriedF()) { setRing(side, t, $t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return; }
       A.requestRender('OL', 'OR');
     }
     setRing(side, t);

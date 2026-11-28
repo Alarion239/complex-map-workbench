@@ -668,8 +668,16 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function nrSet(i, n, W, H) {
     let S = nrSets[i];
     if (S && S.n === n && S.W === W && S.H === H) return S;
-    if (S) { S.tex.forEach((t) => gl.deleteTexture(t)); gl.deleteFramebuffer(S.fbo); }
-    S = { n, W, H, tex: [], fbo: gl.createFramebuffer() };
+    if (S) nrFree(S);
+    S = nrNew(n, W, H);
+    nrSets[i] = S;
+    if (nrLast && nrLast.set === i) nrLast = null;
+    return S;
+  }
+  // (a set of n RGBA32F targets W x H with its framebuffer, made by nrNew, deleted by nrFree)
+  function nrFree(S) { S.tex.forEach((t) => gl.deleteTexture(t)); gl.deleteFramebuffer(S.fbo); }
+  function nrNew(n, W, H) {
+    const S = { n, W, H, tex: [], fbo: gl.createFramebuffer() };
     gl.bindFramebuffer(gl.FRAMEBUFFER, S.fbo);
     for (let k = 0; k < n; k++) {
       const t = gl.createTexture();
@@ -683,28 +691,34 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     S.ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    nrSets[i] = S;
-    if (nrLast && nrLast.set === i) nrLast = null;
     return S;
   }
   function nrBind(S, n) {
     for (let k = 0; k < n; k++) { gl.activeTexture(gl.TEXTURE6 + k); gl.bindTexture(gl.TEXTURE_2D, S ? S.tex[k] : null); }
+  }
+  // the roots program newtRoots draws the state st with (start: begin its compile when it is missing, as newtRoots does), or
+  // null when st has no roots pass (its plan's first inverted op is no NEWT op, the globe, no float targets)
+  function nrProgram(st, start) {
+    const inv = st && st.inv, nr = inv && inv.nr;
+    if (!ok || !nrCount(nr) || st.viewKind === 'globe' || !st.plan || !st.prep || !st.prep.ok) return null;
+    return invProgram(INV_B_MAX, false, start, { carry: true, nrPass: true, pre: '', main: nr.main }, inv);
   }
   // The NEWT roots pass of a flat inverse draw st (drawInverse's: map, plan, prep, inv, view, dpr; t: the NEWT op's t;
   // pw, ph: the size of the frame the draw goes into), drawn into its own targets before or between the frame's draws
   // (the frame's framebuffer, viewport, scissor and blending are restored). -> {state: 'drawn', token} (pass token as
   // st.nr to drawInverse), or {state: 'none' | 'pending' | 'error'}: drawInverse walks every pixel itself
   function newtRoots(st) {
-    const inv = st && st.inv, nr = inv && inv.nr, n = ok ? nrCount(nr) : 0;
-    if (!n || st.viewKind === 'globe' || !st.plan || !st.prep || !st.prep.ok) return { state: 'none' };
-    const pr = invProgram(INV_B_MAX, false, true, { carry: true, nrPass: true, pre: '', main: nr.main }, inv);
+    const inv = st && st.inv, nr = inv && inv.nr, pr = nrProgram(st, true), n = pr ? nrCount(nr) : 0;
+    if (!pr) return { state: 'none' };
     if (pr.state !== 'ready') return { state: pr.state };
     const W = Math.max(1, Math.round(st.pw)), H = Math.max(1, Math.round(st.ph));
     const v = st.view || { cx: 0, cy: 0, s: 1 }, dpr = st.dpr || 1, map = st.map || {};
     const key = [W, H, v.cx, v.cy, v.s, dpr, inv.key, map.a || 0, map.b || 0, cur.key, cur.hash].join('|');
-    const prev = nrLast && nrLast.key === key ? nrLast : null;
-    const wi = nrLast ? 1 - nrLast.set : 0, S = nrSet(wi, n, W, H), Sp = prev ? nrSets[prev.set] : null;
-    if (!S.ok) return { state: 'error' };
+    // (st.warm: a pass that only makes its program's first draw, at rest: into targets of its own, deleted after it, the
+    // frames' sets and their seed (nrLast) left as they were; it answers token 0, so the frame's inverse pass walks itself)
+    const warm = !!st.warm, prev = !warm && nrLast && nrLast.key === key ? nrLast : null;
+    const wi = nrLast ? 1 - nrLast.set : 0, S = warm ? nrNew(n, W, H) : nrSet(wi, n, W, H), Sp = prev ? nrSets[prev.set] : null;
+    if (!S.ok) { if (warm) nrFree(S); return { state: 'error' }; }
     flushHalf();
     const P = pr.P;
     P.warm = true;
@@ -736,6 +750,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (scOn) gl.enable(gl.SCISSOR_TEST);
     if (blOn) gl.enable(gl.BLEND);
     gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+    if (warm) { nrFree(S); return { state: 'drawn', token: 0 }; }
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }
@@ -758,19 +773,22 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return pr.state;
   }
   // How far the inverse programs of the states sts (drawInverse's arguments, as inverseState takes them) have come:
-  // {done, total}. A state is done when its program has linked (a cold one too: its first draw is the caller's, or the
-  // frame's), or when nothing will come of it (no inverse for it, a failed compile, a side draw). start: begin the
+  // {done, total}. A state counts its program and, when its plan's first inverted op is a NEWT op, the roots program its
+  // frame draws first (newtRoots). A program is done when it has linked (a cold one too: its first draw is the caller's,
+  // or the frame's), or when nothing will come of it (no inverse for it, a failed compile, a side draw). start: begin the
   // compile of a program not started (it waits while the chain's forward programs link, and is asked again by the next
   // call)
   function inverseWarmup(sts, opt = {}) {
-    let done = 0;
-    if (!ok || lost) return { done, total: sts.length };
+    let done = 0, total = sts.length;
+    if (!ok || lost) return { done, total };
+    const over = (pr) => pr.state === 'ready' || pr.state === 'error' || (pr.state === 'none' && pr.reason !== INV_NOT_STARTED);
     for (const st of sts) {
       const { B, globe, extra } = invArgs(st, null);
-      const pr = /** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv));
-      if (pr.state === 'ready' || pr.state === 'error' || (pr.state === 'none' && pr.reason !== INV_NOT_STARTED)) done++;
+      if (over(/** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv)))) done++;
+      const nr = /** @type {any} */ (nrProgram(st, !!opt.start));
+      if (nr) { total++; if (over(nr)) done++; }
     }
-    return { done, total: sts.length };
+    return { done, total };
   }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
@@ -1068,7 +1086,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   let reptProg = null;
   // the tile account (GLR.reptTiles): calls, walks (searches) and the tiles of each pass of the draws a plane keeps (a
   // glide frame's walks counted apart: glides, the frames, and glideTiles, their tiles of both passes), the most tiles
-  // of one call and root solves of one tile, the composites, and the draws with no signature (uncached)
+  // of one call and root solves of one tile of the plane's draws (a glide frame walks its whole frame in one call, and
+  // is in neither), the composites, and the draws with no signature (uncached)
   const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0, glides: 0, glideTiles: 0 };
   const reptTileOf = () => GLChain.reptTile();
   const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
@@ -1198,9 +1217,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         gl.flush();
         E.next++; k++;
         reptStat.searches++; reptStat[glide ? 'glideTiles' : pass === 1 ? 'tilesA' : 'tilesB']++;
-        reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * (pass === 1 ? fast : t.nodes));
+        if (!glide) reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * (pass === 1 ? fast : t.nodes));
       } while (many && E.next < list.length);
-      reptStat.maxTilesPerCall = Math.max(reptStat.maxTilesPerCall, k);
+      if (!glide) reptStat.maxTilesPerCall = Math.max(reptStat.maxTilesPerCall, k);
       gl.bindVertexArray(null);
       invDraws++;
     };

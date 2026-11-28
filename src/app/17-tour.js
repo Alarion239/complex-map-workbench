@@ -87,11 +87,11 @@
     sndTurnOnListen(s, piece);
     return true;
   }
-  // the end of a drag in a pane (onUp): a shape or target moved or reshaped, a zero or pole dragged, a cut dragged
+  // the end of a drag in a pane (onUp): a shape moved or reshaped, a zero or pole dragged, a cut dragged
   function tourDragEnd(d) {
     if (!d) return;
     const id = d.shape && typeof d.shape === 'object' ? d.shape.id : d.shape;
-    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourShapeMoved(id, d.target, d.shape && typeof d.shape === 'object' ? d.shape : null);
+    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourShapeMoved(id, false, d.shape && typeof d.shape === 'object' ? d.shape : null);
     else if (d.mode === 'zp' && d.moved && !d.off) tourEmit('zp-moved', { kind: String(d.kind).replace(/s$/, ''), i: d.i });
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }
