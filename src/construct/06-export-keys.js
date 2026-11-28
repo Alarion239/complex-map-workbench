@@ -245,11 +245,10 @@
 .cm-ibreak { flex-basis: 100%; height: 0; }
 .cm-icheck, .cm-ifield { display: inline-flex; align-items: center; gap: 6px; font: var(--t-label); color: var(--ink-2); }
 .cm-it { width: 90px; }
-.field.cm-boundf { display: flex; align-items: center; gap: 6px; }
-.field.cm-boundf > .cm-bound { flex: 1 1 auto; min-width: 0; color: var(--ink-2); background: var(--surface-2, transparent); cursor: default; }
-.field.cm-boundf > label { flex: 0 0 auto; }   /* (its words keep their width; the field takes what is left) */
-.field.cm-boundf > .cm-free { flex: 0 0 auto; }
-/* a bound end (its field, read-only, and Make free) takes the editor's full width like a free point's field: in half of it the label and the field are squeezed to an ellipsis */
+.field.cm-boundf { grid-template-columns: minmax(0, 1fr) auto; column-gap: 6px; align-items: center; }
+.field.cm-boundf > label { grid-column: 1 / -1; }   /* (its words above the field, like a free point's, so the fields line up) */
+.field.cm-boundf > .cm-bound { min-width: 0; color: var(--ink-2); background: var(--surface-2, transparent); cursor: default; }
+/* a bound end (its field, read-only, and Make free) takes the editor's full width like a free point's field: in half of it the field is squeezed until its text is cut */
 .shape-edit > .field.cm-boundf { grid-column: 1 / -1; }
 .cm-imean { color: var(--muted); font: var(--t-label); }
 .cm-ierr { color: var(--warn); font: var(--t-label); width: 100%; }
