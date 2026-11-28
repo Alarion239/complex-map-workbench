@@ -7,7 +7,9 @@ const R = {}, C = [];
 const check = (n, p, d) => C.push([n, !!p, d]);
 const TOUR = `typeof Tour === 'object' && typeof __qa === 'object'`;
 const running = `Tour.isActive()`;
+// (the page's own frames, not a clock: __qa.frames' window is the measurement itself, a control that must last as long as it says)
 const frames = (ms) => ev(`await __qa.frames(${ms})`);
+const nextFrame = () => ev('new Promise((r) => requestAnimationFrame(() => r(1)))');
 for (const [w, h, mob] of [[1440, 900, false], [390, 844, true]]) {
   await view(w, h, false, mob);
   await go(U + `?ns=pf${w}`); await settled({ until: TOUR });
@@ -30,7 +32,7 @@ for (const [w, h, mob] of [[1440, 900, false], [390, 844, true]]) {
   await ev(`Tour.start({ chapter: 'planes', step: 0 })`); await settled({ until: running });
   const a = await ev(`(() => { const b = document.querySelector('#panes').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a[0], y: a[1], button: 'left', clickCount: 1 });
-  for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a[0] + 6 * i, y: a[1], button: 'left', buttons: 1 }); await sleep(16); }
+  for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a[0] + 6 * i, y: a[1], button: 'left', buttons: 1 }); await nextFrame(); }   // (one move per drawn frame)
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: a[0] + 60, y: a[1], button: 'left', clickCount: 1 });
   R['countdown_' + w] = await frames(2500);
   check(`${w}: 60 fps while the countdown fills Next (p95 under 20 ms)`, R['countdown_' + w].p95 < 20, R['countdown_' + w]);
