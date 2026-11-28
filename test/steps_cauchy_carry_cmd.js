@@ -125,18 +125,25 @@ for (const prev of ['phase', 'classic', 'grid', 'enhanced']) {
   const phaseOut = await pixels(SWITCH_PTS);
   await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
   // (the Play gate off: the hold of the glide that has started waits on plane z, which this leg watches; the gate's waits are svplay_gate_cmd.js's)
-  // (every frame is recorded in the page, its x and the pixels of its own canvas in the task that drew it: a screenshot taken after a read
-  // of x can show the frame before the one x belongs to, at the frame where x leaves z)
-  await ev(`(() => {
+  // (every frame is recorded in the page, its x and the pixels of its own canvas at the five points, copied in the task that drew it: a
+  // screenshot taken after a read of x can show the frame before the one x belongs to, at the frame where x leaves z. The recorder stops
+  // when it is read, or at SWITCH_REC_MAX frames)
+  await ev(`((cap) => {
     const cv = document.getElementById('canvasL'), pts = ${JSON.stringify(SWITCH_PTS)}.map(([x, y]) => { const p = __cmwW2S('L', x, y), r = cv.getBoundingClientRect(); return [Math.round((p[0] - r.left) * cv.width / r.width), Math.round((p[1] - r.top) * cv.height / r.height)]; });
-    const c2 = document.createElement('canvas'); c2.width = cv.width; c2.height = cv.height;
+    const c2 = document.createElement('canvas'); c2.width = pts.length; c2.height = 1;
     const g2 = c2.getContext('2d', { willReadFrequently: true }), rec = window.__rec = [];
-    const frame = () => { g2.drawImage(cv, 0, 0); rec.push({ x: +__cmwSteps().x.toFixed(4), px: pts.map(([x, y]) => Array.from(g2.getImageData(x, y, 1, 1).data)) }); if (rec.length < SWITCH_REC_MAX) requestAnimationFrame(frame); };
+    window.__recOn = true;
+    const frame = () => {
+      pts.forEach(([x, y], k) => g2.drawImage(cv, x, y, 1, 1, k, 0, 1, 1));
+      const d = g2.getImageData(0, 0, pts.length, 1).data;
+      rec.push({ x: +__cmwSteps().x.toFixed(4), px: pts.map((_, k) => Array.from(d.slice(4 * k, 4 * k + 4))) });
+      if (window.__recOn && rec.length < cap) requestAnimationFrame(frame);
+    };
     requestAnimationFrame(frame); return 1;
-  })()`.replace('SWITCH_REC_MAX', String(SWITCH_REC_MAX)));
+  })(${SWITCH_REC_MAX})`);
   await ev('(__cmwSteps({ T: 0, go: 1, gate: false }), 1)');
   await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
-  const seen = JSON.parse(await ev('JSON.stringify(window.__rec)'));
+  const seen = JSON.parse(await ev('window.__recOn = false, JSON.stringify(window.__rec)'));
   const finalOut = await pixels(SWITCH_PTS);
   await parkAt(0);
   const plotOut = await pixels(SWITCH_PTS);
