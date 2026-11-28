@@ -6,6 +6,9 @@
 //  - a message of two rows at 360 × 640 that stays up while the phone turns to 740 × 360 has one row beside its buttons, and the other way
 //    round; with the Menu sheet open it has one row after the turn too, and with the Display sheet open, whose column's foot it takes in landscape
 //    (360 px), two: `data-rows` is what is drawn (the buttons beside the words, or under them).
+//  - at 390 × 844 in en, ru and it, over the plot: the Landscape's message (the Sphere key's reason, with its ×) fits in two lines beside
+//    its ×, so it is one row: the × beside the words, and the message no taller than its words and × beside them need (a message that
+//    takes the × to a row of its own under two lines is 44 px taller).
 // In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -16,7 +19,7 @@ const LONGEST = {
   it: ['Figura del link aperta. Non è stato possibile leggere alcune costruzioni: sono state aperte come figure semplici.', 'Annulla'],
   ru: ['Все листы: высота теперь равна Im f₂(z), а перезагрузка стёрла бы вашу работу, поэтому язык интерфейса не изменён.', 'Отменить'],
 };
-const SHORTISH = 'Added f₃: Exponential, and a longer second part';   // (two rows at 360 px, one row at 740 px)
+const SHORTISH = 'Added f₃: Exponential, and a longer second part that needs three lines beside its buttons';   // (more than two lines beside its buttons at 360 px: two rows; two lines at most beside them at 740 px: one row)
 const MAX_LINES = 3, CUT_MAX = 1, STILL_MS = 150, SETTLE_MAX = 5000;
 const measure = () => ev(`(() => {
   const host = document.getElementById('toastHost'), t = host && host.querySelector('.toast'); if (!t) return null;
@@ -24,7 +27,9 @@ const measure = () => ev(`(() => {
   const rg = document.createRange(); rg.selectNodeContents(sp);
   const tops = [...rg.getClientRects()].map((r) => Math.round(r.top)).filter((y, i, a) => a.indexOf(y) === i).length;
   const btns = [...t.querySelectorAll('button')].filter((b) => b.getClientRects().length).map((b) => b.getBoundingClientRect());
-  return { rows: t.dataset.rows || null, cut: sp.scrollHeight - sp.clientHeight, lines: tops, placed: host.dataset.placed || null, toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), wordsBottom: sb.bottom, btnTop: btns.length ? Math.min(...btns.map((r) => r.top)) : null,
+  const cs = getComputedStyle(t), btnH = btns.length ? Math.max(...btns.map((r) => r.height)) : 0;
+  const need = Math.max(sb.height, btnH) + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+  return { rows: t.dataset.rows || null, cut: sp.scrollHeight - sp.clientHeight, lines: tops, h: tb.height, need: Math.max(need, parseFloat(cs.minHeight) || 0), placed: host.dataset.placed || null, toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), wordsBottom: sb.bottom, btnTop: btns.length ? Math.min(...btns.map((r) => r.top)) : null,
     win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.top >= -0.5 && tb.bottom <= innerHeight + 0.5 };
 })()`);
 const still = async () => { let a = JSON.stringify(await measure()); for (let i = 0; i < SETTLE_MAX / STILL_MS; i++) { await sleep(STILL_MS); const b = JSON.stringify(await measure()); if (a === b) return JSON.parse(b); a = b; } return JSON.parse(a); };
@@ -65,6 +70,26 @@ for (const lang of ['en', 'ru']) for (const [w, h] of [[390, 844], [360, 740]]) 
   if (!m) continue;
   ok(`${tag}: the words are not cut and are at most ${MAX_LINES} lines`, m.cut <= CUT_MAX && m.lines <= MAX_LINES, { cut: m.cut, lines: m.lines });
   ok(`${tag}: data-rows is what is drawn (${m.rows}: the buttons ${m.rows === 'two' ? 'under' : 'beside'} the words)`, m.btnTop !== null && (m.rows === 'two' ? m.btnTop >= m.wordsBottom - 1 : m.btnTop < m.wordsBottom - 1), m);
+  ok(`${tag}: the message is inside the window`, m.win, m.toast);
+}
+// ---- a message that fits in two lines beside its × keeps the × beside it, and is as tall as the one-row layout
+const NO_SPHERE = {
+  en: 'The Landscape has no sphere: choose Plane or Sphere in the surface menu',
+  ru: 'В Рельефе нет сферы: выберите Плоскость или Сферу в меню поверхности',
+  it: 'Il Paesaggio non ha una sfera: scegli Piano o Sfera nel menu della superficie',
+};
+for (const lang of ['en', 'ru', 'it']) {
+  const tag = `${lang} 390×844 over the plot, the Landscape's message with its ×`;
+  await open(390, 844, lang);
+  await show(NO_SPHERE[lang], null);
+  await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('#toastHost .toast[data-rows]') && document.getElementById('toastHost').dataset.placed === 'phone-plot'` });
+  const m = await still();
+  info[tag] = m;
+  ok(`${tag}: the message lies over the plot`, !!m && m.placed === 'phone-plot', m);
+  if (!m) continue;
+  ok(`${tag}: its words are whole in at most two lines`, m.cut <= CUT_MAX && m.lines <= 2, { cut: m.cut, lines: m.lines });
+  ok(`${tag}: it is one row, the × beside the words`, m.rows === 'one' && m.btnTop !== null && m.btnTop < m.wordsBottom - 1, m);
+  ok(`${tag}: it is no taller than its words and its × beside them need (the taller of the two, its padding and borders, at least its min-height)`, m.h <= m.need + 1, { h: m.h, need: m.need });
   ok(`${tag}: the message is inside the window`, m.win, m.toast);
 }
 // ---- a message through a rotation

@@ -1042,17 +1042,24 @@
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
   const toastFitW = new WeakMap();   // (the width a message picked its rows at)
-  // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
-  // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
-  // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
+  // a phone's message is one row when its words fit in two lines beside its buttons, else two (the words full width, the buttons below):
+  // measured on the one-row layout with the words unclamped and the buttons unshrunk, so that the choice follows the text and the buttons,
+  // not the language. The words fit when they take at most TOAST_ONE_ROW_LINES lines and keep the width the one-row layout gives them at
+  // least (its flex-basis: 140 px over the steps view's plot, where narrower words would send the buttons to a row of their own)
+  // (the lines are counted from the words' line-height, which phone.css sets in px; one that is not would count as no number of lines,
+  // and the message would take two rows)
+  const TOAST_ONE_ROW_LINES = 2, TOAST_FIT_TOL_PX = 0.5;   // (a width within half a pixel of the flex-basis is the flex-basis, rounding aside)
   function fitToastRows(t) {
     if (!t.isConnected) return;
     const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
-    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = 'none';
-    sp.style.whiteSpace = 'nowrap'; t.style.flexWrap = 'nowrap'; t.style.justifyContent = 'flex-start';
-    t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
+    delete t.dataset.rows;
+    const minW = parseFloat(getComputedStyle(sp).flexBasis) || 0;
+    for (const c of parts) if (c !== sp) /** @type {HTMLElement} */ (c).style.flex = 'none';
+    t.style.flexWrap = 'nowrap'; sp.style.display = 'block'; sp.style.webkitLineClamp = 'none';
+    const lines = Math.round(sp.getBoundingClientRect().height / parseFloat(getComputedStyle(sp).lineHeight));
+    t.dataset.rows = lines <= TOAST_ONE_ROW_LINES && sp.clientWidth >= minW - TOAST_FIT_TOL_PX ? 'one' : 'two';
     for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
-    sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
+    t.style.flexWrap = ''; sp.style.display = ''; sp.style.webkitLineClamp = '';
     toastFitW.set(t, t.clientWidth);
     placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
   }
