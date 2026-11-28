@@ -105,23 +105,22 @@ const Phone = (() => {
     // a message (a toast, with its Undo) takes that row for as long as it shows; the planes give it up when no finger is down
     const th = $('toastHost');
     if (th) new MutationObserver(() => barLayout()).observe(th, { childList: true });
-    // the plane's key column and view stack ride up above the context bar and a message, and a message eases to its place over the plane,
+    // the plane's view stack rides up above the context bar and a message, and a message eases to its place over the plane,
     // each with a transition on `bottom`: the labels and the plane's note keep off them where they stop, so one full placement follows
     // the move (liftSettled asks where there is no transition)
-    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.ph-col, .viewstack, #toastHost')) A.relabel(); }, true);
+    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.viewstack, #toastHost')) A.relabel(); }, true);
     document.addEventListener('pointerdown', () => { fingers++; }, true);
     for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
-    // each plane: Sphere and Display at the right; the inset's swap cover
+    // each plane: the keys the phone adds to the plane's view stack (Both, Display options), and the inset's swap cover
     for (const side of ['L', 'R']) {
-      const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
-      const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
-      const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
-      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
-      plot.append(h('div', { class: 'ph-col ph-only' }, bt, sph, dsp));
-      els['sph' + side] = sph;
+      const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR'), stack = plot.querySelector(':scope > .viewstack');
+      const bt = h('button', { class: 'vbtn ph-only ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
+      const dsp = h('button', { class: 'vbtn ph-only ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
+      stack.prepend(bt);
+      stack.append(dsp);
       els['both' + side] = bt;
       const sw = h('button', { class: 'ph-swap ph-only', type: 'button', onclick: () => swap() },
         h('span', { class: 'ph-tag', html: side === 'L' ? '<i>X</i>' : '<i>Y</i>' }), h('span', { class: 'ph-swic', html: SWAP }));
@@ -151,6 +150,14 @@ const Phone = (() => {
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
     for (const id of ['leftTabs', 'rightTabs']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    // (the room a landscape plane leaves its keys: as the plane changes size, and as the bar and a message come and go, which lift them)
+    try {
+      const ro = new ResizeObserver(keysRoom);
+      for (const id of ['plotL', 'plotR']) { const p = $(id); if (p) ro.observe(p); }
+      const mo = new MutationObserver(keysRoom);
+      mo.observe(rootEl, { attributes: true, attributeFilter: ['class'] });
+      mo.observe(els.ctx, { attributes: true, attributeFilter: ['class', 'hidden'] });
+    } catch (e) { /* no ResizeObserver: the keys keep the column */ }
     if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
@@ -242,8 +249,8 @@ const Phone = (() => {
   }
 
   // ---------------- the planes ----------------
-  // (the steps view is one plane at every step of its chain, whichever view the page's layout names)
-  function merged() { const p = $('panes'); return rootEl.classList.contains('sv') ? 'L' : p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (one plane, X's, in the steps view and the classic view alike: Y's pane is not drawn, so it has no inset and no Both key)
+  function merged() { return 'L'; }
   function syncPanes() {
     const p = $('panes'), mg = merged();
     const b = mg || big;
@@ -255,35 +262,18 @@ const Phone = (() => {
     for (const side of ['L', 'R']) { const bb = els['both' + side]; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
     for (const side of ['L', 'R']) $(side === 'L' ? 'paneL' : 'paneR').classList.toggle('ph-inset', !mg && !split && side !== b);
     for (const side of ['L', 'R']) {
-      const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs'), sph = els['sph' + side];
-      const sb = tabs && tabs.querySelector('button[data-mode="sphere"]');
-      sph.hidden = !sb || tabs.offsetParent === null && !tabs.closest('.pane-head');
-      const svS = side === 'L' && A.svOnSphere ? A.svOnSphere() : null;
-      const onS = svS != null ? svS : !!(sb && sb.classList.contains('on'));
-      sph.setAttribute('aria-pressed', String(onS));
-      sph.setAttribute('aria-label', onS ? $t('Plane') : $t('Sphere'));
       const other = side === 'L' ? 'Y' : 'X';
       els['swap' + side].setAttribute('aria-label', $t('Show {x} large', { x: side === 'L' ? 'X' : 'Y' }));
       els['swap' + side].title = '';
       void other;
     }
   }
-  function toggleSphere(side) {
-    // (the steps view keeps its own surface, which its view writes over the tabs: the key goes to it)
-    if (A.svSphere && A.svSphere() != null) { setTimeout(syncPanes, 0); return; }
-    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-    if (!tabs) return;
-    const sb = tabs.querySelector('button[data-mode="sphere"]'), pb = tabs.querySelector('button[data-mode="plane"]');
-    const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
-    if (t) t.click();
-    setTimeout(syncPanes, 0);
-  }
   // The inset swaps with the large plane, and each plane keeps its own view (build/phone-swap.md). A plane's
   // own view is its large view: the saved state and the desktop get that one (largeView). The inset draws it smaller,
   // the same region (its centre and its units per pane width) at the inset's size; the plane that comes back large
   // shows exactly what it showed before. Nothing is fitted (fitting the new inset would, for an unbounded region, frame
   // the part in its own window plus a margin, so every round trip would multiply the scale). A plane the app fits
-  // itself (Y's auto fit, X's at a focused step) is fitted by the resize as before.
+  // itself (X's at a focused step) is fitted by the resize as before.
   // keep[side], while side is drawn as the inset: {v: its large view, set: the view the inset was given, r: v.s / set.s}.
   // Only the inset's view is ever small: while a merged view (Phase, Landscape, the Deformation) shows, or while the app
   // parks, swaps or saves the views (hold), every plane holds its large view.
@@ -369,6 +359,50 @@ const Phone = (() => {
     if (!on || (side !== 'L' && side !== 'R') || side === big) return;
     if (merged() || held) { big = side; syncPanes(); A.resize(); return; }
     swap(true);
+  }
+
+  // ---------------- the plane's keys ----------------
+  // A landscape plane's keys (Sphere and Display in the right column, Fit view at the foot) stand in the room the plane leaves them
+  // above the context bar: its height less the keys' lift (--ph-lift). The column stands 60 px above that foot, over Fit view, and is
+  // 96 px tall (two 44 px keys and the 8 px between): under KEYS_COL px it would run up past the plane's top, and Sphere stands left of
+  // Display instead, one key high (data-keys="side"). Under KEYS_LOW px, 60 px and one key, the three stand in one row ("row"). Under the
+  // tall construction bar, Fit view stands left of Display and the column comes down beside it ("low"), or they stand in the row.
+  // phone.css places them
+  const KEYS_COL = 156, KEYS_LOW = 104;
+  // The stack's buttons stand in the DOM in the order they read on the screen, top to bottom and then left to right, in the arrangement they are
+  // in, so Tab and a screen reader's swipe walk them as the eye does: Tilt (the Stack's, on top or beside Display), Sphere, Display and Fit view
+  // in the column; Fit view first in the one row, and Sphere above the row of Fit view, Tilt and Display under the tall bar. The laptop's stack
+  // has Fit view and Sphere in its second group, in that order, and gets them back when the page leaves the phone layout
+  const KEYS_READ = { row: ['vb-fit', 'ph-tilt', 'vb-sph', 'ph-dsp'], low: ['vb-sph', 'vb-fit', 'ph-tilt', 'ph-dsp'], side: ['ph-tilt', 'vb-sph', 'ph-dsp', 'vb-fit'], grid: ['vb-sph', 'ph-tilt', 'ph-dsp', 'vb-fit'], column: ['ph-tilt', 'vb-sph', 'ph-dsp', 'vb-fit'] };
+  function keysOrder(plot, k) {
+    const stack = plot.querySelector(':scope > .viewstack');
+    if (!stack) return;
+    const key = (c) => /** @type {HTMLElement | null} */ (stack.querySelector('.' + c));
+    const group = /** @type {HTMLElement | null} */ (stack.querySelector(':scope > .vgroup:last-of-type'));
+    if (!on) {
+      // (the laptop's: Fit view, Sphere, in the stack's second group)
+      const fit = key('vb-fit'), sph = key('vb-sph');
+      if (group && fit && sph && (fit.parentNode !== group || sph.parentNode !== group || fit.nextElementSibling !== sph)) group.append(fit, sph);
+      return;
+    }
+    const grid = !k && rootEl.classList.contains('ph-land') && rootEl.classList.contains('sv-stack');
+    const want = [key('ph-both-key'), ...KEYS_READ[k || (grid ? 'grid' : 'column')].map(key)].filter((e) => !!e);   // (Tilt is X's stack's, in the steps view)
+    const have = [...stack.children].filter((e) => want.includes(/** @type {HTMLElement} */ (e)));
+    if (have.length === want.length && have.every((e, i) => e === want[i])) return;
+    const focused = document.activeElement && stack.contains(document.activeElement) ? /** @type {HTMLElement} */ (document.activeElement) : null;
+    stack.append(...want);
+    if (focused) focused.focus({ preventScroll: true });
+  }
+  function keysRoom() {
+    const bar = els.ctx, tall = !!bar && bar.classList.contains('in') && bar.classList.contains('tall') && !bar.classList.contains('under');
+    const lift = on ? parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-lift')) || 0 : 0;
+    for (const id of ['plotL', 'plotR']) {
+      const p = $(id);
+      if (!p) continue;
+      const room = p.clientHeight - lift, k = !on || !land ? '' : room < KEYS_LOW ? 'row' : tall ? 'low' : room < KEYS_COL ? 'side' : '';
+      if ((p.dataset.keys || '') !== k) { if (k) p.dataset.keys = k; else delete p.dataset.keys; }
+      keysOrder(p, k);
+    }
   }
 
   // ---------------- the context bar (D3) ----------------

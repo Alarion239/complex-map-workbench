@@ -1,9 +1,9 @@
 // Figure export, the axes' tick labels: on every axis of a figure panel the labels are pairwise different, and each
 // reads back to its tick's value (to the precision it prints). The composer's panel (XD.panel) over boxes of span 1, 0.1
-// and 0.01, around 0 and off it, and of span 1.5·10⁻¹⁰ (a step of 5·10⁻¹¹); and the classic Image figure of points only
+// and 0.01, around 0 and off it, and of span 1.5·10⁻¹⁰ (a step of 5·10⁻¹¹); and the classic figure of points only
 // (e^z then z², the point 0.4 + 0.3i on z and 1 + 0.5i on w₁, no other shape), at focus 0 and 2, in en and ru (the
-// decimal comma), whose panel (b) holds one point: there each panel's labels are different, and its window is at least
-// LONE_MIN of the size of its values wide.
+// decimal comma): its panel, X's plane, which at focus 0 holds one point: its labels are different, and its window is at
+// least LONE_MIN of the size of its values wide.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -41,19 +41,17 @@ const comp = await ev(`(() => { const XD = __cmwFig.XD, out = {};
   return out; })()`);
 info.composer = comp;
 for (const [tag] of BOXES) ok(`the panel over ${tag}: on each axis the labels differ and read back to their ticks`, axisOk(comp[tag] && comp[tag].x) && axisOk(comp[tag] && comp[tag].y), comp[tag]);
-// ---- the classic Image figure of points only
+// ---- the classic figure of points only
 for (const [focus, lang] of [[0, 'en'], [0, 'ru'], [2, 'en']]) {
   await open(`ftf${focus}${lang}${Date.now()}`, focus, lang);
-  const f = await ev(`await (async () => { try { const f = await __cmwFig.build({ for: 'article', cols: 2, capInImage: false }); return f ? { panels: f.info.panels, boxes: f.info.boxes, ticks: f.info.ticks } : null; } catch (e) { return { err: String(e).slice(0, 300) }; } })()`, 180000);
+  const f = await ev(`await (async () => { try { const f = await __cmwFig.build({ for: 'article', cols: 2, capInImage: false }); return f ? { box: f.info.box, ticks: f.info.ticks } : null; } catch (e) { return { err: String(e).slice(0, 300) }; } })()`, 180000);
   const n = `points only, focus ${focus}, ${lang}`;
   info[n] = f;
-  ok(`${n}: the figure has two panels (control)`, !!f && !f.err && JSON.stringify(f.panels) === JSON.stringify(['L', 'R']), f);
-  for (const sd of ['L', 'R']) {
-    const t = f && f.ticks && f.ticks[sd], b = f && f.boxes && f.boxes[sd];
-    const lab = (a) => a && { ticks: a.ticks, labels: a.labels.map((l) => (lang === 'ru' ? l.replace('{,}', '.') : l)) };
-    ok(`${n}: panel ${sd === 'L' ? '(a)' : '(b)'}'s axes print different labels, each reading back to its tick`, !!t && axisOk(lab({ ticks: t.x, labels: t.labels.x })) && axisOk(lab({ ticks: t.y, labels: t.labels.y })), t);
-    ok(`${n}: panel ${sd === 'L' ? '(a)'  : '(b)'}'s window is not a sliver`, !!b && Math.min(b.x1 - b.x0, b.y1 - b.y0) >= LONE_MIN * Math.max(1, Math.abs(b.x0), Math.abs(b.y0)), b);
-    if (lang === 'ru' && t) ok(`${n}: panel ${sd === 'L' ? '(a)' : '(b)'}'s labels have a decimal comma where they have decimals`, [...t.labels.x, ...t.labels.y].every((l) => !/\./.test(l)), t.labels);
-  }
+  ok(`${n}: the figure is a plane panel with its window and ticks (control)`, !!f && !f.err && !!f.box && !!f.ticks, f);
+  const t = f && f.ticks, b = f && f.box;
+  const lab = (a) => a && { ticks: a.ticks, labels: a.labels.map((l) => (lang === 'ru' ? l.replace('{,}', '.') : l)) };
+  ok(`${n}: the panel's axes print different labels, each reading back to its tick`, !!t && axisOk(lab({ ticks: t.x, labels: t.labels.x })) && axisOk(lab({ ticks: t.y, labels: t.labels.y })), t);
+  ok(`${n}: the panel's window is not a sliver`, !!b && Math.min(b.x1 - b.x0, b.y1 - b.y0) >= LONE_MIN * Math.max(1, Math.abs(b.x0), Math.abs(b.y0)), b);
+  if (lang === 'ru' && t) ok(`${n}: the panel's labels have a decimal comma where they have decimals`, [...t.labels.x, ...t.labels.y].every((l) => !/\./.test(l)), t.labels);
 }
 return { pass: fails.length === 0, fails, info };

@@ -22,21 +22,15 @@ const quiet = async () => {
   await settled({ max: 60000, until: QUIET_UNTIL });
   await ev('await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), 1');
 };
-const state = {
-  v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 },
-  shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 2, ci: 0, visible: true }],
-  steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'deriv', params: {}, on: true }, { type: 'root', params: { n: 2, cut: 180, k: 0 }, on: true }],
-};
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
+const D1 = { id: 'd1', kind: 'disc', c: [0, 0], r: 2, ci: 0, visible: true };
+const STEPS = [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'deriv', params: {}, on: true }, { type: 'root', params: { n: 2, cut: 180, k: 0 }, on: true }];
 const pts = (L) => L.map((h) => ({ step: h.step, x: +h.x.toFixed(1), y: +h.y.toFixed(1) }));
 // marks M are the rest handles R: as many, each within PX of one of the same step
 const same = (M, R) => M.length === R.length && M.every((m) => R.some((r) => r.step === m.step && Math.hypot(r.x - m.x, r.y - m.y) <= PX));
 
-await view(1200, 800, false, false);
-const ns = `svddzc${Date.now()}`;
-await go(`http://localhost:${PORT}/gl-helpers.html`);
-await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(state))}); 1`);
-await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
-await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && !!window.GLR && !!document.querySelector('.sv-rail')" });
+await K.openChain({ ns: `svddzc${Date.now()}`, steps: STEPS, w: 1200, h: 800, shapes: [D1], max: 60000,
+  until: "typeof __cmwSteps === 'function' && !!window.GLR && !!document.querySelector('.sv-rail')" });
 await ev(`__cmwSet('morphPaths', false); __cmwSteps({ T: 0, scope: 'all', surf: 'plane', bare: false }); 1`);
 ok('its planes are z, w1, the d/dz plane w2 and w3', JSON.stringify((await ev('__cmwSteps()')).planes) === '[0,1,2,3]', null);
 

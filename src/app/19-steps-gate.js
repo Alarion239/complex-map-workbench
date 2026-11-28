@@ -29,23 +29,28 @@
   // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
   const svGateDraws = () => !!SV.gate && svFlatSurf() && lFlat() && svT() === 0 && Math.round(SV.g.x) === 0 && Math.abs(SV.g.x) < SV_REST_U;
   // start() now, or once the chain is prepared; btn is the control the wait shows on, M the motion start() starts from
-  // rest (its frames drawn ahead, svAheadPart), or none
-  function svGated(btn, start, M) {
+  // rest (its frames drawn ahead, svAheadPart), or none; was: the wait this one starts again (Retry), whose ring it keeps
+  // (svWaitLook's fill and said, and the frames' start, aheadFrom)
+  function svGated(btn, start, M, was = null) {
     if (SV.gate) return;
     if (!svGateNeeded(M)) { start(); return; }
     SV.gate = { btn, start, M, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
+    if (was) Object.assign(SV.gate, { fill: was.fill, said: was.said, aheadFrom: was.aheadFrom });
     svPrestartSoon(0);
     if (svGateDraws()) requestRender('L');
     svGateTick();
   }
-  // (restart: Retry keeps the ring shown, with no pause before it)
+  // (restart: Retry keeps the ring shown, as far as it had filled, with no pause before it, and says the live region's
+  // line again)
   function svGateRetry() {
     const g = SV.gate;
     if (!g) return;
     const { btn, start, M } = g;
     svGateEnd(true);
-    svGated(btn, start, M);
-    if (SV.gate) { SV.gate.shown = true; svGateSync(); }
+    svGated(btn, start, M, g);
+    // (its line is said on the next poll, a task after svGateEnd emptied the live region, so the write is a change a screen
+    // reader announces)
+    if (SV.gate) { SV.gate.shown = true; SV.gate.sayAgain = true; svGateSync(); }
   }
   // (keep: the wait ends to start the motion, or to wait again (Retry), and the frames drawn ahead stay; else it is cancelled,
   // and they go)
@@ -59,16 +64,37 @@
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
     requestRender('L');
+    // (the live region's "Preparing the glide…" goes with the wait: a cancelled wait leaves no stale line, and the next wait
+    // on another control says the line again as a change, which a screen reader announces; anything else the region says stays)
+    if (g.shown && SV.els && SV.els.live && SV.els.live.textContent === $t('Preparing the glide…')) SV.els.live.textContent = '';
     svWaitRestore(g);
   }
-  // The Play gate's gauge for its wait g: the share of what svReady(g.M) counts that is done, or null while it has no
-  // total (unknown: the ring stands at SV_GATE_UNKNOWN_FILL, svWaitLook). With frames drawn ahead (the part ahead),
-  // which are made only once all else is ready, all else fills the ring up to SV_GATE_PREP_SHARE and the frames fill
-  // what is left of it, from where it stood when they started (g.aheadFrom): from 0 when all else was ready at once, so
-  // that the ring reads the share of the frames made
+  // a press on a control while the wait runs: the wait ends, and the result is whether it was on btn, where the press only
+  // cancels it; on another control the press goes on and waits instead
+  function svGateSwitch(btn) {
+    if (!SV.gate) return false;
+    const same = SV.gate.btn === btn;
+    svGateEnd();
+    return same;
+  }
+  // The Play gate's gauge for its wait g: the share of what svReady(g.M) counts that is done, or null while it is not
+  // measured: while svReady has no total, and while the counted parts (the programs, the pole tracks, the ring, the meshes) are done and only parts
+  // with nothing counted inside them are left (svReady's whole parts: the warm draw, a REPT draw's tiles, a pane's
+  // redraw; on a REPT chain the warm draw's machine code takes seconds, and one unit of eighteen would stand the ring
+  // at 94 %), besides the parts that start only once all else is ready (the inverse programs, svInvWarmNext; the frames
+  // ahead), which wait on those. Unknown, the ring keeps its arc and shows the rest as unknown (svWaitLook). With frames
+  // drawn ahead (the part ahead), which are made only once all else is ready, all else fills the ring up to
+  // SV_GATE_PREP_SHARE and the frames fill what is left of it, from where it stood when they started (g.aheadFrom): from
+  // 0 when all else was ready at once, so that the ring reads the share of the frames made
   function svGateFill(g) {
     const r = svReady(g.M), a = r.parts.ahead;
     if (!r.total) return null;
+    let whole = 0, wholeDone = 0, counted = 0, countedDone = 0;
+    for (const k in r.parts) {
+      const p = r.parts[k];
+      if (p.whole) { whole += p.total; wholeDone += p.done; } else if (k !== 'ahead' && k !== 'inverse') { counted += p.total; countedDone += p.done; }
+    }
+    if (wholeDone < whole && countedDone === counted) return null;
     if (!a) return r.done / r.total;
     const restT = r.total - a.total, restD = r.done - a.done;
     if (restD < restT) return SV_GATE_PREP_SHARE * restD / restT;
@@ -76,12 +102,14 @@
     return g.aheadFrom + (1 - g.aheadFrom) * a.done / a.total;
   }
   // The look of a control that waits for the programs (the Play gate's, and ▶ in a hold in the middle of a play): its
-  // icon a cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing the
-  // glide… 40 %", the fill in whole steps of SV_WAIT_SAY_STEP: the ring's progress for a screen reader, read when the
-  // control has the focus or is asked for. While the gauge is unknown (null) the ring stands at SV_GATE_UNKNOWN_FILL and
-  // the control is described "Preparing the glide…" alone, as no share is measured (a description, so a change of it is
-  // not announced; the live region says "Preparing the glide…" once). w: {btn, keep, fill, gauge?, hung?} and, for the
-  // gate's, M and aheadFrom (svGateFill); kept so svWaitRestore gives the control back as it was
+  // icon a cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing
+  // the glide… 40 %", the largest share measured (w.said) in whole steps of SV_WAIT_SAY_STEP: the ring's progress for
+  // a screen reader, read when the control has the focus or is asked for (a description, so a change of it is not
+  // announced; the live region says "Preparing the glide…" once). While the gauge is unknown (null) the ring keeps the
+  // arc it had (SV_GATE_UNKNOWN_FILL before any), shows the rest of it as unknown (data-wait "unknown": a segment
+  // sweeping round it, desk.css) and the control is described "Preparing the glide…" alone. w: {btn, keep, fill, said,
+  // gauge?, hung?} and, for the gate's, M and aheadFrom (svGateFill); kept so svWaitRestore gives the control back as
+  // it was
   function svWaitLook(w) {
     const B = w.btn;
     if (!w.keep) {
@@ -90,13 +118,14 @@
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
     B.toggleAttribute('aria-busy', true);
-    B.dataset.wait = w.hung ? 'hung' : 'busy';
     const v = w.gauge ? w.gauge() : svGateFill(w);
+    B.dataset.wait = w.hung ? 'hung' : v == null ? 'unknown' : 'busy';
     w.fill = Math.max(w.fill || 0, v == null ? SV_GATE_UNKNOWN_FILL : v);
+    if (v != null) w.said = Math.max(w.said || 0, v);
     B.style.setProperty('--wait', String(w.fill));
     B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
-    const p = Math.round(100 * SV_WAIT_SAY_STEP * Math.floor(w.fill / SV_WAIT_SAY_STEP + 1e-9));
+    const p = Math.round(100 * SV_WAIT_SAY_STEP * Math.floor((w.said || 0) / SV_WAIT_SAY_STEP + 1e-9));
     B.setAttribute('aria-description', v == null ? $t('Preparing the glide…') : $t('Preparing the glide… {p} %', { p: I18N.num(p) }));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
   }
@@ -163,6 +192,26 @@
     if (SV.els.live && SV.play === w.A) SV.els.live.textContent = svPlayWords(w.A.to);
     requestAnimationFrame(() => requestAnimationFrame(() => { if (SV.hold === w) svHoldWaitLeave(w); }));
   }
+  // the 10 s message is on the screen
+  const svGateMessageUp = () => !!(SV.gate && SV.gate.toast && SV.gate.toast.isConnected);
+  // The first part of svReady's gauge not done, in the gauge's order, or null
+  function svGateMissing() {
+    const parts = svReady().parts;
+    for (const k in parts) if (parts[k].done < parts[k].total) return k;
+    return null;
+  }
+  // The 10 s message: the sentence, then what is missing. One sentence per part, so each language puts its words in its own order
+  function svGateStill(part) {
+    switch (part) {
+      case 'programs': return $t('Still preparing the glide: the drawing programs are not ready yet.');
+      case 'warm': return $t('Still preparing the glide: its colouring is not ready yet.');
+      case 'poles': return $t('Still preparing the glide: the paths of the poles are not computed yet.');
+      case 'ring': return $t('Still preparing the glide: the outer part of the plane is not computed yet.');
+      case 'meshes': return $t('Still preparing the glide: the regions are not meshed yet.');
+      case 'redraw': return $t('Still preparing the glide: the first frame is not drawn yet.');
+      default: return $t('Still preparing the glide.');
+    }
+  }
   function svGateTick() {
     const g = SV.gate;
     if (!g) return;
@@ -174,17 +223,27 @@
     if (!g.shown && t >= SV_GATE_SHOW_MS) {
       g.shown = true;
       if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
+    } else if (g.sayAgain && SV.els.live) { g.sayAgain = false; SV.els.live.textContent = $t('Preparing the glide…'); }
+    // (the message is gone without the wait ending. Closed or replaced by another, it stays gone and the plane's note
+    // is drawn again; taken away by a dialog that opened (dropToasts), it is raised again once no dialog is open, since
+    // it says what the wait is)
+    if (g.toast && !g.toast.isConnected) {
+      if (!g.toast.hasAttribute('data-dropped')) { g.toast = null; requestRender('L'); }
+      else if (!document.querySelector('.modal-bg')) { g.toast = null; g.hung = false; }
     }
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
-      g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
+      g.toast = toast(svGateStill(svGateMissing()), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true, fit: true });
       if (g.toast) {
         g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
         // (Retry and the message's close button end the message, not the wait: the focus moves to the button before the message goes)
         const msg = g.toast, btn = g.btn;
         msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); }, true);
       }
+      requestRender('L');   // (the plane's "Compiling…" note goes while the message names the programs)
     }
+    // (the message names what is missing now: when a part is done while it is up, its words give way to the next part's)
+    if (g.toast && g.toast.isConnected) { const words = g.toast.querySelector('span'), s = svGateStill(svGateMissing()); if (words && words.textContent !== s) words.textContent = s; }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
   }

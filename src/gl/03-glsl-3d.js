@@ -492,31 +492,61 @@ void main() {
   tfOut = edgeJump(p, q);
 }
 `;
-  // ambient occlusion at grid vertex p of height h: how far the 9x9 box of finite heights around it (the heights in
-  // uT1's z, finite where w > 0.5) rises above it, darkening by up to 0.4 (LAND_NRM_VS, LAND_CARRY_NRM_VS)
+  // ambient occlusion at grid vertex p (tp its texel of uT1, the height in z): how far the heights of the 9x9 box around
+  // it rise above it, darkening by up to 0.4 (LAND_NRM_VS, LAND_CARRY_NRM_VS). A point of the box counts when it is
+  // reached from p along its row, then its column, by grid edges the program's aoLink(a, ta, b, tb) passes (b one step
+  // from a, ta and tb their texels: b finite and the edge not torn, the same test as its normals'). Across a cut the
+  // box's points are another piece's, the other side of a branch's jump, whose heights would shade the vertex as if
+  // they rose beside it. Each ray walks its four steps without a break, a point counting while every link to it has
+  // passed (a software renderer runs the vertex stage on SIMD lanes, where a break per lane costs), and each point is
+  // fetched once, the path carrying the texel it stands on (a point past the grid's edge never counts)
   const LAND_AO = `
-float landAO(ivec2 p, float h) {
-  float sum = 0.0, cnt = 0.0;
-  for (int dy = -4; dy <= 4; dy++) for (int dx = -4; dx <= 4; dx++) {
-    ivec2 q = p + ivec2(dx, dy);
-    if (q.x < 0 || q.y < 0 || q.x >= uN || q.y >= uN) continue;
-    vec4 t = texelFetch(uT1, q, 0);
-    if (t.w > 0.5) { sum += t.z; cnt += 1.0; }
+void aoCol(ivec2 c, vec4 tc, bool on, inout float sum, inout float cnt) {
+  float w = on ? 1.0 : 0.0;
+  sum += w * tc.z; cnt += w;
+  for (int s = -1; s <= 1; s += 2) {
+    ivec2 q = c;
+    vec4 tq = tc;
+    bool go = on;
+    for (int i = 0; i < 4; i++) {
+      ivec2 n = q + ivec2(0, s), m = clamp(n, ivec2(0), ivec2(uN - 1));
+      vec4 tn = texelFetch(uT1, m, 0);
+      go = go && n == m && aoLink(q, tq, n, tn);
+      w = go ? 1.0 : 0.0;
+      sum += w * tn.z; cnt += w; q = n; tq = tn;
+    }
   }
-  return cnt > 0.0 ? 1.0 - clamp(6.0 * (sum / cnt - h), 0.0, 0.4) : 1.0;
+}
+float landAO(ivec2 p, vec4 tp) {
+  float sum = 0.0, cnt = 0.0;
+  aoCol(p, tp, true, sum, cnt);
+  for (int s = -1; s <= 1; s += 2) {
+    ivec2 q = p;
+    vec4 tq = tp;
+    bool go = true;
+    for (int i = 0; i < 4; i++) {
+      ivec2 n = q + ivec2(s, 0), m = clamp(n, ivec2(0), ivec2(uN - 1));
+      vec4 tn = texelFetch(uT1, m, 0);
+      go = go && n == m && aoLink(q, tq, n, tn);
+      aoCol(n, tn, go, sum, cnt); q = n; tq = tn;
+    }
+  }
+  return 1.0 - clamp(6.0 * (sum / cnt - tp.z), 0.0, 0.4);
 }
 `;
   // normals by central differences (one-sided across a real jump, LAND_EDGE_VS) and ambient occlusion from a 9x9 box
-  // filter (LAND_AO)
+  // filter (LAND_AO, its points reached by edges with no jump)
   const LAND_NRM_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uN; uniform vec2 uAspect; uniform float uH;
 uniform int uCuts;
 out vec4 tfOut;
-` + LAND_AO + glsl`
+` + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, p, 0); }
 // (uCuts -1: the edge pass still compiles, the former rule stands in: a height step over 0.3 H)
 bool jx(ivec2 p) { return uCuts > 0 ? texelFetch(uE0, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(1, 0)).z - T(p).z) > 0.3 * uH; }
 bool jy(ivec2 p) { return uCuts > 0 ? texelFetch(uE1, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(0, 1)).z - T(p).z) > 0.3 * uH; }
+bool aoLink(ivec2 a, vec4 ta, ivec2 b, vec4 tb) { return tb.w > 0.5 && (b.x != a.x ? !jx(min(a, b)) : !jy(min(a, b))); }
+` + LAND_AO + glsl`
 void main() {
   ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
   vec4 c = T(p);
@@ -529,7 +559,7 @@ void main() {
   float sx = oL && oR ? (R.z - L.z) / (2.0 * dw.x) : (oR ? (R.z - h) / dw.x : (oL ? (h - L.z) / dw.x : 0.0));
   float sy = oD && oU ? (U.z - D.z) / (2.0 * dw.y) : (oU ? (U.z - h) / dw.y : (oD ? (h - D.z) / dw.y : 0.0));
   vec3 n = normalize(vec3(-sx, -sy, 1.0));
-  float ao = landAO(p, h);
+  float ao = landAO(p, c);
   tfOut = vec4(n, c.w > 0.5 ? ao : 1.0);
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -549,6 +579,9 @@ void main() {
   // end at the cut and no cell straddles it; past its end the ring closes round
   const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
   const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
+  // (a carried grid edge crosses a jump of the carry's map when its step on the plane is over CARRY_JUMP_J times the larger
+  // of its neighbours' along the same line, and over CARRY_JUMP_PX css px at the fitted scale: LAND_CARRY_NRM_VS)
+  const CARRY_JUMP_J = 4, CARRY_JUMP_PX = 2;
   const SEAM_RINGS = 9;    // (the rings a patch's seam is measured on, svPatchSeam, and given to CARRY_ZIN as uSeam)
   const CARRY_ZIN = `
 uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[${SEAM_RINGS}]; uniform float uSeamEnd;
@@ -619,16 +652,30 @@ void main() {
 }
 `;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
-  // across a tear (a step over uLim on the plane) or a height step over uStep), and the occlusion of the heights over
-  // the grid (LAND_AO, as at rest)
+  // across a tear (a step over uLim on the plane), a height step over uStep or a jump), and the occlusion of the heights
+  // over the grid (LAND_AO, as at rest, its points reached by edges within uLim and uStep: near, aoLink). Its jumps: the
+  // grid edge a -> b, between the edges p -> a and b -> q along the same line, crosses a jump of the carry's map when its
+  // place step on the plane (stepOf: -1 where a point is not finite or off the grid, Tin) is over uJumpW and over uJump
+  // times the larger of theirs (of those that are finite; none: no jump), uJump 0: none. tfOut: (the normal, the
+  // occlusion (0 to 1) + 2 x the jump bits of the edges out of the point: 1 along +x, 2 along +y, 4 along the diagonal
+  // +(1, 1)), which LAND_CARRY_VS reads both of
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
-uniform float uPatch;
+uniform float uPatch; uniform float uJump; uniform float uJumpW;
 out vec4 tfOut;
-` + LAND_AO + glsl`
+` + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
+vec4 Tin(ivec2 p) { return all(greaterThanEqual(p, ivec2(0))) && all(lessThan(p, ivec2(uN))) ? texelFetch(uT1, p, 0) : vec4(0.0); }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
+float stepOf(vec4 a, vec4 b) { return a.w > 0.5 && b.w > 0.5 ? length(b.xy - a.xy) : -1.0; }
+bool jumpOf(vec4 p, vec4 a, vec4 b, vec4 q) {
+  if (uJump <= 0.0) return false;
+  float s = stepOf(a, b), m = max(stepOf(p, a), stepOf(b, q));
+  return m >= 0.0 && s > uJumpW && s > uJump * m;
+}
 bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
+bool aoLink(ivec2 a, vec4 ta, ivec2 b, vec4 tb) { return near(ta, tb); }
+` + LAND_AO + glsl`
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -636,13 +683,18 @@ void main() {
   vec4 c = T(p);
   if (c.w < 0.5) { tfOut = vec4(0.0, 0.0, 1.0, 1.0); return; }
   vec4 L = T(p - ivec2(1, 0)), R = T(p + ivec2(1, 0)), D = T(p - ivec2(0, 1)), U = T(p + ivec2(0, 1));
-  bool oL = p.x > 0 && near(c, L), oR = p.x < uN - 1 && near(c, R), oD = p.y > 0 && near(c, D), oU = p.y < uN - 1 && near(c, U);
+  ivec2 ex = ivec2(1, 0), ey = ivec2(0, 1), ed = ivec2(1, 1);
+  bool jX = jumpOf(Tin(p - ex), c, Tin(p + ex), Tin(p + 2 * ex)), jY = jumpOf(Tin(p - ey), c, Tin(p + ey), Tin(p + 2 * ey));
+  bool jD = jumpOf(Tin(p - ed), c, Tin(p + ed), Tin(p + 2 * ed));
+  bool jL = jumpOf(Tin(p - 2 * ex), Tin(p - ex), c, Tin(p + ex)), jDn = jumpOf(Tin(p - 2 * ey), Tin(p - ey), c, Tin(p + ey));
+  bool oL = p.x > 0 && !jL && near(c, L), oR = p.x < uN - 1 && !jX && near(c, R), oD = p.y > 0 && !jDn && near(c, D), oU = p.y < uN - 1 && !jY && near(c, U);
   vec3 P0 = placeOf(c);
   vec3 dx = (oR ? placeOf(R) : P0) - (oL ? placeOf(L) : P0), dy = (oU ? placeOf(U) : P0) - (oD ? placeOf(D) : P0);
   vec3 n = cross(dx, dy);
   n = length(n) > 1e-20 ? normalize(n) : vec3(0.0, 0.0, 1.0);
   // (no occlusion on a patch (CARRY_Z): its 9 x 9 neighbours span radii many times apart, not a neighbourhood)
-  tfOut = vec4(n, uPatch > 0.5 ? 1.0 : landAO(p, c.z));
+  float ao = uPatch > 0.5 ? 1.0 : landAO(p, c);
+  tfOut = vec4(n, ao + 2.0 * float((jX ? 1 : 0) + (jY ? 2 : 0) + (jD ? 4 : 0)));
 }
 `;
   // its draw: two triangles a cell (gl_VertexID), each corner at its moved place in the block over uBox; a triangle
@@ -652,11 +704,18 @@ void main() {
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
   // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
-  // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge
+  // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge. A patch with uDup
+  // (n.x, n.y, half-width, 1: the outer far ring of a periodic carry, svLandFarDup) leaves out a triangle whose corners all
+  // lie within the half-width of its centre across the period: copies of points the box and the inner ring draw finer.
+  // A triangle with an edge across a jump of the carry's map (LAND_CARRY_NRM_VS's bits in uT2's w: an edge whose step on
+  // the plane is over CARRY_JUMP_J times its neighbours' along the same line, and over CARRY_JUMP_PX at the fitted scale)
+  // is left out: the slit along a cut whose banks land within uLim, which a kept triangle would bridge. (jumpsAt: a grid
+  // point's bits; a triangle's edges are V0 -> V1, +x of V0 (hf 0) or its diagonal, V1 -> V2, +y of V1 (hf 0) or +x of V2,
+  // and V0 -> V2, the diagonal of V0 (hf 0) or its +y)
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}];
+uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform vec4 uDup;
 bool inDisc(vec2 a, vec2 b, vec2 c) {
   for (int k = 0; k < ${CARRY_DISCS}; k++) {
     if (k >= uDiscN) break;
@@ -668,6 +727,8 @@ bool inDisc(vec2 a, vec2 b, vec2 c) {
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
+bool inDup(vec2 z) { return abs(dot(z - uPolar.xy, uDup.xy)) < uDup.z; }
+int jumpsAt(ivec2 v) { return int(floor(0.5 * texelFetch(uT2, v, 0).w)); }
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
@@ -680,11 +741,14 @@ void main() {
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
+  if (uPolar.w > 0.0 && uDup.w > 0.0 && inDup(carryZ(vec2(V0))) && inDup(carryZ(vec2(V1))) && inDup(carryZ(vec2(V2)))) return;
+  int j0 = jumpsAt(V0), jE = hf == 0 ? (j0 & 5) | (jumpsAt(V1) & 2) : (j0 & 6) | (jumpsAt(V2) & 1);
+  if (jE != 0) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
   vZ = carryZ(vec2(V));
   vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
-  vNor = nv.xyz; vAO = nv.w;
+  vNor = nv.xyz; vAO = nv.w - 2.0 * floor(0.5 * nv.w);
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
 }
@@ -1187,13 +1251,20 @@ uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
 // mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster; with uMaskCut 1,
-// the Landscape's Inside regions, the surface is not drawn there at all)
+// the Landscape's Inside regions, the surface is not drawn there at all. A pixel opaque and black in the mask is one a
+// REPT plan left unresolved (svLandMask): noValueAt is 1 there, and the surface draws the no-value hatch)
 uniform sampler2D uMask; uniform float uMaskOn; uniform float uMaskCut; uniform vec4 uMaskBox;
 const float CUT_EDGE_INK = 0.85;     // the outline along the edge of a cut surface: its share of the colour
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
   return texture(uMask, vec2(uv.x, 1.0 - uv.y)).a;
+}
+float noValueAt(vec2 z) {
+  if (uMaskOn < 0.5) return 0.0;
+  vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
+  vec4 m = texture(uMask, vec2(uv.x, 1.0 - uv.y));
+  return clamp(m.a - m.r, 0.0, 1.0);
 }
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
@@ -1262,7 +1333,7 @@ vec2 facetW(vec2 w) {
   if (!(wt > 0.0) || ht.y < 0.5) return w;
   float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
   if (uHMode >= 2) {
-    // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
+    // (the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
     float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * linInv(h) : mu * tan(0.5 * PI * hc);
     if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
@@ -1348,6 +1419,8 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
   }
   // (a carried copy fading in: uFade its transparency, premultiplied; 0 everywhere else)
   o = ${carry ? 'vec4(toSrgb(fogged(c, vPos)) * (1.0 - uFade), 1.0 - uFade)' : 'vec4(toSrgb(fogged(c, vPos)), 1.0)'};
+  // (a point the region mask marks unresolved: the flat planes' no-value hatch, opaque and unlit)
+  o.rgb = mix(o.rgb, nanHatch(gl_FragCoord.xy, uDpr) * o.a, noValueAt(vZ));
 ${carry ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
 `;
   const FLOOR_VS = `
@@ -1469,9 +1542,12 @@ void main() {
 `;
 
   // ---------- Riemann sphere (spec 6.10) ----------
+  // (its position invariant: the colour globe and its depth-only pass, sphereDepth, are separate programs that draw the
+  // same depth)
   const SPHERE_VS = `
 layout(location = 5) in vec3 aPos3;
 uniform mat4 uMVP;
+invariant gl_Position;
 out vec3 vP;
 void main() { vP = aPos3; gl_Position = uMVP * vec4(aPos3, 1.0); }
 `;

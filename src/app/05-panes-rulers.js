@@ -24,22 +24,20 @@
   const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
   // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
   const GLOBE_MARK_PX = 13;
-  function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
-  // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
-  function* stageSampler(F0, xs, ys, k) {
+  // the images of the visible shapes under a stage's map, as points (xs, ys): what a fit of the plane frames
+  function stageSamples(F0, xs, ys, k) {
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
-    let got = 0;
-    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } return ++got % 16 === 0; };
+    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } };
     for (const s of S.shapes) {
       if (s.visible === false) continue;
       const t = kindType(s);
       // (the curves and points of a construction, and the unit circle or an axis made a shape, are
-      // lines to build with: Y's fit follows the user's own shapes and regions, never a large orthogonal circle's image)
+      // lines to build with: the fit follows the user's own shapes and regions, never a large orthogonal circle's image)
       if ((s.def || s.fixed) && t !== 'area') continue;
       const F = shapeF(s, F0, k);
       if (!F) continue;
-      if (t === 'point') { if (push(F(C(s.p[0], s.p[1])))) yield; continue; }
+      if (t === 'point') { push(F(C(s.p[0], s.p[1]))); continue; }
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
         const src = r.mesh.src, nv = src.length / 2;
@@ -47,7 +45,7 @@
         for (let i = 0; i < nv; i += stride) {
           const x = src[2 * i], y = src[2 * i + 1];
           if (r.mesh.stretched && !inCore(x, y)) continue;
-          if (push(F(C(x, y)))) yield;
+          push(F(C(x, y)));
         }
       }
       // (a traced curve formula, like a formula area, counts by its part in the meshing window: its tails run out to
@@ -56,7 +54,7 @@
       if (t === 'area') { try { unbounded = !Region.bboxOf(s); } catch (e) { unbounded = true; } }
       for (const p of r.polys || []) {
         const n = p.length / 2, stride = Math.max(1, Math.floor(n / POLY_SAMPLE_CAP));
-        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if ((!unbounded || inCore(x, y)) && push(F(C(x, y)))) yield; }
+        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if (!unbounded || inCore(x, y)) push(F(C(x, y))); }
       }
     }
   }
@@ -172,11 +170,16 @@
     // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane')
     const sc = $('sphereChipL');
     if (sc) {
-      const drawing = tool !== 'select' && solo() !== 'R';
+      // (the Pick tool picks on the Landscape's sheets, 19-land-pick.js: it draws nothing there)
+      const drawing = tool !== 'select' && !(tool === 'pick' && landPickOn());
       const where = lLand() ? $t('the landscape') : $t('the Riemann sphere');
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
+      const pickHint = tool === 'pick' && landPickOn() && !document.documentElement.classList.contains('ph');
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
+      // (the Pick tool on the Landscape's sheets: its gestures, 19-land-pick.js, beside the readout's orbit hint; on a
+      // phone the readout's hint says them, idleLeft, and no chip covers the plane's keys)
+      else if (pickHint) msg = landPickPhrases(fingerNow() ? $t('Tap to pick · hold and slide to read') : $t('Click to pick · hold and slide to read'));
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
       // listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
@@ -197,14 +200,6 @@
       } else if (!act && ab) ab.remove();
       sc.classList.toggle('has-act', !!act);
       if (sc.hidden === on) sc.hidden = !on;
-    }
-    const sr = $('sphereChipR');
-    if (sr) {
-      const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
-      const on = tool !== 'select' && solo() !== 'L' && rGlobe() && GLOBE_OFF.has(tool);
-      const msg = on ? $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName }) : '';
-      if (sr.firstChild.textContent !== msg) sr.firstChild.textContent = msg;
-      if (sr.hidden === on) sr.hidden = !on;
     }
     syncGlobeTools();
   }
@@ -232,61 +227,36 @@
     if (!pick && tool === 'pick') setTool('select');
   }
   function renderOverlays() {
-    const showL = solo() !== 'R', showR = solo() !== 'L';
     updateDraftChips();
     updateUndo();
     ctxChanged();
-    if (showL) { paneL.setView(leftView()); paneL.beginOverlay(); }
-    if (showR) {
-      paneR.setView(V.right);
-      paneR.beginOverlay();
-    }
+    paneL.setView(leftView()); paneL.beginOverlay();
     const sphL = !lFlat(); // the sphere, landscape and Stack views of X have no flat overlays
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
     zpHandlesL = [];
-    if (showL && !sphL) {
+    if (!sphL) {
       // (Look down's marks under the handles and the probe)
       drawLookDown(paneL);
       drawCutHandles(paneL, cutHandlesL);
       drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
-      if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      // (no crosshair while the pointer lights Look down's square: the square under it is what a press takes)
+      if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
-      else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe && !lookSquareCursor()) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
-      // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
-      if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
+      // (not over a zero or pole under the pointer, or one being dragged, nor while the pointer lights Look down's square:
+      // the handle is what the pointer holds)
+      if (probe && !zpHover && !lookSquareCursor() && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
       if (SV.on) drawFloorPick(paneL);
-    } else if (!(showL && stackDrawOverlay(paneL))) syncLookKey(false);
+    } else if (!stackDrawOverlay(paneL)) syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
-    if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
-    if (intPop && showR && rImage() && !trans.k) { paneR.setView(V.right); drawIntHighlight(paneR, null, rangeF(leftStage(), rightStage())); }
-    // the preimages of the hovered point of the right plane
-    if (showL && hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
-    // Image: the w-plane targets are drawn and edited in the right plane like shapes in the domain
-    // the globes' handles, polygon vertices and snap ring (P3b)
-    if (showL && lGlobe() && globeEdit('L')) drawGlobeEdit('L');
-    if (showR && rGlobe() && globeEdit('R')) drawGlobeEdit('R');
-    if (showR && rImage() && targetsEditable()) {
-      paneR.setView(V.right);
-      drawHandles(paneR, S.targets);
-      if (draft && draft.target) drawDraft(paneR);
-      Construct.drawOverlay(paneR, 'R');
-      if (tool !== 'select' && rHover) drawCrosshair(paneR, rHover);
-    }
-    if (showR && rHover && !drag && rImage()) { paneR.setView(V.right); drawProbe(paneR, rHover, TH.probe); }
-    if (showR && rHover && !drag && rGlobe()) drawSphereMark(paneR, rHover);
-    if (showR) sndOverlay();
-    if (probe && showR) {
-      if (rImage() && !trans.k) {
-        paneR.setView(V.right);
-        const F = focusF();
-        if (showL && !sphL && tool === 'select') drawGauge(paneL, paneR, probe, F);
-        drawProbe(paneR, F(probe), TH.probe);
-      }
-    }
-    if (showL && !sphL) drawRulers(paneL, 'L', true);
-    if (showR && rImage()) drawRulers(paneR, 'R', true);
+    if (intPop && !lLand()) drawIntHighlight(paneL, projL);
+    // the preimages of the hovered point w
+    if (hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
+    // the globe's handles, polygon vertices and snap ring (P3b)
+    if (lGlobe() && globeEdit('L')) drawGlobeEdit('L');
+    if (!sphL) drawRulers(paneL, 'L', true);
   }
   // ---- rulers: ticks and labels along the bottom and left edges, plus cursor markers ----
   // Ruler sizes come from a ResizeObserver, never from a layout read per frame, and the static layer (ticks and
@@ -338,7 +308,7 @@
     const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
     if (!rx || !ry) return;
     const seen = rulerSeen[side];
-    const show = side === 'R' ? rImage() : lFlat();
+    const show = side === 'R' || lFlat();
     if (seen.vis !== show) { rx.style.visibility = ry.style.visibility = show ? '' : 'hidden'; seen.vis = show; }
     const corner = $(side === 'L' ? 'cornerL' : 'cornerR');
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
@@ -442,7 +412,7 @@
     let mk = null;
     if (probe) {
       if (side === 'L') mk = probe;
-      else if (rImage()) { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
+      else { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
     }
     if (mk) {
       const px = pane.w / 2 + (mk.re - v.cx) * v.s, py = pane.h / 2 - (mk.im - v.cy) * v.s;
@@ -494,30 +464,47 @@
     const live = $('ledLive');
     if (live && parts.length) live.textContent = parts.join('. ');
   }
-  // a hairline runs along the top of the plots when work takes longer than 300 ms
+  // a hairline runs along the top of the plots when work takes longer than CUE_DELAY_MS (a REPT draw's pane note on a
+  // phone waits as long)
+  const CUE_DELAY_MS = 300;
   let hairTimer = 0;
   function setHairline(on) {
     if (on) {
-      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, 300);
+      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, CUE_DELAY_MS);
     } else {
       clearTimeout(hairTimer); hairTimer = 0;
       $('hairL').hidden = true; $('hairR').hidden = true;
     }
   }
+  // what a pane's LED says while its exact picture is still being drawn in tiles (a REPT draw; prog: its second pass's
+  // tiles { done, total }, or null before that pass's tiles are known)
+  function reptTip(prog) {
+    return prog && prog.total ? $tn('Drawing the exact picture… ({k}\u00a0of\u00a0{n} tile)', 'Drawing the exact picture… ({k}\u00a0of\u00a0{n} tiles)', prog.total, { k: prog.done, n: prog.total }) : $t('Drawing the exact picture…');
+  }
   function updateLeds() {
     const errStep = S.steps.findIndex((st, i) => st.on !== false && built[i] && built[i].error);
     const busy = fixJob.running || !!lineJob.running || sm.running;
-    setHairline(!!busy);
+    // a pane whose last frame left a REPT draw drawing its tiles (paneGl's rept): its LED busy and its plot aria-busy
+    // until the frame that draws the final picture
+    const rept = (r) => (paneGl[r] && paneGl[r].rept ? paneGl[r] : null);
+    for (const r of ['L', 'R']) {
+      const el = $(r === 'L' ? 'plotL' : 'plotR');
+      if (el) { if (rept(r)) el.setAttribute('aria-busy', 'true'); else el.removeAttribute('aria-busy'); }
+    }
+    setHairline(!!busy || !!rept('L') || !!rept('R'));
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
-    // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
+    // frames stand in for a compiling program is busy from its first such frame; one whose exact picture is still drawing in
+    // tiles, a REPT draw, is busy with the cue's words; the left pane's colour plot still a quick stand-in while its program
+    // links, colourPending, is busy too; and its LED says so: the notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
-    const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
-    if (note('L')) setLed('L', 'err', note('L'));
-    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
-    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
+    const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : undefined);
+    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')] : busy || compileBusy[r] ? ['busy', compTip(r)] : ['ok']);
+    // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
+    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip); else setLed('L', ...led('L'));
+    if (errStep >= 0 || note('R')) setLed('R', 'err', errTip || note('R')); else setLed('R', ...led('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -544,6 +531,9 @@
     // the Cauchy style (st.cauchy: the nodes of the selected closed curve, F inside, 0 outside)
     const cz = S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
     const cst = { map: S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    // (the Cauchy style, its program still linking: the plot the pane drew in the style before it, held on the pane until the Cauchy plot
+    // lands, GLR.drawColorPlot's st.hold; any other style is the pane's last, which a frame of it sets after its draw)
+    if (S.dc === 'cauchy') cst.hold = pane.dcLast || null;
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
@@ -564,15 +554,20 @@
       for (const s of S.shapes) {
         if (!outlineShown(s)) continue;
         const map = shapeMap(s, map0);
-        if (!map || reptExact(map)) continue;
-        const r = shapeGPU(s);
-        if (!r.lineRes) continue;
-        const dash = openDash(r, map);
-        GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${r.lineKey}|${mapKeyOf(map)}` }, dash));
+        if (!map) continue;
+        const o = outlineRes(map, shapeGPU(s), pane);
+        if (!o) continue;
+        const dash = openDash(o.rec, map);
+        GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: OUTLINE_M, cpu: () => cpuMap(map) }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${o.rec.lineKey}|${mapKeyOf(map)}` }, dash));
       }
     }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (S.dc !== 'cauchy' && !cauchyWhy) pane.dcLast = { map: cst.map, style: cst.style, sectors: cst.sectors, grid: cst.grid };
+    // (the frame's plot is the held one: the key and the LED's tip say what is shown, not the style asked for)
+    // (a frame that draws no plot, one that keeps the pane's picture, leaves it as it was)
+    const held = GLR.colourHeld();
+    pane.dcHeld = S.dc === 'cauchy' && !!cst.hold && (held === null ? !!pane.dcHeld : held);
     if (cauchyWhy) sumDrop(pane); else sumWatch(pane, cst.map);
     // (the grid under the pane's notes, which glStatusNote draws)
     if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)
@@ -613,7 +608,7 @@
     ctx.fillRect(0, 0, pane.w, pane.h);
     ctx.restore();
   }
-  // median |F| over the box (used to scale |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
+  // median |F| over the box (the scale of the |F|, Re F and Im F heights): of the focused map at t = end (a steady scale
   // while morphing), or of map (a map spec of the left plane, with Fm its CPU twin): the steps view's planes. One
   // value cached per map
   const muCache = new Map();
@@ -661,6 +656,7 @@
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
   }
   function render3D(pane, carry) {
+    pane.noteBox = null;   // (no note drawn yet in this frame, as renderColor's)
     pane.begin(artRelief ? 'rgba(255,255,255,0)' : TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     backdrop(pane);
@@ -750,30 +746,35 @@
     const src = carry ? landBox(carry.vs) : null;
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // (the carried grid's patches about the glide map's poles and branch points and the height map's far poles: svLandPatches)
-    const polar = carry ? svLandPatches(carry.map, src, cells, cpuMap(carry.hmap), 'h' + carry.s + ':' + carry.hT, !(carry.copies && carry.copies.length)) : null, far = carry ? svLandFar(src) : null;
+    const polar = carry ? svLandPatches(carry.map, src, cells, cpuMap(carry.hmap), 'h' + carry.s + ':' + carry.hT, !(carry.copies && carry.copies.length)) : null, far = carry ? svLandFar(src, carry) : null;
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
     const mask = SV.on ? (carry ? (carry.plain ? svLandPlainMask() : svLandMask(carry.s, src)) : svLandMask(svStage(), box)) : null;
+    // (a hatched surface says why, as the plane does: glStatusNote)
+    if (mask && mask.unres > 0) hatchNotes.set(pane, mask.refused ? refusedNote() : hatchedNote());
     GLR.begin(pane.pw, pane.ph);
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];
     const omap0 = carry && carry.zmap ? carry.zmap : stageMap(leftStage());
     // (the steps view's Inside regions: a region's outline is thin and grey, on the floor under its surface's edge)
     const footprint = mask && mask.cut && !(carry && carry.plain) ? new Set(visibleAreas()) : null;
+    // (the floor as a pane for outlineRes: its box across the pane's width, so a Repeat chain's carried outline is
+    // drawn on the floor by the flat plane's rule, in a slot of its own)
+    const floorPane = { view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pane.w / (box.x1 - box.x0) }, w: pane.w, h: pane.h };
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
       const omap = SV.on ? svShapeMap(s, omap0) : shapeMap(s, omap0);
       if (!omap) continue;
-      const r = shapeGPU(s);
-      if (!r.lineRes) continue;
-      const cacheKey = `${r.lineKey}|${mapKeyOf(omap)}`;
-      outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
-        : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
+      const o = outlineRes(omap, shapeGPU(s), floorPane, 'F');
+      if (!o) continue;
+      const cacheKey = `${o.rec.lineKey}|${mapKeyOf(omap)}`;
+      outlines.push(footprint && footprint.has(s) ? { res: o.res, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
+        : { res: o.res, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const landMap = carry ? carry.hmap : focusMap();
     const info = GLR.drawLandscape({
-      map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
+      map: landMap, standIn: carry ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null, standIn: landCarryStandIn(pane, carry, src) } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      cells, sheets, mask, outlines: artMode || hideStrokes ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
       colors: {
@@ -796,13 +797,16 @@
     // leaves it as the screen's last frame set it)
     const standing = !!(info && info.standIn);
     if (!offRender && standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets) { updateFocusUI(); svSync(); } }
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, copyAlpha: info.copyAlpha ?? null, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, step: info.step ?? null, jump: info.jump || null, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
-    // (a carried frame of a plane at rest picks on the carried heights, svLandPickF; one between two planes has no probe)
-    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svLandPickF(carry, src) : focusF() } : render3D.pick;
+    // (a carried frame of a plane at rest picks on the carried heights, svLandPickF; one between two planes has no probe.
+    // fibre: on a plane past its source plane, its sheets over a point, which the Pick tool picks on: pickLandSheet)
+    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svLandPickF(carry, src) : focusF(), fibre: carry && carry.s < carry.rest ? svLandFibreF(carry, src, carry.rest) : null } : render3D.pick;
+    // (the Pick tool's lit twins on the sheets, 19-land-pick.js)
+    if (info && !artMode && !figMode && pane === paneL) drawLandPicks(pane);
     glStatusNote(pane);
   }
   render3D.linear = undefined; render3D.ticks = undefined; render3D.names = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.sheetsInfo = undefined; render3D.standIn = undefined; render3D.pick = undefined;
@@ -828,7 +832,7 @@
   // the relief of a Landscape as a function of the world point p = [x, y, z] over its block (info: the frame's, box: the window
   // of its plane, mask: the Inside-regions mask or null, F: the height map, null where no surface is over the point): toZ(p)
   // the point of the plane under p, and hAt(p) the relief's height there: below the floor off the region a cut surface
-  // shows or where F is null, top where the value is not finite
+  // shows or where F is null, top where the value is not finite; off(p): whether p is off that region
   function landHeightField(info, box, mask, F) {
     const [ax, ay] = info.aspect || [1, 1];
     const toZ = (p) => C(box.x0 + (p[0] / ax / 2 + 0.5) * (box.x1 - box.x0), box.y0 + (p[1] / ay / 2 + 0.5) * (box.y1 - box.y0));
@@ -843,15 +847,12 @@
       const hh = info.heightOf(landValue(w));
       return Number.isFinite(hh) ? hh : top;
     };
-    return { toZ, hAt, top, z0 };
+    return { toZ, hAt, top, z0, off: (p) => landOffRegion(mask, toZ(p), mpx) };
   }
-  // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
-  // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
-  // else the floor of the block; null off the block
-  function pickLand(x, y) {
-    const pk = render3D.pick;
-    if (!pk || !(pk.w > 0 && pk.h > 0) || !pk.info || !pk.info.heightOf) return null;
-    const c = pk.cam, info = pk.info, box = pk.box, [ax, ay] = info.aspect || [1, 1];
+  // the pointer's ray through pane pixel (x, y) of the landscape whose pick record is pk (render3D.pick): its point at(t),
+  // and the segment [t0, t1] of it inside the block |x| <= ax, |y| <= ay, z0 <= z <= top; null where it misses the block
+  function landRay(pk, x, y, z0, top) {
+    const c = pk.cam, [ax, ay] = pk.info.aspect || [1, 1];
     const e = [c.tx + c.dist * Math.cos(c.pitch) * Math.cos(c.yaw), c.ty + c.dist * Math.cos(c.pitch) * Math.sin(c.yaw), c.tz + c.dist * Math.sin(c.pitch)];
     const nrm = (v) => { const l = Math.hypot(...v) || 1; return v.map((t) => t / l); };
     const f = nrm([c.tx - e[0], c.ty - e[1], c.tz - e[2]]);
@@ -860,8 +861,6 @@
     const th = Math.tan((c.fov || 28 * DEG) / 2), nx = (2 * x / pk.w - 1) * th * pk.w / pk.h, ny = (1 - 2 * y / pk.h) * th;
     const d = nrm([0, 1, 2].map((k) => f[k] + nx * r[k] + ny * u[k]));
     const at = (t) => [e[0] + t * d[0], e[1] + t * d[1], e[2] + t * d[2]];
-    const { toZ, hAt, top, z0 } = landHeightField(info, box, pk.mask, pk.F);
-    // the ray's segment inside the block |x| <= ax, |y| <= ay, floor <= z <= top
     let t0 = 0, t1 = Infinity;
     for (const [k, lo, hi] of [[0, -ax, ax], [1, -ay, ay], [2, z0, top]]) {
       if (Math.abs(d[k]) < 1e-12) { if (e[k] < lo || e[k] > hi) return null; continue; }
@@ -869,19 +868,73 @@
       if (a > b) [a, b] = [b, a];
       t0 = Math.max(t0, a); t1 = Math.min(t1, b);
     }
-    if (!(t1 > t0)) return null;
-    const N = 160;
+    return t1 > t0 ? { at, t0, t1 } : null;
+  }
+  // the samples of a ray's march over the block, and the bisection's steps at a crossing
+  const LAND_RAY_N = 160, LAND_RAY_BISECT = 14;
+  // pickLandSheet's march: the sheets' points are found afresh from the fibre's grid every LAND_RAY_SEED samples, and are
+  // followed from the last sample's in between (where the steps have no exact inverse)
+  const LAND_RAY_SEED = 8;
+  // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
+  // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
+  // else the floor of the block; null off the block
+  function pickLand(x, y) {
+    const pk = render3D.pick;
+    if (!pk || !(pk.w > 0 && pk.h > 0) || !pk.info || !pk.info.heightOf) return null;
+    const { toZ, hAt, top, z0 } = landHeightField(pk.info, pk.box, pk.mask, pk.F);
+    const ray = landRay(pk, x, y, z0, top);
+    if (!ray) return null;
+    const { at, t0, t1 } = ray, N = LAND_RAY_N;
     let tp = t0;
     for (let i = 0; i <= N; i++) {
       const t = t0 + (t1 - t0) * i / N, p = at(t);
       if (p[2] - hAt(p) > 0) { tp = t; continue; }
       if (i === 0) return toZ(p);
       let a = tp, b = t;
-      for (let j = 0; j < 14; j++) { const m = (a + b) / 2, q = at(m); if (q[2] - hAt(q) > 0) a = m; else b = m; }
+      for (let j = 0; j < LAND_RAY_BISECT; j++) { const m = (a + b) / 2, q = at(m); if (q[2] - hAt(q) > 0) a = m; else b = m; }
       return toZ(at(b));
     }
     const p = at(t1);
     return Math.abs(p[2] - z0) < 1e-6 * Math.max(1, Math.abs(z0)) + 1e-9 ? toZ(p) : null;
+  }
+  // The point under pane pixel (x, y) of a carried Landscape at rest on a plane k past its source plane s
+  // (render3D.pick with fibre: a sheet over w for each point of s carried to w), on whichever sheet the pointer's ray
+  // meets first: {z, w, h}, z the point of plane s, w its image, the point of plane k under it, and h its height; null
+  // where the ray meets no sheet. The ray is marched as pickLand's. Each sample's sheets are followed from the last
+  // sample's (the nearest point of s; the fibre's grid looked at every LAND_RAY_SEED samples), a sheet is met where the
+  // ray passes from above it to below it, and that crossing is bisected on that sheet. A sheet that first shows below
+  // the ray (the ray passes under its edge) is not met there
+  function pickLandSheet(x, y) {
+    const pk = render3D.pick;
+    if (!pk || !pk.fibre || !(pk.w > 0 && pk.h > 0) || !pk.info || !pk.info.heightOf) return null;
+    const info = pk.info, { toZ, top, z0, off } = landHeightField(info, pk.box, pk.mask, pk.F);
+    const ray = landRay(pk, x, y, z0, top);
+    if (!ray) return null;
+    const { at, t0, t1 } = ray, N = LAND_RAY_N;
+    const hOf = (v) => { if (!CX.isFin(v)) return top; const h = info.heightOf(landValue(v)); return Number.isFinite(h) ? h : top; };
+    // (the sheets at the ray's point at t: {z, h, d}, d the ray's height above the sheet)
+    const sheets = (t, seeds, fromGrid) => { const p = at(t); return off(p) ? [] : pk.fibre(toZ(p), seeds, fromGrid).map((s) => { const h = hOf(s.v); return { z: s.z, h, d: p[2] - h }; }); };
+    const nearest = (list, z) => { let best = null, bd = Infinity; for (const s of list) { const dd = CX.abs(CX.sub(s.z, z)); if (dd < bd) { bd = dd; best = s; } } return best; };
+    let prev = sheets(t0, null, true), tp = t0;
+    for (let i = 1; i <= N; i++) {
+      const t = t0 + (t1 - t0) * i / N, cur = sheets(t, prev.map((s) => s.z), i % LAND_RAY_SEED === 0);
+      let hit = null;
+      for (const s of cur) {
+        const q = s.d <= 0 ? nearest(prev, s.z) : null;
+        if (!q || q.d <= 0) continue;
+        // (bisected on this sheet, followed from q)
+        let a = tp, b = t, za = q.z, zb = s.z, hb = s.h;
+        for (let j = 0; j < LAND_RAY_BISECT; j++) {
+          const m = (a + b) / 2, sh = nearest(sheets(m, [za], false), za);
+          if (!sh) break;
+          if (sh.d > 0) { a = m; za = sh.z; } else { b = m; zb = sh.z; hb = sh.h; }
+        }
+        if (!hit || b < hit.t) hit = { t: b, z: zb, h: hb };
+      }
+      if (hit) return { z: hit.z, w: toZ(at(hit.t)), h: hit.h };
+      prev = cur; tp = t;
+    }
+    return null;
   }
   function project(pane, MVP, p) {
     const c = GLR.M4.apply(MVP, p);
@@ -1040,21 +1093,7 @@
     for (const [a, d, gap] of tries) { const r = label(tl, a, d, gap, math12, null, TH.ink2, below); if (r) { names.push(r); break; } }
     ctx.restore();
   }
-  // Y Sphere: the images on the w-globe (the phase globe is X Sphere + Phase, renderSphereLeft)
-  function renderSphere(pane) {
-    // the w-plane targets on the globe (P3b): fills and outlines exactly per pixel (the preimage pass through the identity
-    // map, as in Y Plane), points as marks; a target draft over them
-    const edit = globeEdit('R');
-    const post = [];
-    if (edit && hasTargets()) post.push({ map: IDENT, targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) });
-    const dp = edit ? globeDraftPass('R') : null;
-    if (dp) post.push(dp);
-    sphereView(pane, camS, CAMS, {
-      imageMode: true, stage: rightStage(), plane: !!S.view.R.eq, role: 'R',
-      probeW: probe ? focusF()(probe) : null,
-      post, net: edit ? globeNet() : 'plain', targetPts: edit,
-    });
-  }
+
   // the conjugate lift of z = x + iy onto the Riemann sphere (panels.md 9.0; the GLSL lift in gl.js): 0 at the south
   // pole, infinity at the north pole, and seen from outside the globe keeps the plane's orientation
   function liftC(x, y) {
@@ -1088,7 +1127,8 @@
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map and the shapes are outlined. o.hom: the steps view's glide, its map and F (below). o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried), o.carriedCopies the other sheets' under it (its st.carriedCopies; o.sheetCut: drawn
+  // only where the principal sheet is not opaque, drawSphere's st.sheetCut, for the inverse pass's copies too); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry), or with o.carryBase the colour globe of
   // o.colorMap under it (the arrival plane's rest colour under a glide). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
@@ -1192,7 +1232,7 @@
           // a bounded shape's image box (in w; the shape's own box at stage 0) scissors its pass (gl.js globeScissorOf)
           const gbox = globeImageBox(p, s, live);
           regions.push({
-            inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
+            inv: { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch } },
             fwd, onResult: (res) => globeResult(role, s, res, live, fwd),
           });
@@ -1207,7 +1247,7 @@
         // dc line colour on a white casing)
         const sk = shapeStroke(s, pane.dpr, { still: true });
         if (!imageMode) Object.assign(sk, { color: GLR.hexRGB(TH.dcCasing), casing: { color: [1, 1, 1], alpha: 0.85, width: sk.casing.width } });
-        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8 }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
+        lines.push({ res: rl.lineRes, st: Object.assign({ map: sm, dpr: pane.dpr, M: 8, cpu: () => cpuMap(sm) }, sk, { cacheKey: cache ? `${rl.lineKey}|${smk}` : null }) });
       }
     }
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
@@ -1228,7 +1268,7 @@
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
-      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
+      post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null, carriedCopies: o.carried && o.carriedCopies ? o.carriedCopies : null, sheetCut: !!o.sheetCut,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
     // inverse on the next frame
@@ -1408,7 +1448,7 @@
     const cv = pane.ocanvas, host = cv && cv.parentElement;
     if (!host) return [];
     const c = cv.getBoundingClientRect(), out = [];
-    for (const e of host.querySelectorAll('.vbtn, .ph-key')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
     return out;
   }
   // the half-width a line centred at mid may take in the band top … bottom of a pane (CSS px) beside the view buttons
@@ -1442,7 +1482,7 @@
   let leftSphereInfo = null;   // the left globe's last frame {MVP, eye}: overlays lift their marks onto it
   // (v: a view of the left plane, default its own)
   function leftPaneBox(v = leftView()) {
-    const P = solo() === 'R' ? paneR : paneL;
+    const P = paneL;
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
@@ -1457,15 +1497,15 @@
     requestRender('L', 'R'); save();
   }
   function setupViewControls() {
-    // the panes' Plane | Sphere radios (U4)
-    for (const side of ['L', 'R']) {
-      const el = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-      for (const [v, l, k] of SURF[side]) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView(side, v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
+    // X's Plane | Sphere radios (U4)
+    {
+      const el = $('leftTabs');
+      for (const [v, l, k] of SURF) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView('L', v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
       el.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const list = SURF[side], i = list.findIndex((x) => x[0] === (side === 'L' ? xView() : S.view.R).surf);
-        const j = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setView(side, list[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
+        const i = SURF.findIndex((x) => x[0] === xView().surf);
+        const j = Math.max(0, Math.min(SURF.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+        setView('L', SURF[j][0]); /** @type {HTMLElement} */ (el.children[j]).focus(); e.preventDefault();
       });
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
@@ -1491,7 +1531,6 @@
       if (leftStage() > 0) leftAuto = true;
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
-    $('rightFit').addEventListener('click', () => { if ($('rightFit').getAttribute('aria-disabled') === 'true') return; rightAuto = true; fitRight(true); requestRender('R'); });
     // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (on a 356 px plot the key covers a third of the landscape);
     // a tap on a folded or unfolded chip toggles
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -1547,22 +1586,19 @@
       });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
-    for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
-      $(side + 'ZoomIn').innerHTML = ICONS.plus;
-      $(side + 'ZoomOut').innerHTML = ICONS.minus;
-      $(side + 'Fit').innerHTML = ICONS.fit;
-      $(side + 'Solo').innerHTML = ICONS.expand;
-      $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
-      const zb = (f) => () => {
-        const sd = side === 'left' ? 'L' : 'R';
-        if (is3DSide(sd)) { zoomPane(pane, sd, pane.w / 2, pane.h / 2, f); return; }
-        const v = sd === 'L' ? leftView() : V.right;
-        pane.setView({ cx: v.cx, cy: v.cy, s: v.s });
-        const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
-        if (sd === 'R') rightAuto = false; else if (leftStage() > 0) leftAuto = false;
-        tweenView(v, target, 180, () => sourceViewChanged());
-      };
-      $(side + 'ZoomIn').addEventListener('click', zb(1.6));
-      $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
-    }
+    // (X's buttons: Y's pane is not drawn)
+    $('leftZoomIn').innerHTML = ICONS.plus;
+    $('leftZoomOut').innerHTML = ICONS.minus;
+    $('leftFit').innerHTML = ICONS.fit;
+    $('leftSph').addEventListener('click', () => stackSphere('L'));
+    const zb = (f) => () => {
+      if (is3DSide('L')) { zoomPane(paneL, 'L', paneL.w / 2, paneL.h / 2, f); return; }
+      const v = leftView();
+      paneL.setView({ cx: v.cx, cy: v.cy, s: v.s });
+      const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
+      if (leftStage() > 0) leftAuto = false;
+      tweenView(v, target, 180, () => sourceViewChanged());
+    };
+    $('leftZoomIn').addEventListener('click', zb(1.6));
+    $('leftZoomOut').addEventListener('click', zb(1 / 1.6));
   }

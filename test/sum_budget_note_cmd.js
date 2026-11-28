@@ -21,7 +21,7 @@ const linked = `(() => { if (typeof __cmwPaneStatus !== 'function') return false
 // the view buttons and a phone's keys over the plane, in the pane's CSS px)
 const state = () => ev(`(() => { const s = __cmwPaneStatus('L'), e = document.getElementById('leftLed'), cv = document.getElementById('overlayL'), c = cv.getBoundingClientRect();
   const said = (cv.getAttribute('aria-describedby') || '').split(' ').map((id) => document.getElementById(id)).filter(Boolean).map((d) => d.textContent).join(' ');
-  const btns = [...cv.parentElement.querySelectorAll('.vbtn, .ph-key')].map((b) => b.getBoundingClientRect()).filter((r) => r.width && r.height).map((r) => ({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }));
+  const btns = [...cv.parentElement.querySelectorAll('.vbtn')].map((b) => b.getBoundingClientRect()).filter((r) => r.width && r.height).map((r) => ({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }));
   return { note: s.note || '', error: s.error || '', led: e ? { cls: e.className, tip: e.getAttribute('data-tip') } : null, said, box: typeof __cmwNoteBox === 'function' ? __cmwNoteBox('L') : null, btns }; })()`);
 // the share of 15 × 10 points of the left canvas that are coloured: their channels spread by HUE_MIN or more (the
 // colour plot's hues; the undefined hatch and the paper are grey)

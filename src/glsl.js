@@ -2381,7 +2381,7 @@ void ixAncTan(vec2 w) {
 `;
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
-  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3, RAT3: 4, RAT4: 6, REPT: 5 };
+  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3, RAT3: 4, RAT4: 6, REPT: 9 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
   // the bound the DH / Böttcher orbit's early stop certifies on H, relative to 1 + |H|; a NEWT op whose step stops
@@ -2419,7 +2419,6 @@ void ixAncTan(vec2 w) {
     return bk ? 1 + bk.seeds : o.kind === 'NEWT' ? 2 + Inverse.NEWT_LADDER.length : IX_FIN[o.kind];
   };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
-  const IX_OPS_MAX = 16;
   // the NEWT roots pass's mark of a target entry with no root
   const IX_NR_NONE = '3.0e38';
   // (GLSL literals of the Newton passes: a coordinate below NEWT_FINITE is a root; NEWT_NO_LEVEL is the level of an op's
@@ -2928,7 +2927,8 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
   // budget, a leaf unresolved by its chain error, the full covers), the leaf's chain error (-1: not a REPT leaf) and
   // the pixel's w (the carried colour's point, 07-inverse-api.js ixCarryCol);
   // uIxRepE, uIxRepS: the forward enclosures E_r of the shape's box (Inverse.prepare's rept.E): the box (x0, y0, x1, y1)
-  // and (the escape bound, -1 for none; 1 when E_r has no box). x0 > x1 with no escape bound and a box: the whole plane
+  // and (the escape bound, -1 for none; 1 when E_r has no box; the radius bound, -1 for none). x0 > x1 with no escape
+  // bound and a box: the whole plane
   const reptGlobals = () => {
     const RS = Inverse.REPEAT_COPIES_MAX;
     return glsl`#define IX_REPT 1
@@ -2940,7 +2940,10 @@ const float IX_REP_FIN = ${glf(Inverse.REPT_FIN)};
 bool ixRepOk(vec2 z) { return max(abs(z.x), abs(z.y)) < IX_REP_FIN; }
 vec2 ixRZ[${3 * RS}]; float ixRR[${3 * RS}]; vec2 ixRJ[${RS}]; int ixRI[${RS}];
 bool ixRepFail; bool ixRepCap; bool ixRepUnres; int ixRepFull; float ixRepDel; vec2 ixRepW;
-uniform vec4 uIxRepE[${RS + 1}]; uniform vec2 uIxRepS[${RS + 1}];
+// ixRepOwn: the active REPT op's map is its step's own (its cell's own), so its member maps to ixRepW through the
+// plan's stages (the carried colour's shortcut, 07-inverse-api.js ixCarryCol); false for a glide frame's op
+bool ixRepOwn;
+uniform vec4 uIxRepE[${RS + 1}]; uniform vec3 uIxRepS[${RS + 1}];
 uniform int uIxRepNodes;   // the node budget, at most REPEAT_NODES_MAX (a test may lower it: GLR.setReptNodes)
 // uIxRepPoison 1: a test's control (GLR.setReptPoison) puts uIxRepBad (a NaN or an infinity) in place of root 1 of every
 // level-0 node; 0 otherwise
@@ -2958,17 +2961,50 @@ bool ixRepKeep() {
   return !(p.r == 0.0 && p.g > 0.5 && p.b == 0.0 && p.a == 0.0);
 }
 vec3 ixRepCrude;   // the crude radii of the last node solved (the GLSL page's read-back)
-// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 the mark (1, 0, 0, 0) (a
-// region mask's pass: it is not covered, and drawInverse's composite marks it in the stencil for GLR.reptHatchFill)
+// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 the mark (1, 0, 0, 0), or
+// (1, 0, 1, 0) on the image's rim (ixRepRim) (a region mask's pass: it is not covered, and drawInverse's composite marks it
+// in the stencil for GLR.reptHatchFill)
 uniform int uIxRepHatch;
+// uIxRepCf, uIxRepCg, uIxRepCc: the closed form of a monomial step on a disc (Inverse.prepare's rept.cf, each offset
+// rounded outward for the test that reads it): (log R, M, |c| / R up, dI down), (dP down, dP up, dM down, dM up), (the
+// disc's centre c, 1 on or 0 off)
+uniform vec4 uIxRepCf; uniform vec4 uIxRepCg; uniform vec3 uIxRepCc;
+// the closed form's verdict at w, pixel px (Inverse's reptClosed): 1 covered, 0 empty, -1 the search decides; dz:
+// |dz/dw| at every preimage, rho / (M |w|). ixRepRim (with -1): the pixel lies on the image's rim (Inverse.REPT_RIM)
+bool ixRepRim;
+int ixRepClosed(vec2 w, float px, out float dz) {
+  dz = 0.0;
+  if (uIxRepCc.z < 0.5) return -1;
+  float a = cx_abs(w);
+  if (!(a > 0.0) || !(a < IX_REP_FIN)) { ixRepRim = a == 0.0; return -1; }
+  float tol = ${glf(Inverse.REPT_ROUND)} * IX_REP_U, lR = uIxRepCf.x, M = uIxRepCf.y;
+  float la = log(a), eta = (la - lR) / M;
+  bool sm = abs(eta) < ${glf(Inverse.REPT_CF_TAYLOR)};
+  float x = sm ? eta * (1.0 + eta * (0.5 + eta * (1.0 / 6.0 + eta / 24.0))) : exp(eta) - 1.0;
+  float sl = tol * (abs(x) + (abs(la) + abs(lR) + 1.0) / M + (sm ? 0.0 : (1.0 + abs(x)) * (1.0 + abs(eta))));
+  float f = ${glf(Inverse.REPT_AA_REACH)} * px * (1.0 + abs(x)) / (M * a) * (1.0 + tol);
+  if (x > uIxRepCg.y + f + sl || x < uIxRepCg.z - f - sl) return 0;
+  dz = exp(lR) * (1.0 + x) / (M * a);
+  if (x < uIxRepCf.w - f - sl) return 1;
+  float u = uIxRepCg.x - f - x - sl, v = x - uIxRepCg.w - f - sl, h = ${glf(Math.PI)} / (2.0 * M);
+  if (u > 0.0 && v > 0.0 && uIxRepCf.z > 0.0 && u * v / (4.0 * (1.0 + abs(x) + sl) * uIxRepCf.z) > h * h * (1.0 + tol)) return 1;
+  float g = ${glf(Inverse.REPT_RIM)} * px * (1.0 + abs(x)) / (M * a) + f + sl;
+  float oP = max(max(uIxRepCg.x - x, x - uIxRepCg.y), 0.0), oM = max(max(uIxRepCg.z - x, x - uIxRepCg.w), 0.0);
+  ixRepRim = a <= ${glf(Inverse.REPT_RIM)} * px || min(oP, oM) <= g;
+  return -1;
+}
 `;
   };
-  // the op's cells: (n, -, -, -), then P and Q high-first, two coefficients to a cell. _eval: Horner's p(z), p'(z);
-  // _node(v, dv, l): the certified roots of P - v Q at level l (InvOps.reptNode: reptSolve's closed form and polish,
-  // reptCert's certificate), false when it fails; _dudv: 1 / R'(z); _out: the prune (Inverse.enumerate's, reptMargin)
+  // the op's cells: (n, own (1: the op's map is its step's own, InvOps.opRept), -, -), then P and Q high-first, two coefficients to a cell, then the head's P and Q the same
+  // way (the op's own P and Q where it has no head). _eval: Horner's p(z), p'(z); _node(v, dv, l): the certified roots
+  // of P - v Q at level l, the head's at level 0 (InvOps.reptNode: reptSolve's closed form and polish, reptCert's
+  // certificate), false when it fails; _dudv(z, l): 1 / R'(z) for level l's map; _out: the prune (Inverse.enumerate's,
+  // reptMargin)
   function reptFns(P, c) {
     const U = (i) => `uInv[${c + i}]`, R = (x) => glf(x);
-    const co = `vec2 P0 = ${U(1)}.xy, P1 = ${U(1)}.zw, P2 = ${U(2)}.xy, P3 = ${U(2)}.zw, Q0 = ${U(3)}.xy, Q1 = ${U(3)}.zw, Q2 = ${U(4)}.xy, Q3 = ${U(4)}.zw;`;
+    const cell = (i) => `(l == 0 ? ${U(i + 4)} : ${U(i)})`;
+    const co = `vec4 k1 = ${cell(1)}, k2 = ${cell(2)}, k3 = ${cell(3)}, k4 = ${cell(4)};
+  vec2 P0 = k1.xy, P1 = k1.zw, P2 = k2.xy, P3 = k2.zw, Q0 = k3.xy, Q1 = k3.zw, Q2 = k4.xy, Q3 = k4.zw;`;
     return glsl`void ${P}_eval(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec2 z, out vec2 p, out vec2 d) {
   p = a0; d = vec2(0.0);
   d = cmul(d, z) + p; p = cmul(p, z) + a1;
@@ -3051,7 +3087,7 @@ bool ${P}_node(vec2 v, float dv, int l) {
   ixRZ[k] = z0; ixRZ[k + 1] = z1; ixRZ[k + 2] = z2; ixRR[k] = r0; ixRR[k + 1] = r1; ixRR[k + 2] = r2;
   return true;
 }
-vec2 ${P}_dudv(vec2 z) {
+vec2 ${P}_dudv(vec2 z, int l) {
   ${co}
   vec2 p, dp, q, dq;
   ${P}_eval(P0, P1, P2, P3, z, p, dp);
@@ -3059,10 +3095,11 @@ vec2 ${P}_dudv(vec2 z) {
   return cdiv(cmul(q, q), cmul(dp, q) - cmul(p, dq));
 }
 bool ${P}_out(vec2 v, float dv, int r, float js) {
-  vec4 e = uIxRepE[r]; vec2 es = uIxRepS[r];
+  vec4 e = uIxRepE[r]; vec3 es = uIxRepS[r];
   bool box = es.y < 0.5;
-  if (box && !(e.x <= e.z)) return false;
   float m = (dv + ${R(Inverse.REPT_AA_REACH)} * ixPix * js) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
+  if (es.z > 0.0 && cx_abs(v) * (1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U) - m > es.z * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U)) return true;
+  if (box && !(e.x <= e.z)) return false;
   if (box) {
     float mb = m + ${R(Inverse.REPT_ROUND)} * IX_REP_U * max(max(abs(e.x), abs(e.z)), max(abs(e.y), abs(e.w)));
     if (!(v.x < e.x - mb || v.x > e.z + mb || v.y < e.y - mb || v.y > e.w + mb)) return false;
@@ -3078,11 +3115,16 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
     const ind = '  '.repeat(d), i2 = ind + '  ', i3 = i2 + '  ', i4 = i3 + '  ', P = `ix${j}`, R = `L${j}`, k = o.step;
     const s = (x) => `${x}${j}`, NODES = Inverse.REPEAT_NODES_MAX;
     out.push(`${ind}bool ${s('ra')} = ixAct(${k});`,
+      `${ind}if (${s('ra')}) ixRepOwn = uInv[${o.cell}].y > 0.5;`,
       `${ind}int ${s('rn')} = int(uInv[${o.cell}].x + 0.5), ${s('rsp')} = 0, ${s('rnd')} = 0, ${s('rcap')} = min(uIxRepNodes, ${NODES});`,
       `${ind}bool ${s('rfast')} = uIxRepPass == 1 && uIxRepFast < ${s('rcap')};`,
       `${ind}if (${s('rfast')}) ${s('rcap')} = uIxRepFast;`,
       `${ind}if (${s('ra')}) { ixRI[0] = -1; ixRJ[0] = vec2(1.0, 0.0); }`,
-      `${ind}if (${s('ra')} && ${P}_out(${cur}.u, 0.0, ${s('rn')}, 1.0)) ${s('rsp')} = -1;`,
+      // (a monomial step on a disc: the closed form decides first, with no root solved: empty ends the search, covered
+      // hands the leaf the disc's centre at the preimages' |dz/dw|, standing for the covered preimage)
+      `${ind}float ${s('rdz')}; int ${s('rcf')} = ${s('ra')} ? ixRepClosed(${cur}.u, ixPix * ixScale(${cur}.J), ${s('rdz')}) : -1;`,
+      `${ind}if (${s('rcf')} == 0) ${s('rsp')} = -1;`,
+      `${ind}else if (${s('ra')} && ${P}_out(${cur}.u, 0.0, ${s('rn')}, 1.0)) ${s('rsp')} = -1;`,
       // (each pass of the loop solves a node, takes a child or leaves a level: at most 5 per node. The loop body is one
       // if / else chain with no continue, and every array index it reads is >= 0, as Direct3D's compiler needs: there a
       // continue after a descent falls through to the leaf, and HLSL evaluates both arms of ?:)
@@ -3090,6 +3132,7 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       `${i2}Lf ${R} = ${cur};`,
       `${i2}bool ${s('leaf')} = false;`,
       `${i2}if (!${s('ra')}) { if (${s('it')} > 0) break; ${s('leaf')} = true; }`,
+      `${i2}else if (${s('rcf')} == 1) { ${R}.u = uIxRepCc.xy; ${R}.J = ${s('rdz')} * ${cur}.J; ixRepDel = 0.0; ${s('leaf')} = true; ${s('rcf')} = -1; ${s('rsp')} = -1; }`,
       `${i2}else if (${s('rsp')} < 0) break;`,
       `${i2}else if (ixRI[${s('rsp')}] < 0) {`,
       `${i3}if (${s('rnd')} >= ${s('rcap')}) { if (${s('rfast')}) ixRepCont = true; else ixRepCap = true; break; }`,
@@ -3103,7 +3146,7 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       `${i2}else {`,
       `${i3}int ${s('ri')} = ixRI[${s('rsp')}], ${s('ci')} = 3 * ${s('rsp')} + ${s('ri')};`,
       `${i3}ixRI[${s('rsp')}] = ${s('ri')} + 1;`,
-      `${i3}vec2 ${s('jc')} = cmul(ixRJ[${s('rsp')}], ${P}_dudv(ixRZ[${s('ci')}]));`,
+      `${i3}vec2 ${s('jc')} = cmul(ixRJ[${s('rsp')}], ${P}_dudv(ixRZ[${s('ci')}], ${s('rsp')}));`,
       `${i3}if (${s('rsp')} + 1 >= ${s('rn')}) {`,
       `${i4}${R}.u = ixRZ[${s('ci')}]; ${R}.J = vec4(${s('jc')}.x, -${s('jc')}.y, ${s('jc')}.y, ${s('jc')}.x); ixRepDel = ixRR[${s('ci')}]; ${s('leaf')} = true;`,
       `${i3}} else if (!${P}_out(ixRZ[${s('ci')}], ixRR[${s('ci')}], ${s('rn')} - ${s('rsp')} - 1, cx_abs(${s('jc')}))) {`,
@@ -3236,8 +3279,11 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       }
       case 'QUAD': case 'RAT2': GLSLRoots.closedValues(o, put, c); break;
       case 'REPT': {
-        put(c, p.n, 0, 0, 0);
-        for (let i = 0; i < 4; i += 2) { put(c + 1 + i / 2, p.P[i].re, p.P[i].im, p.P[i + 1].re, p.P[i + 1].im); put(c + 3 + i / 2, p.Q[i].re, p.Q[i].im, p.Q[i + 1].re, p.Q[i + 1].im); }
+        put(c, p.n, p.own ? 1 : 0, 0, 0);
+        const hd = p.head || p;
+        for (const [at, A, B] of [[c + 1, p.P, p.Q], [c + 5, hd.P, hd.Q]]) {
+          for (let i = 0; i < 4; i += 2) { put(at + i / 2, A[i].re, A[i].im, A[i + 1].re, A[i + 1].im); put(at + 2 + i / 2, B[i].re, B[i].im, B[i + 1].re, B[i + 1].im); }
+        }
         break;
       }
       default: {
@@ -3248,23 +3294,26 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       }
     }
   }
-  // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
+  // generated text by source key (srcKey: the inverse key, which the op structure gives, and the external ray's
+  // constants, Inverse.NEWT_RAY, which a NEWT op's ray stages bake in): parameter edits rebuild no GLSL
   const invTextCache = new Map();
-  function buildInverse(steps, built) {
+  function buildInverse(steps, built, opts = Inverse.chainOpts(steps, built)) {
     if (!IX_FIN.RAT5) ixRatTables();
-    // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
+    // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step with opts:
+    // the chain's, Inverse.chainOpts, for the chain's program; a plan's own, plan.opts, for a plane range's)
     const ops = [], sigs = [];
     steps.forEach((st, i) => {
       const b = built[i];
       if (!st || st.on === false) { sigs.push('off'); return; }
       if (!b || b.error || !b.def) { sigs.push('err'); return; }
-      const r = Inverse.stepOps(b);
+      const r = Inverse.stepOps(b, opts);
       if (!r.ok) { sigs.push('X'); ops.push({ kind: 'X', step: i + 1, node: 0, op: null }); return; }
       sigs.push(r.ops.map(Inverse.opSig));
       r.ops.forEach((o, n) => ops.push({ kind: o.kind, step: i + 1, node: n, op: o }));
     });
     const key = JSON.stringify(['inv2', sigs]);
-    if (ops.filter((o) => o.kind !== 'X').length > IX_OPS_MAX) return { ok: false, reason: 'chain too long', key };
+    // (the limit and the count are Inverse's: Inverse.programOps counts the same ops, and its plans hold at most OPS_MAX)
+    if (ops.filter((o) => o.kind !== 'X').length > Inverse.OPS_MAX) return { ok: false, reason: 'chain too long', key };
     let slots = 0;
     ops.forEach((o, j) => { o.j = j; o.cell = slots; slots += ixSlots(o); });
     const S = Math.max(1, slots), N = Math.max(1, ops.length);
@@ -3290,7 +3339,8 @@ uniform vec4 uIxBox[${N}];   // box: (e, lo, hi), +-1e30 unbounded
 uniform int uIxStopOp; uniform vec4 uIxStopMob; uniform vec4 uIxStopT[2];
 uniform bool uIxStopMobOn; uniform float uIxPAccInP;
 `;
-    let txt = invTextCache.get(key);
+    const srcKey = key + '|' + JSON.stringify(Inverse.NEWT_RAY);
+    let txt = invTextCache.get(srcKey);
     if (!txt) {
       // (the NEWT roots pass of the last NEWT op, 07-inverse-api.js draws it: a polynomial one's roots, ceil(D / 2)
       // targets; another's member 0 on the grid and member 1, two)
@@ -3299,13 +3349,13 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
         : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
       const has = (kinds) => ops.some((o) => kinds.has(o.kind) || (newtBack(o) && newtBack(o).ops.some((q) => kinds.has(q.kind))));
       txt = { lib: head + INV_LIB + (has(GLSLRoots.QUAD_N) ? GLSLRoots.ixQuad() : '') + (has(GLSLRoots.RAT_N) ? GLSLRoots.ixRoots() : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
-      invTextCache.set(key, txt);
+      invTextCache.set(srcKey, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }
     const { lib, walker, nr } = txt;
     let vals = null;
     return {
-      ok: true, key, lib, walker, nr, nOps: ops.length, slots: S,
+      ok: true, key, srcKey, lib, walker, nr, nOps: ops.length, slots: S,
       ops: ops.map((o) => ({ kind: o.kind, step: o.step, node: o.node, j: o.j, cell: o.cell })),
       fill(out) {
         if (!vals) {

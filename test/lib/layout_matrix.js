@@ -7,10 +7,10 @@
     { id: '360', w: 360, h: 780, dev: 'phone' }, { id: '390', w: 390, h: 844, dev: 'phone' }, { id: '412', w: 412, h: 915, dev: 'phone' },
     { id: '740x360', w: 740, h: 360, dev: 'phone' }, { id: '915x412', w: 915, h: 412, dev: 'phone' },
     // (the short landscape phones that fold the construction chip: a state lists them in its `sizes`, the others do not run there)
-    { id: '568x320', w: 568, h: 320, dev: 'phone', only: true }, { id: '640x360', w: 640, h: 360, dev: 'phone', only: true }, { id: '667x375', w: 667, h: 375, dev: 'phone', only: true },
+    { id: '568x320', w: 568, h: 320, dev: 'phone', only: true }, { id: '600x320', w: 600, h: 320, dev: 'phone', only: true }, { id: '640x360', w: 640, h: 360, dev: 'phone', only: true }, { id: '667x375', w: 667, h: 375, dev: 'phone', only: true },
     { id: '1024', w: 1024, h: 768, dev: 'desktop' }, { id: '1280', w: 1280, h: 800, dev: 'desktop' }, { id: '1440', w: 1440, h: 900, dev: 'desktop' },
   ];
-  // the states: name, dev (phone or desktop only), views (the views it is in), page (a suffix of the page's URL: the state has its own page load), checks (the checks that count in it; all when absent), why (a page expression that tells what the page is at when the state does not open), go (a page script), click (a button's id),
+  // the states: name, dev (phone or desktop only), views (the views it is in), page (a suffix of the page's URL: the state has its own page load), seed (the scene that page load starts from, as the page's saved state), checks (the checks that count in it; all when absent), why (a page expression that tells what the page is at when the state does not open), go (a page script), click (a button's id),
   // key, run (an async function with the daemon's helpers), sizes (the sizes it is measured at; all when absent), after (a page script that puts the page back), wait (ms), ready (a page expression that is true once the state is drawn, polled up to 15 s). A menu's ready is
   // that a layer (test/lib/layout.js INTENT.layers) is open
   const LAYER = `__layout.openLayers().length > 0`;
@@ -91,6 +91,40 @@
       // (what the page is at when it does not open: told in the report's skipped list)
       why: `(() => { const c = document.getElementById('draftChipL'), t = document.querySelector('#constructTools .tool[data-tool="hyper"]'); return { cls: document.documentElement.className.slice(0, 60), wh: innerWidth + 'x' + innerHeight, tool: !!t, on: !!t && t.classList.contains('on'), chip: !!c, hidden: !!c && c.hidden, x: !!(c && c.querySelector('.cm-x')), words: c && c.querySelector('.cm-t') ? c.querySelector('.cm-t').getClientRects().length : -1, ctx: !!document.querySelector('.ph-ctx.in') }; })()`,
       after: `document.querySelector('#draftChipL .cm-x')?.click()` },
+    // (#2418: the open key of Look down and the Stack on a short landscape phone: M3 z³ − 1.2z + 0.3 with a disc on w₁ (the scene's own page load, `seed`), the disc selected, the
+    // Stack, the key unfolded. The one check that counts is that the key shows all it holds, its marks and the connector switch, where its room is 130 px at 320 tall)
+    { name: 'stack key open', dev: 'phone', views: ['steps'], page: '&seed=stack-key', sizes: ['360', '568x320', '600x320', '740x360'], checks: ['scroll-cut'], wait: 900,
+      seed: { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 70 }, steps: [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }],
+        shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }] },
+      run: async () => {
+        await settled({ only: true, max: 40000, until: `typeof __cmwSteps === 'function' && __cmwSteps().ready.ready && __cmwSteps().i === 0` });
+        await ev(`__cmwSelect('d'), 1`);
+        await settled({ only: true, max: 20000, until: `typeof __cmwLookDown === 'function' && !!__cmwLookDown()` });
+        await ev(`__cmwSteps({ surf: 'stack' }), 1`);
+        await settled({ only: true, max: 30000, until: `__cmwSteps().surf === 'stack' && !!__cmwStack().drawn && !!__cmwStack().drawn.tubes` });
+        await ev(`(() => { const b = document.querySelector('#plotL .ld-key > button.ld-ttl'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); return 1; })()`);
+      },
+      ready: `(() => { const k = document.querySelector('#plotL .ld-key'); return !!k && !k.classList.contains('folded') && !!k.querySelector('.ld-links'); })()`,
+      why: `(() => { const k = document.querySelector('#plotL .ld-key'); return { key: k ? k.className : null, surf: __cmwSteps().surf, tubes: !!(__cmwStack().drawn && __cmwStack().drawn.tubes) }; })()`,
+      after: `(() => { __cmwSteps({ surf: 'plane' }); __cmwSelect(null); return 1; })()` },
+    // (a pane head's open pop-ups, in the desk sizes: placed from the head's right edge, under the head, against the Inspector's column: the Regions pop-up of the classic X → Y head,
+    // and the ⋯ Display options pop-up of the head that has one. Each is ready once the pop-up is connected, laid out and its button pressed; the state is closed with its button)
+    { name: 'head regions pop-up', dev: 'desktop', views: ['classic'], page: '&view=classic', sizes: ['1024', '1280', '1440'], wait: 600,
+      run: async () => {
+        await settled({ only: true, max: 20000, until: `!!document.querySelector('#paneL .pane-head .pat-btn')` });
+        await ev(`document.querySelector('#paneL .pane-head .pat-btn').click(), 1`);
+      },
+      ready: `(() => { const b = document.querySelector('#paneL .pane-head .pat-btn'), p = document.querySelector('.pat-pop'); return !!b && b.getAttribute('aria-expanded') === 'true' && !!p && p.getClientRects().length > 0 && document.getAnimations().length === 0; })()`,
+      why: `(() => { const b = document.querySelector('#paneL .pane-head .pat-btn'); return { btn: !!b, pressed: !!b && b.getAttribute('aria-expanded'), pop: !!document.querySelector('.pat-pop') }; })()`,
+      after: `(() => { const b = document.querySelector('#paneL .pane-head .pat-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()` },
+    { name: 'head display options pop-up', dev: 'desktop', sizes: ['1024', '1280', '1440'], wait: 600,
+      run: async () => {
+        await settled({ only: true, max: 20000, until: `!![...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getClientRects().length)` });
+        await ev(`[...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getClientRects().length).click(), 1`);
+      },
+      ready: `(() => { const p = document.querySelector('.disp-pop'), b = [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getAttribute('aria-expanded') === 'true'); return !!b && !!p && p.getClientRects().length > 0 && document.getAnimations().length === 0; })()`,
+      why: `(() => ({ btns: [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].map((e) => e.getClientRects().length > 0), pop: !!document.querySelector('.disp-pop') }))()`,
+      after: `(() => { const b = [...document.querySelectorAll('.pane-head .opts-btn:not(.pat-btn)')].find((e) => e.getAttribute('aria-expanded') === 'true'); if (b) b.click(); return 1; })()` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
     { name: 'chain of 4', run: grow, wait: 1500, ready: GROWN, after: SHRINK },
     // (the palette and the phone's sheets are also checked over a four-step chain, the longer chain they must fit)
@@ -153,6 +187,9 @@
       await size(mine[0]);
       await theme(false);
       const ns = `lay-${lang}-${view}-${dev}-${Date.now() % 1e6}`;
+      // (a state that names a `seed` has its page load seeded with that scene: the page's storage written from the helpers page, on the same origin)
+      const seeded = states.find((s) => (s.page || '') === page && s.seed);
+      if (seeded) { await go(url.replace(/[^/]*$/, 'gl-helpers.html')); await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(seeded.seed))}); 1`); }
       await go(`${url}?ns=${ns}${lang === 'en' ? '' : '&lang=' + lang}${view === 'steps' ? '&view=steps' : ''}${page}`);
       await sleep(4500);
       if (view === 'steps' && !(await ev(`document.documentElement.classList.contains('sv')`))) { skipped.push(`${lang} steps ${dev}: this build has no ?view=steps`); continue; }

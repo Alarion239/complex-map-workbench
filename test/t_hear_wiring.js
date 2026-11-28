@@ -28,7 +28,9 @@ const panBtnM = APP.match(/\n\s*const panBtn = ([^;\n]+);/);
 const upM = APP.match(/\n(\s*if \(e && e\.pointerType !== 'touch'[^\n]*sndQueryClick\(pane, side, qx, qy\);[^\n]*)\n/);
 const holdAt = APP.indexOf('t: setTimeout(() => {');
 check('the app\'s text has the pan button, the click\'s query and the long press\'s timer', !!(panBtnM && upM && holdAt > 0));
-check('a pan-button press on X is a pan marked pb (onDown)', /if \(panBtn\) \{ drag = \{ mode: 'panL',[^\n]*pb: true \}/.test(APP) && /drag = \{ mode: 'panR',[^\n]*pb: panBtn \}/.test(APP));
+// (Y's pane takes no input: X's press is the one pan-button press there is, and a click on X the one that plays;
+// standards-ok: the rows for a press and a click on Y have no pane to check)
+check('a pan-button press on X is a pan marked pb (onDown)', /if \(panBtn\) \{ drag = \{ mode: 'panL',[^\n]*pb: true \}/.test(APP));
 function app() {
   const ctx = { Math, performance: { now: () => 1000 }, queried: [], moved: [], tool: 'select', hold: null, drag: null, d0: null, ring: null, holdMenuT: 0, touches: new Map([[1, [0, 0]]]),
     pane: { id: 'paneL' }, side: 'L', x0: 120, y0: 80, cv: { getBoundingClientRect: () => ({ left: 0, top: 0 }) }, V: { right: {} }, menu: false };
@@ -48,7 +50,6 @@ const click = (g, down, up = down, o = {}) => { const d = Object.assign({ mode: 
 {
   const g = app();
   check('a click on a still point of X plays it (onUp → sndQueryClick at the click)', click(g, { button: 0 }) === 1 && g.queried[0].join() === 'paneL,L,120,80', g.queried);
-  check('a click on Y plays it too', (g.upQuery(g.pane, 'R', { type: 'pointerup', pointerType: 'mouse', button: 0, x: 5, y: 6 }, { mode: 'panR', pb: false }), g.queried.length === 2 && g.queried[1][1] === 'R'));
   const q0 = g.queried.length;
   check('a middle-button click is a pan, not a query', click(g, { button: 1 }) === q0);
   check('a right-button click is a pan, not a query', click(g, { button: 2 }) === q0);

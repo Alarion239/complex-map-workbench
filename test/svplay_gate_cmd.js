@@ -89,17 +89,37 @@ await settled({ max: 14000, only: true, until: '!!document.querySelector("#toast
 const hung = await ev('Array.from(document.querySelectorAll("#toastHost .toast button")).map((b) => b.textContent)');
 info.hung = hung;
 ok('after 10 s: the message offers Retry and Cancel', hung.includes('Retry') && hung.includes('Cancel'), hung);
+// (a dialog that opens takes the message away; the message says what the wait is, so it is back once the dialog
+// closes, with the wait still on)
+await key('e', 2);
+const dlgOpen = await settled({ max: 20000, only: true, until: '!!document.querySelector(".modal-bg")' });
+ok('a dialog that opens over the wait takes its message away', dlgOpen.ok && !(await ev('!!document.querySelector("#toastHost .toast")')), dlgOpen);
+await key('Escape');
+await settled({ max: 5000, only: true, until: '!document.querySelector(".modal-bg")' });
+const back = await settled({ max: 2000, only: true, until: '!!document.querySelector("#toastHost .toast:not(.toast-out)")' });
+const backBtns = await ev('Array.from(document.querySelectorAll("#toastHost .toast button")).map((b) => b.textContent)'), backState = await ev(state('.sv-play'));
+info.backAfterDialog = { backBtns, backState };
+ok('the dialog closed: the wait goes on and its message is back with Retry and Cancel', back.ok && backBtns.includes('Retry') && backBtns.includes('Cancel') && backState.busy, { back, backBtns, backState });
 // (the keyboard user acts on the message: the focus goes back to the button the wait is on, never to the page)
-const FOCUS_IN_MSG = (name) => `(() => { const b = Array.from(document.querySelectorAll("#toastHost .toast button")).find((x) => x.textContent === ${JSON.stringify(name)}); if (!b) return false; b.focus(); return document.activeElement === b; })()`;
+const FOCUS_IN_MSG = (name) => `(() => { const b = Array.from(document.querySelectorAll("#toastHost .toast:not(.toast-out) button")).find((x) => x.textContent === ${JSON.stringify(name)}); if (!b) return false; b.focus(); return document.activeElement === b; })()`;
 const FOCUS_ON = (sel) => `(() => { const a = document.activeElement; return a ? a.matches(${JSON.stringify(sel)}) : false; })()`;
 ok('Retry in the message takes the focus', await ev(FOCUS_IN_MSG('Retry')), null);
+// (the live region's writes from Retry on, each with the animation frame it came in: window.__retrySaid)
+await ev('(window.__fr = 0, (function f() { window.__fr++; requestAnimationFrame(f); })(), window.__retrySaid = [], new MutationObserver(() => window.__retrySaid.push({ t: document.querySelector("#stage > .sr-only[aria-live]").textContent, f: window.__fr })).observe(document.querySelector("#stage > .sr-only[aria-live]"), { childList: true, characterData: true, subtree: true }), 1)');
 await key('Enter');
 const retry = await ev(state('.sv-play'));
 ok('after Retry by the keyboard the focus is on Play, which is not "pressed" while it is Cancel', await ev(FOCUS_ON('.sv-play')) && (await ev('document.querySelector(".sv-play").getAttribute("aria-pressed")')) === null, await ev('document.activeElement && document.activeElement.className'));
 info.retry = retry;
 ok('Retry keeps the ring with no gap', retry.busy && retry.ring && retry.label === 'Cancel', retry);
-// the message again after 10 s more: Cancel by the keyboard ends the wait with the focus on Play, whose "pressed" state is back
-await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+// (the wait it restarts says its line again: svGateEnd empties the live region, and the line is written on the gate's next poll)
+await settled({ max: 2000, only: true, until: 'window.__retrySaid.some((w) => w.t === "Preparing the glide…")' });
+const retrySaid = await ev('window.__retrySaid');
+const retryAt = retrySaid.findIndex((w) => w.t === 'Preparing the glide…'), retryEmpty = retrySaid.slice(0, Math.max(0, retryAt)).filter((w) => w.t === '').pop();
+info.retrySaid = retrySaid;
+ok('after Retry the live region says "Preparing the glide…" again: an empty region at least a frame before it (a write a screen reader announces)', retryAt > 0 && !!retryEmpty && retrySaid[retryAt].f > retryEmpty.f, retrySaid);
+// the message again after 10 s more (a message that is not closing: Retry's own fades out for TOAST_OUT_MS): Cancel by the
+// keyboard ends the wait with the focus on Play, whose "pressed" state is back
+await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast:not(.toast-out)")' });
 ok('Cancel in the message takes the focus', await ev(FOCUS_IN_MSG('Cancel')), null);
 await key('Enter');
 const cancelled2 = await ev(state('.sv-play'));
@@ -138,7 +158,7 @@ await section('narrow', 360, 780);
 // the 10 s message at 360 px, in English and Russian: the words on a row of their own and Retry, Cancel and the close
 // button together on the row below (the toast two rows tall, not three), inside the viewport
 // (the toast's most: its padding (6 + 6), the words on two lines of 18 px (Italian at 360 px), one row of 44 px buttons (and, in the phone's plot, its 1 px border either side); the
-// measured heights are 74-76 px in portrait, 58 px on one row. HANG_WAIT_MS: the hang guard's 10 s and the poll's slack; ROW_EDGE_PX: a layout rounds a
+// measured heights are 74-76 px in portrait with a one-line message, 94 px with the part named on two lines, 58 px on one row. HANG_WAIT_MS: the hang guard's 10 s and the poll's slack; ROW_EDGE_PX: a layout rounds a
 // rect's edge to a pixel, so the buttons' top may sit that far above the words' bottom)
 const GATE_TOAST_PAD = 12, GATE_TOAST_WORDS_MAX = 2 * 18, GATE_TOAST_BUTTON_ROW = 44, GATE_HANG_WAIT_MS = 14000, ROW_EDGE_PX = 1, GATE_TOAST_BORDER = 2;
 for (const lang of ['en', 'ru']) {
@@ -149,7 +169,7 @@ for (const lang of ['en', 'ru']) {
   info['gateToast_' + lang] = gt;
   ok(`narrow ${lang}: the 10 s message keeps its buttons on one row`, gt.tops.length === 1, gt);
   ok(`narrow ${lang}: the buttons are below the words`, gt.tops[0] >= gt.wordsBottom - ROW_EDGE_PX, gt);
-  ok(`narrow ${lang}: the message is two rows (words, buttons) and inside the viewport`, gt.bottom - gt.top <= GATE_TOAST_PAD + GATE_TOAST_WORDS_MAX + GATE_TOAST_BUTTON_ROW && gt.left >= 0 && gt.right <= gt.vw && gt.bottom <= gt.vh, gt);
+  ok(`narrow ${lang}: the message is two rows (words, buttons) and inside the viewport`, gt.bottom - gt.top <= GATE_TOAST_PAD + GATE_TOAST_BORDER + GATE_TOAST_WORDS_MAX + GATE_TOAST_BUTTON_ROW && gt.left >= 0 && gt.right <= gt.vw && gt.bottom <= gt.vh, gt);
 }
 
 // a landscape phone (740 x 360) has the room: the words and the buttons share one row (the toast one button row tall), as the
@@ -249,6 +269,36 @@ for (const [tag, press] of [['▶', () => ev(CLICK('.sv-play'))], ['K', () => ke
   info['▶ waits, then K'] = { ended, after };
   ok('▶ waits, then K: the wait ends (Play, not busy)', !ended.busy && ended.label === 'Play' && ended.play === null, ended);
   ok('▶ waits, then K: nothing starts once the chain is prepared', !after.started && after.play === null && !after.anim, after);
+}
+
+// the live region across a change of mind: a write of the text it already holds is not said again, so a swapped wait
+// says "Preparing the glide…" only after a write that differs from it; and a cancelled wait leaves no stale "Preparing the
+// glide…". window.__said records the region's text at each of its mutations
+const SAID = '(window.__said = [], new MutationObserver(() => window.__said.push(document.querySelector("#stage > .sr-only[aria-live]").textContent)).observe(document.querySelector("#stage > .sr-only[aria-live]"), { childList: true, characterData: true, subtree: true }), 1)';
+const LIVE = 'document.querySelector("#stage > .sr-only[aria-live]").textContent';
+const PREP = 'Preparing the glide…';
+{
+  await open(1440, 900);
+  await ev(CLICK('.sv-next'));
+  await settled({ max: 3000, only: true, until: `!!document.querySelector(".sv-next[aria-busy]") && ${LIVE} === ${JSON.stringify(PREP)}` });
+  await ev(SAID);
+  await key('k');
+  await settled({ max: 3000, only: true, until: BUSY });
+  await settled({ max: 2000, only: true, until: `window.__said.length > 0 && window.__said[window.__said.length - 1] === ${JSON.stringify(PREP)}` });
+  const said = await ev('window.__said');
+  const last = said.lastIndexOf(PREP), before = said.slice(0, last), changed = before.some((t) => t !== PREP);
+  info['live: an arrow waits, then K'] = said;
+  ok('live region, an arrow waits, then K: the play\'s "Preparing the glide…" follows a write that differs from it (a screen reader says it again)', last >= 0 && changed, said);
+  ok('live region, an arrow waits, then K: "Preparing the glide…" is said once for the play\'s wait', said.filter((t) => t === PREP).length === 1, said);
+}
+{
+  await open(1440, 900);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: 3000, only: true, until: `${BUSY} && ${LIVE} === ${JSON.stringify(PREP)}` });
+  await esc();
+  const live = await ev(LIVE);
+  info['live: ▶ waits, then Esc'] = live;
+  ok('live region, ▶ waits, then Esc: it no longer reads "Preparing the glide…"', live !== PREP, live);
 }
 
 // a wait ends when another chain is loaded under it (an example, a link, an undo): ▶ or an arrow pressed behind the held

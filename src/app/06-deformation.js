@@ -1,8 +1,6 @@
   // ---------------- the deformation as one picture (notes/ui-design/morph-figure.md 3-6) ----------------
   // One plane holds X (neutral grey), its image (the carried pattern) and the paths t -> H_t(z) of sample points: evenly
   // spaced, from X's boundary first, with equal-time marks (PATHS, pathsGen; notes/paths-aesthetics/AS-BUILT.md).
-  // The figure is printed in the light theme whatever the screen's theme: fixed inks (the light theme's ink-2 and ink).
-  const MF = { srcFillA: 0.07, srcEdgeW: 0.6, dash: '3.2 2.2', outlineInk: '#3E4C56' };
   const morphHasDeriv = () => morphRange().steps.some((k) => isDeriv(k));
   const mDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const segD = (p, a, b) => {
@@ -125,12 +123,13 @@
   // for a new one, which runs in slices off the frame once the chain, the shapes and the view have been still for
   // 150 ms (a scrub, a shape drag, a pan or a zoom never re-choose per frame) and requests a render when it is done.
   // The first selection after opening starts at once.
-  const mfCache = { key: '', vkey: '', v0: null, sel: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null };
+  const mfCache = { key: '', vkey: '', v0: null, sel: null, src: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null, chosen: 0 };
   // The kept start points are points of the plane, not of the screen (a 60 px pan would swap the
   // whole set once the job runs, and during play the paths would pop between sets): a selection stays while the view is
   // within a pan of 30 % of the panel and a zoom of 1.5x of the view it was chosen in, at the same panel size; the
   // frame re-projects its paths. A larger pan or zoom chooses again.
-  function mfViewOk(pane) {
+  // (src: the deformation source; a kept start is tested where it starts, startOf, as the choice tested it)
+  function mfViewOk(pane, src) {
     const a = mfCache.v0, v = pane.view;
     if (!a || a.w !== pane.w || a.h !== pane.h || !(v.s > 0)) return false;
     const r = v.s / a.s;
@@ -138,7 +137,13 @@
     // (a scrub's auto-fit or a pan that leaves more than one kept start out of view chooses again, cross-faded; one such
     // path is drawn clipped meanwhile, with the chevron where it comes in, drawMorphPaths)
     let off = 0;
-    if (mfCache.sel && !pane.globeSel) for (const k of mfCache.sel.kept) { const p = pane.w2s(k.sp.z); if (!(p[0] >= 0 && p[1] >= 0 && p[0] <= pane.w && p[1] <= pane.h) && ++off > 1) return false; }
+    if (mfCache.sel && !pane.globeSel) {
+      const start = startOf(src);
+      for (const k of mfCache.sel.kept) {
+        const w = start(k.sp.z), p = w ? pane.w2s(w) : null;
+        if (!(p && p[0] >= 0 && p[1] >= 0 && p[0] <= pane.w && p[1] <= pane.h) && ++off > 1) return false;
+      }
+    }
     return true;
   }
   // A deformation source: what the paths draw, whichever view shows the deformation. { Fat(T): H_T as a function of z;
@@ -201,14 +206,15 @@
       // (a new set for a moved view, the same chain and shapes (the globe's orbit epoch aside): cross-faded in)
       const base = (q) => q.replace(/"globe\d+"\]$/, '"globe"]');
       mfCache.prev = mfCache.sel && mfCache.key && base(mfCache.key) === base(key) && !!mfCache.sel.globe === globe ? { sel: mfCache.sel, next: sel, t0: performance.now() } : null;
-      mfCache.key = key; mfCache.vkey = vkey; mfCache.v0 = { cx: v.cx, cy: v.cy, s: v.s, w: W, h: Hh }; mfCache.sel = sel; mfCache.rkey = ''; mfCache.rsel = null;
+      mfCache.key = key; mfCache.vkey = vkey; mfCache.v0 = { cx: v.cx, cy: v.cy, s: v.s, w: W, h: Hh }; mfCache.sel = sel; mfCache.src = src; mfCache.rkey = ''; mfCache.rsel = null;
+      mfCache.chosen++;
       requestRender(src.side);
     }).catch((e) => { if (mfCache.job === job) mfCache.job = null; console.error('deformation paths', e); });
   }
   // src: the deformation source (default the classic transport's)
   function morphSelScreen(pane, src = classicSource()) {
     const { key, vkey, m } = mfScreenKey(pane, src);
-    if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane))) {
+    if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane, src))) {
       // (a pending re-choice for a view that has come back within reach is dropped)
       if (mfCache.timer) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
       if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; }
@@ -225,7 +231,7 @@
       else if (!(mfCache.timer && mfCache.want === want)) {
         clearTimeout(mfCache.timer);
         mfCache.want = want;
-        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane))) mfStartJob(pane, key, vkey, src); }, 150);
+        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane, src))) mfStartJob(pane, key, vkey, src); }, 150);
       }
     }
     if (!mfCache.sel) return null;
@@ -234,7 +240,7 @@
     // re-traces made ahead when this is a neighbouring segment's
     if (mfCache.rkey !== key) {
       const a = mfAhead.sel === mfCache.sel && mfAhead.vkey === vkey && mfAhead.akey === src.aheadKey ? mfAhead.done.get(key) : null;
-      mfCache.rkey = key; mfCache.rsel = a || genDrain(mfRetraceGen(pane, mfCache.sel, src, m));
+      mfCache.rkey = key; mfCache.src = src; mfCache.rsel = a || genDrain(mfRetraceGen(pane, mfCache.sel, src, m));
     }
     mfAheadStart(pane, src, vkey);
     return mfCache.rsel;
@@ -294,9 +300,11 @@
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
     const sel = morphSelScreen(mfGlobe.vp, src);
+    // (a kept start is tested where it starts, startOf, as the choice tested it; under a camera that stands still that
+    // place never turns away, so it never chooses again)
     if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp, src).key) {
-      const P = globeSelP(cam, pane.w, pane.h, 0.2);
-      const off = sel.kept.filter((q) => !P(q.sp.z)).length;
+      const P = globeSelP(cam, pane.w, pane.h, 0.2), start = startOf(src);
+      const off = sel.kept.filter((q) => { const w = start(q.sp.z); return !(w && P(w)); }).length;
       if (off > Math.max(1, 0.25 * sel.kept.length)) mfGlobe.epoch++;
     }
     return sel;
@@ -316,7 +324,7 @@
   async function morphSelScreenNow(pane, force) {
     if (force) { mfCache.sel = null; mfCache.key = ''; if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; } }
     const src = classicSource(), { key, vkey } = mfScreenKey(pane, src);
-    if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane))) return mfCache.sel;
+    if (mfCache.sel && mfCache.key === key && (mfCache.vkey === vkey || mfViewOk(pane, src))) return mfCache.sel;
     clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = '';
     mfStartJob(pane, key, vkey, src);
     await mfCache.job.run;
@@ -348,14 +356,8 @@
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
     return {
-      C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, classicSource, cmFormAnchor,
-      compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback,
-      drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
-      lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
-      morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
-      patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
-      resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-      sub, trans, transState, tweens, updateCalcChip,
+      C, PATHS, SegGrid, activeSteps, allAtOnce, capT, classicSource, isDeriv, kindType, lenPx, mDist, mfCache, morph,
+      morphOutline, morphRange, morphState, morphX, rangeParts, requestRender, resamplePx, segD, sheetsShown,
       get S() { return S; },
       get TH() { return TH; },
       get artMode() { return artMode; },
@@ -364,7 +366,6 @@
       get clipWin() { return clipWin; },
       get drag() { return drag; },
       get figMode() { return figMode; },
-      get figVec() { return figVec; },
       get mfDrawn() { return mfDrawn; }, set mfDrawn(v) { mfDrawn = v; },
       get mfGlobeDrawn() { return mfGlobeDrawn; }, set mfGlobeDrawn(v) { mfGlobeDrawn = v; },
       get motionInT() { return motionInT; },
@@ -375,11 +376,11 @@
   const MP = /** @type {any} */ (MorphPaths);
   function pathMarkTimes(...args) { return MP.pathMarkTimes(...args); }
   function pathsGen(...args) { return MP.pathsGen(...args); }
+  function startOf(...args) { return MP.startOf(...args); }
   function retraceShare(...args) { return MP.retraceShare(...args); }
   function pathRetrace(...args) { return MP.pathRetrace(...args); }
   function drawMorphPathsX(...args) { return MP.drawMorphPathsX(...args); }
   function pathsSvg(...args) { return MP.pathsSvg(...args); }
-  function morphFigureLayers(...args) { return MP.morphFigureLayers(...args); }
   function texSegs(...args) { return MP.texSegs(...args); }
   function inlineFrac(...args) { return MP.inlineFrac(...args); }
   function rangeTex(...args) { return MP.rangeTex(...args); }
@@ -387,10 +388,6 @@
   function morphHomSegs(...args) { return MP.morphHomSegs(...args); }
   function pathTimesTex(...args) { return MP.pathTimesTex(...args); }
   function pathMarksTex(...args) { return MP.pathMarksTex(...args); }
-  function morphCaption(...args) { return MP.morphCaption(...args); }
   function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
-  function wKeyAvail(...args) { return MP.wKeyAvail(...args); }
-  function wKeyOn(...args) { return MP.wKeyOn(...args); }
-  function renderRight(...args) { return MP.renderRight(...args); }
 

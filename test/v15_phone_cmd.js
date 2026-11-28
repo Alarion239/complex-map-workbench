@@ -1,8 +1,8 @@
 // The phone layout (src/phone.js + src/phone.css; notes/ui-redesign-2/phone/DESIGN.md, build/phone.md).
 // Checks, at 360 × 780, 390 × 844 and 430 × 932, light and dark, English and Russian: one screen without page scroll
 // or sideways overflow; no control under 44 × 44 on the main screen, in each sheet and in the long-press menu; every
-// task of DESIGN.md 5 the classic phone still reaches, with its tap count; X | Y side by side above an open sheet, the planes resized once, after the
-// sheet's animation; the inset swaps; the long-press menu (menu on release, a zero added exactly, no menu after a
+// task of DESIGN.md 5 the classic phone still reaches, with its tap count; X alone above an open sheet, resized once, after the
+// sheet's animation; the long-press menu (menu on release, a zero added exactly, no menu after a
 // slide); a landscape phone (844 × 390) and a touch tablet (820 × 1180, the desktop tablet layout, unchanged).
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/v15_phone_cmd.js
@@ -48,7 +48,7 @@ const screen = () => ev(`(() => {
   const de = document.documentElement, iw = innerWidth, ih = innerHeight;
   const out = [];
   const vis = (e) => { const s = getComputedStyle(e); return e.getClientRects().length && s.visibility !== 'hidden' && s.display !== 'none' && +s.opacity > 0; };
-  for (const e of document.querySelectorAll('.top *, #secDraw *, .pipe-wrap > :not(#pipeline), .ph-col *, .viewstack *, .chip.readout, .ph-sheet .ph-sh *, .ph-sheet .ph-row, .ph-sheet .ph-srow, .tdock *')) {
+  for (const e of document.querySelectorAll('.top *, #secDraw *, .pipe-wrap > :not(#pipeline), .viewstack *, .chip.readout, .ph-sheet .ph-sh *, .ph-sheet .ph-row, .ph-sheet .ph-srow, .tdock *')) {
     if (!vis(e)) continue;
     const r = e.getBoundingClientRect();
     // (a sheet's body scrolls: what lies below the fold in it is reached by scrolling, as the grouped ⋯ menu's later groups)
@@ -109,7 +109,7 @@ for (const lang of ['en', 'ru', 'it']) for (const dark of [false, true]) for (co
   const a0 = await audit('body');
   info.audit[tag + ' home'] = a0.total;
   // (the floor is the 16 controls the screen has: the chain's cards and F tile are no longer on it)
-  ok(`${tag}: main screen, every control 44 × 44`, a0.n === 0 && a0.total >= 16, a0);
+  ok(`${tag}: main screen, every control 44 × 44`, a0.n === 0 && a0.total >= 14, a0);   // (14: X's controls, the chain bar's and the tool row's; Y's pane is not drawn, #994)
   if (w === 390 || w === 360) {
     await shot(`v15ph-home-${tag}`);
     // each sheet
@@ -133,14 +133,14 @@ await view(390, 844, false, true);
 await loadChain('v15phT');
 const T = async (name, max, fn) => { taps = 0; const r = await fn(); info.taps[name] = taps; ok(`task "${name}": done`, r === true, r); ok(`task "${name}": ${max} taps or fewer`, taps <= max, taps); await closeSheet(); await ev(`document.querySelectorAll('#popHost .pop, .modal-bg').forEach((e) => e.remove())`); await settle(150); };
 await T('Undo (bottom row)', 1, async () => { const n0 = (await st()).shapes; await ev(`__cmwShapes && 0`); await ev(`(() => { document.querySelector('#tools .tool[data-tool="disc"]').click(); })()`); const L = await panes(); await drag(L.L.l + 120, L.L.t + 140, L.L.l + 170, L.L.t + 170, 8, 16); await settle(300); await ev(`document.querySelector('#tools .tool[data-tool="select"]').click()`); const n1 = (await st()).shapes; const y = await ev(`document.querySelector('.ph-undo').getBoundingClientRect().top`); await tap('.ph-undo', 500); const n2 = (await st()).shapes; return (n1 === n0 + 1 && n2 === n0 && y > 760) || { n0, n1, n2, y }; });
-await T('Draw a disc and watch its image', 1, async () => { const n0 = (await st()).shapes; await tap('#secDraw .tool[data-tool="disc"]'); const L = await panes(); await drag(L.L.l + 200, L.L.t + 160, L.L.l + 240, L.L.t + 190, 8, 16); await settle(400); const s = await st(); const ins = await ev(`!!document.querySelector('#paneR.ph-inset') && document.getElementById('paneR').getBoundingClientRect().width > 100`); await ev(`document.querySelector('#tools .tool[data-tool="select"]').click()`); return (s.shapes === n0 + 1 && ins) || { s, ins }; });
+await T('Draw a disc', 1, async () => { const n0 = (await st()).shapes; await tap('#secDraw .tool[data-tool="disc"]'); const L = await panes(); await drag(L.L.l + 200, L.L.t + 160, L.L.l + 240, L.L.t + 190, 8, 16); await settle(400); const s = await st(); await ev(`document.querySelector('#tools .tool[data-tool="select"]').click()`); return s.shapes === n0 + 1 || { s }; });
 // (#363: the regions' fill is the phase, no pattern to choose; their grid lines are the Display sheet's region option)
-await T('Turn the grid lines on regions off', 2, async () => { const l0 = (await st()).lines; await tap('#plotL .ph-dsp', 500); const t = await center(`.ph-sheet label:has(#linesChk)`); if (!t) return 'no Grid lines check'; taps++; await touch(t[0], t[1]); await settle(400); const s1 = await st(); const pn = await panes(); return (s1.lines === !l0 && s1.pattern === 'phase' && pn.L.b <= pn.sheetTop && pn.R && pn.R.w > 150) || { l0, s1, pn }; });
-await T('Drag a shared number and watch X and Y', 3, async () => { await ev(`Params.add('a', { value: 0.5, min: -2, max: 2, step: 0.01 })`); await settle(300); const nm = await ev(`document.querySelector('.ph-nums').textContent`); await tap('.ph-nums', 600); const sl = await ev(`(() => { const e = document.querySelector('#propsPanel input[type=range]'); if (!e) return null; e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return [b.left + 6, b.top + b.height / 2, b.right - 6]; })()`); if (!sl) return 'no slider'; taps++; await drag(sl[0] + (sl[2] - sl[0]) / 2, sl[1], sl[0] + (sl[2] - sl[0]) * 0.8, sl[1], 6, 16); await settle(300); const v = await ev(`Params.get('a')`); const p = await panes(); return (/a/.test(nm) && v !== 0.5 && p.L && p.R && p.L.b <= p.sheetTop) || { nm, v, p }; });
+await T('Turn the grid lines on regions off', 2, async () => { const l0 = (await st()).lines; await tap('#plotL .ph-dsp', 500); const t = await center(`.ph-sheet label:has(#linesChk)`); if (!t) return 'no Grid lines check'; taps++; await touch(t[0], t[1]); await settle(400); const s1 = await st(); const pn = await panes(); return (s1.lines === !l0 && s1.pattern === 'phase' && pn.L.b <= pn.sheetTop) || { l0, s1, pn }; });
+await T('Drag a shared number and watch X', 3, async () => { await ev(`Params.add('a', { value: 0.5, min: -2, max: 2, step: 0.01 })`); await settle(300); const nm = await ev(`document.querySelector('.ph-nums').textContent`); await tap('.ph-nums', 600); const sl = await ev(`(() => { const e = document.querySelector('#propsPanel input[type=range]'); if (!e) return null; e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return [b.left + 6, b.top + b.height / 2, b.right - 6]; })()`); if (!sl) return 'no slider'; taps++; await drag(sl[0] + (sl[2] - sl[0]) / 2, sl[1], sl[0] + (sl[2] - sl[0]) * 0.8, sl[1], 6, 16); await settle(300); const v = await ev(`Params.get('a')`); const p = await panes(); return (/a/.test(nm) && v !== 0.5 && p.L && p.L.b <= p.sheetTop) || { nm, v, p }; });
 // (issue #13: the long-press menu is an object's; a held empty plane opens nothing)
 await T('Hide a shape (long-press it)', 2, async () => {
   // (empty plane below the rectangle s1, then a point of its top edge; the first hold is not part of the task. Not above
-  // it: the disc of "Draw a disc and watch its image", about 0.1 + 3.35i, r 0.96 at this view, covers 0.5 + 2.5i)
+  // it: the disc of "Draw a disc", about 0.1 + 3.35i, r 0.96 at this view, covers 0.5 + 2.5i)
   const pe = await ev(`__cmwPlaneMenu().w2s('L', 0.5, -2.5)`);
   await hold(pe[0], pe[1], 650);
   if (await ev(`!!document.querySelector('#popHost .pop.menu')`)) return 'a menu over empty plane';
@@ -163,7 +163,7 @@ await T('Export a figure (to the dialog)', 3, async () => { await tap('#hdrMoreB
 await ev(`(() => { const b = document.querySelector('.modal.xf .close, .modal.xf [aria-label="Close"]'); if (b) b.click(); document.querySelectorAll('.modal-bg').forEach((e) => e.remove()); })()`); await settle(300);
 await T('Turn on sound', 2, async () => { await tap('#hdrMoreBtn', 450); await tap('.ph-sheet .ph-switch', 300); const on = await ev(`document.querySelector('.ph-sheet .ph-switch').getAttribute('aria-checked')`); await ev(`document.querySelector('.ph-sheet .ph-switch').click()`); return on === 'true' || on; });
 await T('Load an example', 3, async () => { await tap('#hdrMoreBtn', 450); const rows = await ev(`[...document.querySelectorAll('.ph-sheet .ph-row')].map((b) => b.textContent)`); const i = rows.findIndex((t) => /Examples/.test(t)); await tap(`.ph-sheet .ph-row:nth-of-type(${i + 1})`, 900); const n = await ev(`document.querySelectorAll('#popHost .examples .ex-item').length`); const r = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu.examples'); if (!p) return null; const b = p.getBoundingClientRect(); return { l: b.left, r: b.right, b: b.bottom, iw: innerWidth, ih: innerHeight }; })()`); if (!n) return 'no gallery'; const a = await audit('#popHost'); ok('examples gallery: every control 44 × 44', a.n === 0, a); await tap('#popHost .examples .ex-item:nth-of-type(2)', 900); const s = await st(); return (s.steps === 2 && r && r.l >= 0 && r.r <= r.iw + 1) || { s, r }; });
-await T('Swap the planes (tap the inset)', 1, async () => { const b0 = (await st()).ph.big; await tap('#paneR.ph-inset > .ph-swap', 600); const b1 = (await st()).ph.big; const p = await panes(); await tap('#paneL.ph-inset > .ph-swap', 600); taps--; return (b0 === 'L' && b1 === 'R' && p.R.w > 380 && p.L.w <= 120) || { b0, b1, p }; });
+// (standards-ok: Swap the planes went with Y's pane, not drawn since #994; the classic phone shows X alone)
 // (setPref reloads the page: the expression answers a number, as nothing of the page can be read once it has reloaded)
 // (the Russian button reloads the page: the suite waits for the page the reload brings, not for a time, and its own wait after the tap is
 // not one the reload can cut off; the switch back to Auto reloads it again)
@@ -182,7 +182,7 @@ await T('Change language', 2, async () => {
 });
 await nav(URL0 + 'T'); await settle(600);
 
-// ---------- 3. the sheet: X | Y above it, one resize after the animation; the grabber; Esc ----------
+// ---------- 3. the sheet: X above it, one resize after the animation; the grabber; Esc ----------
 await view(390, 844, false, true);
 await loadChain('v15phS', { sel: 3 });
 await ev(`window.__phRO = []; window.__phT0 = 0; const ro = new ResizeObserver((es) => { for (const e of es) window.__phRO.push([e.target.id, Math.round(performance.now() - window.__phT0), Math.round(e.contentRect.width), Math.round(e.contentRect.height)]); }); ro.observe(document.getElementById('canvasL')); ro.observe(document.getElementById('canvasR')); setTimeout(() => { window.__phRO = []; }, 100); 1`);
@@ -193,7 +193,7 @@ const ro = await ev('window.__phRO');
 const p1 = await panes();
 info.sheetResize = ro;
 ok('sheet: the planes resize only after the sheet has slid in (≥ 200 ms), once per plane', ro.length >= 1 && ro.every((r) => r[1] >= 200) && new Set(ro.map((r) => r[0])).size === ro.length, ro);
-ok('sheet: X | Y side by side above it', p1.L && p1.R && Math.abs(p1.L.w - p1.R.w) <= 2 && p1.L.t === p1.R.t && p1.R.l >= p1.L.l + p1.L.w - 1 && p1.L.b <= p1.chain.t + 1 && p1.chain.b <= p1.sheetTop + 1, p1);
+ok('sheet: X alone above it', p1.L && !p1.R && p1.L.b <= p1.chain.t + 1 && p1.chain.b <= p1.sheetTop + 1, p1);
 ok('sheet: the planes keep a useful size', p1.L.h >= 240 && p1.L.w >= 190, p1);
 await shot('v15ph-zp-390-light-en');
 // the editor: Add zero / Add pole 48 px, the step's fields
@@ -207,7 +207,7 @@ await tap('.ph-sheet .ph-grab', 600);
 ok('sheet: the grabber opens the full height, the chain bar on its top edge, nothing covered, focus kept on the grabber', full.top <= 124 && full.bar[0] <= 60 && Math.abs(full.bar[1] - full.top) <= 1 && full.cov.length === 0 && /ph-grab/.test(String(full.focus)), full);
 await key('Escape'); await settle(400);
 const p2 = await panes();
-ok('sheet: Esc closes it and the inset comes back', p2.sheetTop === null && (await ev(`!!document.querySelector('#paneR.ph-inset')`)), p2);
+ok('sheet: Esc closes it, and X has no inset beside it', p2.sheetTop === null && !(await ev(`!!document.querySelector('.ph-inset')`)), p2);
 await grab();
 
 // ---------- 4. landscape phone and a touch tablet ----------
@@ -215,12 +215,12 @@ await view(844, 390, false, true);
 await loadChain('v15phL', { sel: 2 });
 const sL = await screen(), pL = await panes(), aL = await audit('body');
 ok('landscape phone: no page scroll', sL.sh <= sL.ih + 1 && sL.sw <= sL.iw + 1, sL);
-ok('landscape phone: X | Y side by side', pL.L && pL.R && pL.L.w > 300 && pL.R.w > 300 && pL.L.t === pL.R.t, pL);
+ok('landscape phone: X alone, the width of the screen', pL.L && !pL.R && pL.L.w > 600, pL);
 ok('landscape phone: every control 44 × 44', aL.n === 0, aL);
 await shot('v15ph-land-844');
 await ev(`Phone.open('edit'), 1`); await settled({ until: "document.documentElement.classList.contains('ph-sheet-on')", max: 8000 });
 const pL2 = await panes();
-ok('landscape phone: the editor is a side sheet; both planes stay in sight', pL2.L && pL2.R && pL2.L.w > 150 && pL2.R.l + pL2.R.w <= 844 - 359, pL2);
+ok('landscape phone: the editor is a side sheet; X stays in sight', pL2.L && !pL2.R && pL2.L.w > 150 && pL2.L.l + pL2.L.w <= 844 - 359, pL2);
 await shot('v15ph-land-844-edit');
 await closeSheet();
 await view(820, 1180, false, true);

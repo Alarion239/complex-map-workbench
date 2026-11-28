@@ -6,14 +6,9 @@
 // (S, morph's companions, ...) as getters on api, read as A.S and so on.
 const MorphPaths = (() => {
   let A = null;
-  let C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor,
-    compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback,
-    drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
-    classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
-    morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paper,
-    patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
-    resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-    trans, transState, tweens, updateCalcChip;
+  let C, PATHS, SegGrid, activeSteps, allAtOnce, capT, isDeriv,
+    kindType, classicSource, lenPx, mDist, mfCache, morph, morphOutline, morphRange, morphState, morphX,
+    rangeParts, requestRender, resamplePx, segD, sheetsShown;
   // the times of a path's marks: one step (or all at once) has its arrowhead at m/2 (and, in the figure only, where the
   // caption explains them, dots at m/4 and 3m/4); steps one after another have an arrowhead in the middle of each step
   // (t = k - 1/2: never on the corner where the steps meet) and a bar across the path at each step's end inside the
@@ -27,6 +22,15 @@ const MorphPaths = (() => {
     for (let k = 1; k < Tend - 1e-9; k++) nodes.push(k);
     if (!arrows.length) arrows.push(0.5 * Tend);
     return { arrows, dots: [], nodes, seq: true };
+  }
+  // a path's start in the plane: z -> H_0(z), the point where t -> H_t(z) begins (z itself when the source's H_0 is the
+  // identity, src.startId), or null where H_0(z) is not finite. The choice spaces its seeds at their starts (pathsGen),
+  // and a kept choice is tested where its starts are (the flat pane's view check mfViewOk, the globe's epoch
+  // morphSelGlobe), all by this one rule. (src: a deformation source, classicSource or svPathsSource; Fat: its H_T,
+  // pathsGen's cached one)
+  function startOf(src, Fat = src.Fat) {
+    const H0 = src.startId ? null : Fat(0);
+    return (z) => { const w = H0 ? H0(z) : z; return w && CX.isFin(w) ? w : null; };
   }
   // t -> H_t(z), t in [0, Tend], as runs of samples {T, w, p}: N shared uniform times (H_T cached across paths), each
   // gap refined while its chord is over 1.5 px or its midpoint strays over 0.05 px from the chord (screen arclength and
@@ -110,12 +114,12 @@ const MorphPaths = (() => {
     // binned by the screen point of H_0(z). With H_0 = id, the seeds are spaced at z, below)
     const startId = src.startId;
     if (!startId) {
-      const H0 = Fat(0);
+      const start = startOf(src, Fat);
       for (const o of outline) {
         if (X.areas.length && kindType(o.s) !== 'area') continue;
         let prev = null, rem = 0;
         for (let i = 0; i < o.l.length; i++) {
-          const q = o.l[i], z = C(q[0], q[1]), w = H0(z), pp = CX.isFin(w) ? P(w) : null;
+          const q = o.l[i], z = C(q[0], q[1]), w = start(z), pp = w ? P(w) : null;
           if (!pp) { prev = null; rem = 0; continue; }
           const L = prev ? mDist(prev.p, pp) : 0;
           if (prev && L > 0 && L <= 60 * k) {
@@ -140,8 +144,8 @@ const MorphPaths = (() => {
             if (++cnt % 512 === 0) yield;
             const z = C(W0.x0 + (i + 0.5) * (W0.x1 - W0.x0) / Ng, W0.y0 + (j + 0.5) * (W0.y1 - W0.y0) / Ng);
             if (!X.inside(z)) continue;
-            const w = H0(z);
-            if (!CX.isFin(w)) continue;
+            const w = start(z);
+            if (!w) continue;
             const pq = P(w);
             if (!pq || !inPanel(pq)) continue;
             const ci = Math.floor((pq[0] - inner.x0) / sep), cj = Math.floor((pq[1] - inner.y0) / sep), key2 = ci + ',' + cj;
@@ -658,92 +662,6 @@ const MorphPaths = (() => {
     const id = `${o.id || 'mp'}-clip`;
     return `<clipPath id="${id}"><rect x="${f2(clip.x)}" y="${f2(clip.y)}" width="${f2(clip.w)}" height="${f2(clip.h)}"/></clipPath><g clip-path="url(#${id})">${body}</g>`;
   }
-  // X's outline over the moving image (so X never disappears under it): 1 px faint, dashed 4/3 when the set is open
-  const mfOutlineCache = { skey: '', wkey: '', val: null, timer: 0 };
-  function drawMorphOutline(pane, X, Fbase) {
-    const ctx = pane.ctx, win = pane.box();
-    // (X's boundary curves are sampled once per shapes and view, not per frame of the transport; while the view moves
-    // (a pan, a zoom, the auto-fit of a scrub) the last sampling, the same curves in the plane, is re-projected, and
-    // the settled view is sampled anew)
-    const skey = JSON.stringify(X.vis), wkey = [win.x0, win.x1, win.y0, win.y1].join('|');
-    const moving = !!(A.drag || tweens.length || performance.now() - A.motionInT < 150);
-    if (mfOutlineCache.skey !== skey || !mfOutlineCache.val || (mfOutlineCache.wkey !== wkey && !moving)) { mfOutlineCache.skey = skey; mfOutlineCache.wkey = wkey; mfOutlineCache.val = morphOutline(X, win); }
-    else if (mfOutlineCache.wkey !== wkey) { clearTimeout(mfOutlineCache.timer); mfOutlineCache.timer = setTimeout(() => requestRender('R'), 170); }
-    const outline = mfOutlineCache.val;
-    ctx.save();
-    ctx.strokeStyle = A.TH.faint; ctx.lineWidth = 1; ctx.globalAlpha = 0.9;
-    if (X.open) ctx.setLineDash([4, 3]);
-    ctx.beginPath();
-    for (const o of outline) {
-      let pen = false, last = null;
-      for (const q of o.l) {
-        const w = Fbase ? Fbase(C(q[0], q[1])) : C(q[0], q[1]);
-        if (!CX.isFin(w)) { pen = false; continue; }
-        const p = pane.w2s(w);
-        if (pen && last && mDist(p, last) > 60) pen = false;
-        if (pen) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]);
-        pen = true; last = p;
-      }
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  // X's neutral tint (ink at 7 %) under the image, as a pass of the preimage shader with the identity map (z-plane X)
-  function drawXTint(pane, X) {
-    if (!GLR.drawPreimage || !X.areas.length) return;
-    const ink = GLR.hexRGB(A.TH.ink);
-    const targets = X.areas.map((s) => Object.assign({}, s, { color: ink, edge: ink, alpha: MF.srcFillA, width: 0 }));
-    cmFormAnchor([pane.view.cx, pane.view.cy]);
-    try { GLR.drawPreimage({ map: IDENT, view: pane.view, dpr: pane.dpr, targets, ink: A.TH.inkRGB, halo: GLR.hexRGB(A.TH.halo), haloA: 0 }); } catch (e) { console.error('X tint', e); }
-  }
-  // the figure's vector layers of the deformation panel (morph-figure.md 5), in figure px: X's outline and the paths
-  // (pathsSvg, line weights in pt)
-  function morphFigureLayers(sel, P, box, clipId) {
-    const f2 = (v) => (Math.round(v * 100) / 100).toString();
-    const dP = (l) => 'M' + l.map((p) => `${f2(p[0])} ${f2(p[1])}`).join('L');
-    let s = `<defs><clipPath id="${clipId}"><rect x="${f2(box.x)}" y="${f2(box.y)}" width="${f2(box.w)}" height="${f2(box.h)}"/></clipPath></defs>`;
-    // X's outline over the image
-    const ol = sel.pxLines.filter((l) => l.length > 1);
-    if (ol.length) s += `<g clip-path="url(#${clipId})"><path d="${ol.map(dP).join('')}" fill="none" stroke="${MF.outlineInk}" stroke-width="${MF.srcEdgeW}"${sel.X.open ? ` stroke-dasharray="${MF.dash}"` : ''}/></g>`;
-    s += pathsSvg(sel.kept.map((k) => pathItem(k, P, sel.Tend)), { u: 96 / 72, clip: { x: box.x, y: box.y, w: box.w, h: box.h }, id: `${clipId}p` });
-    return { svg: s, labelled: null };
-  }
-  // a kept path for pathsSvg under the projection P (figure px or pt): its runs, the ring at z only where the path
-  // starts there, the end dot only where it reaches t = Tend, its arrowheads and step bars with their directions, its
-  // time dots (pathMarkTimes)
-  function pathItem(k, P, Tend) {
-    const mk = k.mk || {}, runs = k.runs || [];
-    const pr = (w) => (w ? P(w) : null);
-    const dirOf = (m) => { const a = pr(m.a), b = pr(m.b), d = a && b ? mDist(a, b) : 0; return d > 1e-9 ? [(b[0] - a[0]) / d, (b[1] - a[1]) / d] : null; };
-    const lr = runs[runs.length - 1];
-    return {
-      runs: runs.map((r) => r.map((q) => P(q.w))),
-      z: runs.length && runs[0][0].T === 0 ? pr(mk.z) : null,
-      e: lr && lr[lr.length - 1].T >= Tend - 1e-9 ? pr(mk.e) : null,
-      arrows: (mk.arrows || []).map((m) => ({ p: pr(m.w), d: dirOf(m) })),
-      nodes: (mk.nodes || []).map((m) => ({ p: pr(m.w), d: dirOf(m) })),
-      dots: (mk.dots || []).map((m) => pr(m.w)),
-    };
-  }
-  // the geometry of a kept path in the plane: 'segment', 'arc' or 'other' (the caption's path clause, measured)
-  function morphPathShape(z, Tend) {
-    const pts = [];
-    for (let i = 0; i <= 40; i++) pts.push(morphAt(Tend * i / 40)(z));
-    if (!pts.every((p) => CX.isFin(p))) return 'other';
-    const a = pts[0], b = pts[40], L = CX.abs(CX.sub(b, a));
-    if (!(L > 0)) return 'other';
-    const u = CX.scale(CX.sub(b, a), 1 / L);
-    const off = (p) => { const d = CX.sub(p, a); return Math.abs(d.re * u.im - d.im * u.re); };
-    if (pts.every((p) => off(p) < 1e-7 * Math.max(1, L))) return 'segment';
-    const m = pts[20];
-    const ax = a.re, ay = a.im, bx = m.re, by = m.im, cx = b.re, cy = b.im;
-    const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
-    if (Math.abs(d) < 1e-14) return 'other';
-    const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d;
-    const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d;
-    const R = Math.hypot(ax - ux, ay - uy);
-    return pts.every((p) => Math.abs(Math.hypot(p.re - ux, p.im - uy) - R) < 1e-7 * Math.max(1, R)) ? 'arc' : 'other';
-  }
   // inline TeX ($...$) in a phrase -> caption segments
   const texSegs = (str) => String(str).split('$').map((x, i) => (i % 2 ? { m: x } : { t: x })).filter((x) => (x.m != null ? x.m.length : x.t.length));
   // inline maths in a deformation caption (morph-figure.md 5: no inline \frac): \tfrac for a quotient of numbers (and
@@ -921,64 +839,6 @@ const MorphPaths = (() => {
     const q = pathTimesTex(Tend).map((x) => ({ m: `t=${x}` }));
     return capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with small dots at %{q1} and %{q3} and an arrowhead at %{q2}.', { p: { m: 't\\mapsto H_t(z)' }, parts: keptParts(sel), z: { m: z }, end: { m: end }, q1: q[0], q2: q[1], q3: q[2] });
   }
-  // the deformation caption (morph-figure.md 5): generated from the shapes, the chain, the kept set and the measured
-  // geometry of the paths; true of what is drawn. opt.both: the (b) part of the Both figure, after "The deformation
-  // H_t, 0 <= t <= T:", which names the set of (a) instead of repeating it
-  function morphCaption(sel, Tend, opt = {}) {
-    const vis = A.S.shapes.filter((s) => s.visible !== false);
-    let pi = 0;
-    const lineShapes = vis.filter((s) => kindType(s) !== 'point');
-    const shapeList = joinList(lineShapes.map((s) => shapePhrase(s, 0)));
-    const pts = vis.filter((s) => kindType(s) === 'point').map((s) => shapePhrase(s, pi++));
-    const lv = A.S.focus > 1 ? `w_{${A.S.focus - 1}}` : 'z', Fname = A.S.focus === 0 ? 'F' : `f_{${A.S.focus}}`;
-    const Ftex = A.S.focus === 0 ? compositeTexShort() : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
-    const mapM = Ftex ? `${Fname}(${lv})=${Ftex}` : Fname;
-    // the image's fill: the phase of z carried by the map, the one region fill
-    const patWord = capT('coloured by the phase of %{z}', { z: { m: 'z' } });
-    const out = [];
-    const hom = morphHomSegs(Tend);
-    const nSets = lineShapes.length || pts.length;
-    const setSegs = shapeList.length ? shapeList : pts.length ? joinList(pts) : capT('the plane', {});
-    // the same set in the genitive ("the image of ..."): Russian needs the case
-    let pg = 0;
-    const lineGen = joinList(lineShapes.map((s) => shapePhrase(s, 0, 'gen'))), ptsGen = joinList(vis.filter((s) => kindType(s) === 'point').map((s) => shapePhrase(s, pg++, 'gen')));
-    const setGen = lineGen.length ? lineGen : ptsGen.length ? ptsGen : capT('the plane', {}, 'gen');
-    // how X is drawn: its outline over the image (its 7 % tint lies under the image and can be covered by it); points
-    // are the start dots
-    const dashed = vis.some((s) => kindType(s) === 'area' && Region.isOpen(s));
-    const mark = opt.both ? (lineShapes.length ? (dashed ? (nSets > 1 ? $t(', with dashed outlines,') : $t(', with a dashed outline,')) : $t(', outlined,')) : pts.length ? $t(' (dots)') : '')
-      : (lineShapes.length ? (dashed ? $t(' (dashed outline)') : $t(' (outlined)')) : pts.length ? $t(' (dots)') : '') + (nSets > 1 ? $tx('serial', ',') : '');
-    const head = opt.both ? [{ t: nSets > 1 ? $t('the sets of (a)') : $t('the set of (a)') }] : A.S.focus > 1 ? (A.S.focus - 1 === 1 ? capT('The image of %{set} after the first step', { set: setGen }) : capT('The image of %{set} after %{n} steps', { set: setGen, n: String(A.S.focus - 1) })) : cap1(setSegs);
-    const its = nSets > 1 ? $t('their image') : $t('its image');
-    const endM = { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}` : mapM };
-    // (SPEC 8: the 700-character rule: a long bracket caption drops the "for f_k, ..." list first)
-    if (hom.rt && hom.inner && hom.innerShort && hom.inner.length > hom.innerShort.length && captionLatex(hom.segs).length > 360) {
-      const inner = hom.innerShort.map((g) => (g.t != null ? { t: g.t.replace(/:\s*$/, '') } : g));
-      hom.segs = capT('the homotopy %{H}, %{range}, where %{G} is %{inner}', { H: { m: hom.rt.H }, range: { m: `0\\le t\\le ${allAtOnce() ? 1 : morphRange().steps.length}` }, G: { m: 'G_t' }, inner });
-    }
-    if (hom.rt && !opt.both) {
-      // (SPEC 8: with a bracket's pre or post, the start is H_0 = Q o P, not X itself)
-      const mark0 = lineShapes.length ? (dashed ? $t(' (dashed outline)') : $t(' (outlined)')) : pts.length ? $t(' (dots)') : '';
-      out.push(...capT('The images of %{set} under %{start}%{mark} and under %{end} (%{pat}), joined by %{hom}.', { set: setGen, start: { m: hom.rt.qp }, mark: mark0, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
-    } else out.push(...capT('%{head}%{mark} and %{its} under %{end} (%{pat}), joined by %{hom}.', { head, mark, its, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
-    out.push(...wDefSegs(hom.rt));
-    if (sel.kept.length) {
-      let clause = '';
-      if (hom.mobius || hom.segment) {
-        const kinds = new Set(sel.kept.map((k) => morphPathShape(k.sp.z, Tend)));
-        if (!kinds.has('other')) clause = kinds.size === 2 ? $t('; each is an arc of a circle or a segment') : kinds.has('arc') ? $t('; each is an arc of a circle') : $t('; each is a segment');
-      }
-      const q = pathTimesTex(Tend).map((x) => ({ m: `t=${x}` })), mx = pathMarksTex(Tend);
-      const args = { p: { m: 't\\mapsto H_t(z)' }, parts: keptParts(sel), z: { m: hom.rt ? 'H_0(z)=' + hom.rt.qpz : 'z' }, end: { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}(z)` : 'F(z)' }, q1: q[0], q2: q[1], q3: q[2], qa: { m: `t=${mx.arrows}` }, qn: { m: `t=${mx.nodes}` }, clause };
-      // (steps one after another: an arrowhead in the middle of each step, a bar where the steps meet)
-      if (!mx.seq) out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with small dots at %{q1} and %{q3} and an arrowhead at %{q2}%{clause}.', args));
-      else if (mx.nodes) out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa} (the middle of each step) and a bar at %{qn}, where one step ends and the next begins%{clause}.', args));
-      else out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa}%{clause}.', args));
-    }
-    out.push(...patternSegs());
-    if (vis.some((s) => kindType(s) === 'area' && Region.isOpen(s))) out.push({ t: $t(' Dashed boundaries do not belong to the sets.') });
-    return out.map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g));
-  }
   // CPU homotopy at any time T (for trails)
   function morphAt(T) {
     const saved = morph.T;
@@ -987,139 +847,13 @@ const MorphPaths = (() => {
     morph.T = saved;
     return ms.F;
   }
-  // Image with the deformation transport open (morph-figure.md 3): X's neutral tint, the shapes under H_t, X's outline
-  // again over them, the paths t -> H_t(z) (rails, travelled parts, heads); ghost outlines of the start (only for an
-  // unbounded X, which the tint would grey over half the pane) and of the end (dotted, while t < end)
-  function renderMorph(pane) {
-    pane.setView(V.right);
-    paper(pane);
-    const ms = morphState(false);
-    const X = morphX();
-    const m = morphLen();
-    const base = A.S.focus > 0 ? A.S.focus - 1 : 0, end = A.S.focus > 0 ? A.S.focus : nSteps();
-    // (with a bracket the start is H_0 = Q o P, drawn through ms.H0Map; with none, today's stage map, byte for byte)
-    const rg = homRangeOk(), start = A.S.focus > 1 || !!rg;
-    const startMap = rg ? ms.H0Map : stageMap(base), startF = rg ? ms.H0F : stageF(base);
-    if (GLR.ok) {
-      // the tint is X itself (z-plane): at a focused step the start is the image of X at stage base, outlined instead
-      const tint = !start;
-      const ghosts = () => {
-        if (tint && !A.artMode) drawXTint(pane, X);
-        if (A.figMode || A.artMode) return;
-        for (const s of A.S.shapes) {
-          if (s.visible === false || kindType(s) === 'point') continue;
-          const r = shapeGPU(s);
-          if (!r.lineRes) continue;
-          const list = [];
-          if (!tint || !X.bounded) list.push([startMap, startF, [4, 3]]);
-          if (morph.T < m) list.push([stageMap(end), stageF(end), [1, 2]]);
-          for (const [mm, Fm, dash] of list) {
-            const mk = mapKeyOf(mm);
-            GLR.drawLines(r.lineRes, { map: mm, view: pane.view, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(A.TH.faint), alpha: 0.8, cacheKey: `${r.lineKey}|${mk}`, dash, arc: arcOf(r, Fm, mk) });
-          }
-        }
-      };
-      // (the colour key of X's portrait, when its Key switch is on, under the ghosts)
-      const key = wKeyOn() && !A.figMode ? keyUnder(pane) : null;
-      drawScene(pane, ms.map, morph.playing ? null : 'R', { noUnit: A.figMode, cache: !morph.playing, under: key ? () => { key(); ghosts(); } : ghosts, noGrid: !!key, arcF: ms.F, arcKey: `${ms.key}|${A.chainSig[nSteps()]}` });
-    } else noGL(pane);
-    // the morph figure draws the outline, the paths and their labels as vectors (buildFigure); a one-panel figure of
-    // the merged plane (a d/dz step in the chain) draws them as on screen, with no screen-cached paths
-    if ((A.figMode && A.figVec) || A.artMode) return;
-    drawMorphOutline(pane, X, start ? startF : null);
-    const paths = !A.figMode && A.S.morphPaths !== false && !morphHasDeriv();
-    if (paths) {
-      try { drawMorphPathsX(pane, morphSelScreen(pane), ms.F); } catch (e) { console.error('deformation paths', e); }
-    } else {
-      // (Paths off: the point trails from t = 0 to the current t)
-      const ctx = pane.ctx;
-      const steps = Math.max(2, Math.ceil(morph.T * 40));
-      const Fs = [];
-      for (let i = 0; i <= steps; i++) Fs.push(morphAt(morph.T * i / steps));
-      for (const s of A.S.shapes) {
-        if (s.visible === false || kindType(s) !== 'point') continue;
-        const z = C(s.p[0], s.p[1]);
-        ctx.strokeStyle = shapeInk(s).edge; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.25;
-        ctx.beginPath();
-        let pen = false, last = null, prev = null;
-        for (const F of Fs) {
-          const w = F(z);
-          if (!CX.isFin(w)) { pen = false; continue; }
-          const p = pane.w2s(w);
-          if (pen) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]);
-          pen = true; prev = last; last = p;
-        }
-        ctx.stroke();
-        if (prev && last && Math.hypot(last[0] - prev[0], last[1] - prev[1]) > 0.1) {
-          const a = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
-          ctx.beginPath(); ctx.moveTo(last[0], last[1]); ctx.lineTo(last[0] - 4 * Math.cos(a - 0.5), last[1] - 4 * Math.sin(a - 0.5)); ctx.moveTo(last[0], last[1]); ctx.lineTo(last[0] - 4 * Math.cos(a + 0.5), last[1] - 4 * Math.sin(a + 0.5)); ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-    }
-    drawPoints(pane, ms.F, { primes: morphPrimes() });
-    drawRulers(pane, 'R');
-  }
-  // the colour key of X's phase portrait painted under the Y plane (the Key switch in X's legend chip): the
-  // portrait of the identity in the current style, so a colour in X reads off as a value in Y
-  // (one predicate for the switch and the paint: on the landscape and under Cauchy the switch hides, and the key with it)
-  // (merged views: the switch sits in the Phase view's legend; the key shows under Y's plane in X → Y)
-  const wKeyAvail = () => A.S.dc !== 'cauchy';
-  const wKeyOn = () => !!A.S.wKey && wKeyAvail() && A.S.view.main === 'xy' && rImage();
-  function keyUnder(pane) {
-    return () => GLR.drawColorPlot({ map: IDENT, view: pane.view, dpr: pane.dpr, style: A.S.dc, sectors: A.S.sectors || 12, grid: dcGridStep(pane), plane: A.TH.planeRGB, ink: A.TH.inkRGB, dark: A.TH.dark, cauchy: null });
-  }
-  function renderRight() {
-    const pane = A.paneR;
-    layoutFoot(); // re-flows the options strip only when the plot width changed
-    if (rGlobe()) renderSphere(pane);
-    else if (morphOn()) renderMorph(pane);
-    else {
-      pane.setView(V.right);
-      paper(pane);
-      const k = rightStage();
-      const F = trans.k ? transState().F : stageF(k);
-      const key = wKeyOn() && GLR.ok ? { noGrid: true, under: keyUnder(pane) } : null;
-      if (GLR.ok) drawScene(pane, trans.k ? transState().map : stageMap(k), trans.k ? null : 'R', Object.assign({ cache: !trans.k }, key)); else noGL(pane);
-      // a transition draws its homotopy forward; the stage it ends on is drawn inverse: its program compiles meanwhile
-      // (after the chain's forward programs), so the last frame is exact instead of a forward stand-in
-      if (trans.k && GLR.ok) requestInverseFor(stageMap(k));
-      // (the shapes of a later plane: their preimages in this one)
-      if (!trans.k && GLR.ok) stagePullbacks(pane, k);
-      // the w-plane targets: fills (a pass of the preimage shader with the identity map), outlines, points
-      if (hasTargets()) {
-        const areas = preimageTargets(true);
-        if (!drawPullback(pane, IDENT, areas)) fillTargets2D(pane, areas);
-        strokeTargets(pane);
-      }
-      // (the image of X's view rectangle: only X Plane has one; the globe shows all of X, the landscape a trimmed box)
-      if (A.S.fov !== false && !trans.k && !trans.glide && lFlat()) drawFov(pane, focusF());
-      if (!trans.k) drawCutBanks(pane, k);
-      drawChevrons(pane, F, trans.k ? undefined : k);
-      if (A.S.focus > 0) drawCuts(pane, k, false, true);
-      drawPoints(pane, F, { primes: k, k: trans.k ? undefined : k });
-      if (!trans.k) { updatePre('R', pane, k); drawPre(pane, 'R', k); }
-      if (hasTargets()) drawPoints(pane, (z) => z, { list: A.S.targets, target: true });
-      drawRulers(pane, 'R');
-    }
-    const er = $('emptyRight');
-    if (er) {
-      const show = !A.S.steps.length && rImage();
-      if (show && !er.firstChild) er.append(h('span', null, $t('Add a function to map the region')), h('button', { class: 'btn primary small', 'data-tip': $t('Add a function to map the region'), onclick: (e) => openPalette(e.currentTarget, A.S.steps.length, { fnOnly: true }) }, $t('Add function')));
-      // (in Y's head the title is fitted with the button in place, so its role is whole, short or gone)
-      if (er.hidden === show) { er.hidden = !show; if (er.parentNode && /** @type {HTMLElement} */ (er.parentNode).classList.contains('pane-head')) fitTitle('R'); }
-    }
-    updateCalcChip();
-  }
-
   function init(api) {
     A = api;
-    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, trans, transState, tweens, updateCalcChip } = api);
+    ({ C, PATHS, SegGrid, activeSteps, allAtOnce, capT, isDeriv, kindType, classicSource, lenPx, mDist, mfCache, morph, morphOutline, morphRange, morphState, morphX, rangeParts, requestRender, resamplePx, segD, sheetsShown } = api);
   }
-  return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, pathsSentence, morphCaption, morphAt, wKeyAvail, wKeyOn, renderRight };
+  return { init, pathMarkTimes, pathsGen, startOf, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, pathsSentence, morphAt };
 })();
-import { $, DEG, TAU, h } from './util.js';
+import { DEG, TAU } from './util.js';
 import { CX } from './cx.js';
 import { Region } from './region.js';
-import { GLR } from './gl.js';
 export { MorphPaths };

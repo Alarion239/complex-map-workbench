@@ -116,44 +116,103 @@ for (const [show, z0] of [['both', [0.55, 0.3]], ['both', [1.9, 0.45]], ['out', 
 const LATE_LINK_MS = 2500, SWITCH_FRAMES = 40, SWITCH_MS = 60000;
 const SWITCH_PTS = [[1.6, 0.4], [-1.5, -0.6], [0.3, -1.4], [1.3, 1.1], [-1.2, 1.2]];
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${LATE_LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
-await open(Object.assign({}, stateId, { dc: 'phase' }));
-await ev('(__cmwSteps({ T: 0 }), 1)');
-await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
-const phaseOut = await pixels(SWITCH_PTS);
-await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
-// (the Play gate off: the hold of the glide that has started waits on plane z, which this leg watches; the gate's waits are svplay_gate_cmd.js's)
-await ev('(__cmwSteps({ T: 0, go: 1, gate: false }), 1)');
-const seen = [];
-for (let i = 0; i < SWITCH_FRAMES; i++) seen.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
-await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
-const finalOut = await pixels(SWITCH_PTS);
-await parkAt(0);
-const plotOut = await pixels(SWITCH_PTS);
-const blankAt = (f) => f.px.every((p) => !coloured(p));
-const finalAt = (f) => f.px.every((p, k) => !differ(p, finalOut[k]));
-info.switch = { phaseOut, finalOut, plotOut, links: await ev('JSON.stringify(window.__lateLinks || null)'), frames: seen.map((f) => [f.x, blankAt(f) ? 'blank' : finalAt(f) ? 'final' : f.px.map((p) => p.slice(0, 3).join(',')).join(' ')]) };
-ok('switch: the links were late (the control: a link reads not complete for a while)', /"early":[1-9]/.test(info.switch.links), info.switch.links);
-ok('switch: plane 1 at rest is plane z\'s Cauchy plot at the points outside the circle', SWITCH_PTS.every((_, k) => !differ(finalOut[k], plotOut[k])), info.switch);
-ok('switch: negative control: those points\' colour before the switch (the stages\' colour) is not the Cauchy colour', SWITCH_PTS.some((_, k) => differ(phaseOut[k], finalOut[k])), info.switch);
-ok('switch: the thread reached plane 1 within the frames sampled', seen.some((f) => f.x === 1), info.switch.frames);
-ok('switch: every frame past z is the final picture (never blank, never the stages\' colour)', seen.every((f) => f.x === 0 || finalAt(f)), info.switch.frames);
-ok('switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', seen.every((f) => f.x !== 0 || !blankAt(f)), info.switch.frames);
-// The same switch and step with the Play gate on (the page's default): the press waits for the prestart and starts no glide, and
-// plane z, which the wait leaves on the screen, is still drawn (the late-link stand-in or the final picture, as the held glide's
-// frames are above), never blank; the glide then reaches plane 1 once the programs have linked
-await open(Object.assign({}, stateId, { dc: 'phase' }));
-await ev('(__cmwSteps({ T: 0 }), 1)');
-await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
-await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
-await ev('(__cmwSteps({ T: 0, go: 1 }), 1)');
-const gated = [];
-for (let i = 0; i < SWITCH_FRAMES; i++) gated.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
-await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
-const gatedOnZ = gated.filter((f) => f.x === 0);
-info.gated = { frames: gated.map((f) => [f.x, f.px.every((p) => !coloured(p)) ? 'blank' : 'drawn']), onZ: gatedOnZ.length, blank: gatedOnZ.filter((f) => f.px.every((p) => !coloured(p))).length };
-ok('gated switch: the press waits on plane z for the links (the control: the thread is on z for some of the frames sampled)', gatedOnZ.length > 0, info.gated);
-ok('gated switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', info.gated.blank === 0, info.gated);
-ok('gated switch: the glide reaches plane 1 once the programs have linked', (await ev('__cmwSteps().i')) === 1, info.gated);
+const HOLD_TOL = 6, far = (p, q) => Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2]));
+// (from several previous styles: the held picture is the one the plane had, whichever style it was in)
+for (const prev of ['phase', 'classic', 'grid', 'enhanced']) {
+  await open(Object.assign({}, stateId, { dc: prev }));
+  await ev('(__cmwSteps({ T: 0 }), 1)');
+  await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+  const phaseOut = await pixels(SWITCH_PTS);
+  await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
+  // (the Play gate off: the hold of the glide that has started waits on plane z, which this leg watches; the gate's waits are svplay_gate_cmd.js's)
+  await ev('(__cmwSteps({ T: 0, go: 1, gate: false }), 1)');
+  const seen = [];
+  for (let i = 0; i < SWITCH_FRAMES; i++) seen.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
+  await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+  const finalOut = await pixels(SWITCH_PTS);
+  await parkAt(0);
+  const plotOut = await pixels(SWITCH_PTS);
+  const blankAt = (f) => f.px.every((p) => !coloured(p));
+  const finalAt = (f) => f.px.every((p, k) => !differ(p, finalOut[k]));
+  info.switch = { phaseOut, finalOut, plotOut, links: await ev('JSON.stringify(window.__lateLinks || null)'), frames: seen.map((f) => [f.x, blankAt(f) ? 'blank' : finalAt(f) ? 'final' : f.px.map((p) => p.slice(0, 3).join(',')).join(' ')]) };
+  ok('switch: the links were late (the control: a link reads not complete for a while)', /"early":[1-9]/.test(info.switch.links), info.switch.links);
+  ok('switch: plane 1 at rest is plane z\'s Cauchy plot at the points outside the circle', SWITCH_PTS.every((_, k) => !differ(finalOut[k], plotOut[k])), info.switch);
+  ok('switch: negative control: those points\' colour before the switch (the stages\' colour) is not the Cauchy colour', SWITCH_PTS.some((_, k) => differ(phaseOut[k], finalOut[k])), info.switch);
+  ok('switch: the thread reached plane 1 within the frames sampled', seen.some((f) => f.x === 1), info.switch.frames);
+  ok('switch: every frame past z is the final picture (never blank, never the stages\' colour)', seen.every((f) => f.x === 0 || finalAt(f)), info.switch.frames);
+  ok('switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', seen.every((f) => f.x !== 0 || !blankAt(f)), info.switch.frames);
+  // The same switch and step with the Play gate on (the page's default): the press waits for the prestart and starts no glide, and
+  // plane z, which the wait leaves on the screen, is still drawn (the late-link stand-in or the final picture, as the held glide's
+  // frames are above), never blank; the glide then reaches plane 1 once the programs have linked
+  await open(Object.assign({}, stateId, { dc: prev }));
+  await ev('(__cmwSteps({ T: 0 }), 1)');
+  await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+  await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
+  await ev('(__cmwSteps({ T: 0, go: 1 }), 1)');
+  const gated = [];
+  for (let i = 0; i < SWITCH_FRAMES; i++) gated.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
+  await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+  const gatedOnZ = gated.filter((f) => f.x === 0);
+  info.gated = { frames: gated.map((f) => [f.x, f.px.every((p) => !coloured(p)) ? 'blank' : 'drawn']), onZ: gatedOnZ.length, blank: gatedOnZ.filter((f) => f.px.every((p) => !coloured(p))).length };
+  ok('gated switch: the press waits on plane z for the links (the control: the thread is on z for some of the frames sampled)', gatedOnZ.length > 0, info.gated);
+  ok('gated switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', info.gated.blank === 0, info.gated);
+  ok('gated switch: the glide reaches plane 1 once the programs have linked', (await ev('__cmwSteps().i')) === 1, info.gated);
+  // The same switch with no press at all: the thread stays at rest on plane z while the programs of the carried colour link late, and
+  // plane z, drawn by the still core, is the late-link stand-in and then the final picture, never a blank plane. (A press has the glide's
+  // hold to draw plane z; with none, the rest draw has to.)
+  await open(Object.assign({}, stateId, { dc: prev }));
+  await ev('(__cmwSteps({ T: 0 }), 1)');
+  await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+  const before = await pixels(SWITCH_PTS), capBefore = await ev('__cmwLegend().caption');
+  await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
+  const still = [];
+  for (let i = 0; i < SWITCH_FRAMES; i++) still.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), linking: await ev('GLR.pendingLinks'), px: await pixels(SWITCH_PTS), cap: await ev('__cmwLegend().caption'), tip: await ev("document.getElementById('leftLed').getAttribute('data-tip')") });
+  await settled({ until: '!GLR.pendingLinks', max: SWITCH_MS });
+  const after = await pixels(SWITCH_PTS);
+  const stillOnZ = still.filter((f) => f.x === 0);
+  info['still ' + prev] = { frames: still.map((f) => [f.x, f.linking, f.px.every((p) => !coloured(p)) ? 'blank' : 'drawn']), onZ: stillOnZ.length, blank: stillOnZ.filter((f) => f.px.every((p) => !coloured(p))).length };
+  ok(`no-press switch from ${prev}: the links were late (the control: some of the frames sampled were taken with links pending)`, still.some((f) => f.linking > 0), info['still ' + prev]);
+  ok(`no-press switch from ${prev}: the thread stays on plane z (the control: every frame sampled is on z)`, stillOnZ.length === SWITCH_FRAMES, info['still ' + prev]);
+  ok(`no-press switch from ${prev}: every frame on plane z at rest is drawn: the late-link stand-in or the final picture, not a blank plane`, info['still ' + prev].blank === 0, info['still ' + prev]);
+  // (one change, from the picture the plane had to the Cauchy plot: while the Cauchy program links, plane z holds the previous style's
+  // picture, the phase portrait, as it was drawn before the switch, not F's values in the Cauchy style's look)
+  const is = (px, ref) => px.every((p, i) => far(p, ref[i]) <= HOLD_TOL), landed = still.findIndex((f) => is(f.px, after));
+  const held = still.slice(0, landed < 0 ? still.length : landed), changes = still.filter((f, i) => i > 0 && is(f.px, before) !== is(still[i - 1].px, before)).length;
+  info['hold ' + prev] = { before, after, frames: still.length, landed, held: held.length, heldLinking: held.filter((f) => f.linking > 0).length, changes };
+  ok(`no-press switch from ${prev}: the plane had a coloured picture before the switch, and the Cauchy plot differs from it (the controls)`, before.some(coloured) && !is(after, before), info['hold ' + prev]);
+  ok(`no-press switch from ${prev}: until the Cauchy plot lands, plane z holds the picture it had before the switch: one change, from it to the Cauchy plot`, landed > 0 && held.every((f) => is(f.px, before)) && still.slice(landed).every((f) => is(f.px, after)) && held.some((f) => f.linking > 0), info['hold ' + prev]);
+  // (and what the pane says goes with what it shows: the key keeps the held style's caption until the Cauchy plot lands, then reads
+  // "Cauchy integral" (the frame in which it lands is read a moment apart from its pixels: one frame of either is let go); the LED's
+  // tip says the previous picture is shown, never "a quick preview")
+  const QUICK = 'Drawing a quick preview; the exact plot is still being built', PREV = 'Showing the previous picture; the Cauchy plot is still being built';
+  info['hold ' + prev].keys = { before: capBefore, held: [...new Set(held.map((f) => f.cap))], after: [...new Set(still.slice(landed).map((f) => f.cap))], tips: [...new Set(held.map((f) => f.tip))] };
+  ok(`no-press switch from ${prev}: the key keeps the held style's caption until the Cauchy plot lands, and then reads "Cauchy integral"`, held.length > 1 && held.slice(0, -1).every((f) => f.cap === capBefore) && still.slice(landed + 1).every((f) => f.cap === 'Cauchy integral'), info['hold ' + prev]);
+  ok(`no-press switch from ${prev}: while the picture is held the LED's tip says the previous picture is shown, never a quick preview`, held.every((f) => f.tip !== QUICK) && held.some((f) => f.tip === PREV), info['hold ' + prev]);
+}
+// A Cauchy compile that fails does not leave the held picture on the plane for good: the programs linked after the switch fail (a shim
+// over LINK_STATUS, for programs whose link began after window.__failLinks), the frame says why (GLR.frameStatus().error), and plane z
+// shows something other than the picture it held while the link was pending.
+{
+  const fail = await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const P = WebGL2RenderingContext.prototype, lp = P.linkProgram, gp = P.getProgramParameter, bad = new WeakSet(); P.linkProgram = function (p) { if (window.__failLinks) bad.add(p); return lp.call(this, p); }; P.getProgramParameter = function (p, k) { return k === 0x8B82 && bad.has(p) ? false : gp.call(this, p, k); }; })();` });
+  try {
+    await open(Object.assign({}, stateId, { dc: 'phase' }));
+    await ev('(__cmwSteps({ T: 0 }), 1)');
+    await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+    const before = await pixels(SWITCH_PTS);
+    await ev('(window.__failLinks = true, 1)');
+    await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
+    await settled({ until: '!GLR.pendingLinks', max: SWITCH_MS });
+    const w = await settled({ until: '!!GLR.frameStatus().error', max: SWITCH_MS });
+    const gone = await pixels(SWITCH_PTS), err = await ev('String(GLR.frameStatus().error || "")');
+    const tip = await ev("document.getElementById('leftLed').getAttribute('data-tip')"), ledErr = await ev("/\\berr\\b/.test(document.getElementById('leftLed').className)"), noteBox = await ev("__cmwNoteBox('L')");
+    info.failed = { before, gone, err: err.slice(0, 200), wait: w, tip, ledErr, noteBox: !!noteBox };
+    ok('failed Cauchy compile: the frame says it failed (the control: the link did fail)', w.ok && err.length > 0, info.failed);
+    ok('failed Cauchy compile: the note, the red LED and its tip say why and what to do: choose another colour style', !!noteBox && ledErr && tip === `${err} Choose another colour style.`, info.failed);
+    ok('failed Cauchy compile: plane z does not show the picture it held while the link was pending', !gone.every((p, i) => far(p, before[i]) <= HOLD_TOL), info.failed);
+  } finally {
+    await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: fail.identifier });
+  }
+}
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warn') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors or warnings', !errs.length, errs.slice(0, 4).map((x) => String(x.m).slice(0, 300)));
 return { pass: fails.length === 0, fails, info };

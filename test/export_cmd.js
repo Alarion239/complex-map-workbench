@@ -119,19 +119,21 @@ for (const [p, o] of Object.entries(PRESETS)) {
   const r = await build(`svfilm-strip-${p}`, Object.assign({ svPic: 'film' }, o));
   if (r && p === 'article2W') ok('filmstrip: a frame per plane, each titled', r.boxes.filter((b) => b.kind === 'title').length === nPlanes && /The planes along/.test(r.cap), { titles: r.boxes.filter((b) => b.kind === 'title').map((b) => b.tex), planes: nPlanes, cap: r.cap });
 }
-// the classic X -> Y figure: two panels (a) and (b), the open boundaries dashed and the images of the points named A',
+// the classic X -> Y figure: X's panel, the one the view draws (#994), the open boundaries dashed and the points named A,
 // and the Phase view's zeros and poles, which the steps view's one plane does not draw; on a page that asks for the
 // classic view
+// (standards-ok: panel (b), Y's, with its images named A' and its "(a) … (b)" caption, goes with Y's pane, which the
+// classic view does not draw; the one panel's points, boundaries and caption are read here)
 await open('xrexportc', 1440, 900, false, 'classic');
 await ev('__cmwExample(1); 1'); await settle(2200);
 for (const p of ['article1', 'homework']) {
   const r = await build(`xy-strip-${p}`, PRESETS[p]);
   if (r && p === 'homework') {
     ok('homework: open boundaries dashed and said so', /stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /Dashed: boundary not included\./.test(r.cap), r.cap);
-    ok('homework: points named A, A\'', /\$A=0\$/.test(r.cap) && /goes to \$A'\$/.test(r.cap), r.cap);
+    ok('homework: points named A', /\$A=0\$/.test(r.cap), r.cap);
     ok('homework: 1 in margins by default, shrink only', /469\.75pt \\linewidth\\else 469\.75pt\\fi/.test(r.tex), r.tex.slice(0, 300));
   }
-  if (r && p === 'article1') ok('article: solid boundaries, (a) (b)', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /^\(a\) /.test(r.cap) && / \(b\) /.test(r.cap), r.cap);
+  if (r && p === 'article1') ok('article: solid boundaries, one panel (no (a) or (b))', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && !/^\(a\) /.test(r.cap) && !/ \(b\) /.test(r.cap), r.cap);
 }
 await ev(`__cmwSetMain('phase'); 1`); await settled({ until: `__cmwView().main === 'phase'` });
 for (const p of ['article1', 'article2']) {
@@ -299,7 +301,7 @@ if (process.env.CMW_ONLY !== '1-3') {
     ['logsqrt', [CU('\\log(z)+\\sqrt{z}')], /; 10 of the infinitely many sheets are shown \(the window \$k=-2,\\dots,2\$\)\./, /; показаны листы: 10 из бесконечного множества \(окно \$k=-2,\\dots,2\$\)\./, /, 10 sheets, k = −2…2$/],
     ['root30', [RT(30)], /; the sheets \$k=-2,\\dots,2\$ of 30 are shown\./, /; показаны листы \$k=-2,\\dots,2\$ \(всего листов: 30\)\./, /, sheets k = −2…2$/],
     ['powi', [CU('z^{i}')], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
-    // (v16.1 review math-7: a typed near-fraction is not 1/3: a window of its infinitely many sheets)
+    // (a typed near-fraction is not 1/3: a window of its infinitely many sheets)
     ['nearthird', [{ type: 'powa', params: { alpha: '0.333333333', cut: 180, k: 0 } }], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
   ];
   const disc = [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }];
@@ -358,7 +360,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   ok('sheets, steps play across sin: a frame of the glide draws both sheets', !!(sx > 1.15 && sx < 1.9 && sm && sm.drawn && sm.drawn.K === 2), { x: sx, drawn: sm && sm.drawn });
   await ev(`__cmwSteps({ play: false, clock: null }); 1`);
   } else if (!USER5_CLASSIC) {
-  // (v16.1 review math-6) √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
+  // √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
   await loadSt(`u5ssv${Date.now()}`, { steps: [RT(2), { type: 'powa', params: { alpha: '2', cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   const sv = await ev('__cmwLandSheets()'), se = await build('u5-sheets-single-article1', { for: 'article' }, []);
   R.u5.caps.single = { ls: sv, en: se && se.cap.slice(-300) };

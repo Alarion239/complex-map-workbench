@@ -65,7 +65,8 @@
     const r = cmSync({ all: true });
     return !!(r && (r.kindChanged.length || r.undefChanged.length));
   }
-  // load (sanitizeState): steps keep uid and zpIds, refs are validated (fallbacks [C29]), one recompute
+  // load (sanitizeState): steps keep uid and zpIds, refs are validated (a ref that finds nothing falls back to the stored
+  // index, notes/constructions-v16/SPEC.md §1.2), one recompute
   function cmLoad(o) {
     const env = cmEnv();
     try {
@@ -75,7 +76,7 @@
       if (v.freed) { /** @type {any} */ (cmLoad).freed = v.freed; cmEmit('loadFreed', { n: v.freed }); }
     } catch (e) { console.error('constructions (load)', e); }
   }
-  // delete shapes through Constr.deletePlan (definitions cascade, bindings are freed [C17]); returns the plan
+  // delete shapes through Constr.deletePlan (definitions cascade, bindings are freed); returns the plan
   function cmDeletePlan(ids) {
     if (!cmOn()) return { del: ids, freed: [], undef: [] };
     const plan = Constr.deletePlan(S, ids);
@@ -154,7 +155,7 @@
       makeFree(id, o = {}) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], !!o.live, true); },   // (live: a pull mid-drag, the release commits)
       // a gesture moved a source (live: a motion frame; the gesture's end calls end())
       moved(changed, o = {}) { cmGesture = cmGesture || !!o.live; const r = cmSync(changed || { all: true }); if (r && r.ids.length) { shapesChanged(!!(r.kindChanged.length || r.undefChanged.length)); targetsChanged(false); } return r; },
-      end() { cmGesture = false; commit(); if (rightAuto && autoFit()) fitRight(); requestRender('L', 'R'); },
+      end() { cmGesture = false; commit(); requestRender('L', 'R'); },
       remove(ids) {
         const plan = cmDeletePlan(ids);
         const del = new Set(plan.del);
@@ -187,8 +188,8 @@
       // the drag in progress; ending it without its release; back to the last undo step (Esc, a second
       // finger: the press state, no step); a sound cue
       drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
-      leftStage, planeShapes, lFlat, targetsEditable, zpStep,
-      yWhole: () => S.focus === 0 && rImage(),
+      leftStage, planeShapes, lFlat, zpStep,
+      yWhole: () => S.focus === 0,
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, nextPointNum, targetLabel,
       nextCi: (target, k = 0) => (target ? TARGET_CI[(S.targets.length + k) % TARGET_CI.length] : (S.shapes.length + k) % 8),   // (the colour newShape will give; k shapes later)
       capPhrase: (s, cs) => shapePhrase(s, 0, cs),   // (a curve named by its maths in a caption)
@@ -271,7 +272,7 @@
     for (const x of S.targets) if (applyBinds(x, big ? null : names)) tg = true;
     if (steps) chainChanged(big, { live: ev.live && !ev.play });
     // the tone under a still pointer follows the new function (a slider, Play, a field, undo): the pathless form, the
-    // nearest turn (notes/sound/DEFORMATION.md, "The hook for v15"); however often it is called, the tone is
+    // nearest turn (notes/sound/DEFORMATION.md, the section on the hook); however often it is called, the tone is
     // re-evaluated once a frame at most (its requestAnimationFrame), together with chainChanged's own report
     if (steps) soundFunctionChanged();
     if (sh || big) shapesChanged(big);

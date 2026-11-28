@@ -6,9 +6,9 @@
 // The engine handle and the shared state (SND, sndP, snd) stay the app's: the rest of the app reads them too.
 const SoundHooks = (() => {
   let A = null;
-  let C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText,
+  let C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, curvePieces, derivIn, drawProbe, exOk, fnText,
     focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState,
-    nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D,
+    nSteps, pickLand, pickSphereLeft, rangeF, rangeKey, rangeParts, render3D,
     requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, svName, toast, touchUI, tourEmit, tourL,
     tourSndMine, updateDraftChips, zerosPolesTimed;
   // the engine's live stream (Sound.hear) once it is there; until then today's harp (each side builds on its own)
@@ -102,7 +102,13 @@ const SoundHooks = (() => {
       const hv = on && s.sonify ? 'on' : 'off';
       if (b.dataset.hear !== hv) { b.dataset.hear = hv; if (hv === 'on') b.setAttribute('aria-description', $t('Hear the function is on')); else b.removeAttribute('aria-description'); }
     }
-    const ph = $('soundPh'); if (ph && ph.hidden === on) ph.hidden = !on;
+    const ph = $('soundPh');
+    if (ph && ph.hidden === on) {
+      // (the bar's button goes while it holds the focus, from a key or a tap: the focus goes to ⋯ beside it, not to the page)
+      const held = !on && document.activeElement === ph;
+      ph.hidden = !on;
+      if (held) { const more = $('hdrMoreBtn'); if (more) more.focus({ preventScroll: true }); }
+    }
     const top = $('top'); if (top) top.dataset.snd = on ? 'on' : 'off';
     const set = (id, k, v) => { const e = $(id); if (e && e[k] !== v) e[k] = v; };
     set('sndOn', 'checked', on); set('sndVol', 'value', String(Math.round(s.vol * 100)));
@@ -195,7 +201,7 @@ const SoundHooks = (() => {
     // and tweens are caught by the view key in sndHover)
     for (const p of [A.paneL, A.paneR]) p.ocanvas.addEventListener('wheel', () => { if (A.sndP.on) snd.gestT = performance.now(); }, { passive: true });
   }
-  const sndRender = () => requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null);
+  const sndRender = () => requestRender('OL', 'OR', lGlobe() || lLand() ? 'L' : null);
 
   // ---- Mathematical events: the deformation ----
   // the swell once per play the user starts, the arrival once per such play (never on loop repeats): the Deformation's
@@ -279,7 +285,7 @@ const SoundHooks = (() => {
   // relief under the needle), picked again as a fresh start, never one stroke across two maps
   function sndVKey(src, needle) {
     const cam = (c) => (c ? `${c.yaw}|${c.pitch}|${c.dist}|${c.tx}|${c.ty}` : '');
-    if (src === 'merged') return `M|${solo()}|${A.paneR.w}|${A.paneR.h}|` + (rGlobe() ? cam(camS) : `${V.right.cx}|${V.right.cy}|${V.right.s}`);
+    if (src === 'merged') return `M|${solo()}|${A.paneR.w}|${A.paneR.h}|${V.right.cx}|${V.right.cy}|${V.right.s}`;
     const sv = sndSvKey();
     if (lLand() || lGlobe()) return `L|${solo()}|${sv}|` + (needle ? A.S.view.main : cam(camOf('L')));
     const v = sndLeftView(); return `P|${solo()}|${sv}|${A.paneL.w}|${A.paneL.h}|${v.cx}|${v.cy}|${v.s}`;
@@ -358,7 +364,7 @@ const SoundHooks = (() => {
   // the point of the probe's plane at CSS px (x, y) of its pane, by the pane's own picker (as sndRepick)
   function sndPickAt(src, x, y) {
     try {
-      if (src === 'merged') { if (rImage()) { A.paneR.setView(V.right); return A.paneR.s2w(x, y); } return pickSphere(A.paneR, camS, x, y); }
+      if (src === 'merged') { A.paneR.setView(V.right); return A.paneR.s2w(x, y); }
       if (lLand()) return pickLand(x, y);
       if (lGlobe()) return typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
       A.paneL.setView(sndLeftView()); return A.paneL.s2w(x, y);
@@ -460,7 +466,7 @@ const SoundHooks = (() => {
   function sndOverlay() {
     const r = snd.rest;
     const sounding = !!sndHear() && sndHear().active();
-    if (!A.sndP.on || !A.sndP.sonify || !r || r.src !== 'merged' || !sounding || A.drag || solo() !== 'R' || !morphOn() || !rImage()) return;
+    if (!A.sndP.on || !A.sndP.sonify || !r || r.src !== 'merged' || !sounding || A.drag || solo() !== 'R' || !morphOn()) return;
     const pane = A.paneR, T1 = morph.T, p = r.z;
     pane.setView(V.right);
     let head = null;
@@ -1398,7 +1404,7 @@ const SoundHooks = (() => {
 
   function init(api) {
     A = api;
-    ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText, focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D, requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, svName, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed } = api);
+    ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, curvePieces, derivIn, drawProbe, exOk, fnText, focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState, nSteps, pickLand, pickSphereLeft, rangeF, rangeKey, rangeParts, render3D, requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, svName, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed } = api);
     // Calc.throughZP / throughZPAlong / ZP_CALLS (SOUND-PLAN 2.2): one implementation, the engine's (Sound.HT, FINAL
     // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
     if (!Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });

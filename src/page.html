@@ -427,14 +427,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .panes > * { min-width: 0; min-height: 0; }
 .panes.solo-L, .panes.solo-R { grid-template-columns: minmax(0, 1fr); }
 .panes.solo-L > #gutterCol, .panes.solo-L > #paneR, .panes.solo-R > #gutterCol, .panes.solo-R > #paneL { display: none; }
-/* the plane an expanded one leaves out: a strip at its edge, named, that brings it back */
 .panes { position: relative; }
-.hidden-strip { position: absolute; top: 50%; translate: 0 -50%; z-index: 4; writing-mode: vertical-rl; padding: 12px 4px; border: 1px solid var(--line); background: var(--surface); color: var(--accent); font: var(--t-label); cursor: pointer; }
-.hidden-strip[hidden] { display: none; }
-.hidden-strip[data-side="R"] { right: 0; border-right: 0; border-radius: var(--r-2) 0 0 var(--r-2); }
-.hidden-strip[data-side="L"] { left: 0; border-left: 0; border-radius: 0 var(--r-2) var(--r-2) 0; }
-:root.ph .hidden-strip { display: none; }
-.gutter { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
+:root.ph .gutter { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
 .gutter-col { cursor: col-resize; }
 .gutter-row { cursor: row-resize; }
 .gutter::after { content: ""; position: absolute; background: var(--line-strong); opacity: 0; transition: opacity var(--t-fast) var(--ease-out); }
@@ -552,7 +546,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 /* (the hold-and-slide line is never cut: it drops to a second line of the chip, whole) */
 .chip.readout:has(> .rteach) { height: auto; white-space: normal; line-height: 20px; padding-top: 2px; padding-bottom: 2px; }
 .chip.readout .rteach { display: inline-block; white-space: nowrap; }
-.plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 164px); }
+.plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - var(--lg-w, 136px) - 28px); }
 /* On a plate narrower than readout + legend (about 560px), the readout takes the full top row and the
    legend drops below it, so the probe values are never cut off. */
 @container pane (max-width: 559px) {
@@ -584,7 +578,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .chip.readout.copied, .chip.readout.copied .rv, .chip.readout.copied .rk { color: var(--accent); }
 .chip.readout:hover { border-color: var(--ink-2); }
 .legend-chip { position: absolute; z-index: 10; top: 8px; right: 8px; padding: 0; line-height: 0; cursor: pointer; overflow: hidden; }
-.legend-chip > canvas { display: block; width: 136px; height: 72px; }
+.legend-chip > canvas { display: block; width: var(--lg-w, 136px); height: 72px; }
 .legend-chip.collapsed { padding: 3px; }
 .legend-chip.collapsed > canvas, .legend-chip.collapsed > .key-sw { display: none; }
 /* the folded chip (touch phones): a glyph of its key, a tap unfolds it */
@@ -753,6 +747,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .ld-key > .ld-links-row { flex: none; display: inline-flex; align-items: center; gap: 8px; }
 .ld-list { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
 .ld-it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* (the Stack, with no tubes where the pieces are not counted: the card's words say why, on a line of their own) */
+.ld-it.ld-why { flex: 1 0 100%; white-space: normal; }
 .ld-sw { display: inline-block; flex: none; box-sizing: border-box; width: 14px; }
 .ld-ring { width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 50%; }
 .ld-line { height: 0; border-top: 1.5px solid var(--ink); }
@@ -785,6 +781,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .sv-tile[hidden], :root:not(.sv) .sv-tile { display: none; }
 .sv-tile > .sv-tile-f { grid-area: 1 / 1; justify-self: start; display: inline-block; }   /* (each its own width: the tile measures it) */
 .sv-tile > .sv-tile-f[hidden] { display: none; }
+.sv-tile > .sv-tile-m { grid-area: 1 / 1; justify-self: start; display: inline-block; }   /* (the morph's frame: its width part way between the two formulas') */
+.sv-tile > .sv-tile-m[hidden] { display: none; }
 /* the draft chip takes the place of the plane's empty chip while a polygon is drafted there */
 .plot:has(> .draft-chip:not([hidden])) > .empty-chip:not(.draft-chip) { visibility: hidden; }
 /* below the legend chip (8 + 72 + 8) when it shows, so the two never overlap on a narrow plate */
@@ -1574,10 +1572,14 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-print[data-open="0"] { display: none; }
   .xf-print[data-open="1"] { display: grid; gap: 10px; }
   .xf-chip { display: none; }
-  .xf-scroll { height: 38svh; }
+  .xf-scroll { height: 38svh; padding-top: 12px; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
-  .xf-hint { white-space: normal; font-size: 11px; line-height: 13px; }
-  .xf-foot .xf-sp { display: none; }
+  /* (the preview's bar is a row of its own above the page, not over it: the buttons on its first line at its right end (a
+     button that does not fit wraps under them, still at the right), the page label on the next line across the bar's
+     width, so a label that wraps grows the bar and never reaches the page) */
+  .xf-bar { position: static; flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; padding: 8px 10px 0; }
+  .xf-bar .xf-hint { order: 1; flex: 1 1 100%; white-space: normal; font-size: 11px; line-height: 13px; }
+  .xf-bar .xf-sp, .xf-foot .xf-sp { display: none; }
   /* (touch targets of 44 px: the destinations, and Cancel while a video is made; the progress row has the name row's place,
      a row of its own, so its meter is not squeezed beside the destinations) */
   .btn.xf-dest { flex: 1 1 0; padding: 0 8px; height: 44px; }
@@ -1922,12 +1924,10 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="ru"] #meshPresets > button:is(:nth-child(2), :nth-child(4))::before { top: -24px; }
 :root[data-lang="ru"] .pal-label { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* the export dialog: the fine-tune labels ("Обрезка", "Панели") need a wider column; "Текст 10 пт" a wider select;
-   the caption-language switch (shown only outside English) sizes its options by their labels; on a phone the preview
-   bar keeps its two buttons and drops the hint (the facts line under the paper says the same) */
+   the caption-language switch (shown only outside English) sizes its options by their labels */
 :root[data-lang="ru"] .xf-fr { grid-template-columns: 64px minmax(0, 1fr); }
 :root[data-lang="ru"] .xf-pair { grid-template-columns: minmax(0, 1fr) 112px; }
 :root[data-lang="ru"] #xfCapLang > button { flex: 1 1 auto; }
-@media (max-width: 560px) { :root[data-lang="ru"] .xf-hint { display: none; } }
 /* the tour's chapter list: Russian chapter names are longer; durations and the step count carry Cyrillic («1,5 мин»,
    «4 из 10»), which stays out of mono (GLOSSARY 3.12) */
 :root[data-lang="ru"] .tour-menu .mi-label { white-space: normal; }
@@ -2091,7 +2091,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
               <div class="options" id="leftFoot" hidden></div>
               <div class="viewstack" role="toolbar" aria-label="Left plane view">
                 <div class="vgroup"><button class="vbtn" id="leftZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="leftZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
-                <div class="vgroup"><button class="vbtn" id="leftFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="leftFitWhy"></button><button class="vbtn" id="leftSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the left plane"></button><button class="vbtn" id="leftSph" aria-pressed="false" aria-label="Sphere" aria-describedby="leftSphWhy"></button></div><span class="sr-only" id="leftSphWhy"></span><span class="sr-only" id="leftFitWhy"></span>
+                <div class="vgroup"><button class="vbtn vb-fit" id="leftFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="leftFitWhy"></button><button class="vbtn vb-sph" id="leftSph" aria-pressed="false" aria-label="Sphere" aria-describedby="leftSphWhy"></button></div><span class="sr-only" id="leftSphWhy"></span><span class="sr-only" id="leftFitWhy"></span>
               </div>
               <div class="empty-chip draft-chip" id="draftChipL" hidden><span>Click the first vertex or press Enter to close</span></div>
               <div class="empty-chip draft-chip note-chip" id="sphereChipL" hidden><span></span></div>
@@ -2121,7 +2121,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
               <div class="options" id="rightFoot"></div>
               <div class="viewstack" role="toolbar" aria-label="Right plane view">
                 <div class="vgroup"><button class="vbtn" id="rightZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="rightZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
-                <div class="vgroup"><button class="vbtn" id="rightFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="rightFitWhy"></button><button class="vbtn" id="rightSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the right plane"></button><button class="vbtn" id="rightSph" aria-pressed="false" aria-label="Sphere" aria-describedby="rightSphWhy"></button></div><span class="sr-only" id="rightSphWhy"></span><span class="sr-only" id="rightFitWhy"></span>
+                <div class="vgroup"><button class="vbtn vb-fit" id="rightFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="rightFitWhy"></button><button class="vbtn vb-sph" id="rightSph" aria-pressed="false" aria-label="Sphere" aria-describedby="rightSphWhy"></button></div><span class="sr-only" id="rightSphWhy"></span><span class="sr-only" id="rightFitWhy"></span>
               </div>
               <div class="empty-chip" id="emptyRight" hidden></div>
               <div class="empty-chip draft-chip" id="draftChipR" hidden><span>Click the first vertex or press Enter to close</span></div>

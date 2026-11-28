@@ -36,7 +36,7 @@
         // every GPU object is gone: forget them and let the app rebuild its meshes
         progs.clear(); tplCache.clear();
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = standInTex = standInKey = ptsTex = rtFbo = null;
-        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
+        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; layers.clear(); invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         reptAccs.clear(); ctxGen++;
         lands.clear(); lastLand = landS = null;
@@ -69,7 +69,7 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; }
+      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; plotHeld = null; }
       invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
@@ -816,7 +816,8 @@
   }
   // st: {map, view, dpr, M, width (device px), color, alpha, casing:{color, alpha, width}, fade, cacheKey, sphere,
   //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}, cpu}
-  // cpu (2D only): () => the map's CPU twin, which evaluates the stand-in while the chain's first version links (stand)
+  // cpu (2D and the globe, not the floor): () => the map's CPU twin, which evaluates the stand-in while the chain's
+  // first version links (stand)
   // arc.data: per segment (in createLines order) the arc length of the mapped curve at the segment start and the
   // segment's length, in plane units (the dash phase follows the curve across pieces and segments).
   function drawLines(res, st) {
@@ -830,7 +831,7 @@
       if (pend) e = null;
       const nameOf = () => (flo ? (ident ? 'lineF' : e ? 'lineFC' : 'lineFM') : sph ? (e ? 'lineSC' : 'lineS') : (ident ? 'line0' : e ? 'lineC' : 'line'));
       let P = pend ? readyProg(nameOf(), st.map, 'tfLine') : program(nameOf(), st.map);
-      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf(), sph || flo ? null : st.cpu))) P = program(nameOf(), st.map);
+      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf(), flo ? null : st.cpu))) P = program(nameOf(), st.map);
       if (!P) return;
       use(P, st.map);
       if (e) bindCache(P, e);
@@ -996,15 +997,28 @@
   // st.standIn: the plot's stand-in while its program links, {x0, y0, h, nx, ny, w}: w = F(z) at the nx x ny nodes, node
   // (i, j) the point (x0 + i h, y0 + j h) with its value at w[2 (j nx + i)] (re, im; a Float32Array). Drawn in the
   // plot's style (the Cauchy style colours F's values as 'enhanced' does), only when the plot's program gives nothing to
-  // draw: the frame in which its link completes draws the plot. st.noValue: only where F has no finite value, its
-  // no-value colour (the NaN hatch, infinity's white), nothing elsewhere, and no stand-in. -> true when the plot or its
-  // stand-in was drawn
+  // draw: first the color program, where it is linked (the Cauchy plot's program compiling: F's values in the same style, no
+  // compile started for it), else the stand-in, else nothing; the frame in which the plot's link completes draws the plot. st.noValue: only where F has no finite value, its
+  // no-value colour (the NaN hatch, infinity's white), nothing elsewhere, and no stand-in. st.hold: the plot the pane drew in the style
+  // before the Cauchy one, {map, style, sectors, grid}: while the Cauchy program links it is drawn again (the color program of its
+  // map, where that is linked), so that the pane changes once, from what it showed to the Cauchy plot, and F's values in the
+  // Cauchy style's look are drawn only where there is none to hold. -> true when the plot or its stand-in was drawn
+  // whether the last colour plot of the frame since begin was drawn from a hold (st.hold): true, or false when it was not; null
+  // when no colour plot was drawn in the frame (colourHeld)
+  let plotHeld = null;
   function drawColorPlot(st) {
     if (!ok) return false;
-    const { cp, cz, pname } = colorPlotOf(st);
+    plotHeld = false;
+    let { cp, cz, pname } = colorPlotOf(st);
     const dpr = st.dpr || 1;
     // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
     let P = program(pname, st.map, st.exact);
+    // (the Cauchy plot's program is still linking: F's values drawn by the color program in the stand-in's style (enhanced), with no compile of
+    // its own started, until the plot's lands; a failed compile is not this: frameErr says so)
+    if (!P && pname !== 'color' && programPending(pname, st.map)) {
+      if (st.hold && (P = programLinked('color', st.hold.map, st.exact))) { st = Object.assign({}, st, st.hold); cp = cz = null; pname = 'color'; plotHeld = true; }
+      else if ((P = programLinked('color', st.map, st.exact))) { cp = cz = null; pname = 'color'; }
+    }
     if (!P) {
       if (!st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
       use(P);
@@ -1038,15 +1052,18 @@
     // colour times the alpha there, the alpha unchanged)
     // (st.alpha < 1: over what the frame holds at that opacity, source-over as a 2D draw at globalAlpha alpha,
     // so a glide's cross-faded plots and the carried colour compose in one frame and reach the page in one copy)
-    const fade = !st.dstAlpha && st.alpha != null && st.alpha < 1;
+    // (st.under: under what the frame holds already, premultiplied destination-over as drawGrid's st.under, so a carried
+    // colour drawn first, front to back, keeps the plots behind it)
+    const fade = !st.dstAlpha && st.alpha != null && st.alpha < 1, under = !st.dstAlpha && !fade && !!st.under;
     if (st.dstAlpha) gl.blendFuncSeparate(gl.DST_ALPHA, gl.ZERO, gl.ZERO, gl.ONE);
     else if (fade) { gl.blendColor(0, 0, 0, st.alpha); gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA); }
+    else if (under) gl.blendFunc(gl.ONE_MINUS_DST_ALPHA, gl.ONE);
     else gl.disable(gl.BLEND);
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND);
-    if (st.dstAlpha || fade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (st.dstAlpha || fade || under) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     return true;
   }
   // which of the frame's channels what follows writes: its alpha alone (a mask of the regions, for drawColorPlot's

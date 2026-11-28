@@ -1,6 +1,6 @@
 // A saved state and a link, each in the fixture files under test/fixtures/, open in the steps view on the same picture:
-// the chain's planes, the place, the colour plane's scope and surface, the selected step, and the right-pane camera kept
-// through a save. The fixtures and where they come from are in test/fixtures/README.md. A command file for a CDP daemon
+// the chain's planes, the place, the colour plane's scope and surface, the selected step; a save drops the
+// right-pane camera. The fixtures and where they come from are in test/fixtures/README.md. A command file for a CDP daemon
 // (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
@@ -40,13 +40,13 @@ const reloadedFigure = (old, toastText) => reloaded(old, `(() => { const t = doc
   const got = await ev(READ);
   info.save = got;
   for (const k of Object.keys(WANT)) ok('save: ' + k, eq(got[k], WANT[k]), { k, want: WANT[k], got });
-  // the right-pane camera the classic save carried comes back in the steps view's own save
+  // the right-pane camera the classic save carried is dropped from the steps view's own save: no view draws Y
   await ev('window.dispatchEvent(new Event("pagehide")); 1');
   const key = JSON.stringify('complex-map-workbench-v1:' + ns);
-  await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && o.rightView); })()` });
-  const rv = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? o.rightView : null; })()`);
+  await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!o && !('rightView' in o); })()` });
+  const rv = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? 'rightView' in o : null; })()`);
   info.rightView = rv;
-  ok('save: rightView kept', eq(rv, SAVE.rightView), rv);
+  ok('save: the right-pane camera (rightView) is dropped', !!SAVE.rightView && rv === false, rv);
 }
 
 return { pass: fails.length === 0, fails, info };

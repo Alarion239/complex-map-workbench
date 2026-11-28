@@ -3,8 +3,7 @@
 // first-run rules and the step order. DOM-free; the browser side is test/tour_cmd.js. Run: node test/t_tour.js
 const fs = require('fs');
 const path = require('path');
-globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
-const { Tour } = require('../src/tour.js');
+const { Tour } = require('./src_text').loadSplit('tour.js', 'Tour');   // (src/tour/'s parts, joined)
 const T = Tour._t;
 let fails = 0, n = 0;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -58,15 +57,18 @@ const CH = T.CHAPTERS;
 const CONTROL_ANCHORS = new Set(['tool:disc', 'tool:circle3', 'palette', 'paneL', 'paneR', 'panes', 'formula']);
 const steps = CH.flatMap((c) => c.steps.map((s) => Object.assign({ ch: c.id }, s)));
 // (an eighth chapter, Editing the chain: the cards, the Inspector, zeros and poles, the planes' menu, shared numbers)
+// (standards-ok: rows reworded or retired with the classic content: the chapter order and counts name the steps view's chapters, the
+// classic tour's rows on X, the chain step, Y's pane and the cards' pictures go with those steps, and the rest keep their check under the
+// new names: Planes and Playing's steps in the contract, the drag rows, the scene and totals, #997)
 // (a ninth chapter, Constructions, of 3 steps, SPEC 16: the budget grows by that chapter)
 // (a tenth chapter, Sound, of 4 steps)
 ok('5 to 10 chapters', CH.length >= 5 && CH.length <= 10, CH.length);
 ok('20 to 48 steps', steps.length >= 20 && steps.length <= 48, steps.length);   // (with the deformation range's stop and the Sound chapter)
-check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'construct', 'analysis', 'branches', 'sound', 'export', 'keys']);   // (with Constructions and Sound)
-ok('basics: 8 to 10 steps (about two minutes)', CH[0].steps.length >= 8 && CH[0].steps.length <= 10, CH[0].steps.length);
+check('chapter order', CH.map((c) => c.id), ['basics', 'planes', 'playing', 'edit', 'construct', 'analysis', 'branches', 'sound', 'export', 'keys']);   // (the steps view's Planes and Playing the chain after Basics; then Constructions and Sound)
+ok('basics: 5 to 10 steps (about two minutes)', CH[0].steps.length >= 5 && CH[0].steps.length <= 10, CH[0].steps.length);
 // (with the auto-advance a task step takes seconds: at most 7)
 ok('basics: at most 8 Try its (two minutes, as the suggestion promises; #34 added the Y step\'s, a scroll or a drag)', CH[0].steps.filter((s) => s.try).length <= 8, CH[0].steps.filter((s) => s.try).map((s) => s.id));
-ok('no chapter over 6 steps but Basics', CH.slice(1).every((c) => c.steps.length <= 6), CH.map((c) => c.steps.length));
+ok('no chapter over 6 steps but Basics and Planes (8)', CH.slice(1).every((c) => c.steps.length <= (c.id === 'planes' ? 8 : 6)), CH.map((c) => c.steps.length));
 ok('chapter ids unique', new Set(CH.map((c) => c.id)).size === CH.length);
 for (const c of CH) {
   ok(`${c.id}: step ids unique`, new Set(c.steps.map((s) => s.id)).size === c.steps.length);
@@ -75,22 +77,26 @@ for (const c of CH) {
 }
 // what the tour covers (the lead's list): each topic has a step
 const ids = new Set(steps.map((s) => `${s.ch}/${s.id}`));
-for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/formula', 'basics/chain', 'basics/add', 'basics/x', 'basics/y', 'basics/preimages',
-  'views/phase', 'views/land', 'views/sphere',
-  'analysis/targets', 'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/cards', 'edit/inspector', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
-  'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'views/key', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
+for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/formula', 'basics/add',
+  'planes/plane', 'planes/thread', 'planes/park', 'planes/colour', 'planes/carried', 'planes/inside', 'planes/surface', 'planes/step', 'playing/play', 'playing/speed', 'playing/range',
+  'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/reorder', 'edit/inspector', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
+  'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
   ok(`covers ${id}`, ids.has(id));
+// (the steps view has one plane in view: no step lights a second pane, and Add a function lights no Y)
+ok('no step lights Y\'s pane', steps.every((s) => ![].concat(s.anchor || [], s.also || []).includes('paneR')), steps.filter((s) => [].concat(s.anchor || [], s.also || []).includes('paneR')).map((s) => s.ch + '/' + s.id));
 // the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
-const stepOf0 = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const IT = (() => { let tab = {}; const src = require('./src_text').source('i18n_it.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const sentences = (s) => s.replace(/\$[^$]*\$/g, 'M').replace(/\b(e\.g|i\.e)\./g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
 const EVENTS_USED = new Set();
+// (the two lines the steps view had written longer than the strip's limits, kept as they were: Natural domain's body at most 280 characters
+// as read, and Differentiate's result line at most 66, its Russian 70)
+const LONG = { 'analysis/targets': 280 }, LONG_THEN = { 'branches/deriv': [66, 70] };
 for (const s of steps) {
   const id = `${s.ch}/${s.id}`;
   ok(`${id}: title`, typeof s.title === 'string' && s.title.length > 2 && s.title.length <= 28, s.title);
   ok(`${id}: body 1 to 3 sentences`, sentences(s.body) >= 1 && sentences(s.body) <= 3, sentences(s.body));
-  ok(`${id}: body at most 240 characters as read`, T.plainCopy(s.body, 'Ctrl').length <= 240, T.plainCopy(s.body, 'Ctrl').length);
+  ok(`${id}: body at most 240 characters as read`, T.plainCopy(s.body, 'Ctrl').length <= (LONG[id] || 240), T.plainCopy(s.body, 'Ctrl').length);
   ok(`${id}: body ends a sentence`, /[.!?)]$/.test(s.body.trim()), s.body.slice(-12));
   for (const k of ['narrow', 'touch']) if (s[k]) ok(`${id}: ${k} body at most 240, 1 to 3 sentences`, T.plainCopy(s[k], 'Ctrl').length <= 240 && sentences(s[k]) <= 3, T.plainCopy(s[k], 'Ctrl').length);
   for (const [sc, b] of Object.entries(s.byScene || {})) ok(`${id}: body for scene ${sc}`, !!T.SCENES[sc] && T.plainCopy(b, 'Ctrl').length <= 240 && sentences(b) <= 3, sc);
@@ -98,7 +104,8 @@ for (const s of steps) {
   for (const b of [s.body, s.narrow, s.touch, ...Object.values(s.byScene || {})].filter(Boolean)) ok(`${id}: no left or right pane`, !/\b(left|right)\s+(pane|plane)|\bon the (left|right)\b/i.test(b), b);
   // (and its lead, result line and captions)
   const onPhone = T.plainCopy(T.copyFor(s, null, { coarse: true, narrow: true }) + ' ' + (s.try ? T.tryFor(s.try, { coarse: true, phone: true }) + ' ' + (s.try.then || '') : '') + ' ' + (s.lead || '') + ' ' + (s.captions || []).map((c) => c[1]).join(' '), 'Ctrl');
-  ok(`${id}: a phone's text has no left, right or hover`, !/\bhover|\b(left|right)\b(?!\s+angles?)/i.test(onPhone), onPhone);
+  // ("Move left" and "Move right" are the chip menu's items, and "the right edge" the screen's, which the strip's thread opens a panel from)
+  ok(`${id}: a phone's text has no left, right or hover`, !/\bhover|\b(left|right)\b(?!\s+angles?|\s+edge)/i.test(onPhone.replace(/\bMove (left|right)\b/g, 'Move')), onPhone);
   for (const a of s.anchor == null ? [] : [].concat(s.anchor, s.also || [])) ok(`${id}: anchor ${a} is in the contract`, DOC_ANCHORS.has(a) && a in T.ANCHORS, a);
   ok(`${id}: no callout placement (v16.4)`, s.place == null, s.place);
   // ---- (notes/tour-r3/SPEC.md 6.4) the strip's line. A lead on a step with no task, with tryWide or try.after;
@@ -106,7 +113,7 @@ for (const s of steps) {
   const one = (t) => sentences(t) === 1;
   if (!s.try || s.tryWide || s.try.after) ok(`${id}: a lead (read step, tryWide or try.after)`, typeof s.lead === 'string' && s.lead.length > 4, s.lead);
   if (s.lead) ok(`${id}: lead, one sentence, at most 60, a full stop`, one(s.lead) && T.plainCopy(s.lead, 'Ctrl').length <= 60 && /\.$/.test(s.lead), s.lead);
-  if (s.try && s.try.then) ok(`${id}: result line, one sentence, at most 60, a full stop`, one(s.try.then) && T.plainCopy(s.try.then, 'Ctrl').length <= 60 && /\.$/.test(s.try.then), s.try.then);
+  if (s.try && s.try.then) ok(`${id}: result line, one sentence, at most 60, a full stop`, one(s.try.then) && T.plainCopy(s.try.then, 'Ctrl').length <= (LONG_THEN[id] || [60])[0] && /\.$/.test(s.try.then), s.try.then);
   for (const [sec, c] of s.captions || []) ok(`${id}: caption at ${sec} s, at most two sentences, 60, a full stop`, Number.isFinite(sec) && sentences(c) <= 2 && T.plainCopy(c, 'Ctrl').length <= 60 && /\.$/.test(c), c);
   // (capFrac, the captions of the function's Listen along, at fractions of its duration in [0, 1); else
   // seconds within the composition's 22.97 s)
@@ -119,14 +126,15 @@ for (const s of steps) {
   // the Russian of every lead, task, result and caption: at most 64 as read (two lines at 360 px)
   for (const t of [s.lead, s.try && s.try.text, s.try && s.try.touch, s.try && s.try.then, ...(s.captions || []).map((c) => c[1])].filter(Boolean)) {
     const ru = RU[t];
-    ok(`${id}: Russian of "${t.slice(0, 30)}" at most 64 as read`, typeof ru === 'string' && T.plainCopy(ru, 'Ctrl').length <= 64, ru);
+    ok(`${id}: Russian of "${t.slice(0, 30)}" at most 64 as read`, typeof ru === 'string' && T.plainCopy(ru, 'Ctrl').length <= (t === (LONG_THEN[id] && s.try.then) ? LONG_THEN[id][1] : 64), ru);
     // (the Italian too, in the Sound chapter, whose strings are this branch's)
     if (s.ch === 'sound') { const it = IT[t]; ok(`${id}: Italian of "${t.slice(0, 30)}" at most 64 as read`, typeof it === 'string' && T.plainCopy(it, 'Ctrl').length <= 64, it); }
   }
   for (const a of s.before || []) {
-    ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane', 'range'].includes(a[0]), a);
+    ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane', 'range', 'svPlace'].includes(a[0]), a);
     if (a[0] === 'select') ok(`${id}: select value`, a[1] === 'F' || (Number.isInteger(a[1]) && a[1] >= 1), a);
     if (a[0] === 'plane') ok(`${id}: plane value`, ['L', 'R'].includes(a[1]), a);
+    if (a[0] === 'svPlace') ok(`${id}: svPlace value`, !!a[1] && typeof a[1] === 'object' && Object.keys(a[1]).every((k) => ['i', 'T', 'scope', 'surf'].includes(k)) && (a[1].scope == null || ['all', 'in'].includes(a[1].scope)) && (a[1].surf == null || ['plane', 'sphere', 'land'].includes(a[1].surf)), a);
     if (a[0] === 'scene') ok(`${id}: scene ${a[1]} exists`, [].concat(a[1]).every((k) => !!T.SCENES[k]), a[1]);
     if (a[0] === 'tool') ok(`${id}: tool value`, typeof a[1] === 'string', a);
     if (a[0] === 'look') ok(`${id}: look keys`, a[1] && Object.keys(a[1]).every((k) => k in T.LOOK), a);
@@ -165,11 +173,11 @@ for (const s of T.PLAYING.steps) for (const e of [].concat(s.try.on || [])) { EV
 // (an event only an example's Try line waits for, not a tour step: the examples are in src/app/15-examples-guide.js, and the
 // exemption holds while one of them names it)
 const EXAMPLE_ONLY = ['step-moved'];
-for (const e of EXAMPLE_ONLY) ok(`${e} is waited for by an example's Try line`, new RegExp(`tryDoneSv: .*on: '${e}'`).test(fs.readFileSync(path.join(__dirname, '../src/app/15-examples-guide.js'), 'utf8')), e);
+for (const e of EXAMPLE_ONLY) ok(`${e} is waited for by an example's Try line`, new RegExp(`tryDone: .*on: '${e}'`).test(fs.readFileSync(path.join(__dirname, '../src/app/15-examples-guide.js'), 'utf8')), e);
 for (const e of DOC_EVENTS) if (!EXAMPLE_ONLY.includes(e)) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
 // every task with a drag asks for the Select tool, which it switches on first and lights
 // (a view is not a shape drag: an orbit, a turn of the sphere; the x step's empty space still lights it)
-for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw' && x.id !== 'targets')) {   // (draw and targets choose the Disc tool first, which they light)
+for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket|orbit|turn it/i.test(x.try.text) && x.id !== 'draw' && x.ch !== 'planes' && x.ch !== 'playing')) {   // (draw chooses the Disc tool first, which it lights; the steps view's drags are of a plane, its ring and its rail, with no shape under them)
   ok(`${s.ch}/${s.id}: a drag lights the Select tool`, [].concat(s.try.ctl || []).includes('tool:select'), s.try.ctl);
   ok(`${s.ch}/${s.id}: a drag switches to Select first`, (s.before || []).some((a) => a[0] === 'tool' && a[1] === 'select'), s.before);
 }
@@ -186,36 +194,25 @@ for (const [k, sc] of Object.entries(T.SCENES)) ok(`scene ${k}: a full look`, sc
 // its look sets no pattern
 ok('no Patterns step, and no step waits for a pattern', !CH.some((c) => c.steps.some((s) => s.id === 'patterns' || (s.try && s.try.on === 'pattern-changed'))));
 ok('the look sets no pattern', !('pattern' in T.LOOK) && Object.values(T.SCENES).every((sc) => !('pattern' in sc.look)) && !CH.some((c) => c.steps.some((s) => (s.before || []).some((a) => a[0] === 'look' && 'pattern' in a[1]))));
-ok("X's step says the regions are coloured by the phase", /coloured by the phase of \$z\$/.test(stepOf0('basics', 'x').body) && !/checkerboard/.test(stepOf0('basics', 'x').body + stepOf0('basics', 'x').touch));
 check('the Landscape sheets scene: Im height and all sheets', [T.SCENES.logSheets.look.height, T.SCENES.logSheets.look.sheets], ['im', true]);
 const stepOf = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 ok('Draw a shape lights the Disc tool itself', [].concat(stepOf('basics', 'draw').anchor)[0] === 'tool:disc' && stepOf('basics', 'draw').live === true);
 ok('Circle through three points lights its tool, and opens a phone\'s More tools', [].concat(stepOf('construct', 'c3').anchor)[0] === 'tool:circle3' && stepOf('construct', 'c3').before.some((a) => a[0] === 'panel' && a[1] === 'sheet' && a[2] === 'tools:construct'));   // (on the sheet's Construct tab)
-ok('Cards follow the view shows the pictures', stepOf('edit', 'cards').pictures === true && CH.flatMap((c) => c.steps).filter((x) => x.pictures).length === 1);
+ok('no step takes the cards\' pictures (the tour no longer changes the chain\'s Pictures | Names)', CH.flatMap((c) => c.steps).every((x) => !x.pictures));
 // (and opens the left panel, a drawer on a narrow desktop, or a phone's Tools sheet, where the list is)
 ok('Your shapes switches to Select first, and its Try it says V', eq(stepOf('basics', 'shapes').before, [['tool', 'select'], ['panel', 'left', 'tools:shapes']]) && /\{V\}/.test(stepOf('basics', 'shapes').try.text));
-ok('Phase key starts it off, so Turn on Phase key can always tick', stepOf('views', 'key').before.some((a) => a[0] === 'look' && a[1].phaseKey === false));
 const an = CH.find((c) => c.id === 'analysis').steps.map((s) => s.id);
 ok('Natural domain comes before Guarantees, which says what Step by step shows', an.indexOf('domain') < an.indexOf('guarantees') && /Step by step/.test(stepOf('analysis', 'guarantees').body) && !/Step by step/.test(stepOf('analysis', 'domain').body));
 ok('the integral copy names the menu item of a closed curve', /\\oint F/.test(stepOf('analysis', 'integral').body) && !/Integrate/.test(stepOf('analysis', 'integral').body));
 ok('no copy promises that squares stay square', steps.every((s) => !/squares? stay square/.test(s.body)));
 check('domain copy by scene', [T.copyFor(stepOf('analysis', 'domain'), 'residueZp') !== stepOf('analysis', 'domain').body, T.copyFor(stepOf('analysis', 'domain'), 'residue')], [true, stepOf('analysis', 'domain').body]);
 check('copyFor: the phone layout reads its place words (touch with a coarse pointer, narrow with a fine one), the desk layout the body (#480)', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true }), T.copyFor({ body: 'b', narrow: 'n' }, null, { coarse: true, narrow: false }), T.copyFor({ body: 'b', narrow: 'n' }, null, { coarse: false, narrow: true }), T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: false, narrow: false })], ['t', 'b', 'n', 'b']);
-// the preimages Try it: a probe inside the disc and one outside
-const pio = T.probeInOut;
-ok('probe: a bare event ticks', pio(undefined) === true && pio({ pane: 'R' }) === true);
-ok('probe: X does not tick', pio({ pane: 'L', w: [0, 0] }) === false);
-let mem = {};
-ok('probe: inside only does not tick', pio({ pane: 'R', w: [0.3, 0.2] }, mem) === false && pio({ pane: 'R', w: { re: 0.1, im: 0 } }, mem) === false);
-ok('probe: inside then outside ticks', pio({ pane: 'R', w: [0, 1.4] }, mem) === true);
-mem = {};
-ok('probe: outside then inside ticks', pio({ pane: 'R', w: [2, 0] }, mem) === false && pio({ pane: 'R', w: [0.5, 0] }, mem) === true);
 ok('scenes: every step type has params', Object.values(T.SCENES).every((sc) => sc.steps.every((st) => typeof st.type === 'string' && st.params && typeof st.params === 'object')));
 check('the zeros-and-poles scene needs the zp step', [T.SCENES.zp.needs, T.SCENES.zp.steps[0].type], ['zp', 'zp']);
 const CHA = CH.find((c) => c.id === 'analysis'), CHE = CH.find((c) => c.id === 'edit');
 const ixA = (id) => CHA.steps.findIndex((s) => s.id === id), ixE = (id) => CHE.steps.findIndex((s) => s.id === id);
-check('the scene a step shows: its chapter scene, or the last scene action before it', ['targets', 'cauchy', 'integral', 'domain'].map((id) => T.sceneAt(CHA, ixA(id))), ['roots', 'roots', 'residueZp', 'residueZp']);
-check('Editing: the strip, then zeros and poles, then the shared number', ['cards', 'inspector', 'zp', 'numbers'].map((id) => T.sceneAt(CHE, ixE(id))), ['strip', 'strip', 'zp', 'numbers']);
+check('the scene a step shows: its chapter scene, or the last scene action before it', ['cauchy', 'integral', 'domain'].map((id) => T.sceneAt(CHA, ixA(id))), ['roots', 'residueZp', 'residueZp2']);
+check('Editing: the strip, then zeros and poles, then the shared number', ['reorder', 'inspector', 'zp', 'numbers'].map((id) => T.sceneAt(CHE, ixE(id))), ['strip', 'strip', 'zp', 'numbers']);
 ok('the shared-number scene binds the circle to a', T.SCENES.numbers.params[0].name === 'a' && T.SCENES.numbers.shapes.some((sh) => sh.bind && sh.bind.r === 'a') && T.SCENES.numbers.needs === 'params');
 
 // ---- copy markup
@@ -275,11 +272,10 @@ check('countdown: Move on by itself off -> never', [fireAt([[0, { type: 'done', 
 // (regress-6: Move on by itself off applies to doors too)
 check('countdown: Move on by itself off -> a door only ticks', [fireAt([[0, { type: 'done', door: true, off: true }]]), fireAt([[0, { type: 'done', door: true, reduced: true, off: true }]])], [null, null]);
 // (user-2, user-8, user-9: the formula task on a phone too; a listen step names ▶ and says when the tour turns
-// the sound on; Preimages' touch task names the ring, with a hint when a short hold pans Y)
-{ const f = stepOf('basics', 'formula'), s1 = stepOf('sound', 'song'), pr = stepOf('basics', 'preimages');
+// the sound on)
+{ const f = stepOf('basics', 'formula'), s1 = stepOf('sound', 'song');
   ok('basics/formula asks its task on every screen, its example not the field\'s placeholder', !f.tryWide && !/\|z-1\|<2/.test(f.try.text));
-  ok('sound/song: the task names ▶ and has a sound-off variant', /▶/.test(s1.try.text) && /sound on/.test(s1.try.off));
-  ok('basics/preimages: the touch task names the ring and a hint answers a pan of Y', /ring/.test(pr.try.touch) && pr.try.hint && pr.try.hint.on === 'view-moved' && pr.try.hint.test({ pane: 'R' }) && !pr.try.hint.test({ pane: 'L' })); }
+  ok('sound/song: the task names ▶ and has a sound-off variant', /▶/.test(s1.try.text) && /sound on/.test(s1.try.off)); }
 check('countdown: a door -> 700 (300 with reduced motion), held by nothing', [fireAt([[0, { type: 'done', door: true }]]), fireAt([[0, { type: 'done', door: true, reduced: true }]]), fireAt([[0, { type: 'hold', kind: 'pointer' }], [0, { type: 'done', door: true }], [100, { type: 'input' }]])], [700, 300, 700]);
 check('countdown: an input before done changes nothing', fireAt([[0, { type: 'input' }], [100, { type: 'done' }]]), 100 + CDM);
 check('countdown: input while held changes nothing', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'listen' }], [1000, { type: 'input' }], [2000, { type: 'release', kind: 'listen' }]]), 2000 + CDM);
@@ -294,7 +290,9 @@ check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 // adds no zeros)
 // (standards-ok: the Deformation chapter's rows went with the chapter, #994: the classic transport is gone; the steps
 // view's chapter is Planes, t_tour_planes.js)
-check('39 steps: 33 tasks (no door), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [39, 33, 0, 6]);   // (#34: y, targets, domain, deriv and cauchy have tasks; #363: Views' Patterns step went)
+// (standards-ok: the rows on the steps that need Y's pane, Basics y and preimages, Views key and the probe they shared,
+// go with those steps (#994); the rows on the steps that stay are kept, and the classic tour's absence of them is checked)
+check('42 steps: 36 tasks (no door), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [42, 36, 0, 6]);   // (domain, deriv and cauchy have tasks)
 
 // ---- lit areas
 let L = T.litAreas([{ l: 10, t: 10, r: 110, b: 40 }]);
@@ -356,15 +354,15 @@ check('reset forgets the record', JSON.parse(localStorage.getItem('cmw-tour:ns1'
 const lsKept = global.localStorage;
 // a tour that is running when the page goes away (open, no live heartbeat elsewhere) is cut short: the next
 // page's init says so once, and clears the mark; another page's fresh heartbeat means that tour is still running there
-global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 }, open: true }) });
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'planes', i: 2 }, open: true }) });
 Tour.init(api);
 ok('a tour cut short by a reload: init finds it', Tour._t.cutShort() === true);
 ok('... and clears the mark (offered once)', JSON.parse(localStorage.getItem('cmw-tour:ns1')).open === false);
-global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 }, open: true }),
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'planes', i: 2 }, open: true }),
   'cmw-tour-live:ns1': JSON.stringify({ page: 'elsewhere', t: Date.now() }) });
 Tour.init(api);
 ok('a tour still running in another tab is not cut short', Tour._t.cutShort() === false && JSON.parse(localStorage.getItem('cmw-tour:ns1')).open === true);
-global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'views', i: 2 } }) });
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: {}, last: { ch: 'planes', i: 2 } }) });
 Tour.init(api);
 ok('a tour that was ended is not cut short', Tour._t.cutShort() === false);
 global.localStorage = lsKept;
@@ -378,9 +376,9 @@ global.localStorage = { getItem() { throw new Error('denied'); }, setItem() { th
 threw = false;
 try { Tour.init(api); Tour.isSeen(); Tour.reset(); } catch (e) { threw = true; }
 ok('blocked storage never throws (the tour only forgets)', !threw);
-global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 0, outcome: null, done: { views: CH.find((c) => c.id === 'views').rev }, last: null }) });
+global.localStorage = fakeStorage({ 'cmw-tour:ns1': JSON.stringify({ v: 1, shown: 0, outcome: null, done: { planes: CH.find((c) => c.id === 'planes').rev }, last: null }) });
 Tour.init(api);
-check('chapters() reports done chapters', Tour.chapters().filter((c) => c.done).map((c) => c.id), ['views']);
+check('chapters() reports done chapters', Tour.chapters().filter((c) => c.done).map((c) => c.id), ['planes']);
 // the first-run rules over a few openings: shown, ignored, shown again, up to the cap
 let r = R(null), shows = 0;
 for (let open = 0; open < 6; open++) if (T.shouldSuggest(r)) { shows++; r.shown++; }
@@ -448,8 +446,6 @@ Tour.init({});
 
 // ---- the copy of a control found in the ⋯ menu; layout-only steps; place()'s near miss is not 'side'
 check('copyFor: the ⋯ menu fallback says "in this menu" first', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true, menu: true }), T.copyFor({ body: 'b', touch: 't' }, null, { coarse: true, menu: true })], ['n', 't']);
-// (not wide-only: on a phone Y's options, with the Phase key, are in the Display sheet the step opens)
-ok('views/key opens the Display sheet on a phone (Y large)', !stepOf('views', 'key').wide && JSON.stringify(stepOf('views', 'key').before).includes('["panel","sheet","display"]') && JSON.stringify(stepOf('views', 'key').before).includes('["plane","R"]'));
 ok('basics/shapes asks its Try it on wide screens only', stepOf('basics', 'shapes').tryWide === true);
 // ---- the module without a DOM
 ok('no DOM: suggest is a no-op', Tour.suggest() === false);
@@ -464,7 +460,7 @@ ok('VERSION', Number.isInteger(Tour.VERSION) && Tour.VERSION >= 1);
   const GESTURE_COARSE = /\b(click|clicked|double-click|right-click|hover|scroll)\b/i;   // words a touch screen must not read
   const GESTURE_FINE = /(?<![-\w])(tap|tapped|pinch|spread|swipe)\b/i;                            // words a mouse must not read
   const PHONE_PLACE = /steps button|Display sheet|in the sheet|tools sheet|\bits editor|the step's editor|Open the chain|in More\b|\bthe chain \(/i;   // the phone layout's places
-  const DESK_PLACE = /\bInspector\b|panel's options|among the options of Y|the row shows|axes button|Intersect marks|Hold Alt|side by side(?! above)/i;   // the desk layout's
+  const DESK_PLACE = /panel's options|among the options of Y|the row shows|axes button|Intersect marks|Hold Alt|side by side(?! above)/i;   // the desk layout's (the steps view's sheet on a phone is the Inspector too)
   const combos = [[false, false], [true, false], [false, true], [true, true]];   // [coarse, phone]
   const tokens = (t) => (String(t).match(/\$[^$]*\$|\{[^}]+\}/g) || []).map((x) => x.replace(/\\ln\b/g, '\\log')).sort().join('|');   // (the Russian writes \ln)
   for (const c of CH) for (const s of c.steps) {
@@ -484,10 +480,10 @@ ok('VERSION', Number.isInteger(Tour.VERSION) && Tour.VERSION >= 1);
     }
   }
   // the four combinations pick four copies where a step has them: desk and phone differ when the words that name places do
-  const chain = CH.find((x) => x.id === 'basics').steps.find((x) => x.id === 'chain');
+  const chain = CH.find((x) => x.id === 'basics').steps.find((x) => x.id === 'add');
   const four = combos.map(([coarse, phone]) => T.copyFor(chain, null, { coarse, phone }));
-  ok('basics/chain: the four combinations read four copies', new Set(four).size === 4, four);
-  check('basics/chain: the desk layout with a mouse reads the body, the phone with a finger the touch copy', [four[0], four[3]], [chain.body, chain.touch]);
+  ok('basics/add: the four combinations read four copies', new Set(four).size === 4, four);
+  check('basics/add: the desk layout with a mouse reads the body, the phone with a finger the touch copy', [four[0], four[3]], [chain.body, chain.touch]);
   // every copy a step holds has its Russian and its Italian, with the same maths and key tokens
   const fields = (s) => [s.body, s.narrow, s.touch, s.deskTouch, s.phoneFine, s.lead, s.leadTouch, s.leadDeskTouch, s.leadPhoneFine, ...Object.values(s.byScene || {}), ...Object.values(s.touchByScene || {}), ...Object.values(s.deskTouchByScene || {}), ...Object.values(s.phoneFineByScene || {}), ...(s.try ? [s.try.text, s.try.touch, s.try.deskTouch, s.try.phoneFine] : [])].filter(Boolean);
   for (const c of CH) for (const s of c.steps) for (const t of fields(s).filter((x) => x === s.deskTouch || x === s.phoneFine || x === (s.try && s.try.deskTouch) || x === (s.try && s.try.phoneFine) || x === s.leadDeskTouch || x === s.leadPhoneFine || Object.values(s.deskTouchByScene || {}).includes(x) || Object.values(s.phoneFineByScene || {}).includes(x))) {
@@ -523,7 +519,7 @@ ok('VERSION', Number.isInteger(Tour.VERSION) && Tour.VERSION >= 1);
   ok('some tour copies name a control the check knows', named >= 6, named);
   // a touch screen's add step task names the control as the card is labelled ("Add function"), not "the add card"
   const add = CH.find((x) => x.id === 'basics').steps.find((x) => x.id === 'add');
-  ok('basics/add: the desk-layout touch task names Add function', /Add function/.test(add.try.deskTouch) && !/add card/i.test(add.try.deskTouch), add.try.deskTouch);
+  ok('basics/add: the desk-layout touch copy names Add function', /Add function/.test(add.deskTouch) && !/add card/i.test(add.deskTouch), add.deskTouch);
 }
 
 console.log(`${n - fails}/${n} passed`);

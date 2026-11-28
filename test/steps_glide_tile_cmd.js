@@ -9,10 +9,11 @@
 // - it stays so with a long toast up, with the plane's hint chip shown (desktop), and with a phone sheet open (phone),
 //   moving to another spot or hiding;
 // - it names the planes: the second formula is w₂'s, w_{2} = …;
-// - one formula at a time, and only it takes room in the tile, so its glyphs never lie over the other's and it is never
-//   as wide as a formula it does not show: never both shown, the tile no wider than its formula and padding (TIGHT). At rest at a quarter
-//   of the way the first alone, at the half the second alone (both formulas fitting); under reduced motion the same
-//   just either side of the half; parked on a plane it is hidden.
+// - between the planes (both formulas fitting) it shows the morph from the first formula to the second (#2409:
+//   steps_glide_morph checks its glyphs), and no formula whole beside it, at a quarter of the way and at the half, the
+//   tile no wider than the morph's frame and padding (TIGHT); under reduced motion one formula at a time, and only it
+//   takes room in the tile: the first alone and whole just before the half, the second just after; parked on a plane it
+//   is hidden.
 // Its frames go to shots/ (tile-<case>-q1.png and -q3.png, a quarter and three quarters of the way; -toast, -hint and
 // -sheet with those up) for the screenshot review.
 // The page opens with ?view=steps (loadView('steps', …)).
@@ -28,7 +29,7 @@ const TILE_CHAIN = [{ type: 'custom', params: { expr: 'z^2+1/z' }, on: true }, {
 const OBSTACLES = `(() => {
   const vis = (e) => { if (!e || !e.isConnected || e.id === 'svTile') return null; if (e.checkVisibility && !e.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return null; const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1 ? r : null; };
   const CONTROL = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=link], [role=tab], [role=radio], [role=checkbox], [role=switch], [role=menuitem], [role=option], [role=slider], [role=spinbutton], [role=combobox]';
-  const MORE = '.chip, .legend-chip, .empty-chip, .dim-chip, .ld-key, .sv-empty, .options, .viewstack, #toastHost > *, .ph-col, .ph-ctx, .ph-keys, .ph-sheet, .sv-sheet, #svStrip, .sv-bandx, #paneL .pane-head, .pop, dialog[open]';
+  const MORE = '.chip, .legend-chip, .empty-chip, .dim-chip, .ld-key, .sv-empty, .options, .viewstack, #toastHost > *, .ph-ctx, .ph-keys, .ph-sheet, .sv-sheet, #svStrip, .sv-bandx, #paneL .pane-head, .pop, dialog[open]';
   const out = [];
   for (const e of document.querySelectorAll(CONTROL + ', ' + MORE)) { if (e.closest('#svTile')) continue; const r = vis(e); if (r) out.push({ what: (e.id ? '#' + e.id : '') + '.' + String(e.className && e.className.baseVal != null ? e.className.baseVal : e.className).split(' ').slice(0, 2).join('.'), l: r.left, t: r.top, r: r.right, b: r.bottom }); }
   const nb = __cmwNoteBox('L'), cv = document.getElementById('canvasL');
@@ -42,8 +43,9 @@ const tileNow = () => evJson(`JSON.stringify((() => {
   const r = shown ? el.getBoundingClientRect() : null, obs = ${OBSTACLES};
   const meets = r ? obs.filter((o) => r.left - ${GAP} < o.r && r.right + ${GAP} > o.l && r.top - ${GAP} < o.b && r.bottom + ${GAP} > o.t).map((o) => o.what) : [];
   const f = el ? [...el.querySelectorAll('.sv-tile-f')].map((s) => ({ tex: s.dataset.tex || null, shown: !s.hidden, op: +getComputedStyle(s).opacity, w: Math.round(s.getBoundingClientRect().width) })) : [];
+  const mo = el && el.querySelector('.sv-tile-m'), m = mo && !mo.hidden ? { w: Math.round(mo.getBoundingClientRect().width) } : null;
   return { shown, box: r && [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)], plot: [Math.round(P.left), Math.round(P.top), Math.round(P.right), Math.round(P.bottom)],
-    inside: !!r && r.left >= P.left - 0.5 && r.right <= P.right + 0.5 && r.top >= P.top - 0.5 && r.bottom <= P.bottom + 0.5, meets, f };
+    inside: !!r && r.left >= P.left - 0.5 && r.right <= P.right + 0.5 && r.top >= P.top - 0.5 && r.bottom <= P.bottom + 0.5, meets, f, m };
 })())`);
 const frames = async () => { await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // a held frame: the thread at x, the frame settled (__cmwSteps().ready.ready, as a held glide is waited for)
@@ -85,6 +87,26 @@ for (const c of CASES) {
     const a = r.after = await tileNow();
     ok(`${c.tag}: just before the half, the first formula alone, whole`, b.shown && b.f[0].shown && b.f[0].op > 0.98 && !b.f[1].shown, b);
     ok(`${c.tag}: just after the half, the second formula alone, whole`, a.shown && a.f[1].shown && a.f[1].op > 0.98 && !a.f[0].shown, a);
+    // (and while the thread is dragged between w₁ and w₂, 45% of the way: the one real motion between planes under reduced motion, where
+    // the formula changes over at the half: the first whole, the second not shown, where a fade would show it part way)
+    await ev(`__cmwSteps({ go: 1, now: true }); 1`);
+    await settled({ max: 60000, until: '!__cmwSteps().moving' });
+    await frames();
+    const geo = await evJson(`JSON.stringify((() => { const C = (e) => { const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; };
+      const t = document.querySelector('#svStrip .sv-thumb'), p = [...document.querySelectorAll('#svStrip .sv-plane')]; return { thumb: t ? C(t) : null, p1: p[1] ? C(p[1]) : null, p2: p[2] ? C(p[2]) : null }; })())`);
+    ok(`${c.tag}: the thread's thumb and planes w₁, w₂ are on the strip`, !!(geo.thumb && geo.p1 && geo.p2), geo);
+    if (geo.thumb && geo.p1 && geo.p2) {
+      const to = [geo.thumb[0] + 0.45 * (geo.p2[0] - geo.p1[0]), geo.thumb[1] + 0.45 * (geo.p2[1] - geo.p1[1])];
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: geo.thumb[0], y: geo.thumb[1], button: 'none' });
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: geo.thumb[0], y: geo.thumb[1], button: 'left', buttons: 1, clickCount: 1 });
+      for (let n = 1; n <= 6; n++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: geo.thumb[0] + (to[0] - geo.thumb[0]) * n / 6, y: geo.thumb[1] + (to[1] - geo.thumb[1]) * n / 6, button: 'left', buttons: 1 });
+      await frames();
+      const d = r.dragged = await tileNow();
+      r.dragX = await ev(`__cmwSteps().x`);
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to[0], y: to[1], button: 'left', buttons: 0, clickCount: 1 });
+      ok(`${c.tag}: dragged to about 45% of the way (between w₁ and w₂)`, r.dragX > 1.3 && r.dragX < 1.5, r.dragX);
+      ok(`${c.tag}: dragged, the first formula alone and whole, not part way through a fade`, d.shown && d.f[0].shown && d.f[0].op > 0.98 && !d.f[1].shown, d);
+    }
     continue;
   }
   await hold(1.75);
@@ -94,15 +116,15 @@ for (const c of CASES) {
   check(`${c.tag}, held at 1.5`, t, !c.phone);
   if (t.shown) ok(`${c.tag}: the second formula is w₂'s`, !!t.f[1] && /^w_\{2\} = /.test(t.f[1].tex || ''), t.f);
   if (t.shown) {
-    const on = t.f.filter((f) => f.shown);
-    ok(`${c.tag}: at rest at the half, one formula shown, whole: the second`, on.length === 1 && t.f[1].shown && t.f[1].op > 0.98, t.f);
-    ok(`${c.tag}: the tile no wider than its formula and ${TIGHT} px`, on.length === 1 && t.box[2] - t.box[0] <= on[0].w + TIGHT, { box: t.box, f: t.f });
+    ok(`${c.tag}: at rest at the half, the morph shown, no formula whole beside it`, !!t.m && t.f.every((f) => !f.shown), { m: t.m, f: t.f });
+    ok(`${c.tag}: the tile no wider than the morph's frame and ${TIGHT} px`, !!t.m && t.box[2] - t.box[0] <= t.m.w + TIGHT, { box: t.box, m: t.m });
   }
   // (a quarter of the way: the first formula alone, where both fit)
   await hold(1.25);
   const q = r.quarter = await tileNow();
   await shot(`${name}-q1`);
-  if (q.shown) ok(`${c.tag}: at rest at a quarter, one formula shown, whole: the first`, q.f[0].shown && q.f[0].op > 0.98 && !q.f[1].shown, q.f);
+  check(`${c.tag}, held at a quarter`, q, !c.phone);
+  if (q.shown) ok(`${c.tag}: at rest at a quarter, the morph shown, no formula whole beside it`, !!q.m && q.f.every((f) => !f.shown), { m: q.m, f: q.f });
   await hold(1.5);
   // (a long toast up)
   await ev(`(__cmwToast('A long message to see that the tile keeps clear of the toasts, wherever they are placed', 'Undo', { ms: 60000 }), 1)`);
@@ -134,6 +156,89 @@ for (const c of CASES) {
   await frames();
   r.parked2 = await tileNow();
   ok(`${c.tag}: parked on w₂, no tile`, !r.parked2.shown, r.parked2);
+}
+// (#2357) the chain changed under the tile, and the Look down key appearing under it, the thread held between w₁ and w₂ at desktop 1200 × 800:
+// the tile names the formulas of the chain now there, not those it typeset for the same pair before (another example loaded over
+// the chain, its Undo, the tour's Esc); and it clears the Look down key once the key is there
+{
+  const tex2 = () => ev(`(document.querySelectorAll('#svTile .sv-tile-f')[1] || { dataset: {} }).dataset.tex || null`);
+  const ready = () => settled({ max: 60000, until: '__cmwSteps().ready.ready' });
+  await view(1200, 800, false, false);
+  await loadView('steps', 'svtilechain' + Date.now(), { shapes: [{ id: 'd', kind: 'disc', c: [1, 0], r: 0.5, stage: 2 }], steps: TILE_CHAIN }, { lang: 'en' });
+  await settled({ max: 30000, until: READY });
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  await hold(1.5);
+  const tex0 = info.chainTex0 = await tex2();
+  ok('the chain: held at 1.5, the tile shows the second formula, with the chain\'s sin', /sin/.test(tex0 || ''), tex0);
+  // (another chain over it: an example loaded)
+  await ev(`__cmwExample(1); 1`); await ready();
+  await hold(1.25); await hold(1.5);
+  const tex1 = info.chainTex1 = await tex2();
+  ok('another example loaded: held at 1.5 again, the tile shows its formula (e^z), not the old chain\'s', /e\^\{z\}/.test(tex1 || '') && !/sin/.test(tex1 || ''), tex1);
+  // (and its Undo)
+  await ev(`document.getElementById('undoBtn').click(); 1`); await ready();
+  await hold(1.25); await hold(1.5);
+  const tex2u = info.chainTexUndo = await tex2();
+  ok('after Undo: held at 1.5 again, the tile shows the chain\'s formula again (sin)', /sin/.test(tex2u || ''), tex2u);
+  // (the Look down key appearing, the thread held at a quarter: the disc is on the second plane, whose key shows between w₁ and w₂)
+  await hold(1.25);
+  await ev(`__cmwSelect('d'); 1`);
+  await settled({ max: 10000, until: `(() => { const k = document.querySelector('#plotL .ld-key'); return !!k && !k.hidden; })()` });
+  await frames();
+  const tk = info.keyShown = await tileNow();
+  check('the Look down key shown, the thread held at a quarter', tk, true);
+  // (the hook's list of what the tile keeps clear of, in the page's px, covers each box over the plane that the suite's own list names, the key's included)
+  const covered = info.obstacles = await evJson(`JSON.stringify((() => {
+    const P = document.getElementById('plotL').getBoundingClientRect(), app = __cmwTile().obstacles, e = 1;
+    const own = ${OBSTACLES}.filter((o) => o.l < P.right && o.r > P.left && o.t < P.bottom && o.b > P.top);
+    return { n: own.length, missing: own.filter((o) => !app.some((a) => a[0] <= o.l + e && a[1] <= o.t + e && a[2] >= o.r - e && a[3] >= o.b - e)).map((o) => o.what) };
+  })())`);
+  ok('the app\'s obstacle list covers every box the suite names, the Look down key among them', covered.n > 0 && covered.missing.length === 0, covered);
+}
+// (the tour's Esc gives the chain back, the thread parked where it was between w₁ and w₂: the tile names the chain's formulas again,
+// not those the tour's scene had there)
+{
+  const tex2 = () => ev(`(document.querySelectorAll('#svTile .sv-tile-f')[1] || { dataset: {} }).dataset.tex || null`);
+  await view(1200, 800, false, false);
+  await loadView('steps', 'svtiletour' + Date.now(), { shapes: [], steps: TILE_CHAIN }, { lang: 'en' });
+  await settled({ max: 30000, until: READY });
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  await hold(1.5);
+  const own = info.tourOwn = await tex2();
+  await ev(`Tour.start({ chapter: 'planes' })`);
+  await settled({ max: 30000, until: `!!document.querySelector('.tour-strip')` });
+  await hold(1.5);
+  const during = info.tourDuring = await tex2();
+  ok('the tour: its scene\'s formula is on the tile\'s second line while it runs (the setup of the next row)', !!during && during !== own, { own, during });
+  await key('Escape');
+  await settled({ max: 30000, until: `!document.querySelector('.tour-strip')` });
+  await frames(); await frames(); await frames();
+  const back = info.tourBack = await tex2();
+  ok('after the tour\'s Esc: the tile names the chain\'s formula again (sin), not the tour scene\'s', back === own, { own, during, back });
+}
+// (a Repeat on the first step, from the step's ⋯ menu, the thread held between w₁ and w₂: the first formula is the repeated step's now,
+// not the one typeset before the Repeat, which the chain's own key, repeats and parameters, tells apart)
+{
+  const { press, pickItem } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'repeat_kit.js'), 'utf8'))({ ev, settled });
+  const tex1 = () => ev(`(document.querySelectorAll('#svTile .sv-tile-f')[0] || { dataset: {} }).dataset.tex || null`);
+  await view(1200, 800, false, false);
+  await loadView('steps', 'svtilerepeat' + Date.now(), { shapes: [], steps: TILE_CHAIN }, { lang: 'en' });
+  await settled({ max: 30000, until: READY });
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  await hold(1.25);
+  const before = info.repeatBefore = await tex1();
+  ok('Repeat: held at a quarter, the tile shows the first formula, w₁ = the first step', /^w_\{1\} = /.test(before || ''), before);
+  ok('Repeat: the ⋯ of step 1 is there', await press('#svStrip .sv-step[data-k="1"] .sv-more'), null);
+  await settled({ max: 10000, until: `!!document.querySelector('#popHost .menu .mi')` });
+  ok('Repeat: its Repeat… item is there', await pickItem('Repeat…'), null);
+  await settled({ max: 30000, until: '__cmwSteps().ready.ready' });
+  await hold(1.5);
+  await hold(1.25);
+  const after = info.repeatAfter = await tex1();
+  ok('Repeat: held at a quarter again, the tile shows the repeated step\'s formula (This step, twice: n = 2, so \\circ 2), not the one before the Repeat', !!after && after !== before && after.includes('\\circ 2'), { before, after });
 }
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 return { pass: fails.length === 0, fails, info };

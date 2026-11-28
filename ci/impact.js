@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
-const { ROOT, PY, run, summary } = require('./lib');
+const { ROOT, PY, run, summary, reEscape } = require('./lib');
 const { SHARDS, suitesOf } = require('./browser_shards');
 const { EXCLUDED } = require('./browser_suites');
 const GLSL = require('./glsl');
@@ -69,6 +69,7 @@ const MAP = [
   ['src/app/19-shell.js', ui('desktop', 'phone', 'layout')],                                       // the header, its menus, the panels and drawers (#385)
   ['src/app/19-steps-fit.js', ui('views', 'desktop', 'phone', 'layout')],                           // the thread's and the head's fit, a part of the steps view
   ['src/app/19-steps-gate.js', ui('views', 'desktop', 'phone', 'layout')],                          // the Play gate, a part of the steps view
+  ['src/app/19-steps-poles.js', ui('views', 'desktop', 'phone', 'layout')],                         // the glide's pole tracks, a part of the steps view
   ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone', 'layout')],                         // the steps view (#366 prototype)
   ['src/app/19-steps-ahead.js', { core: true, areas: ['views'] }],                              // the steps view's render-ahead frames (#1339; its suite is in the exact shard)
   ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
@@ -78,7 +79,9 @@ const MAP = [
   ['src/app/19-stack.js', ui('views', 'desktop', 'phone')],                                        // the Stack: the floor and the glass seen by the Tilt camera (#1986)
   ['src/app/19-stack-tubes.js', ui('views', 'desktop', 'phone')],                                  // the Stack's tubes, critical strands and narrowing labels (#1987)
   ['src/app/19-stack-pick.js', ui('views', 'desktop', 'phone')],                                   // picking in the Stack: the floor's and the glass's points under the pointer (#1988)
+  ['src/app/19-land-pick.js', ui('views', 'desktop', 'phone')],                                    // the pick on the Landscape's sheets: their points under the pointer and the lit twins (#1995)
   ['src/app/19-stack-links.js', ui('views', 'desktop', 'phone')],                                  // the Stack's connectors, straight and curved, and their switch (#1996)
+  ['src/app/19-stack-chain.js', ui('views', 'desktop', 'phone')],                                  // the Stack's chains: a glass level for each plane between the floor and the glass (#1990)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
@@ -107,7 +110,8 @@ const MAP = [
   ['vendor/**', full('the vendored typesetter and faces, in every page')],
   ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
   ['src/phone.*', ui('phone', 'layout')],                                     // the phone layout, its script and CSS
-  ['src/tour.js', ui('tour')],                                                // the guided tour
+  ['src/tour.js', ui('tour')],                                                // the guided tour (a stand-in for node: src/tour/'s parts)
+  ['src/tour/**', ui('tour')],                                                // tour.js in parts (#1552), the same
   ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/sound/**', ui('sound')],                                              // sound.js in parts
@@ -118,6 +122,7 @@ const MAP = [
   ['src/commands.js', ui('desktop', 'i18n')],                                 // the command palette (desktop: formulas too)
   ['src/soundhooks.js', ui('sound')],                                         // the sound hooks: the cues, listening, loops
   ['src/export.js', ui('export', 'i18n')],                                    // export, captions and the figure's renderer
+  ['src/glyphmatch.js', ui('views', 'desktop', 'phone', 'layout')],         // the glide tile's glyph matching (#2409)
   ['src/morphpaths.js', ui('deform')],                                        // the deformation's paths
   ['src/integrals.js', { core: true, areas: ['desktop'] }],                   // the integrals (from part 07; the palette's ∫ too)
   ['src/examples.js', ui('desktop', 'phone', 'tour')],                        // the examples and the guide (from part 15)
@@ -230,7 +235,7 @@ function glslPagesOf(f) {
 // [#385] the files that name window.__cmw<name> (a whole word): the browser suites (test/*_cmd.js) and unit tests are
 // fine; anything else that calls a hook (the app itself, the quality and perf runners, ci/, the cdp kit) is outside
 function hookCallers(names) {
-  const re = new RegExp(`\\b(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`);
+  const re = new RegExp(`\\b(?:${names.map(reEscape).join('|')})\\b`);
   const suites = [], outside = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {

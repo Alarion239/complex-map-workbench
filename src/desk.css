@@ -4,8 +4,8 @@
 /* ---------- the chain's row: 188 px ---------- */
 .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 188px); }
 /* (the classic view's chain box: its cards are drawn by the Inspector, so while #pipeline holds none the box and its gutter
-   take no room, as in the steps view, except while a tour's strip is on the stage: the classic tour's steps anchor on the box;
-   the phone parks #pipeline in its sheet and keeps its box) */
+   take no room, as in the steps view, except while a tour's strip is on the stage: the Inspector step lights the box as
+   its extra area (also: chain); the phone parks #pipeline in its sheet and keeps its box) */
 :root.classic:not(.ph) .stage:not(:has(.tour-strip)):has(> .pipe-wrap > #pipeline:empty) { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
 :root.classic:not(.ph) .stage:not(:has(.tour-strip)):has(> .pipe-wrap > #pipeline:empty) > :is(.pipe-wrap, #gutterRow) { display: none; }
 
@@ -250,6 +250,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 #toastHost[data-placed] .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
 #toastHost[data-placed] .toast > span { flex: 1 1 auto; }
 #toastHost[data-placed] .toast .toast-act { flex: 0 0 auto; white-space: nowrap; }
+/* a message that measured its rows (toast's o.fit) and does not fit one has the words on a row of their own and its buttons together under them */
+#toastHost[data-placed] .toast[data-rows="two"] > span { flex: 1 1 100%; }
 /* (on the thread's rail the buttons wrap under a long message, one row of the toast each: at 24 px the two rows and the padding stay inside the strip's 64 px; the phone keeps its 44 px targets) */
 :root:not(.ph) #toastHost[data-placed="rail"] .toast .toast-act { height: 24px; min-height: 24px; }
 /* the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
@@ -449,7 +451,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sh-acts { display: flex; gap: 8px; margin-top: 8px; }
 
 /* ---------- the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
-:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
+:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #leftTabs, :root.sv #leftTitle { display: none !important; }
 :root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
 :root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto auto; }
 /* (the pane keeps its column whatever its thread's length: the grid's one column is no wider than the pane, and its
@@ -614,6 +616,13 @@ label.check[aria-disabled="true"] { opacity: .4; cursor: default; }
 /* the wait before a glide: a 2 px ring around the button over a faint track, filling by --wait (0 to 1); it holds still when it hangs */
 .sv-play[data-wait], .sv-nav[data-wait] { position: relative; }
 .sv-play[data-wait]::after, .sv-nav[data-wait]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 2px; background: conic-gradient(var(--accent) 0 calc(var(--wait, 0) * 360deg), color-mix(in srgb, var(--accent) 25%, transparent) calc(var(--wait, 0) * 360deg) 360deg); -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+/* an unknown wait (data-wait="unknown": the parts left count nothing inside them): the ring keeps its filled arc, and a
+   short glint in the button's surface sweeps round the whole ring, a turn in 1.2 s, so it moves at any arc kept; with
+   reduced motion the unfilled rest is dashed and still */
+@property --sv-sweep{syntax:'<number>';inherits:false;initial-value:0}
+@keyframes sv-sweep { to { --sv-sweep: 1; } }
+.sv-play[data-wait="unknown"]::before, .sv-nav[data-wait="unknown"]::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; padding: 2px; background: conic-gradient(from calc(var(--sv-sweep) * 360deg), var(--surface) 0 30deg, transparent 30deg); -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: sv-sweep 1.2s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .sv-play[data-wait="unknown"]::before, .sv-nav[data-wait="unknown"]::before { animation: none; background: repeating-conic-gradient(from calc(var(--wait, 0) * 360deg), color-mix(in srgb, var(--accent) 60%, transparent) 0 6deg, transparent 6deg 12deg); -webkit-mask: conic-gradient(#0000 0 calc(var(--wait, 0) * 360deg), #000 0) intersect, linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: conic-gradient(#0000 0 calc(var(--wait, 0) * 360deg), #000 0) intersect, linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); } }
 .sv-play[data-on="true"] { display: flex; align-items: center; justify-content: center; gap: 5px; }
 .sv-bar { width: 5px; height: 18px; border-radius: 1px; background: currentColor; }
 .sv-strip .sv-loop, .sv-strip .sv-paths { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 var(--s-5); }

@@ -4,8 +4,7 @@
 // The browser side is test/ux165_learn_cmd.js. Run: node test/t_ux165_learn.js
 const fs = require('fs');
 const path = require('path');
-globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
-const { Tour } = require('../src/tour.js');
+const { Tour } = require('./src_text').loadSplit('tour.js', 'Tour');   // (src/tour/'s parts, joined)
 const T = Tour._t;
 let fails = 0, n = 0;
 const ok = (name, cond, info) => { n++; if (!cond) { fails++; console.log('FAIL', name, info !== undefined ? JSON.stringify(info) : ''); } };
@@ -42,16 +41,14 @@ ok('UX90: the lead keeps the strip\'s rule (one sentence, at most 60, a full sto
 ok('UX77: Details adds to the lead (it no longer repeats it)', !w.body.includes(w.lead) && /your own work comes back exactly as it was/.test(w.body), w.body);
 ok('#250: no Details control: its words, its aria-label and its rec.why are gone', !/\$t\('Details'\)/.test(SRC) && !/rec\.why/.test(SRC));
 ok('#34: Move on by itself is a checkbox in the chapters menu (no timer icon in the strip), and the phone\'s sheet keeps it', !/ts-autob/.test(SRC) && /menuitemcheckbox/.test(SRC) && /ts-auto/.test(SRC));
-const key = step('views', 'key');
-// (#247: the check is a toggle in Y's head, so the task names the check alone; the head's ⋯ is lit when it is behind it)
-ok('UX20: the Phase key step lights the head\'s ⋯ button when the check is behind it', key.anchor[1] === 'rightOpts' && key.try.text === 'Turn on Phase key.', key.try);
-ok('UX20: the step\'s task text keeps the strip\'s length', plain(key.try.text).length <= 60, key.try.text);
+// (standards-ok: the Phase key step, Y's, is left out of the classic tour: Y's pane is not drawn since #994)
 
 // ---- Russian (UX78, UX93 and every string of this piece)
 const RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../notes/i18n/ru/v165-ux-learn.json'), 'utf8'));
 const ents = Object.entries(RU).filter(([k]) => !k.startsWith('_'));
-// (61: the piece's 67 less the six the classic Deformation's chip and Video offer had, gone with the transport, #994)
-ok('the table has the piece\'s strings', ents.length >= 61, ents.length);
+// (60: the piece's strings the page still ships; the classic transport's six and the classic tour's Phase key task are
+// not among them, #994)
+ok('the table has the piece\'s strings', ents.length >= 60, ents.length);
 ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter(([, v]) => !(v.en && v.ru)).map(([k]) => k));
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
 // (V165_HERE is one set holding every piece's table, this one among them)
@@ -76,7 +73,7 @@ ok('UX93: the welcome title fits a 360 px strip', TABLE['Welcome to the Workbenc
 const tiles = ents.filter(([, v]) => v.ctx === 'phone tile');
 ok('UX93: the phone tile names are one word or two short ones, without a soft hyphen', tiles.length === 7 && tiles.every(([, v]) => !/­/.test(v.ru) && v.ru.split(' ').every((wd) => wd.length <= 9)), tiles.map(([, v]) => v.ru));
 // the strip's Russian rule: leads and tasks at most 64 as read
-for (const id of ['lead.welcome2', 'try.key.desk']) ok(`Russian ${id}: at most 64 as read`, plain(RU[id].ru).length <= 64, RU[id].ru);
+for (const id of ['lead.welcome2']) ok(`Russian ${id}: at most 64 as read`, plain(RU[id].ru).length <= 64, RU[id].ru);
 // every placeholder of the English is in the Russian
 for (const [k, v] of ents) {
   const ph = (s) => [...s.matchAll(/%?\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');

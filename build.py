@@ -84,9 +84,9 @@ js, jsp = pre + js, pre + jsp
 body = page + '\n' + data + mj + '<script>\n' + js + '\n</script>\n'
 # the published page drops the test hooks (window.__cmw*, GLR.evalMap, Phone._state ...); dist/test.html keeps them for
 # testing. A block runs from its opening marker line to the next marker (tools/hook_marker.js, which names the opening text)
-pub_js = re.sub(r'\n[ \t]*// (?:TEST-HOOK \(dropped from the published page by build\.py\)|TEMP-DEBUG-HOOK \(removed before publishing\)).*?// (?:TEST-HOOK|TEMP-DEBUG-HOOK)\n', '\n', jsp, flags=re.S)
+pub_js = re.sub(r'\n[ \t]*// TEST-HOOK \(dropped from the published page by build\.py\).*?// TEST-HOOK\n', '\n', jsp, flags=re.S)
 assert '__cmw' not in pub_js, 'test hooks left in the published page'
-assert 'TEST-HOOK' not in pub_js and 'TEMP-DEBUG-HOOK' not in pub_js, 'a hook marker outside a block: its hook is left in the published page'
+assert 'TEST-HOOK' not in pub_js, 'a hook marker outside a block: its hook is left in the published page'
 # (#2012) the published script without its comments and indentation, every line break kept (tools/strip_js.js, which
 # checks that its output has the same tokens and line breaks); the test page keeps its source as written
 # (bytes both ways: a text-mode pipe on Windows would write CRLF)
