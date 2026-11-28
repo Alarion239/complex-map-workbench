@@ -694,6 +694,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land.sv.ph-toast-on:not(.ph-sheet-on) { --ph-lift: var(--ph-bar); }
 /* (a landscape phone's tall bar leaves a message little room beside the construction chip, so the chip steps aside while a message shows: the bar's title says its prompt too) */
 :root.ph.ph-land.ph-ctx-tall.ph-toast-on .plot > .draft-chip.cm-on { visibility: hidden; }
+/* (and where the plane above the tall bar is too short to hold the chip whole: it would run under the bar, cut at the bar's top. The bar says its
+   sentence and holds its ⌫ and ×; 04-chip-overlay.js measures the chip and marks it cm-under) */
+:root.ph.ph-land.ph-ctx-tall .plot > .draft-chip.cm-on.cm-under { visibility: hidden; }
 /* (the plane's keys ride up above a message with its 150 ms ease, and at once under reduced motion) */
 :root.ph.sv .viewstack { transition: bottom 150ms var(--ease-out); }
 /* (the message eases with the keys it stands over in portrait, so the two move in step) */
