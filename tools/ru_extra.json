@@ -711,7 +711,7 @@
  "Retry": "Повторить",
  "Cancel": "Отмена",
  "{label}, {pt} pt text · Fit column": "{label}, текст\u00a0{pt}\u00a0пт · по ширине колонки",
- " · labels {x}/{x2} pt, as in {tsz} pt text · {choice} · {choice2}": " · надписи {x}/{x2} пт, как в\u00a0тексте\u00a0{tsz}\u00a0пт · {choice} · {choice2}",
+ " · labels {x}/{x2} pt, as in {tsz} pt text · {choice} · {choice2}": " · надписи {x}/{x2}\u00a0пт, как в\u00a0тексте\u00a0{tsz}\u00a0пт · {choice} · {choice2}",
  "Outlines are drawn on the colour plane": "Контуры рисуются на плоскости цвета",
  "Landscape opacity": "Непрозрачность Рельефа",
  "How much the Landscape's surfaces behind show through where the relief covers a point more than once.": "Насколько поверхности Рельефа позади просвечивают там, где рельеф покрывает точку больше одного раза.",
