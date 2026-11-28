@@ -129,7 +129,7 @@
           const s = s0.id ? s0 : Object.assign(newShape(s0.kind, {}), s0, { id: undefined });
           if (!s.id) s.id = 's' + takeId();
           if (s.visible == null) s.visible = true;
-          S.shapes.push(s);
+          pushShape(s);
           ids.push(s.id);
         }
         if (o.select !== false && ids.length) { selected = ids[ids.length - 1]; zpSel = null; }
