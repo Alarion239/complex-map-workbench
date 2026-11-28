@@ -1,7 +1,7 @@
 // A tip is drawn beside the element it belongs to, or not at all: never at the page's top-left, where its style puts it until
 // it is placed. The tip of an LED changes under the pointer whenever the LED's state does (the LED's data-tip is its words),
 // and an open tip follows its element's words; an element that has no box at that moment (its pane head hides it, display none)
-// has no place to put a tip beside.
+// has no place to put a tip beside. A tip resting on a still element writes no style after it is placed.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -17,9 +17,10 @@ const hover = async () => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c[0], y: c[1] });
   return settled({ max: 4000, only: true, panes: false, until: `!document.getElementById('tip').hidden` });
 };
-// (a rAF log of the tip against the LED, run in the page, while `act` runs there: every frame in which the tip is shown away from the LED)
+// (a rAF log of the tip against the LED, run in the page, while `act` runs there: every frame in which the tip is shown away from the LED;
+// seen.late counts the frames whose read came only after a later frame's animation frame callbacks, which are not looked at)
 const LOG = (act, frames = 24, grace = 0) => `new Promise((resolve) => {
-  const tip = document.getElementById('tip'), led = document.getElementById('leftLed'), away = [], seen = { shown: 0, frames: 0 };
+  const tip = document.getElementById('tip'), led = document.getElementById('leftLed'), away = [], seen = { shown: 0, frames: 0, late: 0 };
   const look = (when) => {
     seen.frames++;
     if (tip.hidden || seen.frames <= ${grace}) return;
@@ -27,11 +28,32 @@ const LOG = (act, frames = 24, grace = 0) => `new Promise((resolve) => {
     const t = tip.getBoundingClientRect(), l = led.getBoundingClientRect();
     if (Math.abs((t.left + t.width / 2) - (l.left + l.width / 2)) > t.width / 2 + 40 || Math.min(Math.abs(t.bottom - l.top), Math.abs(t.top - l.bottom)) > 40) away.push({ when, tip: [t.left, t.top, t.width, t.height], led: [l.left, l.top, l.width, l.height], text: tip.textContent });
   };
-  let n = 0;
-  // (each frame is read after it has been painted: from a task queued in its animation frame callback, when the frame's rendering update is done)
-  const loop = () => requestAnimationFrame(() => setTimeout(() => { look('frame'); if (++n < ${frames}) loop(); else resolve({ away, seen }); }, 0));
+  let n = 0, latest = -1, done = false;
+  // (the time of the latest frame whose animation frame callbacks have run: this one is registered before the loop's in every frame)
+  const tick = (t) => { latest = t; if (!done) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+  // (each frame is read after it has been painted: from a task queued in its animation frame callback, when the frame's rendering update is
+  // done; a read that runs only after the next frame's callbacks would see that frame instead, so it is counted late and not looked at)
+  const loop = () => requestAnimationFrame((t) => setTimeout(() => {
+    if (latest > t) seen.late++; else look('frame');
+    if (++n < ${frames}) loop(); else { done = true; resolve({ away, seen }); }
+  }, 0));
   ${act}
   loop();
+})`;
+// (the tip's left and top writes over REST_FRAMES frames, from the second frame on: the first may still place a tip just shown)
+const REST_FRAMES = 60;
+const REST_WRITES = `new Promise((resolve) => {
+  const tip = document.getElementById('tip'), st = tip.style, writes = [];
+  let frames = -1;
+  const watch = () => { for (const k of ['left', 'top']) Object.defineProperty(st, k, { configurable: true, get: () => st.getPropertyValue(k), set: (v) => { writes.push(k + ' ' + v); st.setProperty(k, v); } }); };
+  const step = () => {
+    if (++frames === 0) watch();
+    if (frames < ${REST_FRAMES}) { requestAnimationFrame(step); return; }
+    delete st.left; delete st.top;
+    resolve({ frames, writes: writes.slice(0, 6), hidden: tip.hidden });
+  };
+  requestAnimationFrame(step);
 })`;
 for (const [lang, words] of Object.entries(LANGS)) {
   const ns = 'tipp' + lang + Date.now();
@@ -41,6 +63,11 @@ for (const [lang, words] of Object.entries(LANGS)) {
   await settled({ max: 8000, only: true, panes: false, until: "document.getElementById('leftLed').className === 'led ok'" });
   const w = await hover();
   ok(`${lang}: the hovered LED shows its tip`, w.ok, w);
+  // (e) the tip rests on the still LED: after it is placed, no frame writes its left or top (counted by an accessor on the tip's style that
+  // passes each write on: a MutationObserver sees no write of the value already there)
+  const e = await ev(REST_WRITES);
+  info['rest ' + lang] = e;
+  ok(`${lang}: a tip resting on a still LED writes no left or top in ${REST_FRAMES} frames after it is placed`, e.frames >= REST_FRAMES && e.writes.length === 0 && !e.hidden, e);
   // (a) the LED's words change under the pointer: the tip follows, beside the LED
   const a = await ev(LOG(`window.__cmwBusy(true);`));
   info['change ' + lang] = a.seen;
@@ -50,6 +77,7 @@ for (const [lang, words] of Object.entries(LANGS)) {
   info['hidden ' + lang] = b.seen;
   ok(`${lang}: the LED has no box when its words change: no tip is drawn away from it`, b.away.length === 0, b.away.slice(0, 2));
 }
+const MIN_OWN_READS = 20;   // of the moved-LED row's 30 frames
 // (d) the LED moves under an open tip, its words unchanged (a pane head laid out again around it): the tip goes with it, within a few
 // frames, or is gone; it does not stay where the LED was
 for (const [lang, words] of Object.entries(LANGS)) {
@@ -68,6 +96,7 @@ for (const [lang, words] of Object.entries(LANGS)) {
   const m = await ev(LOG(`const head = led.closest('.pane-head'); const ro = new ResizeObserver(() => { ro.disconnect(); led.style.marginRight = '260px'; led.setAttribute('data-tip', led.getAttribute('data-tip') + ' '); queueMicrotask(() => { led.style.marginRight = ''; }); }); ro.observe(head); head.style.paddingLeft = '7px';`, 30));
   info['moved ' + lang] = m.seen;
   ok(`${lang}: the open tip is re-shown while the LED is elsewhere for a moment: in every painted frame the tip is beside the LED, or gone`, m.away.length === 0, m.away.slice(0, 2));
+  ok(`${lang}: moved LED: at least ${MIN_OWN_READS} of the frames are read in their own frame (too few reads: a loaded runner would let a tip that is put right a frame late pass)`, m.seen.frames >= MIN_OWN_READS, m.seen);
 }
 // (c) the real trigger: the Cauchy style picked while the LED is hovered, links landing late (test/lib/late_links.js). The pane head
 // lays out again around the LED as the style changes, and the LED's words change with it: the tip stays beside the LED in every

@@ -633,12 +633,17 @@
       meet: () => $t('Tap a crossing of two curves, or one curve and then another.'),
       touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent or Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
     };
-    // the tip beside its element: above it, or below where there is no room above
+    // the tip beside its element: above it, or below where there is no room above; its style is written only when the place changes, so a
+    // tip that follows a still element touches no style from one frame to the next (placedAt is the left and top it was last given)
+    let placedAt = '';
     const place = (el) => {
       const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
       let y = r.top - th - 6; if (y < 6) y = r.bottom + 6;
-      tip.style.left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2)) + 'px';
-      tip.style.top = y + 'px';
+      const left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2)) + 'px', top = y + 'px';
+      if (left + ' ' + top === placedAt) return;
+      placedAt = left + ' ' + top;
+      tip.style.left = left;
+      tip.style.top = top;
     };
     // (an open tip goes with its element in every frame, and goes when the element has no box: the element may be laid out elsewhere
     // for a moment when the tip is placed, a pane head laid out again around it, and no pointer event says it came back)
@@ -675,7 +680,7 @@
       // would be painted there)
       const open = !tip.hidden;
       tip.hidden = false;
-      if (!open) place(el);
+      if (!open) { placedAt = ''; place(el); }
       follow(el);
       // (an open tip follows its element's words: a control that changes its data-tip while it is shown, as Play does when
       // its glide waits and when the wait ends, shows the new words at once, and no tip when it has none)
@@ -686,7 +691,7 @@
         tipObs.observe(el, { attributes: true, attributeFilter: ['data-tip', 'data-desc'] });
       }
     };
-    const hide = () => { clearTimeout(timer); cancelAnimationFrame(followRaf); followRaf = 0; if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; if (tipObs) { tipObs.disconnect(); tipObs = null; tipWatched = null; } };
+    const hide = () => { clearTimeout(timer); cancelAnimationFrame(followRaf); followRaf = 0; if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; placedAt = ''; cur = null; kbdTip = null; if (tipObs) { tipObs.disconnect(); tipObs = null; tipWatched = null; } };
     document.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
       const tg = /** @type {HTMLElement} */ (e.target);
