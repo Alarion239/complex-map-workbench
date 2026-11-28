@@ -11,10 +11,10 @@
 //   with map mode 1, step 1, t = u: no frame at rest draws a homotopy's outlines but the warm job's);
 // - the frame is the inverse pass's;
 // - no inverse program was made from the rest to the held frame (GLR.landProgs' inv| and invS| entries);
-// - every hold took at most FIRST_MS (a timing row: lavapipe 594-1020 ms before the warm-up; with it, and the warm
-//   job's outlines drawn into its frame and flushed, 62-134 ms for a page's first glide frame under CI's renderer;
-//   z^-2's second half, the page's second hold, varies by machine and is over FIRST_MS on the base too); every step's
-//   wait is in info.
+// - each step's first hold took at most FIRST_MS (a timing row: lavapipe 594-1020 ms before the warm-up; with it, and
+//   the warm job's outlines drawn into its frame and flushed, 62-134 ms for a page's first glide frame under CI's
+//   renderer). z^-2's hold at u = 0.75, its second half and the page's second hold, has no bound: it varies by machine
+//   (166-215 ms on the hosted runner) and is over FIRST_MS on the base too. Every step's wait is in info.
 // A glide whose first inverted op is a NEWT op (the Douady–Hubbard map, steps_glide_exterior's scene: Everywhere, sheets off,
 // bare) draws its frame with two programs, the NEWT roots pass (GLR.newtRoots) and the inverse program that reads it: at rest
 // until its glides' jobs are done, the first frame held at u = 0.5
@@ -64,7 +64,7 @@ await view(1200, 800, false, false);
 const FIRST_MS = 150;
 // (name, step, the places held, the places whose wait is bounded by FIRST_MS)
 for (const [name, step, us, timed] of [['z^2', { type: 'pown', params: { n: 2 } }, [0.25], [0.25]], ['Joukowski', { type: 'joukowski' }, [0.25], [0.25]],
-  ['tan', { type: 'tan' }, [0.25], [0.25]], ['z^-2', { type: 'pown', params: { n: -2 } }, [0.25, 0.75], [0.25, 0.75]]]) {
+  ['tan', { type: 'tan' }, [0.25], [0.25]], ['z^-2', { type: 'pown', params: { n: -2 } }, [0.25, 0.75], [0.25]]]) {
   await open(step, `warm${name}`);
   for (const u of us) {
     await rest(0);
