@@ -865,19 +865,33 @@
     e.preventDefault(); e.stopPropagation();
     if (j !== i) items[j].focus({ preventScroll: true });
   }
-  // F6 and Shift+F6: the next and the previous area. Each area takes the focus where it last had it
+  // F6 and Shift+F6: the next and the previous area, of those shown, in the order the eye meets them: on a laptop the top
+  // bar, the tools, the planes, the thread, the Inspector; on a phone (ph) the top bar, the plane, the thread, then the tools
+  // at the foot, and the Inspector's sheet when it is open. Each area takes the focus where it last had it
   function areaKeys(e) {
-    if (e.key !== 'F6' || e.altKey || e.ctrlKey || e.metaKey || !onLaptop() || document.querySelector('.modal-bg')) return;
+    if (e.key !== 'F6' || e.altKey || e.ctrlKey || e.metaKey || document.querySelector('.modal-bg')) return;
     const act = (gs) => { const g = document.querySelector(gs); return g ? /** @type {HTMLElement[]} */ ([...g.querySelectorAll(ROVE.find((r) => r[0] === gs)[1])]).find((el) => el.tabIndex === 0 && shown(el)) : null; };
+    // (the tools: on a phone every tool in the grid is a stop, and the area is the tool that is on; elsewhere the grid's one
+    // stop, else the tablet rail's active tool, else its first shown)
+    const tools = () => {
+      const g = document.querySelector('#tools'), on = g && /** @type {HTMLElement} */ (g.querySelector('.tool.on'));
+      if (!onLaptop() && shown(on)) return on;
+      const r = act('#tools');
+      if (r) return r;
+      const rail = /** @type {HTMLElement[]} */ ([...document.querySelectorAll('#railTools > .tool')]).filter(shown);
+      return rail.find((el) => el.classList.contains('on')) || rail[0] || null;
+    };
     const plane = (p) => { const cv = p && p.ocanvas; if (cv && !cv.hasAttribute('tabindex')) cv.tabIndex = -1; return shown(cv) ? cv : null; };
     const first = (gs) => { const g = document.querySelector(gs); return g ? [...g.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex="0"]')].find(shown) || null : null; };
+    const toolsArea = { id: 'tools', el: tools, has: (el) => !!el.closest('#secDraw, #railTools') };
     const areas = [
       { id: 'top', el: () => first('#top'), has: (el) => !!el.closest('#top') },
-      { id: 'tools', el: () => act('#tools'), has: (el) => !!el.closest('#secDraw, #railTools') },
+      ...(onLaptop() ? [toolsArea] : []),
       { id: 'x', el: () => plane(paneL), has: (el) => paneL && el === paneL.ocanvas },
       { id: 'y', el: () => plane(paneR), has: (el) => paneR && el === paneR.ocanvas },
       // (the steps view's thread, between the plane and the Inspector: F6 lands on its ring, and any control of the thread is in it)
       { id: 'thread', el: () => { const t = document.querySelector('#svStrip .sv-thumb'); return shown(t) ? t : null; }, has: (el) => !!el.closest('#svStrip') },
+      ...(onLaptop() ? [] : [toolsArea]),
       { id: 'inspector', el: () => (S.hideRight ? null : first('#propsPanel')), has: (el) => !!el.closest('#propsPanel') },
     ].filter((a) => a.el());
     if (!areas.length) return;

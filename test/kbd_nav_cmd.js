@@ -1,6 +1,7 @@
 // Laptop keyboard in the steps view: the tool grid is one Tab stop and the arrows move inside it, and F6 / Shift+F6
 // move between the areas: top bar, tools, the plane, the thread (on its ring), the Inspector, wrapping both ways; Tab on a focused
-// plane steps through its shapes; the Construct tools have letters. A command file for a CDP daemon.
+// plane steps through its shapes; the Construct tools have letters. F6 at the phone layout and with the tools in the rail goes
+// through the areas shown, in the order the eye meets them. A command file for a CDP daemon.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'kbd_nav_kit.js'), 'utf8')), where = K.where;
@@ -50,5 +51,30 @@ for (const [k, tool] of Object.entries(letters)) {
   await key(k.toLowerCase()); await settled({ until: `!!document.querySelector('.tool[data-tool][aria-pressed="true"]') && document.querySelector('.tool[data-tool][aria-pressed="true"]').dataset.tool === ${JSON.stringify(tool)}`, max: 3000 });
   const on = await ev(`(document.querySelector('.tool[data-tool][aria-pressed="true"]') || { dataset: {} }).dataset.tool`);
   ok('the letter ' + k + ' picks ' + tool, on === tool, on);
+}
+// F6 at the phone layout (767 px, the ph class) and at a width whose tools are in the rail (1024 px): the areas the page
+// shows, in the order the eye meets them (on a phone the tools are at the foot, under the thread), wrapping both ways, and
+// never an area that is not shown
+for (const [w, h, ph, want, back, says] of [[767, 900, true, ['top', 'x', 'thread', 'tools', 'top'], ['tools', 'thread'], 'top bar, plane, chain, tools'],
+  [1024, 768, false, ['top', 'tools', 'x', 'thread', 'inspector'], ['thread', 'x'], 'top bar, tools, plane, chain']]) {
+  await K.open(w, h);
+  const layout = await ev("document.documentElement.classList.contains('ph')");
+  ok(`${w} px: ${ph ? 'the phone layout' : 'not the phone layout'} (control)`, layout === ph, layout);
+  await ev('(document.activeElement && document.activeElement.blur(), 1)');
+  const seq = [], hidden = [];
+  for (let i = 0; i < 5; i++) { await key('F6'); await settled({}); const at = await where(); seq.push(K.area(at)); if (!at || !at.shown) hidden.push(at); }
+  const rev = [];
+  for (let i = 0; i < 2; i++) { await key('F6', 8); await settled({}); const at = await where(); rev.push(K.area(at)); if (!at || !at.shown) hidden.push(at); }
+  info['f6 ' + w] = { seq, rev };
+  ok(`${w} px: F6 from nothing focused goes ${want.join(' → ')}`, JSON.stringify(seq) === JSON.stringify(want), seq);
+  ok(`${w} px: Shift+F6 goes back: ${back.join(', then ')}`, JSON.stringify(rev) === JSON.stringify(back), rev);
+  ok(`${w} px: F6 never lands on an area that is not shown`, hidden.length === 0, hidden);
+  // (the guide's Keys row for F6 names the areas in the order F6 visits them at this width)
+  await ev('(document.activeElement && document.activeElement.blur(), 1)');
+  await key('?'); await settled({ until: "!!document.querySelector('.modal table.keys')" });
+  const row = await ev("(() => { const r = [...document.querySelectorAll('.modal table.keys tr')].find((t) => /F6/.test(t.textContent)); return r ? r.textContent.replace(/\\s+/g, ' ').trim() : null; })()");
+  await key('Escape'); await settled({ until: "!document.querySelector('.modal-bg')" });
+  info['guide ' + w] = row;
+  ok(`${w} px: the guide's F6 row names the areas in F6's order (${says})`, !!row && row.includes(says), row);
 }
 return { pass: fails.length === 0, fails, info };
