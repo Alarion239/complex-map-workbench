@@ -1,8 +1,10 @@
 // The deformation on a Dirichlet series (ζ as Σ n^{−z}) against the same scene with z² + 1: its start and the choice of
 // its paths, with the main thread's long tasks. In the steps view the start is the thread parked halfway from z to w₁
 // (a glide's frame) and the paths are the glide's (__cmwSteps().paths.ready). The series is sampled by
-// Euler–Maclaurin per residue, no slower than a formula, so the park and the choice stay within a margin of the
-// formula's; the absolute times on software GL are dominated by the shader link, which both scenes pay. Also: η
+// Euler–Maclaurin per residue, no slower than a formula, so the park stays within a margin of the formula's. The paths
+// wait for the main thread, which software GL holds while it compiles the glide's inverse programs: nearly all of
+// ζ's 12-18 s on a 4-core runner (z² + 1, whose programs are built before the start, takes 0.4-0.8 s), so the time on
+// ζ is gated as that block itself, against a budget (ZETA_BLOCKED_MS), not as a multiple of z² + 1's. Also: η
 // ((−1)^{n+1}) builds as a Dirichlet series and deforms. It runs pinned to the steps view (ci/suite_views.js:
 // steps({ pin: true })). A command file for a CDP daemon.
 const fails = [];
@@ -41,10 +43,17 @@ const chose = (r) => r.err === '' && r.ready && r.kept > 0;
 ok('ζ as a Dirichlet series builds and its deformation chooses its paths', chose(zeta), zeta);
 ok('z² + 1 builds and its deformation chooses its paths', chose(poly), poly);
 ok('η, (−1)^{n+1} as a Dirichlet series, builds and deforms', chose(eta), eta);
-// gated, generous: on GitHub's lavapipe runners the ratio is bimodal, about 28 times z² + 1's choice on the fast ones and about 34 times on
-// the slow ones (ζ's time is the main thread held by the cold first draw of its inverse programs, which a slower runner stretches more than
-// z² + 1's), so the limit is 45 times; SwiftShader takes ~2 times. A limit that does not depend on the runner is open: #1365
-ok('the paths on ζ are ready within 45 times those of z² + 1 and 2 s', zeta.readyMs <= 45 * poly.readyMs + 2000, { zeta, poly });
+// gated: ζ's main-thread block, absolute. The block is the compile of the glide's inverse programs on llvmpipe, which takes the cores it
+// is given (measured on 4 cores, 2 and 1, idle: ζ's block 10.5-11.1 s, 20 s, 36 s, and 15-16 s, 26-30 s, 49-52 s while other jobs ran; z² + 1's
+// ready time stays 0.6-1.2 s throughout), so z² + 1 is no scale for it: a ratio to it fails a slow machine (49 s on one core is 46-55 times)
+// and passes a ζ build twice as slow (27 s is 42 times). The budget is for 4 cores and widens by 4 / cores below that. 25 s is 1.4 times
+// the slowest hosted block seen (17.5 s on the slow runners; 12 s on the fast), 1.6 times the loaded local block and 2.3 times the idle one.
+// It fails a ζ build twice as slow on the slow runners (35 s) but not on the fast runners or locally (24 s, 22 s: a busy-wait of 12 s in the
+// first inverse draw gives 22.4 s, green; 30 s gives 40.5 s, red); the ungated timing rows below report that (#1365)
+const ZETA_BLOCKED_MS = 25000;
+const cores = Math.max(1, Math.min(4, (await ev('navigator.hardwareConcurrency')) || 4));
+const budget = Math.round(ZETA_BLOCKED_MS * 4 / cores);
+ok(`the main thread is held at most ${budget} ms (${ZETA_BLOCKED_MS} ms on 4 cores, ${cores} here) by ζ's deformation build`, zeta.blocked <= budget && zeta.ready, { zeta, poly, budget, cores });
 ok('the start on ζ (the park halfway) takes at most 100 ms more than on z² + 1', zeta.park <= poly.park + 100, { zeta, poly });
 // tighter: reported, not gated (ci/browser_suites.js TIMING)
 ok('timing: the paths on ζ within 5 times those of z² + 1', zeta.readyMs <= 5 * poly.readyMs, { zeta, poly });

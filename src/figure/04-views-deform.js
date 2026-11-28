@@ -1,25 +1,6 @@
-  // ---------- (5) The deformation in every view (round 3, ROUND3.md): Phase, Landscape and the globes ----------
-  // the deformation's kind in a view: 'phase' (the portrait of H_t), 'phaseGlobe' (on the sphere), 'land' (the relief
-  // of H_t); null without the deformation
-  const defoOf = (view) => {
-    const d = A && A.defo ? A.defo() : null;
-    if (!d || !d.on) return null;
-    if (view === 'phase') return 'phase';
-    if (view === 'xyL' && d.main === 'phase') return 'phaseGlobe';
-    if (view === 'land') return 'land';
-    return null;
-  };
-  // the frames' times: n frames from 0 to m, and their labels (thirds when m is whole)
-  const filmTimes = (m, n = 4) => [...Array(n).keys()].map((i) => i * m / (n - 1));
-  const fracTexOf = (m) => (t) => { const q = t / m * 3; if (m === 1) return ['0', '1/3', '2/3', '1'][Math.round(q)] || (I18 && I18.comma(XD.lang) ? I18.texNum(CX.fmtNum(t, 2), XD.lang) : CX.fmtNum(t, 2)); return Math.abs(t - Math.round(t)) < 1e-9 ? String(Math.round(t)) : `${Math.round(t * 3)}/3`; };
-  const frameTitle = (i, lab, lp) => XD.tex(XD.lang === 'ru' ? `\\textit{${RU_LETTERS[i]}}\\enspace t=${lab}` : `\\text{(${String.fromCharCode(97 + i)})}\\enspace t=${lab}`, lp);
-  // the non-white bounds of a raster {w, h, rgb} (px): [i0, i1, j0, j1], or null
-  const inkBounds = (r, thr = 246) => {
-    let i0 = r.w, i1 = -1, j0 = r.h, j1 = -1;
-    for (let j = 0; j < r.h; j++) for (let i = 0; i < r.w; i++) { const q = 3 * (j * r.w + i); if (r.rgb[q] < thr || r.rgb[q + 1] < thr || r.rgb[q + 2] < thr) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; } }
-    return i1 < 0 ? null : [i0, i1, j0, j1];
-  };
-  // the same, in slices of rows with a yield once 8 ms have passed (a 300 dpi frame is 1-2 Mpx: no task near 50 ms)
+  // ---------- (5) The steps view's filmstrips, its two-plane figure and its paths on the sphere ----------
+  // the non-white bounds of a raster {w, h, rgb} (px): [i0, i1, j0, j1], or null; in slices of rows with a yield once
+  // 8 ms have passed (a 300 dpi frame is 1-2 Mpx: no task near 50 ms)
   const inkBoundsA = async (r, thr = 246) => {
     let i0 = r.w, i1 = -1, j0 = r.h, j1 = -1, t0 = performance.now();
     for (let j = 0; j < r.h; j++) {
@@ -94,139 +75,8 @@
     if (cur.length > 1) out.push(cur);
     return out;
   });
-  // (export review r3, editor-18) the floor marks of a relief: Re and Im ticks along the front edges and their names,
-  // through the render's camera L; toPt(ii, jj): raster px -> pt; fr: the panel {x, top, iw, ih}
-  function landFloor(L, r, toPt, fr, tp, lp, tick = 2.5) {
-    if (!L || !L.MVP || !GLR.M4) return '';
-    const proj = (p) => { const q = GLR.M4.apply(L.MVP, p); if (q[3] <= 1e-6) return null; const px = (q[0] / q[3] * 0.5 + 0.5) * L.w, py = (1 - (q[1] / q[3] * 0.5 + 0.5)) * L.h; return toPt(px * r.w / L.w, py * r.h / L.h); };
-    const [ax, ay] = L.aspect || [1, 1], z0 = L.floorZ, eye = L.eye || [1, 1, 1], bx = L.box;
-    const sx = eye[0] < 0 ? -1 : 1, sy = eye[1] < 0 ? -1 : 1;
-    const Xw = (v) => ((v - bx.x0) / (bx.x1 - bx.x0) - 0.5) * 2 * ax, Yw = (v) => ((v - bx.y0) / (bx.y1 - bx.y0) - 0.5) * 2 * ay;
-    const free = (bb) => !XD.boxes.some((q) => q.x0 < bb.x1 + 1 && q.x1 > bb.x0 - 1 && q.y0 < bb.y1 + 1 && q.y1 > bb.y0 - 1) && bb.x0 > fr.x + 1 && bb.x1 < fr.x + fr.iw - 1 && bb.y0 > fr.top + 1 && bb.y1 < fr.top + fr.ih - 1;
-    let tk = '', out = '';
-    const edge = (vals, at, dir, name) => {
-      const dec = XD.axisDec(name, vals.list, vals.step);
-      let mid = null, dirm = null;
-      const e0 = proj(at(vals.lo)), e1 = proj(at(vals.hi));
-      if (e0 && e1) tk += `M${f2(e0[0])} ${f2(e0[1])}L${f2(e1[0])} ${f2(e1[1])}`;
-      for (const v of vals.list) {
-        const p = at(v), a = proj(p), b = proj([p[0] + dir[0] * 0.08, p[1] + dir[1] * 0.08, z0]);
-        if (!a || !b) continue;
-        const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, u = [dx / l, dy / l];
-        const it = XD.tex(XD.tickTex(v, dec), tp);
-        const cx = a[0] + u[0] * (tick + 2 + Math.abs(u[0]) * it.w / 2), cy = a[1] + u[1] * (tick + 2 + Math.abs(u[1]) * (it.a + it.d) / 2);
-        if (!free(XD.boxOf(it, cx, cy, 'middle', 'mid'))) continue;
-        tk += `M${f2(a[0])} ${f2(a[1])}l${f2(u[0] * tick)} ${f2(u[1] * tick)}`;
-        out += XD.at(it, cx, cy, 'middle', 'mid', 'tick');
-        (mid = mid || []).push([cx, cy]); dirm = u;
-      }
-      if (mid && mid.length) {
-        const q = mid[Math.floor(mid.length / 2)], it = XD.tex(name, lp), cx = q[0] + dirm[0] * (it.w / 2 + 7), cy = q[1] + dirm[1] * (lp + 2);
-        if (free(XD.boxOf(it, cx, cy, 'middle', 'mid'))) out += XD.at(it, cx, cy, 'middle', 'mid', 'axis-name');
-      }
-    };
-    const tks = (a0, a1) => { const st = niceStep(a1 - a0, 3); return { step: st, list: XD.ticks(a0, a1, st), lo: a0, hi: a1 }; };
-    const v = A.panelVar();
-    edge(tks(bx.x0, bx.x1), (t) => [Xw(t), sy * ay, z0], [0, sy], `\\operatorname{Re} ${v}`);
-    edge(tks(bx.y0, bx.y1), (t) => [sx * ax, Yw(t), z0], [sx, 0], `\\operatorname{Im} ${v}`);
-    return (tk ? `<path d="${tk}" stroke="#000000" stroke-width="0.5" fill="none" stroke-linecap="round"/>` : '') + out;
-  }
   // a polyline set in pt as a path
   const ptPath = (segs) => segs.map((sg) => sg.map((p, i) => `${i ? 'L' : 'M'}${f2(p[0])} ${f2(p[1])}`).join('')).join('');
-  // Phase on the sphere, Landscape: a filmstrip of the view's own picture at the frames' times, one shared crop
-  async function figFilmPic(o, P, W, T, kind) {
-    const [tp, lp] = T;
-    const d = A.defo(), m = d.m, ts = filmTimes(m), lab = fracTexOf(m);
-    const st = A.state(), ink = printInkFor(o, st.alpha);
-    const cols = W >= 400 || o.for === 'slides' ? 4 : 2, rows = 4 / cols, gap = 8;
-    const keyW = kind === 'phaseGlobe' && o.ink !== 'bw' ? Math.min(54, W * 0.16) : 0;
-    const shapes = A.shapes();
-    const cell = (W - keyW - gap * (cols - 1)) / cols;
-    // the window of the relief: as in figLand (rounded edges), the same for every frame
-    let landBox = null;
-    if (kind === 'land') {
-      const lb = A.landBox ? A.landBox() : null;
-      if (lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite)) { const rnd = (a0, a1) => { const s2 = niceStep(a1 - a0, 8), b0 = Math.round(a0 / s2) * s2, b1 = Math.round(a1 / s2) * s2; return b1 > b0 ? [b0, b1] : [a0, a1]; }; const [x0, x1] = rnd(lb.x0, lb.x1), [y0, y1] = rnd(lb.y0, lb.y1); landBox = { x0, x1, y0, y1 }; }
-    }
-    // each frame rendered at 300 ppi of its printed size (the crop is unknown yet: render the pane's picture at the cell
-    // width, then crop; the crop rarely loses more than a third, so 1.5 x keeps it above 300 ppi)
-    const asp = Math.min(A.paneAspect(), kind === 'land' ? 0.8 : 1);
-    const wpt = cell * 1.5, hpt = wpt * asp, raws = [];
-    for (const t of ts) {
-      const r = await A.art({ wpt, hpt, dpi: 300, ink, T: t, alive: o.alive, landBox });
-      if (!r) return null;
-      raws.push(r);
-    }
-    // the shared crop: the union of what is drawn, with a little air
-    let c = null;
-    for (const r of raws) {
-      const b = await inkBoundsA(r, kind === 'land' ? 232 : 246);
-      if (b) c = c ? [Math.min(c[0], b[0]), Math.max(c[1], b[1]), Math.min(c[2], b[2]), Math.max(c[3], b[3])] : b;
-      // (a relief: its floor too, where the floor marks go; export review r3, editor-18)
-      const L = kind === 'land' ? r.land : null;
-      if (L && L.MVP && GLR.M4) {
-        const [ax, ay] = L.aspect || [1, 1];
-        for (const [x, y] of [[-ax, -ay], [ax, -ay], [ax, ay], [-ax, ay]]) {
-          const q = GLR.M4.apply(L.MVP, [x, y, L.floorZ]);
-          if (q[3] <= 1e-6) continue;
-          const i = Math.round((q[0] / q[3] * 0.5 + 0.5) * r.w), j = Math.round((1 - (q[1] / q[3] * 0.5 + 0.5)) * r.h);
-          c = c ? [Math.min(c[0], i), Math.max(c[1], i), Math.min(c[2], j), Math.max(c[3], j)] : [i, i, j, j];
-        }
-      }
-    }
-    const r0 = raws[0];
-    if (!c) c = [0, r0.w - 1, 0, r0.h - 1];
-    c = [Math.max(0, c[0]), Math.min(r0.w - 1, c[1]), Math.max(0, c[2]), Math.min(r0.h - 1, c[3])];
-    const padX = Math.round((kind === 'land' ? 0.07 : 0.03) * (c[1] - c[0])), padY = Math.round((kind === 'land' ? 0.09 : 0.03) * (c[3] - c[2]));
-    c = [Math.max(0, c[0] - padX), Math.min(r0.w, c[1] + 1 + padX), Math.max(0, c[2] - padY), Math.min(r0.h, c[3] + 1 + padY)];
-    const cw = c[1] - c[0], ch = c[3] - c[2];
-    let pw = cell, ph = pw * ch / cw;
-    const titleH = (it) => it.a + it.d + 4;
-    const titles = ts.map((t, i) => frameTitle(i, lab(t), lp));
-    const tH = Math.max(...titles.map(titleH));
-    // (a relief with its floor is about as tall as it is wide: it may take three quarters of the width in height)
-    const hmax = Math.min((W * (kind === 'land' ? 0.75 : 0.6)) / rows, (P.maxH + 2 - rows * (tH + 6)) / rows);
-    if (ph > hmax) { ph = hmax; pw = ph * cw / ch; }
-    const x0 = (W - keyW - (cols * pw + (cols - 1) * gap)) / 2;
-    const k = pw / cw, items = [], lines = [];
-    for (const i of ts.keys()) {
-      const col = i % cols, row = Math.floor(i / cols);
-      const x = x0 + col * (pw + gap), y = row * (tH + ph + 6) + tH;
-      const a = await XD.art(cropRGB(raws[i], c), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
-      items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
-      if (kind === 'land') { items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" fill="none" stroke="#000000" stroke-width="0.5"/>`); lines.push({ x0: x, y0: y, x1: x + pw, y1: y + ph, kind: 'frame' }); }
-      items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
-      const g = raws[i].globe;
-      if (g && kind === 'phaseGlobe') items.push(globeLabels(g, raws[i], c, x, y, k, tp - 1));
-    }
-    if (keyW) {
-      // (the key's ring: 12 pt of the column's half width go to its marks and margins; 6 pt is the gap under each row)
-      const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2;
-      items.push(ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, P.lw.frame));
-      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
-      items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
-    }
-    const box = kind === 'land' && raws[0].land ? raws[0].land.box : null;
-    // (export review r3, editor-18) the reliefs' floor marks: Re and Im along the front edges, through each frame's camera
-    if (kind === 'land') for (const [i] of ts.entries()) {
-      const L = raws[i].land, col = i % cols, row = Math.floor(i / cols);
-      if (!L || !L.MVP) continue;
-      const x = x0 + col * (pw + gap), y = row * (tH + ph + 6) + tH;
-      const cid = `${XD.ns}-lf${i}`;
-      items.push(`<clipPath id="${cid}"><rect x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}"/></clipPath><g clip-path="url(#${cid})">${landFloor(L, raws[i], (ii, jj) => [x + (ii - c[0]) * k, y + (jj - c[2]) * k], { x, top: y, iw: pw, ih: ph }, tp - 1, lp - 1, 2)}</g>`);
-    }
-    // (export review r3, editor-10) Phase on the sphere: the zeros and poles a frame hides on the far side
-    let hiddenZP = 0, allZP = 0;
-    if (kind === 'phaseGlobe') for (const [i, t] of ts.entries()) {
-      const g = raws[i].globe, proj = g ? globeProj(g, raws[i], c, 0, 0, 1) : null;
-      if (!proj) continue;
-      for (const r of zerosPolesIn(A.plotFAt(t), expandBox(A.screenBox('L0'), 2), 30)) { allZP++; if (!proj(r.z)) hiddenZP++; }
-      await breathe();
-    }
-    const Hfig = rows * (tH + ph + 6) - 2;
-    return { items, defs: '', lines, H: Hfig, info: { film: kind, ts, m, labs: ts.map(lab), outline: kind === 'phaseGlobe' && shapes.some((s) => kindType(s) !== 'point'), hiddenZP: allZP && hiddenZP / allZP > 0.5 ? hiddenZP : 0, box, land: kind === 'land' } };
-  }
   // the steps view's filmstrip: one frame per plane of the thread, each that plane's picture as its stage shows
   // it (its surface, colouring and Inside regions), titled with the plane and the step into it, w_k = f_k(w_{k-1}).
   // As on screen, every frame shows the window all the planes share (the camera). Fit, on the plane, gives each frame
@@ -253,7 +103,7 @@
     boxes = boxes.map((b) => b || cam);
     return { boxes: boxes.every((b) => sameBox(b, cam)) ? null : boxes, fellBack };
   }
-  // The frames of a filmstrip (figSvFilm, figNumFilm) laid out as the deformation's filmstrips (figFilmPic, figFilmPhase):
+  // The frames of a filmstrip (figSvFilm, figNumFilm) laid out in a grid of up to 4 columns (3 under 400 pt but on a slide):
   // 8 pt between frames, a title 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the
   // frame and at least 2 pt of room right of it for the last x label. titles: the frames' typeset titles; artAt(i, opts):
   // frame i's picture (svArt's options), in turn, null when cancelled; boxes: each frame's own window (its axes and
@@ -437,82 +287,6 @@
     }
     const ownWin = !!fit.boxes && !sameBox(boxes[0], boxes[1]);
     return { items, defs, lines, H: Math.max(y + h + bottom, keyBottom), info: { svTwo: true, keyLine: keyW ? sk.carried.text : null, frames: [frames[from], frames[to]], from, to, arrow: arrowTex, ownWin, fellBack: ownWin && fit.fellBack, boxes } };
-  }
-  // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
-  async function figFilmPhase(o, P, W, T) {
-    const [tp, lp] = T;
-    const d = A.defo(), m = d.m, ts = filmTimes(m), lab = fracTexOf(m);
-    const bw = o.ink === 'bw', scr = A.screenBox('L');
-    const Fs = ts.map((t) => A.plotFAt(t));
-    // the window: the zeros and poles of every frame with a margin of their spread, inside the screen window
-    let box = scr, zps = Fs.map(() => []);
-    if (o.crop !== 'screen') {
-      let b = null;
-      // (each search is bounded at 40 ms and runs in a task of its own: the page keeps its frames)
-      for (const F of Fs) { for (const r of zerosPolesIn(F, scr, 40)) b = unionBox(b, { x0: r.z.re, x1: r.z.re, y0: r.z.im, y1: r.z.im }); await breathe(); }
-      if (b) {
-        const span = Math.max(b.x1 - b.x0, b.y1 - b.y0, 1), half = Math.max(b.x1 - b.x0, b.y1 - b.y0) / 2 + 0.5 * span, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
-        box = { x0: Math.max(scr.x0, cx - half), x1: Math.min(scr.x1, cx + half), y0: Math.max(scr.y0, cy - half), y1: Math.min(scr.y1, cy + half) };
-      }
-    }
-    const cols = W >= 400 || o.for === 'slides' ? 4 : 2, rows = 4 / cols, gap = 8;
-    const dc = (A.capParts().dc) || 'enhanced', keyW = bw || dc === 'classic' || dc === 'cauchy' ? 0 : Math.min(54, W * 0.16);
-    // (the window does not depend on the ink: colour and B/W show the same part of the plane; export review r3, editor-19)
-    const roughW = (W - (dc === 'classic' || dc === 'cauchy' ? 0 : Math.min(54, W * 0.16)) - 30) / cols;
-    const stp = stepFor(box, roughW) / 2;
-    box = { x0: Math.floor(box.x0 / stp + 1e-9) * stp, x1: Math.ceil(box.x1 / stp - 1e-9) * stp, y0: Math.floor(box.y0 / stp + 1e-9) * stp, y1: Math.ceil(box.y1 / stp - 1e-9) * stp };
-    const step = stepFor(box, roughW);
-    zps = [];
-    for (const F of Fs) { zps.push(zerosPolesIn(F, box, 40)); await breathe(); }
-    const mL = tickW(box, step, tp) + 3, mR = Math.max(2, overR(box, step, tp));
-    let pw = (W - keyW - mL - gap * (cols - 1) - mR) / cols, ph = pw / aspect(box);
-    const titles = ts.map((t, i) => frameTitle(i, lab(t), lp));
-    const tH = Math.max(...titles.map((it) => it.a + it.d + 4));
-    const rowH0 = tH + tp * 1.05 + 4.2 + 2;
-    const hmax = Math.min((W * 0.6) / rows, (P.maxH - rows * rowH0) / rows);
-    if (ph > hmax) { ph = hmax; pw = ph * aspect(box); }
-    const x0 = (W - keyW - (mL + cols * pw + (cols - 1) * gap + mR)) / 2;
-    const rowH = rowH0 + ph;
-    const items = [], lines = []; let defs = '';
-    // level lines on a grid fine enough for the panel (bounded by the cost of F)
-    const t0 = performance.now(); for (let i = 0; i < 50; i++) Fs[Fs.length - 1](C(box.x0 + i * 0.013, box.y0 + i * 0.017)); const per = (performance.now() - t0) / 50;
-    // (a frame's grid costs about 25 ms of F: four of them, each in its own task)
-    const n = Math.max(40, Math.min(120, Math.floor(Math.sqrt(25 / Math.max(per, 1e-4)))));
-    const ownLines = !bw && (dc === 'modulus' || dc === 'grid' || dc === 'classic' || dc === 'cauchy');
-    const ks = ownLines ? [] : [...Array(12).keys()].map((q) => q - 5);
-    for (const [i, t] of ts.entries()) {
-      const col = i % cols, row = Math.floor(i / cols);
-      const x = x0 + mL + col * (pw + gap), y = row * rowH + tH;
-      let art;
-      if (bw) { await breathe(); art = await bandsArt(Fs[i], box, pw, 300); }
-      else { art = await artPanel(box, pw, Object.assign({}, o, { ink: 'colour' }), { mode: 'rgb', dpi: 300, T: t, ss: 2 }); if (!art) return null; }
-      if (o.alive && !o.alive()) return null;
-      await breathe();
-      const L = await argLevels(Fs[i], box, n, ks), curves = [];
-      for (const q of ks) {
-        if (bw) curves.push({ pts: L[q], w: q === 0 || q === 6 ? 0.7 : 0.35, color: '#000000', dash: q === 6 ? '3 2' : null, cap: 'butt', noObst: true });
-        else curves.push({ pts: L[q], w: 0.3, color: '#1a1a1a', cap: 'butt', noObst: true });
-      }
-      const points = zps[i].map((r) => (r.kind === 'pole' ? { z: [r.z.re, r.z.im], kind: 'ring', r: 1.6, sw: 0.6 } : { z: [r.z.re, r.z.im], r: 1.5, fill: '#000000', stroke: '#ffffff', sw: 0.5 }));
-      const p = XD.panel({ x, y, w: pw, h: ph, box, step, art: [art], curves, points, axes: 'box', ylab: col === 0 ? 'left' : 'none', xtrim: { l: col > 0, r: col < cols - 1 }, tickPt: tp, labelPt: lp, ink: '#000000', lw: { frame: 0.5, tick: 0.5 } });
-      items.push(p.markup); defs += p.defs; lines.push(...p.lines);
-      items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
-      await breathe();
-    }
-    if (keyW) {
-      // (the key's ring: 12 pt of the column's half width go to its marks and margins)
-      const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * rowH / 2;
-      items.push(ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, P.lw.frame));
-      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
-      items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
-    }
-    return { items, defs, lines, H: rows * rowH, info: { film: 'phase', ts, m, labs: ts.map(lab), box, bw, zp: zps, dc } };
-  }
-  // zeros and poles with a time bound of their own
-  function zerosPolesIn(F, box, ms) {
-    if (!Calc.zerosPoles) return [];
-    try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + ms }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
   // the steps view's paths figure on the sphere (o.sv, its A.svPathsFig()): the shown plane's globe and the paths
   // t -> H_t(z) of the step that leads to it, with heads at F(z), their starts chosen in the camera's window as on the

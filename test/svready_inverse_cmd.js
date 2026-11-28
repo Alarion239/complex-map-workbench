@@ -7,6 +7,8 @@
 //   counted again, and ready reads true;
 // - a new opacity, which picks the programs' B class: the gauge counts the programs of the new look (not those of the look
 //   it counted before, which no job asks for any more), and ready reads true once they have linked;
+// - a page opened parked on plane 1, an example loaded (its view puts the thread on plane 0), its warm-up done there, then
+//   the thread taken to plane 1: the warm-up of plane 1's glides starts on arriving, and ready reads true;
 // - on a fresh page whose links land LATE_MS late (test/lib/late_links.js): ▶ pressed on plane 0 as soon as the page is
 //   up waits while the chain's programs link, and then the glide's inverse programs, which together take longer than a
 //   warm-up's tries would last if each try spent on a pending link counted; ready never reads false for READY_AFTER_MS
@@ -53,6 +55,24 @@ await ev("(__cmwSet('alpha', 1), 1)");
 const relook = await settled({ max: READY_MS, only: true, until: '__cmwSteps().ready.ready === true' });
 const look = await ev('__cmwSteps().ready.parts.inverse');
 ok('a new opacity: ready reads true once the programs of the new look have linked', a0 < 0.999 && relook.ok && look && look.total > 0 && look.done === look.total, { a0, counted, look, ready: await ev('__cmwSteps().ready') });
+// a page opened parked on plane 1, then an example loaded: the example's view puts the thread on plane 0, and the arrival
+// at plane 1 that follows starts that plane's warm-up
+await nav(`${base}/test.html?ns=${ns}p&view=steps`);
+await settled({ max: LOAD_MS, until: up });
+await ev('(__cmwSteps({ go: 1, now: true }), 1)');
+await settled({ max: READY_MS, only: true, until: '__cmwSteps().ready.ready === true' });
+await nav(`${base}/test.html?ns=${ns}p&view=steps`);
+await settled({ max: LOAD_MS, until: up });
+const opened = await ev('__cmwSteps().x');
+await ev('(__cmwExample(1), 1)');
+const atZero = await settled({ max: READY_MS, only: true, until: '__cmwSteps().x === 0 && __cmwSteps().ready.ready === true' });
+await ev('(__cmwSteps({ go: 1, now: true }), 1)');
+const arrived = await settled({ max: READY_MS, only: true, until: '__cmwSteps().ready.ready === true' });
+const onOne = await ev('(() => { const s = __cmwSteps(); return { x: s.x, inverse: s.ready.parts.inverse, invWarm: s.invWarm }; })()');
+info.reopened = { opened, atZero, arrived, onOne };
+ok('a page opened on plane 1 (control)', opened === 1, opened);
+ok('an example loaded there puts the thread on plane 0, and ready reads true (control)', atZero.ok, atZero);
+ok('taken from there to plane 1: the warm-up of its glides starts, and ready reads true', arrived.ok && onOne.x === 1 && onOne.inverse && onOne.inverse.total > 0 && onOne.inverse.done === onOne.inverse.total, onOne);
 let exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 // links that land late: ▶ waits for the chain's programs and the glide's inverse programs, and starts once they have landed
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${LATE_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });

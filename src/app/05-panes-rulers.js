@@ -422,14 +422,14 @@
       if (py >= 0 && py <= yh) { cy.beginPath(); cy.moveTo(yw - 4, py - 2.5); cy.lineTo(yw - 4, py + 2.5); cy.lineTo(yw, py); cy.fill(); }
     }
   }
-  function setLed(side, state, tip) {
+  function setLed(side, state, tip, quiet) {
     const el = $(side === 'L' ? 'leftLed' : 'rightLed');
     if (!el) return;
     el.className = 'led ' + state;
     el.setAttribute('data-tip', tip || { ok: $t('Up to date'), busy: $t('Refining near cuts and poles'), err: $t('Evaluation failed') }[state]);
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
-    ledSay(side, state, el.getAttribute('data-tip'));
+    if (!quiet) ledSay(side, state, el.getAttribute('data-tip'));
   }
   // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
   // with its pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
@@ -475,6 +475,14 @@
       $('hairL').hidden = true; $('hairR').hidden = true;
     }
   }
+  // whether a frame has run: before it the LEDs know nothing of their panes' programs, so they show and label that they are starting,
+  // busy, rather than "Up to date", and say nothing in the polite region (the first frame's own state, compiling or not, replaces it)
+  let ledFramed = false;
+  function ledFirstFrame() {
+    if (ledFramed) return;
+    ledFramed = true;
+    updateLeds();
+  }
   // what a pane's LED says while its exact picture is still being drawn in tiles (a REPT draw; prog: its second pass's
   // tiles { done, total }, or null before that pass's tiles are known)
   function reptTip(prog) {
@@ -499,11 +507,13 @@
     // tiles, a REPT draw, is busy with the cue's words; the left pane's colour plot still a quick stand-in while its program
     // links, colourPending, is busy too; and its LED says so: the notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
-    const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : undefined);
-    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')] : busy || compileBusy[r] ? ['busy', compTip(r)] : ['ok']);
+    const compTip = (side) => (compileBusy[side] ? $t('Compiling…') : !ledFramed ? $t('Starting…') : undefined);
+    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', paneL.dcHeld ? $t('Showing the previous picture; the Cauchy plot is still being built') : $t('Drawing a quick preview; the exact plot is still being built')] : busy || compileBusy[r] || !ledFramed ? ['busy', compTip(r)] : ['ok']);
+    // (until a frame has run the states are shown and labelled, not said: the polite region's wait is for changes of a page that is up)
+    const showLed = (r) => { const [state, tip] = led(r); setLed(r, state, tip, !ledFramed); };
     // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
-    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip); else setLed('L', ...led('L'));
-    if (errStep >= 0 || note('R')) setLed('R', 'err', errTip || note('R')); else setLed('R', ...led('R'));
+    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip); else showLed('L');
+    if (errStep >= 0 || note('R')) setLed('R', 'err', errTip || note('R')); else showLed('R');
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -1328,8 +1338,6 @@
         q = GLR.clearOfLimb(q, (at) => ({ x0: at[0] - half, x1: at[0] + half, y0: at[1] - GLOBE_MARK_PX / 2, y1: at[1] + GLOBE_MARK_PX / 2 }), limb, centre);
         if (!q) continue;
       }
-      // (a video frame: the figure draws these labels at full ink; their places still keep the point labels clear)
-      if (artNoLab) { labelReg(pane).marks.push([q[0], q[1], 11]); continue; }
       ctx.globalAlpha = a;
       ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.strokeText(lab, q[0], q[1]);
       ctx.fillStyle = TH.label; ctx.fillText(lab, q[0], q[1]);

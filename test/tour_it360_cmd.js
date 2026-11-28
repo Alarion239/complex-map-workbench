@@ -6,8 +6,11 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
-const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
+// (the steps wait on the page's state, never a time: the strip is not busy and the spotlight's morph is over)
+const IDLE = `!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`;
+const waitFails = [];
+const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails: waitFails, only: true });
+const settle = (cond) => until(cond ? `(${cond}) && (${IDLE})` : IDLE);
 const PROBE = `(() => {
   const s = document.querySelector('.tour-strip');
   if (!s || !Tour.isActive()) return null;
@@ -26,9 +29,9 @@ await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-m
 for (const [w, h, lang] of [[360, 780, 'it'], [360, 780, 'ru'], [390, 844, 'it']]) {
   const tag = `${w}x${h}-${lang}`;
   await view(w, h, false, true);
-  await go(`http://localhost:${PORT}/test.html?ns=it360-${w}${lang}&lang=${lang}`); await sleep(2500);
+  await go(`http://localhost:${PORT}/test.html?ns=it360-${w}${lang}&lang=${lang}`); await until(`typeof Tour === 'object' && typeof Tour.dismissSuggestion === 'function'`);
   await ev('Tour.dismissSuggestion()'); await ev('Tour.auto(false)');
-  await ev(`Tour.start({ chapter: 'basics' })`); await settle(1500);
+  await ev(`Tour.start({ chapter: 'basics' })`); await settle(`Tour.isActive() && Tour.current().chapter === 'basics'`);
   let n = 0, longest = 0;
   for (let k = 0; k < 70 && (await ev('Tour.isActive()')); k++) {
     const g = await ev(PROBE);
@@ -38,11 +41,32 @@ for (const [w, h, lang] of [[360, 780, 'it'], [360, 780, 'ru'], [390, 844, 'it']
     ok(`${tag} ${g.id}: the strip's lines (${g.lines}) cover what its chapter needs (${g.need})`, g.need <= g.lines, g);
     if (g.mode === 'port') ok(`${tag} ${g.id}: the strip is ${rowH('port', g.lines)} px tall`, g.h === rowH('port', g.lines), g);
     const before = JSON.stringify(await ev('Tour.current()'));
-    await ev('Tour.next()'); await settle(900);
+    await ev('Tour.next()'); await settle(`!Tour.isActive() || JSON.stringify(Tour.current()) !== ${JSON.stringify(before)}`);
     if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { ok(`${tag}: Next moves on`, false, g.id); break; }
   }
   ok(`${tag}: the walk saw the steps (at least 40)`, n >= 40, n);
   info[tag] = { steps: n, longest };
-  await ev('Tour.stop()'); await settle(300);
+  await ev('Tour.stop()'); await until('!Tour.isActive()');
 }
+// (the first steps with motion on: the strip's height in the CSS that reduced motion leaves out; each step is read once the page says it has
+// settled, the wait the walk above uses, which these steps meet as soon as Next returns)
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+{
+  const tag = 'motion on, 360x780-it';
+  await view(360, 780, false, true);
+  await go(`http://localhost:${PORT}/test.html?ns=it360-motion&lang=it`); await until(`typeof Tour === 'object' && typeof Tour.dismissSuggestion === 'function'`);
+  await ev('Tour.dismissSuggestion()'); await ev('Tour.auto(false)');
+  await ev(`Tour.start({ chapter: 'basics' })`); await settle(`Tour.isActive() && Tour.current().chapter === 'basics'`);
+  let portrait = 0;
+  for (let k = 1; k <= 3; k++) {
+    const before = JSON.stringify(await ev('Tour.current()'));
+    await ev('Tour.next()'); await settle(`!Tour.isActive() || JSON.stringify(Tour.current()) !== ${JSON.stringify(before)}`);
+    const g = await ev(PROBE);
+    if (g && g.mode === 'port') { portrait++; ok(`${tag}, Next ${k}: the strip is ${rowH('port', g.lines)} px tall`, g.h === rowH('port', g.lines), g); }
+  }
+  // (the control: the height rows above are made only for a step read in the portrait strip, and these steps are)
+  ok(`${tag}: all 3 steps were read in the portrait strip`, portrait === 3, portrait);
+  await ev('Tour.stop()'); await until('!Tour.isActive()');
+}
+ok('no wait timed out', !waitFails.length, waitFails);
 return { pass: fails.length === 0, fails, info };
