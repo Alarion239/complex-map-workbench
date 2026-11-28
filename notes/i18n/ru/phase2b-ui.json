@@ -110,11 +110,6 @@
   "ru": "Язык подписи",
   "note": "aria-label of the caption-language switch (GLOSSARY 1.11)."
  },
- "p2b.fig.hint": {
-  "en": "{label}, {pt} pt text · Fit column",
-  "ru": "{label}, текст {pt} пт · по ширине колонки",
-  "note": "The preview's hint line."
- },
  "p2b.fig.paste_linewidth_menu": {
   "en": "Paste \\the\\linewidth…",
   "ru": "Вставить \\the\\linewidth…",
