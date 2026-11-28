@@ -369,6 +369,30 @@ const Phone = (() => {
   // tall construction bar, Fit view stands left of Display and the column comes down beside it ("low"), or they stand in the row.
   // phone.css places them
   const KEYS_COL = 156, KEYS_LOW = 104;
+  // The stack's buttons stand in the DOM in the order they read on the screen, top to bottom and then left to right, in the arrangement they are
+  // in, so Tab and a screen reader's swipe walk them as the eye does: Tilt (the Stack's, on top or beside Display), Sphere, Display and Fit view
+  // in the column; Fit view first in the one row, and Sphere above the row of Fit view, Tilt and Display under the tall bar. The laptop's stack
+  // has Fit view and Sphere in its second group, in that order, and gets them back when the page leaves the phone layout
+  const KEYS_READ = { row: ['vb-fit', 'ph-tilt', 'vb-sph', 'ph-dsp'], low: ['vb-sph', 'vb-fit', 'ph-tilt', 'ph-dsp'], side: ['ph-tilt', 'vb-sph', 'ph-dsp', 'vb-fit'], grid: ['vb-sph', 'ph-tilt', 'ph-dsp', 'vb-fit'], column: ['ph-tilt', 'vb-sph', 'ph-dsp', 'vb-fit'] };
+  function keysOrder(plot, k) {
+    const stack = plot.querySelector(':scope > .viewstack');
+    if (!stack) return;
+    const key = (c) => /** @type {HTMLElement | null} */ (stack.querySelector('.' + c));
+    const group = /** @type {HTMLElement | null} */ (stack.querySelector(':scope > .vgroup:last-of-type'));
+    if (!on) {
+      // (the laptop's: Fit view, Sphere, in the stack's second group)
+      const fit = key('vb-fit'), sph = key('vb-sph');
+      if (group && fit && sph && (fit.parentNode !== group || sph.parentNode !== group || fit.nextElementSibling !== sph)) group.append(fit, sph);
+      return;
+    }
+    const grid = !k && rootEl.classList.contains('ph-land') && rootEl.classList.contains('sv-stack');
+    const want = [key('ph-both-key'), ...KEYS_READ[k || (grid ? 'grid' : 'column')].map(key)].filter((e) => !!e);   // (Tilt is X's stack's, in the steps view)
+    const have = [...stack.children].filter((e) => want.includes(/** @type {HTMLElement} */ (e)));
+    if (have.length === want.length && have.every((e, i) => e === want[i])) return;
+    const focused = document.activeElement && stack.contains(document.activeElement) ? /** @type {HTMLElement} */ (document.activeElement) : null;
+    stack.append(...want);
+    if (focused) focused.focus({ preventScroll: true });
+  }
   function keysRoom() {
     const bar = els.ctx, tall = !!bar && bar.classList.contains('in') && bar.classList.contains('tall') && !bar.classList.contains('under');
     const lift = on ? parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-lift')) || 0 : 0;
@@ -376,8 +400,8 @@ const Phone = (() => {
       const p = $(id);
       if (!p) continue;
       const room = p.clientHeight - lift, k = !on || !land ? '' : room < KEYS_LOW ? 'row' : tall ? 'low' : room < KEYS_COL ? 'side' : '';
-      if ((p.dataset.keys || '') === k) continue;
-      if (k) p.dataset.keys = k; else delete p.dataset.keys;
+      if ((p.dataset.keys || '') !== k) { if (k) p.dataset.keys = k; else delete p.dataset.keys; }
+      keysOrder(p, k);
     }
   }
 

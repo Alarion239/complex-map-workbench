@@ -40,7 +40,7 @@
   const listOf = (side) => (side === 'R' ? S().targets : A.planeShapes());
   // the map that carries a z-plane point to the plane a side shows: the whole chain on Y, the steps up to plane k on a
   // later plane of X; null where X shows no such plane
-  const carriedF = (side) => (side === 'R' ? (A.yWhole() ? env().F : null) : A.leftStage() > 0 && env().Fk ? env().Fk(A.leftStage()) : null);
+  const carriedF = () => (A.leftStage() > 0 && env().Fk ? env().Fk(A.leftStage()) : null);
   const touchNow = () => !!lastEv && (lastEv.pointerType === 'touch' || lastEv.pointerType === 'pen');
   // the radii in screen px: points p, curves c (a finger 14, a mouse 6), the grid lattice g, a rail's
   // detents det
@@ -251,7 +251,7 @@
     if (!ref) return '?';
     if (ref.inf) return '∞';
     if (typeof ref.zp === 'string') return zMark(ref.kind, Constr.zpNum((S().steps || []).find((x) => x.uid === ref.zp), ref.kind, zpIndex(ref)));
-    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes(A.yWhole() ? S().steps.length : A.leftStage() || S().steps.length) : '?'; }
+    if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + primes(A.leftStage() || S().steps.length) : '?'; }
     if (ref.meet) return `${curveName(ref.meet[0])} ∩ ${curveName(ref.meet[1])}`;
     if (ref.part != null) return curveName(ref);
     const s = find(ref.s);
@@ -463,7 +463,7 @@
         }
       }
       {
-        const F = carriedF(side);
+        const F = carriedF();
         if (F) for (const s of st.shapes) if (s.kind === 'point' && planeOf(s) === 0 && s.visible !== false && !s.helper && !s._atInf) { const w = F(s.p); if (w) consider(w, { img: s.id }); }
       }
       if (best) return best;

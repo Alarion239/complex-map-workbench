@@ -521,14 +521,11 @@
   }
   function viewChanged(side) {
     if (side === 'R') {
-      // targets are drawn and edited in Y Plane; a target draft and a target selection end with it
-      // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
-      if (draft && draft.target) draft = null;
       setHoverW(null);
       buildShapeList();
     } else {
       // a shape draft ends with the view it was drawn in (the plane or the z-globe); the flat probe goes
-      draft = draft && draft.target ? draft : null;
+      draft = null;
       if (!lFlat()) { probe = null; hoverCut = 0; setReadouts(null); }
     }
     updateFocusUI(); scheduleFix(); requestRender('L', 'R'); save();
@@ -1014,6 +1011,17 @@
       live = ![...modal.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].some((c) => { const b = c.getBoundingClientRect(); return b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; });
     }
     host.toggleAttribute('data-clear-of-dialog', live);
+  }
+  // A dialog that opens takes every message already up away at once, an Undo's included: its words were said before
+  // the dialog, and its Undo stays on the bar and ⌘Z. What is said while the dialog is open shows over it
+  // (syncToastLive). The removal says nothing (a message that leaves is not announced), and the dialog that opens takes
+  // the focus, wherever it was. Each message taken away is marked data-dropped, so that one which says a state rather
+  // than news (the Play gate's) can be raised again once no dialog is open
+  function dropToasts() {
+    const host = $('toastHost');
+    if (!host) return;
+    for (const t of host.children) t.setAttribute('data-dropped', '');
+    host.replaceChildren();
   }
   function refreshToasts() { placeToasts(); syncToastLive(); }
   // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.

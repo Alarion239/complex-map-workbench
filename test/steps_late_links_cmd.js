@@ -356,7 +356,8 @@ try {
     try {
       await chain('llq');
       await record('requestIdleCallback');
-      // (what ▶ and the live region say through the play: ▶'s aria-busy, name and description, and each text the polite regions get)
+      // (what ▶ and the live region say through the play: ▶'s aria-busy, name and description, and each text the steps view's
+      // polite region gets: #stage's, not the page's other polite regions, such as the LEDs' #ledLive, which say other things)
       await ev(`(window.__playLog = [], window.__liveLog = [], window.__paintLog = [], (() => {
         const b = document.querySelector('.sv-play');
         new MutationObserver(() => window.__playLog.push({ busy: b.hasAttribute('aria-busy'), label: b.getAttribute('aria-label'), desc: b.getAttribute('aria-description') })).observe(b, { attributes: true, childList: true });
@@ -370,12 +371,16 @@ try {
           if (window.__paintOn) requestAnimationFrame(frame);
         };
         requestAnimationFrame(frame);
-        new MutationObserver((ms) => { for (const m of ms) { const r = m.target.nodeType === 1 ? m.target : m.target.parentElement, l = r && r.closest('[aria-live]'); if (l && l.textContent) window.__liveLog.push(l.textContent); } }).observe(document.body, { subtree: true, childList: true, characterData: true });
+        const sv = document.querySelector('#stage > .sr-only[aria-live]');
+        new MutationObserver((ms) => { for (const m of ms) { const r = m.target.nodeType === 1 ? m.target : m.target.parentElement, l = r && r.closest('[aria-live]'); if (l && l === sv && l.textContent) window.__liveLog.push(l.textContent); } }).observe(document.body, { subtree: true, childList: true, characterData: true });
       })(), 1)`);
       await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ play: true }), 1`);
       const q0 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.still >= ${STILL_FRAMES} && __cmwSvX() > 0.5 && !!__cmwSteps().play` });
       // (the hold has gone past the gate's threshold: ▶ is the gate's Cancel, said once)
       const busyW = await settled({ only: true, max: HOLD_SHOWN_MS, until: '!!document.querySelector(".sv-play[aria-busy]")' });
+      // (control: the LEDs' polite region speaks in the middle of the hold, as ledSay does when a pane's LED settles; the steps
+      // view's region is read alone, so it is not counted)
+      await ev("(document.getElementById('ledLive') || {}).textContent = 'Up to date', 1");
       const busy = await ev(`(() => { const b = document.querySelector('.sv-play'); return { busy: b.hasAttribute('aria-busy'), label: b.getAttribute('aria-label'), desc: b.getAttribute('aria-description'), wait: b.dataset.wait, play: !!__cmwSteps().play }; })()`);
       const q1 = await recorded();
       const second = Object.assign(q1.got, await ev('({ links: GLR.pendingLinks })'));
