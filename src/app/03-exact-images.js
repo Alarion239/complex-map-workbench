@@ -907,9 +907,10 @@
     // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
     const rp = GLR.reptPendingTake ? GLR.reptPendingTake() : null, rept = !!rp;
     const was = paneGl[role], reptProg = rp && rp.prog ? rp.prog : null;
-    // (reptT: when the pane's REPT cue started; cue: the cue's words, when they were drawn as the pane's corner note)
+    // (reptT: when the pane's REPT cue started; cue and cueBox: the cue's words and their box in the pane's CSS px, when
+    // they were drawn as the pane's corner note)
     const reptT = rept ? (was && was.rept ? was.reptT : now) : null;
-    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, reptProg, reptT, cue: null, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
+    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, reptProg, reptT, cue: null, cueBox: null, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
     invPendN = 0;
     // (the LEDs, the plots' aria-busy and the hairline follow a note that comes or goes, and a REPT draw's cue: updateLeds,
     // when it starts, moves on a tile or ends)
@@ -920,8 +921,10 @@
     const led = rept ? $(role === 'L' ? 'leftLed' : 'rightLed') : null, cornerCue = !!led && !led.offsetWidth;
     if (cornerCue && reptT === now) setTimeout(() => requestRender(role), CUE_DELAY_MS + 20);
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
-    // (the corner holds one note: the cue gives way to the "Compiling…" note on the frames that draw it, and only those)
-    if (!waitNotes(pane, role, st, now) && cornerCue && now - reptT >= CUE_DELAY_MS) { const text = reptTip(reptProg); cornerNote(pane, text); paneGl[role].cue = text; }
+    // (the corner holds one note: the cue gives way to the "Compiling…" note on the frames that draw it, and only those;
+    // and to the Play gate's message while that is up, which lies over the corner on a phone, as "Compiling…" does in
+    // waitNotes)
+    if (!waitNotes(pane, role, st, now) && cornerCue && now - reptT >= CUE_DELAY_MS && !svGateMessageUp()) { const text = reptTip(reptProg); paneGl[role].cueBox = cornerNote(pane, text); paneGl[role].cue = text; }
   }
   // the notes of a frame that waits for programs: "Preparing the GPU…" once they have waited 1.5 s, else the "Compiling…"
   // corner note once the frame has stood in for a compiling program for 300 ms; true when the "Compiling…" note was drawn

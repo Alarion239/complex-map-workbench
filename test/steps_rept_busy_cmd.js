@@ -10,6 +10,11 @@
 //   0 <= k < n, on some frame while they draw, the count joined by no-break spaces (a tip never wraps inside it);
 // - on a phone (PHONE_W x PHONE_H), where the LED is not laid out: the pane's corner note says the cue's words while the
 //   second pass is held, and is gone once the picture is drawn;
+// - on a phone, Play pressed while the second pass is held: the Play gate waits, and its message (#toastHost) comes up over
+//   the box where the cue was last drawn (control: __cmwGateToast, the gate's own message, and __cmwPaneStatus(role).cueBox);
+//   a page script logs each frame from then, and no frame drawn after the message came up draws the cue there (the one
+//   drawn just before it stays on the screen until the gate's own request for a frame replaces it, as for "Compiling…");
+//   once the message is closed (its ×) the cue is drawn again, the gate still waiting;
 // - on a phone, the plane turned to its Landscape with the second pass held, its programs held linking (GLR.holdLinks):
 //   the corner holds one note on every frame. A long compile: the frames are both REPT-pending and compiling (control);
 //   the cue (__cmwPaneStatus(role).cue) stays on the frames before the "Compiling…" note's COMPILE_NOTE_MS, gives way to
@@ -102,6 +107,47 @@ await drawn('the phone, the held pass released');
 await frames(2);
 phone.done = (await ev("__cmwPaneStatus('L')") || {}).cue || null;
 ok('a phone: released, once the picture is drawn the note is gone', !phone.done, phone);
+// ---- a phone, the Play gate: Play pressed while the second pass is held, its message comes up over the pane's corner ----
+{
+  // (a new bound, half the tiles, so the drawn plane is walked again with its second pass held)
+  await ev(`__cmwRept({ fast: ${FAST_NODES}, holdB: true, tiles: ${HELD_TILES / 2} }); 1`);
+  const cued = await poll(`(() => { const s = __cmwPaneStatus('L'); return !!s && s.rept && /^Drawing the exact picture/.test(s.cue || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
+  // (the cue's box as drawn, in the page's px: the pane's box in the page plus cornerNote's own box in the pane)
+  const cueBox = await ev(`(() => { const s = __cmwPaneStatus('L'), c = document.getElementById('canvasL'); if (!s || !s.cueBox || !c) return null;
+    const r = c.getBoundingClientRect(); return { x: r.left + s.cueBox.x, y: r.top + s.cueBox.y, w: s.cueBox.w, h: s.cueBox.h }; })()`);
+  // (a page script logs each frame until the suite has read it: its time, whether it is REPT-pending, the cue drawn, and
+  // whether the gate's message is up; and upT, the time the message came into the page, which a frame drawn after it
+  // sees up: glStatusNote reads svGateMessageUp() in the frame it times)
+  await ev(`(() => { const log = window.__gateLog = []; window.__gateLogDone = false; window.__gateUpT = null; let last = null;
+    new MutationObserver(() => { if (window.__gateUpT === null && __cmwGateToast()) window.__gateUpT = performance.now(); }).observe(document.getElementById('toastHost'), { childList: true, subtree: true });
+    const tick = () => {
+      const s = __cmwPaneStatus('L');
+      if (s && s.t !== last) { last = s.t; log.push({ t: s.t, rept: !!s.rept, cue: s.cue || null, msg: !!__cmwGateToast() }); }
+      if (!window.__gateLogDone) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick); __cmwSteps({ play: true }); return 1; })()`);
+  // (the gate's message comes after __cmwGateHangMs of waiting: the read waits that long and LIVE_WAIT_MS more, for the
+  // message and for a frame drawn after it came)
+  const gateMs = await ev('__cmwGateHangMs');
+  const up = await settled({ max: gateMs + LIVE_WAIT_MS, panes: false, only: true, until: '!!__cmwGateToast() && window.__gateUpT !== null' });
+  const upT = await ev('window.__gateUpT');
+  const drawnUnder = await poll(`(window.__gateLog || []).some((e) => e.rept && e.t > ${upT})`, LIVE_WAIT_MS);
+  await frames(20);
+  const msg = await ev(`(() => { const m = __cmwGateToast(); if (!m) return null; const a = m.getBoundingClientRect(); return { x: a.left, y: a.top, w: a.width, h: a.height }; })()`);
+  const covers = !!msg && !!cueBox && cueBox.x < msg.x + msg.w && msg.x < cueBox.x + cueBox.w && cueBox.y < msg.y + msg.h && msg.y < cueBox.y + cueBox.h;
+  const log = await ev('window.__gateLog || []'), under = log.filter((e) => e.rept && e.msg && e.t > upT);
+  // (the frame shown as the message came: the last drawn before it, which the gate's request for a frame replaces)
+  const asItCame = log.filter((e) => e.rept && e.t <= upT).slice(-1)[0] || null;
+  await ev('(window.__gateLogDone = true, 1)');
+  await ev("(__cmwGateToast().querySelector('.toast-x').click(), 1)");
+  const back = await poll(`(() => { const s = __cmwPaneStatus('L'); return !__cmwGateToast() && !!s && s.rept && /^Drawing the exact picture/.test(s.cue || ''); })()`, CUE_DELAY_MS + LIVE_WAIT_MS);
+  const waiting = await ev('!!__cmwSteps().moving');
+  info.gate = { cued: cued.ok, cueBox, gateMs, up: up.ok, upT, drawnUnder: drawnUnder.ok, msg, covers, asItCame, under, back: back.ok, waiting };
+  ok('a phone, the Play gate: Play waits on the REPT draw, and its message comes up over the box where the cue was drawn (control)', cued.ok && up.ok && drawnUnder.ok && covers && under.length > 0, info.gate);
+  ok('a phone, the Play gate: no frame drawn after the message came up draws the cue under it', under.length > 0 && under.every((e) => !e.cue), under.find((e) => e.cue) || info.gate);
+  ok('a phone, the Play gate: the message closed, the cue is drawn again while the gate still waits', back.ok && waiting, info.gate);
+  await ev('(__cmwSteps({ play: false }), __cmwRept({ holdB: false }), 1)');
+}
 // ---- a phone, the Landscape: its programs are first asked for once the plane's inverse program has linked. Held, they
 // stand in while the REPT draw's second pass is held too. A page script logs each frame's corner from the hold on: the
 // frame's time, whether it is REPT-pending and compiling, the cue drawn, and whether that frame drew "Compiling…" (the
