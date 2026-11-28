@@ -135,15 +135,18 @@
   // the words on a halo plate. Each label's plate lies inside the room R the box is fitted in ([x0, y0, x1, y1], css px:
   // stackRoom), clear of the labels placed before it and of the marks drawn ([x, y] css px: the tubes', the strands' and
   // Look down's), counted on a grid of TUBE_CELL px. It first tries the place it had at the last frame (tubeKept), sliding
-  // within TUBE_NUDGE steps of it where that is blocked (a place whose leader crosses the card is not kept, unless the dot lies under the card); failing that it takes the first of TUBE_SPOTS beside its dot (the dot
+  // within TUBE_NUDGE steps of it where that is blocked; failing that it takes the first of TUBE_SPOTS beside its dot (the dot
   // at the plate's end or corner) that is clear, on one line and then on two (broken at the space nearest the middle); where
-  // none is, the clear spot over the room, TUBE_STEP px apart, whose leader runs the least way through the key card (keyPts: its box
-  // as points, counted among the marks) and then nearest the dot, with a leader from the dot to the plate when the plate is a
-  // plate height or more away (nearer, a leader would read as a dash after the words): a leader that crosses the card is worse than
-  // a farther plate, and where the dot itself lies under the card the leader leaves it by the shortest way;
-  // where there is none, the spot beside the dot over the fewest marks. Each label's box [x0, y0, x1, y1] (css px, the
-  // plate's), its lines, how many marks its plate covers (hits) and its leader (null: none) are kept on it. A label with oneLine is never
-  // broken in two (the off-view count: "+1 off view" mid-phrase); one with dot false has no dot
+  // none is, the clear spot over the room, TUBE_STEP px apart, that ranks first beside the key card (keyPts: its box as points,
+  // counted among the marks) and then lies nearest the dot, with a leader from the dot to the plate when the plate is a plate
+  // height or more away (nearer, a leader would read as a dash after the words). A dot outside the card: a plate whose leader
+  // does not cross the card ranks before one whose does, within TUBE_NEAR plate heights of the dot. A dot under the card, where
+  // a leader cannot avoid it: a plate just beyond the card's top edge ranks first, then any other, each within TUBE_NEAR plate
+  // heights of the dot beyond the card's edge, and the slant of the leader through the card does not count; none within reach,
+  // the spot beside the dot over the fewest marks, which stays attached to its dot. A kept place is held only where it would
+  // rank first. Each label's box [x0, y0, x1, y1] (css px, the plate's), its lines, how many marks its plate covers (hits) and
+  // its leader (null: none) are kept on it. A label with oneLine is never broken in two (the off-view count: "+1 off view"
+  // mid-phrase); one with dot false has no dot
   const TUBE_SPOTS = ['right', 'left', 'above right', 'above left', 'below right', 'below left'];
   const TUBE_CELL = 4, TUBE_STEP = 6, TUBE_LEADER_STEP = 2;
   // A label that was clear at the last frame (covering no mark) keeps that place (an offset of its plate from its dot): where
@@ -169,6 +172,8 @@
       if (i >= 0 && i < nx && j >= 0 && j < ny) keyCell[j * nx + i] = 1;
     }
     const keyed = keyPts.length > 0;
+    let cardTop = Infinity;
+    for (const [, py] of keyPts) if (py < cardTop) cardTop = py;
     // (the samples, TUBE_LEADER_STEP px apart, of the segment from (x0, y0) to (x1, y1) that lie in the card's cells)
     const throughKey = (x0, y0, x1, y1) => {
       const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / TUBE_LEADER_STEP);
@@ -192,13 +197,22 @@
       const two = sp.length ? (() => { const i = sp.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a)); return [L.text.slice(0, i), L.text.slice(i + 1)]; })() : null;
       const options = two && !L.oneLine ? [[L.text], two] : [[L.text]], size = (lines) => [width(lines) + 2 * P, lines.length * lh - 2 + 2 * P];
       let best = null, near = null;
+      // (how a plate b ranks beside the card, its leader running to (cx, cy), dd from the dot: 0 first, 1 within reach but second,
+      // 2 beyond TUBE_NEAR plate heights of the dot, beyond the card's edge where the dot is under it; with no card, all 0)
+      const under = keyed && throughKey(x, y, x, y) > 0;
+      const rank = (b, cx, cy, dd, h) => {
+        if (!keyed) return 0;
+        const cross = dd >= h ? throughKey(x, y, cx, cy) : 0, reach = TUBE_NEAR * h;
+        if (under) return dd - cross * TUBE_LEADER_STEP > reach ? 2 : b[3] <= cardTop ? 0 : 1;
+        return dd > reach ? 2 : cross === 0 ? 0 : 1;
+      };
       const key = `${L.kind}|${L.text}`, kept = tubeKept.get(key), held = kept && options.find((lines) => lines.length === kept.lines);
       if (held) {
         const [w, h] = size(held);
         for (let k = 0; k <= TUBE_NUDGE && !best; k++) for (let a = 0; a < (k ? TUBE_NUDGE_DIRS : 1) && !best; a++) {
           const x0 = x + kept.off[0] + k * TUBE_STEP * Math.cos(a * TAU / TUBE_NUDGE_DIRS), y0 = y + kept.off[1] + k * TUBE_STEP * Math.sin(a * TAU / TUBE_NUDGE_DIRS), b = [x0, y0, x0 + w, y0 + h];
           const cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
-          if (inRoom(b) && dd <= TUBE_NEAR * h && over(b) === 0 && (!keyed || dd < h || throughKey(x, y, cx, cy) === 0 || throughKey(x, y, x, y) > 0)) best = { b, lines: held, hits: 0, leader: dd >= h ? [cx, cy] : null };
+          if (inRoom(b) && dd <= TUBE_NEAR * h && over(b) === 0 && rank(b, cx, cy, dd, h) === 0) best = { b, lines: held, hits: 0, leader: dd >= h ? [cx, cy] : null };
         }
       }
       for (const lines of best ? [] : options) {
@@ -214,16 +228,17 @@
         }
         if (best) break;
       }
-      // (none beside the dot is clear: the clear spot nearest it, with a leader)
+      // (none beside the dot is clear: the clear spot that ranks first, then nearest it, with a leader)
       for (const lines of best ? [] : options) {
         const [w, h] = size(lines);
         for (let y0 = R[1]; y0 + h <= R[3]; y0 += TUBE_STEP) for (let x0 = R[0]; x0 + w <= R[2]; x0 += TUBE_STEP) {
           const b = [x0, y0, x0 + w, y0 + h], cx = Math.max(b[0], Math.min(b[2], x)), cy = Math.max(b[1], Math.min(b[3], y)), dd = Math.hypot(cx - x, cy - y);
-          if (over(b) !== 0 || (best && best.cross === 0 && dd >= best.dd)) continue;
-          const cross = keyed && dd >= h ? throughKey(x, y, cx, cy) : 0;
-          if (!best || cross < best.cross || (cross === best.cross && dd < best.dd)) best = { b, lines, hits: 0, leader: dd >= h ? [cx, cy] : null, dd, cross };
+          if (over(b) !== 0 || (best && best.rank === 0 && dd >= best.dd)) continue;
+          const r = rank(b, cx, cy, dd, h);
+          if (!best || r < best.rank || (r === best.rank && dd < best.dd)) best = { b, lines, hits: 0, leader: dd >= h ? [cx, cy] : null, dd, rank: r };
         }
       }
+      if (best && under && best.rank === 2) best = null;
       if (!best) best = near || (() => { const [w, h] = size([L.text]), x0 = Math.max(R[0], Math.min(R[2] - w, x + g - P)), b = [x0, y - h / 2, x0 + w, y + h / 2]; return { b, lines: [L.text], hits: over(b), leader: null }; })();
       L.box = best.b; L.lines = best.lines; L.hits = best.hits; L.leader = best.leader;
       tubeKept.set(key, best.hits === 0 ? { off: [best.b[0] - x, best.b[1] - y], lines: best.lines.length } : null);

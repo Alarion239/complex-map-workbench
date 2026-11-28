@@ -14,8 +14,9 @@
 //    as the flat plane does, as one upright label over the tilted floor, with the same count as the card and the plane's own
 //    (the flat draw's copy, turned with the floor, is not drawn), inside the pane and clear of the marks, in en, ru and it; the count
 //    stays on one line at 1280 × 800 (en, ru, it) and 360 × 640 (en, ru), not broken mid-phrase;
-//  - on a desk at pitch 20° (yaw 0, ±15 in en; ru and it at yaw 0), no label's plate, the exit label of the off-window tube included,
-//    meets the open key card (#2536);
+//  - on a desk (pitch 20° at yaw 0 and ±15 in en, ru and it; yaw 0 at pitch 16° and 24° in en and at 12°, 16° and 24° in ru), no
+//    label's plate, the exit label of the off-window tube included, meets the open key card (#2536), and the exit label's leader
+//    crosses none of it, or from a dot under it the plate stands just above the card's top edge (#2577);
 //  - steps whose pieces are not counted (exp, the disc about -1 on log's cut): no tubes, and the key says why: "No tubes: " and the
 //    card's own words, lower case after the colon, on a line of its own, in en, ru and it; straight down (no tubes by design) and
 //    where the pieces are counted the key has no such line.
@@ -72,29 +73,26 @@ for (const [lang, want] of [['ru', 'накрывает круг дважды в�
   ok(`${SCENES.crit.name}: the label in ${lang}`, !!L && clean(L.text) === want, L && L.text);
 }
 // the open key card on a desk: no label's plate meets it, the exit label of the off-window tube at pitch 20 included
-for (const [lang, yaw] of [['en', 0], ['en', -15], ['en', 15], ['ru', 0], ['ru', -15], ['ru', 15], ['it', 0], ['it', -15], ['it', 15]]) {
+for (const [lang, yaw, pitch] of [['en', 0, 20], ['en', -15, 20], ['en', 15, 20], ['en', 0, 16], ['en', 0, 24], ['ru', 0, 20], ['ru', -15, 20], ['ru', 15, 20], ['ru', 0, 12], ['ru', 0, 16], ['ru', 0, 24], ['it', 0, 20], ['it', -15, 20], ['it', 15, 20]]) {
   await open('off', { lang });
-  await ev(`__cmwCam('L', { yaw: ${yaw * DEG}, pitch: ${20 * DEG} }); 1`);
-  await until(`(() => { const d = __cmwStack().drawn; return !!d && Math.abs(d.camera.pitch - ${20 * DEG}) < 1e-6 && Math.abs(d.camera.yaw - ${yaw * DEG}) < 1e-6; })()`, 10000);
+  await ev(`__cmwCam('L', { yaw: ${yaw * DEG}, pitch: ${pitch * DEG} }); 1`);
+  await until(`(() => { const d = __cmwStack().drawn; return !!d && Math.abs(d.camera.pitch - ${pitch * DEG}) < 1e-6 && Math.abs(d.camera.yaw - ${yaw * DEG}) < 1e-6; })()`, 10000);
   await frames();
   const d = await drawn(), r = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), o = document.getElementById('overlayL').getBoundingClientRect(); if (!k || k.hidden) return null; const b = k.getBoundingClientRect(); return [b.left - o.left, b.top - o.top, b.right - o.left, b.bottom - o.top]; })()`);
   const meets = (B) => !!r && !!B && B[0] < r[2] && B[2] > r[0] && B[1] < r[3] && B[3] > r[1];
   const all = (d && d.tubes ? d.tubes.labels : []).concat(d && d.off ? d.off : []);
-  info[`key ${lang} ${yaw}`] = { key: r, labels: all.map((L) => ({ kind: L.kind || 'off', at: L.at, box: L.box, leader: L.leader })) };
-  ok(`${SCENES.off.name}, pitch 20°, yaw ${yaw}° (${lang}): the exit label and the count are drawn (control), and none meets the open key card`, !!r && all.some((L) => L.kind === 'exit') && all.every((L) => !!L.box && !meets(L.box)), info[`key ${lang} ${yaw}`]);
-  // a label's leader (the segment from its dot to its plate): where the dot lies outside the card it crosses none of it; where the dot
-  // lies under the card the leader leaves it by the nearest edge, the plate beyond that edge
+  info[`key ${lang} ${yaw} ${pitch}`] = { key: r, labels: all.map((L) => ({ kind: L.kind || 'off', at: L.at, box: L.box, leader: L.leader })) };
+  ok(`${SCENES.off.name}, pitch ${pitch}°, yaw ${yaw}° (${lang}): the exit label and the count are drawn (control), and none meets the open key card`, !!r && all.some((L) => L.kind === 'exit') && all.every((L) => !!L.box && !meets(L.box)), info[`key ${lang} ${yaw} ${pitch}`]);
+  // the exit label: where its dot lies outside the card, its leader (the segment from the dot to the plate) crosses none of it; where
+  // the dot lies under the card, the plate stands just above the card's top edge, within three plate heights of it
   const inside = (p) => !!r && p[0] > r[0] && p[0] < r[2] && p[1] > r[1] && p[1] < r[3];
   const crosses = (L) => {
     for (let k = 0; k <= 200; k++) if (L.leader && inside([L.at[0] + (L.leader[0] - L.at[0]) * k / 200, L.at[1] + (L.leader[1] - L.at[1]) * k / 200])) return true;
     return false;
   };
-  const beyond = (L) => {
-    const gap = [L.at[1] - r[1], r[3] - L.at[1], L.at[0] - r[0], r[2] - L.at[0]], e = gap.indexOf(Math.min(...gap)), B = L.box;
-    return e === 0 ? B[3] <= r[1] : e === 1 ? B[1] >= r[3] : e === 2 ? B[2] <= r[0] : B[0] >= r[2];
-  };
+  const above = (L) => L.box[3] <= r[1] && r[1] - L.box[3] <= 3 * (L.box[3] - L.box[1]);
   const exit = all.find((L) => L.kind === 'exit');
-  ok(`${SCENES.off.name}, pitch 20°, yaw ${yaw}° (${lang}): the exit label's leader crosses the open key card only from a dot under it, and leaves by the nearest edge`, !!r && !!exit && (inside(exit.at) ? beyond(exit) : !crosses(exit)), info[`key ${lang} ${yaw}`]);
+  ok(`${SCENES.off.name}, pitch ${pitch}°, yaw ${yaw}° (${lang}): the exit label's leader crosses none of the open key card, or from a dot under it the plate stands just above the card's top edge`, !!r && !!exit && (inside(exit.at) ? above(exit) : !crosses(exit)), info[`key ${lang} ${yaw} ${pitch}`]);
 }
 // a piece with two critical points: one label for both
 for (const [lang, test] of [['en', /^covers the disc 3 times around its critical points (−1, 1|1, −1)$/], ['ru', /^накрывает круг 3-кратно вокруг своих критических точек (−1, 1|1, −1)$/], ['it', /^copre il disco 3 volte attorno ai suoi punti critici (−1, 1|1, −1)$/]]) {
