@@ -435,15 +435,20 @@
     const fin = (i, j) => i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(P[2 * (j * n + i)]);
     return (i, j, di, dj) => (fin(i, j) && fin(i + di, j + dj) ? Math.hypot(P[2 * ((j + dj) * n + i + di)] - P[2 * (j * n + i)], P[2 * ((j + dj) * n + i + di) + 1] - P[2 * (j * n + i) + 1]) : -1);
   };
+  // cut 2's jump rule (LAND_CARRY_NRM_VS's jumpOf) over the steps step(i, j, di, dj) (-1: none): the edge from (i, j) to
+  // (i + di, j + dj) crosses a jump when its step is over w and over J times the larger of the steps of the edges before
+  // it and after it along the same line (of those that are finite; none: no jump)
+  const landJumpOf = (step, J, w) => (i, j, di, dj) => {
+    const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj));
+    return m >= 0 && s > w && s > J * m;
+  };
   // The jump bits of an n x n carried grid's vertices with images P (x at 2v, y at 2v + 1; NaN where not finite), as
-  // LAND_CARRY_NRM_VS sets them: bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for v -> v + (1, 1), when
-  // its step on the plane is over w and over J times the larger of the steps of the edges before it and after it along
-  // the same line (of those that are finite; none: no jump); all 0 with J 0
+  // LAND_CARRY_NRM_VS sets them (landJumpOf): bit 1 for the edge v -> v + (1, 0), 2 for v -> v + (0, 1), 4 for
+  // v -> v + (1, 1); all 0 with J 0
   const landJumpBits = (n, P, J, w) => {
     const B = new Uint8Array(n * n);
     if (!(J > 0)) return B;
-    const step = landStep(n, P);
-    const jump = (i, j, di, dj) => { const s = step(i, j, di, dj), m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj)); return m >= 0 && s > w && s > J * m; };
+    const jump = landJumpOf(landStep(n, P), J, w);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) B[j * n + i] = (jump(i, j, 1, 0) ? 1 : 0) | (jump(i, j, 0, 1) ? 2 : 0) | (jump(i, j, 1, 1) ? 4 : 0);
     return B;
   };
@@ -677,6 +682,39 @@
     for (const r of Object.values(out)) { r.maxCont = +r.maxCont.toFixed(2); r.minJump = Number.isFinite(r.minJump) ? +r.minJump.toFixed(2) : null; }
     return out;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // The carried All sheets' places read back with GLR._lw.cpDump (LAND_CARRY_PLACE_S_TF_VS: each sheet's cells' own four
+  // corners), the box's and each patch's, against cut 2's jump rule (landJumpOf), an edge of a cell on a sheet (along x, y
+  // or the diagonal) beside the same edges of the cells before and after it along that line on that sheet. Per slot (0
+  // the box, i + 1 the patch i): {edges: the edges read (both corners finite), over: those the rule flags, maxRatio: the
+  // largest ratio of an edge with a finite neighbour, J, w: the rule and its floor the frame drew with}, or null with no
+  // read-back
+  window.__cmwLandSheetStretch = () => (GLR._cpDump ? Object.fromEntries(Object.entries(GLR._cpDump).map(([slot, D]) => [slot, landSheetStretch(D)])) : null);
+  function landSheetStretch(D) {
+    const { d, texW, N, K, tileC, J, w } = D, M = N - 1, T = 2 * M;
+    const at = (k, i, j, ci, cj) => { const o = 4 * (((Math.floor(k / tileC) * T) + 2 * j + cj) * texW + (k % tileC) * T + 2 * i + ci); return d[o + 3] > 0.5 ? [d[o], d[o + 1]] : null; };
+    const edge = (k, i, j, di, dj) => {
+      if (i < 0 || j < 0 || i >= M || j >= M) return -1;
+      const a = at(k, i, j, 0, 0), b = at(k, i, j, di, dj);
+      return a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : -1;
+    };
+    let edges = 0, over = 0, maxRatio = 0;
+    for (let k = 0; k < K; k++) {
+      const step = (i, j, di, dj) => edge(k, i, j, di, dj), jump = landJumpOf(step, J, w);
+      for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) for (const [di, dj] of [[1, 0], [0, 1], [1, 1]]) {
+        const s = step(i, j, di, dj);
+        if (s < 0) continue;
+        edges++;
+        const m = Math.max(step(i - di, j - dj, di, dj), step(i + di, j + dj, di, dj));
+        if (m > 0) maxRatio = Math.max(maxRatio, s / m);
+        if (jump(i, j, di, dj)) over++;
+      }
+    }
+    return { edges, over, maxRatio: +maxRatio.toFixed(2), J, w };
+  }
   // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
   // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there
   window.__cmwLandHeightAt = (x, y) => {
