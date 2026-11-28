@@ -71,7 +71,7 @@
   // the glide tile (#1533): shown, its box and the plane's (page px), what it keeps clear of, the spot it takes for
   // its size now (svTileSpot), or null, and the morph it shows (#2409), or null
   // (sync: laid out at once, as svTileLater's job does; trace: true starts a record of each layout and typesetting, with
-  // whether it was made where a layout may be (now), false ends it; the record so far is the result's trace)
+  // whether it was made where a layout may be (now) and when (t, performance.now()), false ends it; the record so far is the result's trace)
   window.__cmwTile = (sync, trace) => {
     if (trace != null) svTile.trace = trace ? [] : null;
     if (sync) svTileSync(true, true);
@@ -416,9 +416,9 @@
 
   // TEST-HOOK (dropped from the published page by build.py)
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
-  // whether the plane point (x, y) lies in the strip of a far ring's copies (ring [x, y, ...] with dup [n.x, n.y, half-width],
-  // LAND_CARRY_VS uDup); false for a ring without one
-  const landInStrip = (ring, x, y) => !!ring.dup && Math.abs((x - ring[0]) * ring.dup[0] + (y - ring[1]) * ring.dup[1]) < ring.dup[2];
+  // the gap column of a far ring with its copies' strip (ring.dup, svDupTheta) of n x n vertices: the cells between it and
+  // the next span the strip and are left out (LAND_CARRY_VS); -1 for a ring without one
+  const landGapCol = (ring, n) => (ring && ring.dup ? GLR.dupGap(n) : -1);
   // whether the plane point (x, y) lies in the disc of one of the carry c's pole patches ([x, y, r0, r1], out to r1), which
   // that patch covers
   const inPoleDisc = (c, x, y) => (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(x - qx, y - qy) < q1);
@@ -445,7 +445,7 @@
   // The triangles the last carried frame's draw keeps (LAND_CARRY_VS), on the CPU, grid by grid: the box ('box', cells x
   // cells vertices over src, less the triangles whose corners all lie in one seamed patch's disc, which that patch draws),
   // then as patches says (true: all; 'poles': no far ring; false: none) the pole patches ('pole' k) and the far rings
-  // ('far' k, less the triangles whose corners all lie in the strip of the ring's copies, landInStrip), each n x n vertices
+  // ('far' k, less the cells of the gap column of the ring's copies' strip, landGapCol), each n x n vertices
   // at svPatchZ, then the patches more ('more' k, [x, y, r0, r1], the same parametrisation, on the CPU only). A triangle is
   // kept when its corners' images under the carry's map F are finite and its edges are at most c.lim long; with step (the
   // heights' step limit, LAND_CARRY_VS's uStep: 0.3 H for Re F and Im F) and hgt (a plane point's drawn height), also when
@@ -469,7 +469,6 @@
         if (jumps) return;
         const o = [2 * a, 2 * d, 2 * e];
         if (discs.some(([x, y, r]) => o.every((k) => Math.hypot(Z[k] - x, Z[k + 1] - y) < r))) return;
-        if (ring && o.every((k) => landInStrip(ring, Z[k], Z[k + 1]))) return;
         if (!o.every((k) => Number.isFinite(P[k]))) return;
         for (let m = 0; m < 3; m++) { const k = o[m], q = o[(m + 1) % 3]; if ((P[k] - P[q]) ** 2 + (P[k + 1] - P[q + 1]) ** 2 > lim2) return; }
         if (Hv && step < Infinity) {
@@ -479,7 +478,9 @@
         }
         visit(g, a, d, e);
       };
+      const gap = landGapCol(ring, n);
       for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+        if (i === gap) continue;
         const v = j * n + i;
         keep(v, v + 1, v + n + 1, (B[v] & 5) | (B[v + 1] & 2));
         keep(v, v + n + 1, v + n, (B[v] & 6) | (B[v + n] & 1));
@@ -529,18 +530,17 @@
   // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h: the carry's height map, plane s into the colour plane) averaged, the
   // chord's height at the cell, against L at its centre; {cells, bad: the cells whose chord is off by more than tol, worst, at:
   // the worst cell's centre and corners' mean and exact L, copies and copiesBad: the cells the outer ring leaves out to the box
-  // and the inner ring, all four corners in the strip of its copies (dup, LAND_CARRY_VS uDup), and those of them off by more
+  // and the inner ring, its gap column's, which span the strip of its copies (landGapCol), and those of them off by more
   // than tol, not in cells or bad}, per patch of c.far (of 'polar': per pole patch, each at its own resolution, none left
-  // out), or null with no carry. (It reads only the height, at a cell's centre: not where the cell stands in the block, nor
-  // its error on the screen, which __cmwLandChordPx reads)
+  // out), each at its grid's points (svPatchZ), or null with no carry. (It reads only the height, at a cell's centre: not
+  // where the cell stands in the block, nor its error on the screen, which __cmwLandChordPx reads)
   window.__cmwLandFarErr = (tol = 0.25, skipPatches = true, of = 'far') => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.far) return null;
     const F = cpuMap(c.map), h = cpuMap(c.hmap), b = c.box, L = (z) => { const v = h(z); return CX.isFin(v) ? Math.log(1 + CX.abs(v)) : NaN; };
     return (of === 'polar' ? (c.polar || []).slice(0, c.patches || 0).map((q) => [...q, c.patchN]) : c.far).map((ring) => {
-      const [px, py, r0, r1, N] = ring, d = of === 'polar' ? null : ring.dup;
-      const m = (N || c.patchN || 96) - 1, at = (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return C(px + r * Math.cos(th), py + r * Math.sin(th)); };
-      const inDup = (i, j) => { const z = at(i, j); return landInStrip(ring, z.re, z.im); };
+      const m = (ring[4] || c.patchN || 96) - 1, at = (i, j) => { const z = svPatchZ(ring, i, j, m + 1); return C(z[0], z[1]); };
+      const gap = of === 'polar' ? -1 : landGapCol(ring, m + 1);
       const out = { cells: 0, bad: 0, worst: 0, at: null, copies: 0, copiesBad: 0 }, V = new Float64Array((m + 1) * (m + 1));
       for (let j = 0; j <= m; j++) for (let i = 0; i <= m; i++) V[j * (m + 1) + i] = L(at(i, j));
       for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
@@ -550,7 +550,7 @@
         const a0 = V[j * (m + 1) + i], a1 = V[j * (m + 1) + i + 1], a2 = V[(j + 1) * (m + 1) + i], a3 = V[(j + 1) * (m + 1) + i + 1], Lc = L(zc);
         if (!Number.isFinite(a0 + a1 + a2 + a3 + Lc)) continue;
         const mean = (a0 + a1 + a2 + a3) / 4, e = Math.abs(mean - Lc);
-        if (d && inDup(i, j) && inDup(i + 1, j) && inDup(i, j + 1) && inDup(i + 1, j + 1)) { out.copies++; if (e > tol) out.copiesBad++; continue; }
+        if (i === gap) { out.copies++; if (e > tol) out.copiesBad++; continue; }
         out.cells++;
         if (e > tol) out.bad++;
         if (e > out.worst) { out.worst = e; out.at = [+zc.re.toFixed(3), +zc.im.toFixed(3), +mean.toFixed(3), +Lc.toFixed(3)]; }

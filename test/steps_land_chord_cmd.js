@@ -12,8 +12,9 @@
 //     of its spike and away from F's poles at ±πi) the triangles read, and none is off by more than 0.5 px: where the
 //     cells are fine for the surface, the hook's chord and exact point agree, so its larger readings elsewhere are the
 //     chords';
-// (ii) B's outer far ring at u = .5 and .75 has kept triangles and none off by more than 3 px (the ring leaves out the
-//     copies of the box and the inner ring that #1137 measured, landInStrip);
+// (ii) B's outer far ring at u = .25, .5 and .75 has kept triangles and none off by more than 3 px: the ring covers only
+//     the ring outside the strip of its copies of the box and the inner ring (svDupTheta), with no cell reaching into the
+//     strip across its edge;
 // (iii) with the far rings drawn at 32 points a side (GLR._lw.farN), B's inner ring at u = .5 reads triangles off by more
 //     than 3 px: the hook reads the rings the frame drew;
 // (iv) A's box at u = .25, .5 and .75 keeps no triangle across a jump of the log's glide (the oracle finds jumps there,
@@ -133,7 +134,7 @@ for (const u of [0.25, 0.5, 0.75]) {
   const rows = await chord(), smooth = await chord(`{ tol: ${SMOOTH_TOL}, where: (x, y) => Math.hypot(x, y) >= 0.4 && Math.hypot(x, y) <= 1.5 }`);
   info.B['u' + u] = { rows, smooth: smooth && smooth.box, px: await pixelRow(`B-u${u}`) };
   ok(`${tag} (i): on the box's smooth part, triangles and none off by more than ${SMOOTH_TOL} px`, !!smooth && smooth.box.tris > 500 && smooth.box.worst <= SMOOTH_TOL, smooth && smooth.box);
-  if (u >= 0.5) ok(`${tag} (ii): the outer far ring keeps triangles, none off by more than ${TOL} px`, !!rows && !!rows.far1 && rows.far1.tris > 0 && rows.far1.off === 0, rows && rows.far1);
+  ok(`${tag} (ii): the outer far ring keeps triangles, none off by more than ${TOL} px`, !!rows && !!rows.far1 && rows.far1.tris > 0 && rows.far1.off === 0, rows && rows.far1);
   if (u === 0.5) {
     info.B.jumps = await jumps();
     await redraw({ noJump: true });
