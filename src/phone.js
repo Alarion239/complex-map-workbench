@@ -235,6 +235,9 @@ const Phone = (() => {
     chainSeen = ''; chain();
     A.resize();
     reconcile();   // (the inset shows its plane's own view, the desktop's or the saved one, at its size)
+    // (the context bar and a message may still stand from before a desktop's layout, which leave() took the root's classes for them
+    // from: they are derived again from the bar and the message host as they are)
+    barLayout();
   }
   function leave() {
     close(true);

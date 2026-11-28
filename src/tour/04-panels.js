@@ -494,6 +494,11 @@
   // line has no room: laneFit), icon, onEsc, onClose }
   const LANE_H = 48;
   let lane = null;
+  // (the lane's mode follows the phone's layout too, which comes, goes or turns on its media queries, without a resize of its own: the
+  // root's ph and ph-land, watched while a line is up)
+  let laneLayout = '';
+  const laneLayoutOf = () => { const c = document.documentElement.classList; return (c.contains('ph') ? 'ph' : '') + (c.contains('ph-land') ? ' land' : ''); };
+  const laneLayoutObs = typeof MutationObserver === 'function' ? new MutationObserver(() => { const k = laneLayoutOf(); if (k !== laneLayout) { laneLayout = k; laneMount(); } }) : null;
   function laneShow(o) {
     if (!doc() || run) return null;
     injectCSS();
@@ -520,6 +525,8 @@
     lane = { id: o.id, box, o, slot: null, mode: null };
     laneMount();
     addEventListener('resize', laneMount);
+    laneLayout = laneLayoutOf();
+    if (laneLayoutObs) laneLayoutObs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return box;
   }
   function laneMount() {
@@ -573,6 +580,7 @@
     const l = lane;
     lane = null;
     removeEventListener('resize', laneMount);
+    if (laneLayoutObs) laneLayoutObs.disconnect();
     const focusWasIn = l.box.contains(document.activeElement);
     l.box.remove();
     if (l.slot && !run) l.slot.hidden = true;

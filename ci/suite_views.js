@@ -247,6 +247,7 @@ const VIEWS = {
   'phone_toast_sheet_cmd.js': steps(),
   'phone_toast_dialog_cmd.js': steps({ pin: true }),
   'phone_toast_lane_cmd.js': steps({ pin: true }),
+  'phone_ctx_resize_cmd.js': steps({ pin: true }),
   'steps_toast_ctx_cmd.js': steps(),
   'phone_legend_clear_cmd.js': steps(),
   'phone_legend_keys_cmd.js': steps({ pin: true }),
