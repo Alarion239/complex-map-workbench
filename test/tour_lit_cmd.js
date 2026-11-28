@@ -6,17 +6,20 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const U = `http://localhost:${PORT}/test.html`;
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
-const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  // (and until the step has settled: the strip not busy, the spotlight's morph over)
-  for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
+// (the steps wait on the page's state, never a time: the strip is not busy and the spotlight's morph is over)
+const IDLE = `!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`;
+const waitFails = [];
+const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails: waitFails, only: true });
+const settle = (cond) => until(cond ? `(${cond}) && (${IDLE})` : IDLE);
 const seen = [];
 logs();   // the console from earlier commands of this daemon is not ours
 for (const [w, h] of [[1440, 900], [1024, 700]]) {
   await view(w, h, false, false);
   await nav(U + `?ns=lit${w}`);
+  await until(`typeof Tour === 'object' && typeof Tour.dismissSuggestion === 'function'`);
   await ev('Tour.dismissSuggestion()');
   await ev('Tour.auto(false)');
-  await ev(`Tour.start({ chapter: 'basics' })`); await settle(1400);
+  await ev(`Tour.start({ chapter: 'basics' })`); await settle(`Tour.isActive() && Tour.current().chapter === 'basics'`);
   for (let k = 0; k < 60 && (await ev('Tour.isActive()')); k++) {
     const g = await ev(`(() => {
       const c = Tour.current(), L = Tour.lit();
@@ -42,7 +45,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
     if (g.centred) check(`${w}×${h} ${g.id}: no shade at all on the welcome step`, g.noShade, g);
     if (!g.none) check(`${w}×${h} ${g.id}: the strip is a window of the shade`, g.win, g);
     const before = JSON.stringify(await ev('Tour.current()'));
-    await ev('Tour.next()'); await settle(1100);
+    await ev('Tour.next()'); await settle(`!Tour.isActive() || JSON.stringify(Tour.current()) !== ${JSON.stringify(before)}`);
     if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { check(`${w}×${h} ${g.id}: Next moves on`, false, before); break; }
   }
 }
@@ -50,4 +53,5 @@ check('every chapter was walked at both sizes', (await ev('Tour._t.CHAPTERS.map(
 const L = logs().filter((l) => /EXC|\[tour\]/i.test(l.t + l.m)).slice(0, 12);
 check('no exceptions or tour warnings', !L.length, L);
 await view(1440, 900, false, false);
+check('no wait timed out', !waitFails.length, waitFails);
 return { pass: R.filter((r) => r[1]).length, of: R.length, fails: R.filter((r) => !r[1]), seen: seen.length, logs: L };
