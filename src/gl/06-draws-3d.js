@@ -342,11 +342,11 @@
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
     if (!o && (!landC || landC.N !== N)) {
-      if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
+      if (landC) { for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t); rfFree(landC); freeScratch(landC); }
       landC = { N, tex1: floatTex(), tex2: floatTex() };
     }
     const out = o || landC;
-    if (o && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
+    if (o && out.N !== N) { if (out.tex1) { for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); rfFree(out); freeScratch(out); } Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
@@ -365,6 +365,113 @@
     gl.activeTexture(gl.TEXTURE15);
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return out;
+  }
+  // A still carried frame's refinement: each carried grid (the box's, the pole patches', the far rings') is
+  // refined as the rest grid is (landRefine), in its places' program (landCarryTFr, CARRY_RF): its levels from the
+  // carried point's chord error at the fitted scale, read back fenced (a frame or two later, rfPoll), then the refined
+  // cells' vertex records group by group, which landCarry draws (uRef 1) where the base draw leaves their cells
+  // (uRefOn). Only a frame that has stood still CARRY_STILL_MS is refined (carryStill): the same carried state and
+  // scale, and nothing moving, so a glide's frames, played or dragged, never run a pass, and a held, parked or arrived
+  // one is refined once, its redraws drawing what was built (rkey). A grid's refinement is held while its carried state
+  // stands (o.rfStill, the state without the scale): an orbit or a zoom draws it, and once the camera stands still it is
+  // built again at the new scale. It is freed in the first screen frame of another carried state, or of a Landscape with
+  // no carried grids (carryRfDrop: a plane at rest, All sheets), and when the Landscape leaves the pane (landRelease).
+  // Not an export's or a figure's frame (rf.full): those draw the base grids and free nothing. carryRfStats: the levels
+  // passes made, and with trace on, the glide place and grid of each (the tests' __cmwLandRf)
+  // (longer than a pause in a scrub that goes on, so stopping and going neither refines nor frees on each pause: what
+  // shows and the memory held change once, when the thread has stopped)
+  const CARRY_STILL_MS = 350;
+  let carryStillKey = null, carryStillT = 0;
+  const carryRfStats = { passes: 0, trace: null, pending: false };
+  // (true once the frame's carried state, key, has stood CARRY_STILL_MS; else a redraw is asked for then)
+  function carryStill(key, rf) {
+    const now = performance.now();
+    if (key !== carryStillKey) { carryStillKey = key; carryStillT = now; }
+    if (rf.motion || now - carryStillT < CARRY_STILL_MS) { rfLater(); return false; }
+    return true;
+  }
+  // grid o (N points a side; polar: a patch, null the box's) of the carried frame st, in the carried state held (its key
+  // without the scale): with run, its refinement made or advanced, at most cap evaluations. o.rfCur: its refinement is
+  // built for this frame's scale; o.rfOn: a refinement of this carried state has cells to draw (at an earlier scale while
+  // the camera moves or a new one is built); o.rfLv: their levels as drawn (rfPlan's, Lx + 8 Ly, 4 cells a texel, Mq x M).
+  // Returns the evaluations its vertices took
+  function carryRefine(st, o, N, mode, H, mu, aspect, polar, rf, run, cap, held) {
+    // (the chain's own program, never an earlier version's, whose vertices would be another surface's; while it links,
+    // in the background, the grid is drawn unrefined and looked at again)
+    const c = st.carry, P = run ? program('landCarryTFr', c.map, true) : null;
+    o.rfCur = false;
+    o.rfOn = !!(o.rf && o.rf.groups.length && held != null && o.rfStill === held);
+    if (!P) { if (run) rfLater(); return 0; }
+    const M = N - 1, Mq = (M + 3) >> 2, sb = c.src || st.box, b = st.box;
+    const pk = polar ? [...polar, polar.dup ? polar.dup.join(',') : '', polar.seam ? [...polar.seam, polar.seam.end].join(',') : ''].join(',') : (c.polar || []).filter((p) => p.seam).map((p) => p.join(',')).join(';');
+    const key = [P.ch.key, P.ch.hash, mapKeyOf(mapIn(P, c.map)), sb.x0, sb.x1, sb.y0, sb.y1, b.x0, b.x1, b.y0, b.y1, aspect[0], aspect[1], pk, N, mode, H, mu, landHComp, c.s, c.T, c.hT, c.lim, rf.pxW, rf.minPx].join('|');
+    if (o.rkey === key && o.rf) { o.rfCur = true; o.rfOn = o.rf.groups.length > 0; return 0; }
+    const setUp = (pass) => {
+      use(P, c.map);
+      u1i(P, 'uN', N);
+      u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+      polarUniforms(P, polar, true);
+      heightUniforms(P, mode, mu, H);
+      u1i(P, 'uGs', c.s); u1i(P, 'uGt', c.hT == null ? c.T : c.hT);
+      u4f(P, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0); u2f(P, 'uAspect', aspect[0], aspect[1]);
+      u1f(P, 'uLim', c.lim); u1f(P, 'uStep', carryStep(mode, H));
+      discUniforms(P, c.polar); u4f(P, 'uDup', ...((polar && polar.dup) || [0, 0, 0, 0]));
+      u1i(P, 'uM', M); u1i(P, 'uCuts', 0); u1f(P, 'uPxW', rf.pxW); u1f(P, 'uMinPx', rf.minPx); u1i(P, 'uLat', 1); u1i(P, 'uPass', pass);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, o.tex1);
+      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, o.tex2);
+    };
+    // (the levels: of this key once read, else a pass, unless this key's is in flight)
+    lvTake(o);
+    if (o.lvKey !== key) {
+      const got = lvReady(o, key);
+      if (got && got.length === Mq * M * 4) { o.lvRaw = got; o.lvKey = key; }
+      else {
+        if (o.rbFor === key && o.rbFence) { rfPoll(); return 0; }
+        if (!o.lvTmp) { gl.activeTexture(gl.TEXTURE15); o.lvTmp = floatTex(); }
+        setUp(1);
+        gl.activeTexture(gl.TEXTURE15);
+        runTF(P, empty(), gl.POINTS, Mq * M, 0, Mq * M * 16, o.lvTmp, Mq, M, gl.RGBA32F, gl.RGBA);
+        lvFetch(o, key, Mq * M * 4, false, [P]);
+        carryRfStats.passes++;
+        if (carryRfStats.trace) carryRfStats.trace.push({ u: c.u, N, polar: !!polar });
+        return 0;
+      }
+    }
+    // (a vertex record is two texels; its normal takes 4 evaluations besides its own)
+    const nv = (lx, ly) => ((1 << lx) + 1) * ((1 << ly) + 1);
+    const plan = rfPlan(o.lvRaw, M, (lx, ly) => 6 * nv(lx, ly), (lx, ly, n) => Math.ceil(2 * n * nv(lx, ly) / RF_W), Math.max(cap, 0), true, 0);
+    const r = rfApply(o, plan);
+    for (const g of r.groups) {
+      const nvg = g.n * nv(g.L[0], g.L[1]);
+      setUp(2);
+      u2i(P, 'uL', g.L[0], g.L[1]); u1i(P, 'uGE', g.E); u1i(P, 'uTot', nvg);
+      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, o.lvTex);
+      gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, o.lstTex);
+      runTFRows(P, 2 * nvg, o.rfTex, RF_W, g.y0);
+    }
+    o.rf = r; o.rkey = key; o.rfLv = plan.lv; o.rfCur = true; o.rfOn = r.groups.length > 0;
+    return r.evals;
+  }
+  // A screen frame of a Landscape with no carried grids to draw (a plane at rest, All sheets): the carried grids'
+  // refinement goes, as it would in another carried state's first frame
+  function carryRfDrop() {
+    carryRfStats.pending = false;
+    for (const o of [landC, ...landPP]) if (o && o.rfStill != null) { rfFree(o); o.rfStill = null; }
+  }
+  // the GL bytes the carried grids' refinement holds: the levels, the list, the vertex records, the levels pass's
+  // target and its read-back buffer (the tests' __cmwLandRf)
+  function carryRfBytes() {
+    let n = 0;
+    for (const o of [landC, ...landPP]) {
+      if (!o) continue;
+      const M = (o.N || 1) - 1, Mq = (M + 3) >> 2;
+      if (o.lvTex && o.lvDim) n += ((o.lvDim + 3) >> 2) * o.lvDim * 16;
+      if (o.lstTex) n += 1024 * (o.lstRows || 0) * 4;
+      if (o.rfTex) n += RF_W * (o.rfRows || 0) * 16;
+      if (o.lvTmp) n += Mq * M * 16;
+      if (o.rbBuf) n += o.rbBytes || 0;
+    }
+    return n;
   }
   // the carried All sheets' places, bound to unit 11 (uCP) for the sheets' draw and run every frame, as the places
   // change with the glide; the box's in landCP[0], a patch's in slot i + 1. sh ({sp: the sheets' plan, tileC: their
@@ -549,7 +656,7 @@
     if (o.nb) { rfFree(o.nb); o.nb = null; }
     if (o.rbBuf) { gl.deleteBuffer(o.rbBuf); o.rbBuf = null; }
     if (o.rbFence) { gl.deleteSync(o.rbFence); o.rbFence = null; }
-    o.rf = null; o.lvKey = o.rkey = o.rbFor = null; o.lvRaw = null; o.rfRows = 0; o.rfRaw = o.rbData = null; o.lvDim = o.lstRows = 0;
+    o.rf = null; o.lvKey = o.rkey = o.rbFor = null; o.lvRaw = o.rfLv = null; o.rfRows = 0; o.rfRaw = o.rbData = null; o.lvDim = o.lstRows = 0;
   }
   function rfLater() {
     frameRefining = true;
@@ -999,12 +1106,14 @@
     if (!move && !rf.full) freeScratch(land);
   }
   // The pane's Landscape is not on the screen (the app calls this from each frame of the left pane that draws another view):
-  // its refinement goes with its textures and buffers, ~47 MB after a play at the default mesh against the heights' 8 MB.
+  // its refinement goes with its textures and buffers, ~47 MB after a play at the default mesh against the heights' 8 MB,
+  // and the carried grids' (carryRefine).
   // The heights stay; the refinement is built again, as at a first open, when Landscape comes back. The
   // stage cards' small grid (64) is left alone
   function landRelease() {
     for (const [n, l] of lands) if (n !== 64 && (l.lvTex || l.rbBuf)) { rfFree(l); freeScratch(l); }
     if (landS && (landS.lvTex || landS.rbBuf)) { rfFree(landS); freeScratch(landS); }
+    for (const o of [landC, ...landPP]) if (o && (o.lvTex || o.rbBuf)) rfFree(o);
   }
   function freeScratch(o) {
     for (const k of ['latTex', 'ptsTex', 'evTex', 'lvTmp']) if (o[k]) { gl.deleteTexture(o[k]); o[k] = null; }
@@ -1456,7 +1565,7 @@
     // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px; farN: the carry's far rings
     // at these points a side, [inner, outer], for a reference frame (test/steps_land_chord_cmd.js); noJump: no jump rule
-    // (J 0): the carried grids keep their triangles across a jump }
+    // (J 0): the carried grids keep their triangles across a jump; noCarryRf: a still carried frame is not refined }
     Object.assign(dbg, api._lw || {});
     // TEST-HOOK
     // (the carry's far rings' points a side: CARRY_FAR_N, or a test's reference counts)
@@ -1495,6 +1604,28 @@
     }
     // (the far patches, the last: their own textures)
     if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: farN(k), o: carryHeights(st, farN(k), mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {}), carryJump) });
+    // (a still carried frame, carryStill: its grids refined, the box's first, then the far rings and the pole patches,
+    // within RF_REST evaluations in all; on the screen only, not an export's, a figure's or a stage card's frame)
+    if (st.carry && !hs && hd) {
+      const c = st.carry, grids = [[hd, hd.N, null], ...farPatches.map((p) => [p.o, p.N, p.polar]), ...pp.map((p) => [p.o, p.N, p.polar])];
+      // (the carried state held, without the scale, which an orbit or a zoom changes; the still wait's, with it)
+      const held = rf && !rf.full && !st.card && !dbg.noCarryRf ? JSON.stringify([cur.key, cur.hash, mapKeyOf(c.map), c.s, c.T, c.hT, c.u, c.lim, c.src || null, box, c.polar || [], c.far || [], N, mode, H, mu, landHComp]) : null;
+      const stillKey = held != null ? held + '|' + rf.pxW : null;
+      const run = stillKey != null && carryStill(stillKey, rf);
+      let cap = RF_REST;
+      for (const [o, n, polar] of grids) {
+        // (a grid's refinement is held while its carried state stands and freed in the first screen frame of another:
+        // up to ~40 MB with twelve pole patches, sv.land_bytes; an export's frame keeps it)
+        if (held != null && o.rfStill != null && o.rfStill !== held) { rfFree(o); o.rfStill = null; }
+        cap -= carryRefine(st, o, n, mode, H, mu, aspect, polar, rf, run, cap, held);
+        if (o.rfCur) o.rfStill = held;
+      }
+      // (what the hook reads: each grid's levels as drawn, named as landKeptTris names them; pending: a still frame
+      // whose refinement is not all built yet)
+      carryRfStats.pending = stillKey != null && grids.some(([o]) => !o.rfCur);
+      const named = [['box', hd], ...farPatches.map((p, k) => ['far' + k, p.o]), ...pp.map((p, k) => ['pole' + k, p.o])];
+      info.carriedRf = Object.fromEntries(named.filter(([, o]) => o.rfOn).map(([name, o]) => [name, { M: o.N - 1, lv: o.rfLv, drop: o.rf.drop, want: o.rf.want }]));
+    } else if (!st.full && !st.card) carryRfDrop();
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets would hold both)
     if (!st.card) {
@@ -1622,6 +1753,26 @@
           u2f(Pc, 'uClipA', aspect[0], aspect[1]);
           u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
           polarUniforms(Pc, null, false); discUniforms(Pc, st.carry.polar);
+          u1i(Pc, 'uRef', 0); u1i(Pc, 'uRefOn', 0);
+        };
+        // (a grid's refined cells, o.rfOn: the base draw leaves them (uRefOn), and its groups draw their sub-cells (uRef 1),
+        // with the same state as its base cells, so the stencil, the depth offset and the pass's layer are theirs)
+        const refOn = (o, n) => {
+          u1i(Pc, 'uRefOn', o.rfOn ? 1 : 0);
+          if (!o.rfOn) return;
+          u1i(Pc, 'uM', n - 1);
+          gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, o.lvTex);
+          gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, o.lstTex);
+          gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, o.rfTex);
+        };
+        const drawRefined = (o) => {
+          if (!o.rfOn) return;
+          u1i(Pc, 'uRef', 1);
+          for (const g of o.rf.groups) {
+            u2i(Pc, 'uL', g.L[0], g.L[1]); u1i(Pc, 'uRefE', g.E); u1i(Pc, 'uRefT', g.y0 * RF_W);
+            gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, g.n * 2 * (1 << g.L[0]) * (1 << g.L[1]));
+          }
+          u1i(Pc, 'uRef', 0); u1i(Pc, 'uRefOn', 0);
         };
         // (the other sheets' copies first (st.carry.copies: {draw, band}, draw running its function with the GPU's chain
         // on that sheet's combo, then putting the chain back): each its own heights over the box's grid, placed and
@@ -1677,14 +1828,16 @@
         // leaves out those in the strip of its copies, uDup, where they would stand out past the surface they copy)
         gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
         gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-        marked(Pc, () => gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1)));
+        marked(Pc, () => { refOn(hd, hd.N); gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1)); drawRefined(hd); });
         // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
         // the box's cells, so a patch shows only where they leave a hole)
         const drawPatch = (p) => {
           polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N); u4f(Pc, 'uDup', ...(p.polar.dup || [0, 0, 0, 0]));
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
           gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
+          refOn(p.o, p.N);
           gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
+          drawRefined(p.o);
         };
         gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2 * po, 8 * po);
         for (const p of pp) if (!p.polar.hole) marked(Pc, () => drawPatch(p));

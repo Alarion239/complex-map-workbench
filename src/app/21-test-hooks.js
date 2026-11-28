@@ -572,6 +572,10 @@
     const w = pk.F(C(x, y));
     return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // The chord error of the last carried Landscape frame on the screen, on the CPU, per grid the draw keeps triangles of
   // (landKeptTris, with the draw's height step, c.step): each kept triangle whose centroid's image lies in the block is sampled
   // at its centroid and its three edges' midpoints, at the same fractional grid place (i, j); there the chord (its
@@ -579,12 +583,19 @@
   // grid's point at that place) are each projected onto the pane (landWorldPx, the frame's floor camera). A triangle's
   // error is the largest distance between the two, in css px; placement and height, its parts: the exact point against
   // the chord's place at the exact height, and against the exact place at the chord's height. o {tol: px (3), where:
-  // (x, y) -> boolean on the centroid's point of plane s, the triangles counted (all by default)}. Per grid name
+  // (x, y) -> boolean on the centroid's point of plane s, the triangles counted (all by default); refined: a cell the frame
+  // drew refined (c.rf, carryRefine's levels as drawn) is read by its sub-triangles, 2^Lx x 2^Ly sub-cells of two, each
+  // corner the exact point at its grid place (the draw's snapV moves a side's vertices onto the coarser of its two cells'
+  // grids, which only drops points: not modelled), left out as the draw leaves one out (a corner not finite, an edge over
+  // c.lim, heights over the step), and its error the largest of theirs (true by default; tris counts the base
+  // triangles either way)}. Per grid name
   // ({box, pole k, far k}): {tris: the triangles counted, off: those over tol, worst: the largest error (px), at: its
-  // centroid's image and point [w.re, w.im, z.re, z.im], place and height: the off triangles whose placement or height
+  // centroid's image and point [w.re, w.im, z.re, z.im], atL: its cell's levels as drawn (Lx + 8 Ly, 0 unrefined), offL:
+  // the off triangles by their cell's levels {base: unrefined, ref: refined below the cap, cap: at it, 4 both ways}, place
+  // and height: the off triangles whose placement or height
   // part is over tol, inDisc: a far ring's kept triangles whose centroid lies in a pole patch's disc, which that patch
   // covers (not counted)}, or null with no carried frame
-  window.__cmwLandChordPx = ({ tol = 3, where = null } = {}) => {
+  window.__cmwLandChordPx = ({ tol = 3, where = null, refined = true } = {}) => {
     const c = render3D.carried, f = render3D.floor;
     if (!c || !c.map || c.sheets || !f) return null;
     const F = cpuMap(c.map), h = cpuMap(c.hmap), info = f.info, b = c.box;
@@ -594,8 +605,35 @@
     const px = (x, y, ht) => landWorldPx(f, x, y, ht), d = (p, q) => (p && q ? Math.hypot(p[0] - q[0], p[1] - q[1]) : 0);
     const out = {};
     const SAMPLES = [[1 / 3, 1 / 3, 1 / 3], [0.5, 0.5, 0], [0, 0.5, 0.5], [0.5, 0, 0.5]];
+    // (a chord's error at the samples: its corners {ij: grid place, x, y: their images, h: their heights}; [e, its
+    // placement part, its height part, the first sample's image])
+    const errOf = (place, cor) => {
+      let e = 0, ep = 0, eh = 0, atW = null;
+      for (const k of SAMPLES) {
+        const z = place(...[0, 1].map((m) => k[0] * cor[0].ij[m] + k[1] * cor[1].ij[m] + k[2] * cor[2].ij[m])), zz = C(z[0], z[1]), w = F(zz), hx = hgt(zz);
+        if (!CX.isFin(w) || !Number.isFinite(hx)) continue;
+        const cx = k[0] * cor[0].x + k[1] * cor[1].x + k[2] * cor[2].x, cy = k[0] * cor[0].y + k[1] * cor[1].y + k[2] * cor[2].y;
+        const ch = k[0] * cor[0].h + k[1] * cor[1].h + k[2] * cor[2].h, q = px(w.re, w.im, hx);
+        e = Math.max(e, d(px(cx, cy, ch), q)); ep = Math.max(ep, d(px(cx, cy, hx), q)); eh = Math.max(eh, d(px(w.re, w.im, ch), q));
+        if (!atW) atW = [w.re, w.im];
+      }
+      return [e, ep, eh, atW];
+    };
+    // (a corner at grid place ij: its exact image and height, null when either is not finite)
+    const cornerAt = (place, ij) => {
+      const z = place(ij[0], ij[1]), zz = C(z[0], z[1]), w = F(zz), hx = hgt(zz);
+      return CX.isFin(w) && Number.isFinite(hx) ? { ij, x: w.re, y: w.im, h: hx } : null;
+    };
+    // (the levels of a grid's cell in the last frame, Lx + 8 Ly: 0 unrefined)
+    const rfs = (refined && c.rf) || {};
+    const levelOf = (name, n, i, j) => {
+      const g = rfs[name];
+      if (!g || g.M !== n - 1) return 0;
+      return g.lv[j * 4 * ((g.M + 3) >> 2) + i] | 0;
+    };
+    const lim = c.lim;
     landKeptTris(c, F, ({ name, n, place, P, Hv }, ...vs) => {
-      const r = out[name] || (out[name] = { tris: 0, off: 0, worst: 0, at: null, place: 0, height: 0, inDisc: 0 });
+      const r = out[name] || (out[name] = { tris: 0, off: 0, worst: 0, at: null, atL: 0, offL: { base: 0, ref: 0, cap: 0 }, place: 0, height: 0, inDisc: 0 });
       const hs = vs.map((v) => Hv[v]);
       if (!hs.every(Number.isFinite)) return;
       const wx = (P[2 * vs[0]] + P[2 * vs[1]] + P[2 * vs[2]]) / 3, wy = (P[2 * vs[0] + 1] + P[2 * vs[1] + 1] + P[2 * vs[2] + 1]) / 3;
@@ -604,18 +642,29 @@
       const zc = zAt(SAMPLES[0]);
       if (name.startsWith('far') && inPoleDisc(c, zc[0], zc[1])) { r.inDisc++; return; }
       if (where && !where(zc[0], zc[1])) return;
+      const L = levelOf(name, n, ij[0][0], ij[0][1]);
       let e = 0, ep = 0, eh = 0, atW = null;
-      for (const k of SAMPLES) {
-        const z = zAt(k), zz = C(z[0], z[1]), w = F(zz), hx = hgt(zz);
-        if (!CX.isFin(w) || !Number.isFinite(hx)) continue;
-        const cx = k[0] * P[2 * vs[0]] + k[1] * P[2 * vs[1]] + k[2] * P[2 * vs[2]], cy = k[0] * P[2 * vs[0] + 1] + k[1] * P[2 * vs[1] + 1] + k[2] * P[2 * vs[2] + 1];
-        const ch = k[0] * hs[0] + k[1] * hs[1] + k[2] * hs[2], q = px(w.re, w.im, hx);
-        e = Math.max(e, d(px(cx, cy, ch), q)); ep = Math.max(ep, d(px(cx, cy, hx), q)); eh = Math.max(eh, d(px(w.re, w.im, ch), q));
-        if (!atW) atW = [w.re, w.im];
+      if (!L) [e, ep, eh, atW] = errOf(place, vs.map((v, m) => ({ ij: ij[m], x: P[2 * v], y: P[2 * v + 1], h: hs[m] })));
+      else if (vs[1] === vs[0] + 1) {
+        // (a refined cell, read once, with its first triangle: its sub-cells' two triangles each)
+        const nx = 1 << (L & 7), ny = 1 << (L >> 3), [i0, j0] = ij[0];
+        for (let b = 0; b < ny; b++) for (let a = 0; a < nx; a++) {
+          const g = (da, db) => [i0 + (a + da) / nx, j0 + (b + db) / ny];
+          for (const tri of [[g(0, 0), g(1, 0), g(1, 1)], [g(0, 0), g(1, 1), g(0, 1)]]) {
+            const cor = tri.map((t) => cornerAt(place, t));
+            if (!cor.every(Boolean)) continue;
+            if ([0, 1, 2].some((m) => Math.hypot(cor[m].x - cor[(m + 1) % 3].x, cor[m].y - cor[(m + 1) % 3].y) > lim)) continue;
+            const hh = cor.map((q) => q.h);
+            if (Math.max(...hh) - Math.min(...hh) > step) continue;
+            const [e1, ep1, eh1, at1] = errOf(place, cor);
+            if (e1 > e) { e = e1; atW = at1; }
+            ep = Math.max(ep, ep1); eh = Math.max(eh, eh1);
+          }
+        }
       }
       r.tris++;
-      if (e > tol) { r.off++; if (ep > tol) r.place++; if (eh > tol) r.height++; }
-      if (e > r.worst) { r.worst = e; r.at = [...(atW || [wx, wy]), ...zc].map((v) => +v.toFixed(3)); }
+      if (e > tol) { r.off++; r.offL[!L ? 'base' : L === 36 ? 'cap' : 'ref']++; if (ep > tol) r.place++; if (eh > tol) r.height++; }
+      if (e > r.worst) { r.worst = e; r.at = [...(atW || [wx, wy]), ...zc].map((v) => +v.toFixed(3)); r.atL = L; }
     }, { step, hgt });
     for (const r of Object.values(out)) r.worst = +r.worst.toFixed(1);
     return out;
@@ -693,6 +742,27 @@
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutMarks = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutMarksL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (the handles a frame between two planes draws, which take no input; test/steps_glide_cut_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (test/ux165_chain_cmd.js)
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // The still carried frame's refinement (GLR.carryRfStats, carryRefine): {passes: the levels passes made since the page
+  // opened, pending: the last carried frame is still and its refinement is not all built, trace: with a reset, the
+  // passes since, each {u: the glide's place, N: its grid's points a side, polar: a patch's}, grids: the last frame's
+  // refined grids, {name: {cells: refined, maxL: the largest level along x or y, drop: the levels the budget took off every
+  // cell (rfPlan), want: the levels asked for, with their counts}}, held: the GL bytes the carried grids' refinement
+  // holds (GLR.carryRfBytes)}. reset: a new trace
+  window.__cmwLandRf = (reset = false) => {
+    const rs = GLR.carryRfStats;
+    if (reset) rs.trace = [];
+    const g = (render3D.carried && render3D.carried.rf) || {};
+    const grids = Object.fromEntries(Object.entries(g).map(([name, { lv, drop, want }]) => {
+      let cells = 0, maxL = 0;
+      for (const v of lv) if (v) { cells++; maxL = Math.max(maxL, v & 7, v >> 3); }
+      return [name, { cells, maxL, drop, want }];
+    }));
+    return { passes: rs.passes, pending: !!rs.pending, trace: rs.trace ? rs.trace.slice() : null, grids, held: GLR.carryRfBytes() };
+  };
   // TEST-HOOK
 
   // TEST-HOOK (dropped from the published page by build.py)
