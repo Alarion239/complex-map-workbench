@@ -671,7 +671,7 @@
     // glyph) and offers Make free, which unbinds that handle only (one undo step)
     const boundField = (key, label) => {
       if (!(s.at && s.at[key])) return null;
-      const nm = Construct.refName(s.at[key]);
+      const nm = Construct.refName(s.at[key], undefined, Constr.planeOf(S, s));   // (counted from the shape's own plane, as its "follows" text is)
       const inp = h('input', { class: 'inp mono cm-bound', value: '= ' + nm, readonly: '', 'aria-readonly': 'true', title: $t('follows {x}', { x: nm }), tabindex: -1 });
       const free = h('button', { type: 'button', class: 'btn cm-free', onclick: () => cmApi().unbind(s.id, key) }, $t('Make free'));
       return h('div', { class: 'field cm-boundf' }, lab(label), inp, free);

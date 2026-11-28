@@ -86,6 +86,8 @@ for (const lang of ['en', 'ru', 'it']) {
     await settled({ max: PICK_MAX, until: `[...document.querySelectorAll('.cm-idef')].some((e) => !!e.offsetParent && /z₀/.test(e.textContent))` });
     const seg = await ev(`[...document.querySelectorAll('.cm-idef, .cm-def')].filter((e) => e.offsetParent).map((e) => e.textContent.replace(/\\s+/g, ' ').trim()).join(' | ')`);
     ok(`a segment bound to z₀′ on plane ${k} (${lang}): what it follows and its ends name z₀′, not z₀″`, /z₀′(?!′)/.test(seg) && !/z₀[″‴]/.test(seg), seg);
+    const bound = await ev(`[...document.querySelectorAll('input.cm-bound')].map((e) => e.value + ' / ' + e.title).join(' | ')`);
+    ok(`a segment bound to z₀′ on plane ${k} (${lang}): its read-only bound-end field and its tooltip read z₀′, not z₀″`, /z₀′/.test(bound) && !/z₀[″‴]/.test(bound), bound);
   }
 }
 // ---- an undefined argument's reason names the image point on the shape's plane (z₀′), not the source point
